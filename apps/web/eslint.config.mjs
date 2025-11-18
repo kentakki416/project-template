@@ -1,88 +1,11 @@
-import { defineConfig, globalIgnores } from "eslint/config"
-import nextVitals from "eslint-config-next/core-web-vitals"
-import nextTs from "eslint-config-next/typescript"
-import simpleImportSort from "eslint-plugin-simple-import-sort"
-import tailwindcss from "eslint-plugin-tailwindcss"
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+import simpleImportSort from "eslint-plugin-simple-import-sort";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  {
-    files: ["**/*.ts", "**/*.tsx"],
-    languageOptions: {
-      parserOptions: {
-        project: "./tsconfig.json",
-      },
-    },
-    plugins: {
-      "simple-import-sort": simpleImportSort,
-      "tailwindcss": tailwindcss,
-    },
-    rules: {
-      // Console
-      "no-console": ["warn", { allow: ["warn", "error"] }],
-      
-      // 未使用変数（Next.jsデフォルトで有効なのでスキップ）
-      
-      // スペース・セミコロン
-      "object-curly-spacing": ["error", "always"],
-      "quotes": ["error", "single"],
-      "semi": ["error", "never"],
-      
-      // Import順序
-      "simple-import-sort/imports": "error",
-      "simple-import-sort/exports": "error",
-      
-      // Objectプロパティのアルファベット順
-      "sort-keys": ["error", "asc", {
-        caseSensitive: true,
-        natural: false,
-        minKeys: 2,
-      }],
-      
-      // React
-      "react/jsx-sort-props": ["error", {
-        callbacksLast: true,
-        shorthandFirst: true,
-        ignoreCase: true,
-        reservedFirst: true,
-      }],
-      
-      // TypeScript固有ルール
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-empty-function": "error",
-      "@typescript-eslint/no-unnecessary-type-assertion": "error",
-      "@typescript-eslint/promise-function-async": "warn",
-      "@typescript-eslint/naming-convention": [
-        "error",
-        {
-          selector: "variable",
-          format: ["camelCase", "UPPER_CASE", "PascalCase"],
-        },
-        {
-          selector: "function",
-          format: ["camelCase", "PascalCase"],
-        },
-        {
-          selector: "typeLike",
-          format: ["PascalCase"],
-        },
-      ],
-      
-      // コード品質
-      "eqeqeq": ["error", "always"],
-      "no-return-await": "error",
-      "no-var": "error",
-      "prefer-const": "error",
-      "prefer-template": "error",
-      "prefer-arrow-callback": "error",
-      "no-unneeded-ternary": "error",
-      
-      // Tailwind CSS
-      "tailwindcss/classnames-order": "error",
-      "tailwindcss/no-custom-classname": "error",
-    },
-  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -91,6 +14,85 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
-])
+  {
+    // TypeScriptファイルのみに型情報を適用
+    files: ["**/*.ts", "**/*.tsx"],
+    languageOptions: {
+      parserOptions: {
+        project: "./tsconfig.json",
+      },
+    },
+    plugins: {
+      "simple-import-sort": simpleImportSort,
+    },
+    rules: {
+      // === Console ===
+      "no-console": ["warn", { allow: ["warn", "error"] }], // console.log は警告、warn/error は許可
 
-export default eslintConfig
+      // === コードスタイル ===
+      "object-curly-spacing": ["error", "always"], // { foo } のようにスペースを入れる
+      "semi": ["error", "never"], // セミコロンを禁止
+      "quotes": ["error", "single"], // シングルクォートを強制
+
+      // === Import/Export順序 ===
+      "simple-import-sort/imports": "error", // import文をアルファベット順に並び替え
+      "simple-import-sort/exports": "error", // export文をアルファベット順に並び替え
+
+      // === オブジェクトキーの順序 ===
+      "sort-keys": [
+        "error",
+        "asc",
+        {
+          caseSensitive: true, // 大文字小文字を区別
+          natural: false, // 自然順ソートを無効化
+          minKeys: 2, // 2つ以上のキーがある場合のみ適用
+        },
+      ],
+
+      // === React: JSX Props順序 ===
+      "react/jsx-sort-props": [
+        "error",
+        {
+          callbacksLast: true, // コールバックを最後に
+          shorthandFirst: true, // shorthandを最初に
+          ignoreCase: true, // 大文字小文字を区別しない
+          reservedFirst: true, // 予約語を最初に
+        },
+      ],
+
+      // === TypeScript: 型安全性 ===
+      "@typescript-eslint/no-explicit-any": "warn", // any型は警告
+      "@typescript-eslint/no-empty-function": "error", // 空の関数を禁止
+      "@typescript-eslint/no-unnecessary-type-assertion": "error", // 不要な型アサーションを禁止
+      "@typescript-eslint/promise-function-async": "warn", // Promiseを返す関数はasyncに
+
+      // === TypeScript: 命名規則 ===
+      "@typescript-eslint/naming-convention": [
+        "error",
+        {
+          selector: "variable",
+          format: ["camelCase", "UPPER_CASE", "PascalCase"], // 変数: camelCase, UPPER_CASE, PascalCase
+        },
+        {
+          selector: "function",
+          format: ["camelCase", "PascalCase"], // 関数: camelCase, PascalCase
+        },
+        {
+          selector: "typeLike",
+          format: ["PascalCase"], // 型: PascalCase
+        },
+      ],
+
+      // === コード品質: 比較と構文 ===
+      "eqeqeq": ["error", "always"], // === と !== を強制（== と != を禁止）
+      "no-return-await": "error", // 不要な return await を禁止
+      "no-var": "error", // var を禁止（const/let を使用）
+      "prefer-const": "error", // 再代入しない変数は const にする
+      "prefer-template": "error", // 文字列結合ではなくテンプレートリテラルを使用
+      "prefer-arrow-callback": "error", // コールバック関数はアロー関数にする
+      "no-unneeded-ternary": "error", // 不要な三項演算子を禁止（例: x ? true : false → x）
+    },
+  },
+]);
+
+export default eslintConfig;

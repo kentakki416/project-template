@@ -16,16 +16,14 @@
     cd apps
     pnpm create next-app@latest web
     ```
+    ＜解説＞
+    * Next.jsの最新バージョンを使用します
 
 2. 対話形式の質問に回答
     ```
-    ? Would you like to use the recommended Next.js defaults? › - Use arrow-keys. Return to submit.
-    ❯   Yes, use recommended defaults - TypeScript, ESLint, Tailwind CSS, App Router
-        No, reuse previous settings
-        No, customize settings
+   ✔ Would you like to use the recommended Next.js defaults? › Yes, use recommended defaults
+    Creating a new Next.js app in /Users/s16865/workspace/local/product/project-template/apps/web.
     ```
-    ＜解説＞
-    * 推奨設定を選択すると、TypeScript、ESLint、Tailwind CSS、App Router が自動設定されます
 
 ## 環境変数の設定
 
@@ -37,7 +35,7 @@
 
 2. 環境変数を記述
     ```env
-    # API接続先（必要に応じて）
+    # API接続先
     NEXT_PUBLIC_API_URL=http://localhost:8080
     ```
     ＜解説＞
@@ -52,24 +50,34 @@
 1. 追加パッケージをインストール
     ```bash
     cd apps/web
-    pnpm add -D eslint-plugin-simple-import-sort eslint-plugin-tailwindcss
+    pnpm add -D eslint-plugin-simple-import-sort
     ```
     ＜解説＞
     * `eslint-plugin-simple-import-sort`: import文の並び替え
-    * `eslint-plugin-tailwindcss`: Tailwind CSSクラス名の検証
+    * 注意: `eslint-plugin-tailwindcss`はTailwind CSS v4に対応していないため使用しません
 
-2. eslint.config.mjsを更新
+2. eslint.config.mjsを編集
+    Next.jsの最新バージョンでは、デフォルトで`eslint.config.mjs`（Flat Config形式）が使用されます。
+    `eslint.config.mjs`を以下のように編集します：
     ```javascript
-    import { defineConfig, globalIgnores } from "eslint/config"
-    import nextVitals from "eslint-config-next/core-web-vitals"
-    import nextTs from "eslint-config-next/typescript"
-    import simpleImportSort from "eslint-plugin-simple-import-sort"
-    import tailwindcss from "eslint-plugin-tailwindcss"
+    import { defineConfig, globalIgnores } from "eslint/config";
+    import nextVitals from "eslint-config-next/core-web-vitals";
+    import nextTs from "eslint-config-next/typescript";
+    import simpleImportSort from "eslint-plugin-simple-import-sort";
 
     const eslintConfig = defineConfig([
       ...nextVitals,
       ...nextTs,
+      // Override default ignores of eslint-config-next.
+      globalIgnores([
+        // Default ignores of eslint-config-next:
+        ".next/**",
+        "out/**",
+        "build/**",
+        "next-env.d.ts",
+      ]),
       {
+        // TypeScriptファイルのみに型情報を適用
         files: ["**/*.ts", "**/*.tsx"],
         languageOptions: {
           parserOptions: {
@@ -78,88 +86,94 @@
         },
         plugins: {
           "simple-import-sort": simpleImportSort,
-          "tailwindcss": tailwindcss,
         },
         rules: {
           // === Console ===
-          "no-console": ["warn", { allow: ["warn", "error"] }],  // console.log は警告、warn/error は許可
-          
+          "no-console": ["warn", { allow: ["warn", "error"] }], // console.log は警告、warn/error は許可
+
           // === コードスタイル ===
-          "object-curly-spacing": ["error", "always"],  // { foo } のようにスペースを入れる
-          "semi": ["error", "never"],                   // セミコロンを禁止
-          "quotes": ["error", "single"],                 // シングルクォートを強制
-          
+          "object-curly-spacing": ["error", "always"], // { foo } のようにスペースを入れる
+          "semi": ["error", "never"], // セミコロンを禁止
+          "quotes": ["error", "single"], // シングルクォートを強制
+
           // === Import/Export順序 ===
-          "simple-import-sort/imports": "error",   // import文をアルファベット順に並び替え
-          "simple-import-sort/exports": "error",   // export文をアルファベット順に並び替え
-          
+          "simple-import-sort/imports": "error", // import文をアルファベット順に並び替え
+          "simple-import-sort/exports": "error", // export文をアルファベット順に並び替え
+
           // === オブジェクトキーの順序 ===
-          "sort-keys": ["error", "asc", {
-            caseSensitive: true,   // 大文字小文字を区別
-            natural: false,        // 自然順ソートを無効化
-            minKeys: 2,            // 2つ以上のキーがある場合のみ適用
-          }],
-          
+          "sort-keys": [
+            "error",
+            "asc",
+            {
+              caseSensitive: true, // 大文字小文字を区別
+              natural: false, // 自然順ソートを無効化
+              minKeys: 2, // 2つ以上のキーがある場合のみ適用
+            },
+          ],
+
           // === React: JSX Props順序 ===
-          "react/jsx-sort-props": ["error", {
-            callbacksLast: true,     // コールバックを最後に
-            shorthandFirst: true,    // shorthandを最初に
-            ignoreCase: true,        // 大文字小文字を区別しない
-            reservedFirst: true,     // 予約語を最初に
-          }],
-          
+          "react/jsx-sort-props": [
+            "error",
+            {
+              callbacksLast: true, // コールバックを最後に
+              shorthandFirst: true, // shorthandを最初に
+              ignoreCase: true, // 大文字小文字を区別しない
+              reservedFirst: true, // 予約語を最初に
+            },
+          ],
+
           // === TypeScript: 型安全性 ===
-          "@typescript-eslint/no-explicit-any": "warn",                    // any型は警告
-          "@typescript-eslint/no-empty-function": "error",                 // 空の関数を禁止
-          "@typescript-eslint/no-unnecessary-type-assertion": "error",     // 不要な型アサーションを禁止
-          "@typescript-eslint/promise-function-async": "warn",             // Promiseを返す関数はasyncに
-          
+          "@typescript-eslint/no-explicit-any": "warn", // any型は警告
+          "@typescript-eslint/no-empty-function": "error", // 空の関数を禁止
+          "@typescript-eslint/no-unnecessary-type-assertion": "error", // 不要な型アサーションを禁止
+          "@typescript-eslint/promise-function-async": "warn", // Promiseを返す関数はasyncに
+
           // === TypeScript: 命名規則 ===
           "@typescript-eslint/naming-convention": [
             "error",
             {
               selector: "variable",
-              format: ["camelCase", "UPPER_CASE", "PascalCase"],  // 変数: camelCase, UPPER_CASE, PascalCase
+              format: ["camelCase", "UPPER_CASE", "PascalCase"], // 変数: camelCase, UPPER_CASE, PascalCase
             },
             {
               selector: "function",
-              format: ["camelCase", "PascalCase"],                 // 関数: camelCase, PascalCase
+              format: ["camelCase", "PascalCase"], // 関数: camelCase, PascalCase
             },
             {
               selector: "typeLike",
-              format: ["PascalCase"],                              // 型: PascalCase
+              format: ["PascalCase"], // 型: PascalCase
             },
           ],
-          
+
           // === コード品質: 比較と構文 ===
-          "eqeqeq": ["error", "always"],           // === と !== を強制（== と != を禁止）
-          "no-return-await": "error",              // 不要な return await を禁止
-          "no-var": "error",                       // var を禁止（const/let を使用）
-          "prefer-const": "error",                 // 再代入しない変数は const にする
-          "prefer-template": "error",              // 文字列結合ではなくテンプレートリテラルを使用
-          "prefer-arrow-callback": "error",        // コールバック関数はアロー関数にする
-          "no-unneeded-ternary": "error",          // 不要な三項演算子を禁止（例: x ? true : false → x）
-          
-          // === Tailwind CSS ===
-          "tailwindcss/classnames-order": "error",      // クラス名をアルファベット順に
-          "tailwindcss/no-custom-classname": "error",   // 存在しないクラス名をエラー
+          "eqeqeq": ["error", "always"], // === と !== を強制（== と != を禁止）
+          "no-return-await": "error", // 不要な return await を禁止
+          "no-var": "error", // var を禁止（const/let を使用）
+          "prefer-const": "error", // 再代入しない変数は const にする
+          "prefer-template": "error", // 文字列結合ではなくテンプレートリテラルを使用
+          "prefer-arrow-callback": "error", // コールバック関数はアロー関数にする
+          "no-unneeded-ternary": "error", // 不要な三項演算子を禁止（例: x ? true : false → x）
         },
       },
-      globalIgnores([
-        ".next/**",
-        "out/**",
-        "build/**",
-        "next-env.d.ts",
-      ]),
-    ])
+    ]);
 
-    export default eslintConfig
+    export default eslintConfig;
     ```
     ＜解説＞
-    **型情報の有効化:**
-    * `files: ["**/*.ts", "**/*.tsx"]`: TypeScriptファイルのみに適用
-    * `parserOptions.project: "./tsconfig.json"`: TypeScriptの型情報を利用するために必要
-    * これにより、型情報を必要とするルール（`no-unnecessary-type-assertion`、`promise-function-async`、`naming-convention`）が動作します
+    **基本設定:**
+    * Next.jsの最新バージョンでは、ESLintのFlat Config形式（`eslint.config.mjs`）がデフォルトで使用されます
+    * `defineConfig`: ESLintの設定を定義するヘルパー関数
+    * `nextVitals`と`nextTs`: Next.jsの推奨設定を継承
+    * `globalIgnores`: 無視するファイルやディレクトリを指定
+    
+    **型情報の設定:**
+    * `files: ["**/*.ts", "**/*.tsx"]`: TypeScriptファイルのみに型情報を適用
+    * `languageOptions.parserOptions.project`: TypeScriptの型情報を利用するために必要
+    * 型情報を必要とするルール（`no-unnecessary-type-assertion`、`promise-function-async`、`naming-convention`）が動作します
+    * 設定ファイル（`*.config.mjs`、`*.config.js`）は`files`の対象外なので、型情報なしで通常のLintチェックが行われます
+    
+    **プラグイン:**
+    * `simple-import-sort`: import文の並び替えプラグインを追加
     
     **コードスタイル:**
     * `object-curly-spacing`: `{ }` 内にスペースを入れる
@@ -176,10 +190,10 @@
     **TypeScript型安全性:**
     * `@typescript-eslint/no-explicit-any`: any型の使用を警告
     * `@typescript-eslint/no-empty-function`: 空の関数を禁止
-    * `@typescript-eslint/no-unnecessary-type-assertion`: 不要な型アサーションを禁止（型情報が必要）
-    * `@typescript-eslint/promise-function-async`: Promiseを返す関数はasyncにする（型情報が必要）
-    * `@typescript-eslint/naming-convention`: 命名規則（変数はcamelCase/UPPER_CASE/PascalCase、関数はcamelCase/PascalCase、型はPascalCase）（型情報が必要）
-    
+    * `@typescript-eslint/no-unnecessary-type-assertion`: 不要な型アサーションを禁止
+    * `@typescript-eslint/promise-function-async`: Promiseを返す関数はasyncにする
+    * `@typescript-eslint/naming-convention`: 命名規則（変数はcamelCase/UPPER_CASE/PascalCase、関数はcamelCase/PascalCase、型はPascalCase）
+
     **コード品質:**
     * `eqeqeq`: === と !== を強制（== と != を禁止）
     * `no-var`: var禁止（const/letを使用）
@@ -187,12 +201,18 @@
     * `prefer-template`: テンプレートリテラル優先
     * `prefer-arrow-callback`: アロー関数優先
     * `no-unneeded-ternary`: 不要な三項演算子を禁止
-    
-    **Tailwind CSS:**
-    * `tailwindcss/classnames-order`: Tailwind CSSクラス名をアルファベット順に並び替え
-    * `tailwindcss/no-custom-classname`: 存在しないTailwind CSSクラス名をエラー
 
-3. Lintを実行
+3. package.jsonにlint:fixを追加
+    ```json
+    "scripts": {
+      "dev": "next dev",
+      "build": "next build",
+      "start": "next start",
+      "lint": "eslint",
+      "lint:fix": "eslint --fix"
+    }
+    ```
+4. Lintを実行
     ```bash
     pnpm run lint
     ```
