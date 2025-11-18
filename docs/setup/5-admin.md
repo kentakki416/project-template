@@ -1,4 +1,4 @@
-# Webアプリケーションのセットアップ (apps/web)
+# 管理画面のセットアップ (apps/admin)
 
 ## 目次
 
@@ -11,25 +11,25 @@
 
 ## プロジェクトの作成
 
-1. apps/webディレクトリでNext.jsプロジェクトを作成
+1. apps/adminディレクトリでNext.jsプロジェクトを作成
     ```bash
     cd apps
-    pnpm create next-app@latest web
+    pnpm create next-app@latest admin
     ```
     ＜解説＞
     * Next.jsの最新バージョンを使用します
 
 2. 対話形式の質問に回答
     ```
-   ✔ Would you like to use the recommended Next.js defaults? › Yes, use recommended defaults
-    Creating a new Next.js app in /Users/s16865/workspace/local/product/project-template/apps/web.
+    ✔ Would you like to use the recommended Next.js defaults? › Yes, use recommended defaults
+    Creating a new Next.js app in /Users/s16865/workspace/local/product/project-template/apps/admin.
     ```
 
 ## 環境変数の設定
 
 1. .env.localを作成
     ```bash
-    cd apps/web
+    cd apps/admin
     touch .env.example
     ```
 
@@ -49,12 +49,12 @@
 
 1. 追加パッケージをインストール
     ```bash
-    cd apps/web
+    cd apps/admin
     pnpm add -D eslint-plugin-simple-import-sort
     ```
     ＜解説＞
     * `eslint-plugin-simple-import-sort`: import文の並び替え
-    * ⚠️`eslint-plugin-tailwindcss`はTailwind CSS v4に対応していないため使用しない
+    * ⚠️ `eslint-plugin-tailwindcss`はTailwind CSS v4に対応していないため利用しない
 
 2. eslint.config.mjsを編集
     Next.jsの最新バージョンでは、デフォルトで`eslint.config.mjs`（Flat Config形式）が使用されます。
@@ -202,7 +202,8 @@
     * `prefer-arrow-callback`: アロー関数優先
     * `no-unneeded-ternary`: 不要な三項演算子を禁止
 
-3. package.jsonにlint:fixを追加
+3. package.jsonにlint:fixとポート設定を追加
+    `package.json`の`scripts`セクションを以下のように編集します：
     ```json
     "scripts": {
       "dev": "next dev",
@@ -212,20 +213,32 @@
       "lint:fix": "eslint --fix"
     }
     ```
+
 4. Lintを実行
     ```bash
     pnpm run lint
     ```
 
+## port番号を変更
+1. webとportが被らないように3030で起動するようにscriptsを修正
+  ```json
+  "scripts": {
+    "dev": "next dev -p 3030",
+    "build": "next build",
+    "start": "next start -p 3030",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix"
+  }
+  ```
 ## 開発サーバーの起動
 
 1. 個別に起動する場合
     ```bash
-    cd apps/web
+    cd apps/admin
     pnpm run dev
     ```
     ＜解説＞
-    * デフォルトで `http://localhost:3000` で起動
+    * `http://localhost:3030` で起動（ポート3030を使用）
     * ファイルを変更すると自動的に再読み込み
 
 2. Turborepoから起動する場合
@@ -234,19 +247,19 @@
     pnpm run dev
     ```
     ＜解説＞
-    * 全てのアプリケーション（web、api など）が同時に起動
+    * 全てのアプリケーションが同時に起動
 
 3. 動作確認
     ```bash
     # ブラウザでアクセス
-    open http://localhost:3000
+    open http://localhost:3030
     ```
 
 ## ビルドと本番起動
 
 1. ビルドを実行
     ```bash
-    cd apps/web
+    cd apps/admin
     pnpm run build
     ```
 
