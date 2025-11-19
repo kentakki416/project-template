@@ -1,7 +1,6 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
-import simpleImportSort from "eslint-plugin-simple-import-sort";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -22,8 +21,13 @@ const eslintConfig = defineConfig([
         project: "./tsconfig.json",
       },
     },
-    plugins: {
-      "simple-import-sort": simpleImportSort,
+    settings: {
+      "import/resolver": {
+        typescript: {
+          alwaysTryTypes: true,
+          project: "./tsconfig.json",
+        },
+      },
     },
     rules: {
       // === Console ===
@@ -34,9 +38,33 @@ const eslintConfig = defineConfig([
       "semi": ["error", "never"], // セミコロンを禁止
       "quotes": ["error", "single"], // シングルクォートを強制
 
-      // === Import/Export順序 ===
-      "simple-import-sort/imports": "error", // import文をアルファベット順に並び替え
-      "simple-import-sort/exports": "error", // export文をアルファベット順に並び替え
+      // === Import順序 ===
+      "import/order": [
+        "error",
+        {
+          groups: [
+            "builtin", // Node.jsの組み込みモジュール（例: fs, path）
+            "external", // 外部ライブラリ（node_modules）
+            "internal", // 内部モジュール（@repo/など）
+            "parent", // 親ディレクトリからのインポート
+            "sibling", // 同じディレクトリまたは兄弟ディレクトリからのインポート
+            "index", // カレントディレクトリのindexファイル
+          ],
+          "newlines-between": "always", // グループ間に改行を挿入
+          alphabetize: {
+            order: "asc", // 各グループ内でアルファベット順にソート
+            caseInsensitive: true, // 大文字小文字を区別しない
+          },
+          pathGroups: [
+            {
+              pattern: "@repo/**",
+              group: "internal",
+              position: "before",
+            },
+          ],
+          pathGroupsExcludedImportTypes: ["builtin"],
+        },
+      ],
 
       // === オブジェクトキーの順序 ===
       "sort-keys": [

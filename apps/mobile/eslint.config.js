@@ -1,7 +1,6 @@
 // https://docs.expo.dev/guides/using-eslint/
 const { defineConfig } = require('eslint/config')
 const expoConfig = require('eslint-config-expo/flat')
-const simpleImportSort = require('eslint-plugin-simple-import-sort')
 const tailwindcss = require('eslint-plugin-tailwindcss')
 const typescriptParser = require('@typescript-eslint/parser')
 const typescriptEslint = require('@typescript-eslint/eslint-plugin')
@@ -20,8 +19,15 @@ module.exports = defineConfig([
     },
     plugins: {
       '@typescript-eslint': typescriptEslint,
-      'simple-import-sort': simpleImportSort,
       'tailwindcss': tailwindcss,
+    },
+    settings: {
+      'import/resolver': {
+        typescript: {
+          alwaysTryTypes: true,
+          project: './tsconfig.json',
+        },
+      },
     },
     rules: {
       // === Console ===
@@ -34,9 +40,33 @@ module.exports = defineConfig([
       'semi': ['error', 'never'],                   // セミコロンを禁止
       'quotes': ['error', 'single'],                 // シングルクォートを強制
       
-      // === Import/Export順序 ===
-      'simple-import-sort/imports': 'error',   // import文をアルファベット順に並び替え
-      'simple-import-sort/exports': 'error',   // export文をアルファベット順に並び替え
+      // === Import順序 ===
+      'import/order': [
+        'error',
+        {
+          groups: [
+            'builtin',   // Node.jsの組み込みモジュール（例: fs, path）
+            'external',  // 外部ライブラリ（node_modules）
+            'internal',  // 内部モジュール（@repo/など）
+            'parent',    // 親ディレクトリからのインポート
+            'sibling',  // 同じディレクトリまたは兄弟ディレクトリからのインポート
+            'index',    // カレントディレクトリのindexファイル
+          ],
+          'newlines-between': 'always', // グループ間に改行を挿入
+          alphabetize: {
+            order: 'asc', // 各グループ内でアルファベット順にソート
+            caseInsensitive: true, // 大文字小文字を区別しない
+          },
+          pathGroups: [
+            {
+              pattern: '@repo/**',
+              group: 'internal',
+              position: 'before',
+            },
+          ],
+          pathGroupsExcludedImportTypes: ['builtin'],
+        },
+      ],
       
       // === React: JSX Props順序 ===
       'react/jsx-sort-props': ['error', {

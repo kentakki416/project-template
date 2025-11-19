@@ -74,48 +74,58 @@
     ```json
     {
       "compilerOptions": {
+        // コンパイルターゲット: ES2020にコンパイル
         "target": "ES2020",
+        // モジュールシステム: CommonJS（Node.js標準）
         "module": "commonjs",
+        // 使用するライブラリ: ES2020の標準ライブラリ
         "lib": ["ES2020"],
+        // 出力ディレクトリ: コンパイル後のファイル出力先
         "outDir": "./dist",
+        // ソースコードのルートディレクトリ
         "rootDir": "./src",
+        // モジュール解決方法: Node.js方式
         "moduleResolution": "node",
+        // ベースURL: 相対パスの基準となるディレクトリ
         "baseUrl": "./",
+        // パスエイリアス: @/でsrcディレクトリを参照可能
         "paths": {
           "@/*": ["src/*"]
         },
+        // ESモジュールとCommonJSの相互運用性を有効化
         "esModuleInterop": true,
+        // ファイル名の大文字小文字の一貫性を強制
         "forceConsistentCasingInFileNames": true,
+        // 厳格な型チェックを有効化
         "strict": true,
+        // ライブラリの型チェックをスキップ（ビルド時間短縮）
         "skipLibCheck": true,
+        // JSONファイルをモジュールとしてインポート可能にする
         "resolveJsonModule": true,
+        // 型定義ファイル（.d.ts）を生成
         "declaration": true,
+        // デバッグ用のソースマップを生成
         "sourceMap": true
       },
+      // コンパイル対象のファイル
       "include": ["src/**/*"],
+      // コンパイル対象から除外するディレクトリ
       "exclude": ["node_modules", "dist"]
     }
     ```
-    ＜解説＞
-    * `target`: ES2020にコンパイル
-    * `module`: CommonJSモジュール形式（Node.js標準）
-    * `outDir`: コンパイル後のファイル出力先
-    * `rootDir`: ソースコードのルートディレクトリ
-    * `paths`: エイリアスを設定（@/でsrcディレクトリを参照可能）
-    * `strict`: 厳格な型チェックを有効化
-    * `sourceMap`: デバッグ用のソースマップを生成
 
 ## ESLint設定
 
 1. ESLint関連パッケージをインストール
     ```bash
-    pnpm add -D eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint-plugin-simple-import-sort
+    pnpm add -D eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint-plugin-import eslint-import-resolver-typescript
     ```
     ＜解説＞
     * `eslint`: ESLint本体
     * `@typescript-eslint/eslint-plugin`: TypeScript用ESLintルール
     * `@typescript-eslint/parser`: TypeScriptパーサー
-    * `eslint-plugin-simple-import-sort`: import文の並び替え
+    * `eslint-plugin-import`: import文の順序とグループ化
+    * `eslint-import-resolver-typescript`: TypeScriptのパスエイリアスを解決
 
 2. eslint.config.jsを作成
     ```bash
@@ -127,7 +137,7 @@
     const { defineConfig } = require('eslint/config')
     const typescriptEslint = require('@typescript-eslint/eslint-plugin')
     const typescriptParser = require('@typescript-eslint/parser')
-    const simpleImportSort = require('eslint-plugin-simple-import-sort')
+    const importPlugin = require('eslint-plugin-import')
 
     module.exports = defineConfig([
       {
@@ -142,7 +152,15 @@
         },
         plugins: {
           '@typescript-eslint': typescriptEslint,
-          'simple-import-sort': simpleImportSort,
+          import: importPlugin,
+        },
+        settings: {
+          'import/resolver': {
+            typescript: {
+              alwaysTryTypes: true,
+              project: './tsconfig.json',
+            },
+          },
         },
         rules: {
           // === Console ===
@@ -159,9 +177,33 @@
           'semi': ['error', 'never'],                   // セミコロンを禁止
           'quotes': ['error', 'single'],                 // シングルクォートを強制
           
-          // === Import/Export順序 ===
-          'simple-import-sort/imports': 'error',   // import文をアルファベット順に並び替え
-          'simple-import-sort/exports': 'error',   // export文をアルファベット順に並び替え
+          // === Import順序 ===
+          'import/order': [
+            'error',
+            {
+              groups: [
+                'builtin',   // Node.jsの組み込みモジュール（例: fs, path）
+                'external',  // 外部ライブラリ（node_modules）
+                'internal',  // 内部モジュール（@repo/など）
+                'parent',    // 親ディレクトリからのインポート
+                'sibling',  // 同じディレクトリまたは兄弟ディレクトリからのインポート
+                'index',    // カレントディレクトリのindexファイル
+              ],
+              'newlines-between': 'always', // グループ間に改行を挿入
+              alphabetize: {
+                order: 'asc', // 各グループ内でアルファベット順にソート
+                caseInsensitive: true, // 大文字小文字を区別しない
+              },
+              pathGroups: [
+                {
+                  pattern: '@repo/**',
+                  group: 'internal',
+                  position: 'before',
+                },
+              ],
+              pathGroupsExcludedImportTypes: ['builtin'],
+            },
+          ],
           
           // === オブジェクトキーの順序 ===
           'sort-keys': ['error', 'asc', {
@@ -214,9 +256,12 @@
     * `semi`: セミコロンを使用しない
     * `quotes`: シングルクォート `'` を強制（ダブルクォート `"` を禁止）
     
-    **Import/Export:**
-    * `simple-import-sort/imports`: import文をアルファベット順に並び替え
-    * `simple-import-sort/exports`: export文をアルファベット順に並び替え
+    **Import順序:**
+    * `import/order`: import文をグループ化して順序を制御
+      * 外部ライブラリ（`node_modules`）が最初
+      * 自分のpackages（`@repo/**`）がその後に配置
+      * グループ間に改行を自動挿入
+      * 各グループ内でアルファベット順にソート
     
     **TypeScript型安全性:**
     * `@typescript-eslint/no-explicit-any`: any型の使用を警告

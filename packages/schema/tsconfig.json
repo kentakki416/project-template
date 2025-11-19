@@ -10,28 +10,24 @@
     "outDir": "./dist",
     // ソースコードのルートディレクトリ
     "rootDir": "./src",
-    // モジュール解決方法: Node.js方式
-    "moduleResolution": "node",
-    // ベースURL: 相対パスの基準となるディレクトリ
-    "baseUrl": "./",
-    // パスエイリアス: @/でsrcディレクトリを参照可能
-    "paths": {
-      "@/*": ["src/*"]
-    },
-    // ESモジュールとCommonJSの相互運用性を有効化
-    "esModuleInterop": true,
-    // ファイル名の大文字小文字の一貫性を強制
-    "forceConsistentCasingInFileNames": true,
-    // 厳格な型チェックを有効化
-    "strict": true,
-    // ライブラリの型チェックをスキップ（ビルド時間短縮）
-    "skipLibCheck": true,
-    // JSONファイルをモジュールとしてインポート可能にする
-    "resolveJsonModule": true,
     // 型定義ファイル（.d.ts）を生成
     "declaration": true,
+    // 型定義ファイルのソースマップを生成
+    "declarationMap": true,
     // デバッグ用のソースマップを生成
-    "sourceMap": true
+    "sourceMap": true,
+    // 厳格な型チェックを有効化
+    "strict": true,
+    // ESモジュールとCommonJSの相互運用性を有効化
+    "esModuleInterop": true,
+    // ライブラリの型チェックをスキップ（ビルド時間短縮）
+    "skipLibCheck": true,
+    // ファイル名の大文字小文字の一貫性を強制
+    "forceConsistentCasingInFileNames": true,
+    // モジュール解決方法: Node.js方式
+    "moduleResolution": "node",
+    // JSONファイルをモジュールとしてインポート可能にする
+    "resolveJsonModule": true
   },
   // コンパイル対象のファイル
   "include": ["src/**/*"],

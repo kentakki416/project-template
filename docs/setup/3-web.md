@@ -50,10 +50,11 @@
 1. 追加パッケージをインストール
     ```bash
     cd apps/web
-    pnpm add -D eslint-plugin-simple-import-sort
+    pnpm add -D eslint-plugin-import eslint-import-resolver-typescript
     ```
     ＜解説＞
-    * `eslint-plugin-simple-import-sort`: import文の並び替え
+    * `eslint-plugin-import`: import文の順序とグループ化
+    * `eslint-import-resolver-typescript`: TypeScriptのパスエイリアスを解決
     * ⚠️`eslint-plugin-tailwindcss`はTailwind CSS v4に対応していないため使用しない
 
 2. eslint.config.mjsを編集
@@ -63,7 +64,6 @@
     import { defineConfig, globalIgnores } from "eslint/config";
     import nextVitals from "eslint-config-next/core-web-vitals";
     import nextTs from "eslint-config-next/typescript";
-    import simpleImportSort from "eslint-plugin-simple-import-sort";
 
     const eslintConfig = defineConfig([
       ...nextVitals,
@@ -84,8 +84,13 @@
             project: "./tsconfig.json",
           },
         },
-        plugins: {
-          "simple-import-sort": simpleImportSort,
+        settings: {
+          "import/resolver": {
+            typescript: {
+              alwaysTryTypes: true,
+              project: "./tsconfig.json",
+            },
+          },
         },
         rules: {
           // === Console ===
@@ -96,9 +101,33 @@
           "semi": ["error", "never"], // セミコロンを禁止
           "quotes": ["error", "single"], // シングルクォートを強制
 
-          // === Import/Export順序 ===
-          "simple-import-sort/imports": "error", // import文をアルファベット順に並び替え
-          "simple-import-sort/exports": "error", // export文をアルファベット順に並び替え
+          // === Import順序 ===
+          "import/order": [
+            "error",
+            {
+              groups: [
+                "builtin", // Node.jsの組み込みモジュール（例: fs, path）
+                "external", // 外部ライブラリ（node_modules）
+                "internal", // 内部モジュール（@repo/など）
+                "parent", // 親ディレクトリからのインポート
+                "sibling", // 同じディレクトリまたは兄弟ディレクトリからのインポート
+                "index", // カレントディレクトリのindexファイル
+              ],
+              "newlines-between": "always", // グループ間に改行を挿入
+              alphabetize: {
+                order: "asc", // 各グループ内でアルファベット順にソート
+                caseInsensitive: true, // 大文字小文字を区別しない
+              },
+              pathGroups: [
+                {
+                  pattern: "@repo/**",
+                  group: "internal",
+                  position: "before",
+                },
+              ],
+              pathGroupsExcludedImportTypes: ["builtin"],
+            },
+          ],
 
           // === オブジェクトキーの順序 ===
           "sort-keys": [
@@ -173,16 +202,20 @@
     * 設定ファイル（`*.config.mjs`、`*.config.js`）は`files`の対象外なので、型情報なしで通常のLintチェックが行われます
     
     **プラグイン:**
-    * `simple-import-sort`: import文の並び替えプラグインを追加
+    * `eslint-config-next`が既に`import`プラグインを含んでいるため、プラグインの再定義は不要
+    * `import/order`ルールを使用するために、`eslint-plugin-import`と`eslint-import-resolver-typescript`をインストールする必要があります
     
     **コードスタイル:**
     * `object-curly-spacing`: `{ }` 内にスペースを入れる
     * `semi`: セミコロンを使用しない
     * `quotes`: シングルクォート `'` を強制（ダブルクォート `"` を禁止）
     
-    **Import/Export:**
-    * `simple-import-sort/imports`: import文をアルファベット順に並び替え
-    * `simple-import-sort/exports`: export文をアルファベット順に並び替え
+    **Import順序:**
+    * `import/order`: import文をグループ化して順序を制御
+      * 外部ライブラリ（`node_modules`）が最初
+      * 自分のpackages（`@repo/**`）がその後に配置
+      * グループ間に改行を自動挿入
+      * 各グループ内でアルファベット順にソート
     
     **React:**
     * `react/jsx-sort-props`: JSXのpropsをアルファベット順に（コールバックは最後、shorthandは最初）

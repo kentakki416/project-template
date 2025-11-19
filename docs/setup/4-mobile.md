@@ -43,12 +43,13 @@
 1. 追加パッケージをインストール
     ```bash
     cd apps/mobile
-    pnpm add -D @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint-plugin-simple-import-sort eslint-plugin-tailwindcss tailwindcss@^3.4.0
+    pnpm add -D @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint-plugin-import eslint-import-resolver-typescript eslint-plugin-tailwindcss tailwindcss@^3.4.0
     ```
     ＜解説＞
     * `@typescript-eslint/eslint-plugin`: TypeScript用ESLintルール
     * `@typescript-eslint/parser`: TypeScriptパーサー（型情報を有効にするために必要）
-    * `eslint-plugin-simple-import-sort`: import文の並び替え
+    * `eslint-plugin-import`: import文の順序とグループ化
+    * `eslint-import-resolver-typescript`: TypeScriptのパスエイリアスを解決
     * `eslint-plugin-tailwindcss`: Tailwind CSSクラス名の検証（NativeWindを使用する場合）
     * `tailwindcss@^3.4.0`: Tailwind CSS v3（eslint-plugin-tailwindcss が v4 に対応していないため）
 
@@ -57,7 +58,6 @@
     // https://docs.expo.dev/guides/using-eslint/
     const { defineConfig } = require('eslint/config')
     const expoConfig = require('eslint-config-expo/flat')
-    const simpleImportSort = require('eslint-plugin-simple-import-sort')
     const tailwindcss = require('eslint-plugin-tailwindcss')
     const typescriptParser = require('@typescript-eslint/parser')
     const typescriptEslint = require('@typescript-eslint/eslint-plugin')
@@ -76,8 +76,15 @@
         },
         plugins: {
           '@typescript-eslint': typescriptEslint,
-          'simple-import-sort': simpleImportSort,
           'tailwindcss': tailwindcss,
+        },
+        settings: {
+          'import/resolver': {
+            typescript: {
+              alwaysTryTypes: true,
+              project: './tsconfig.json',
+            },
+          },
         },
         rules: {
           // === Console ===
@@ -90,9 +97,33 @@
           'semi': ['error', 'never'],                   // セミコロンを禁止
           'quotes': ['error', 'single'],                 // シングルクォートを強制
           
-          // === Import/Export順序 ===
-          'simple-import-sort/imports': 'error',   // import文をアルファベット順に並び替え
-          'simple-import-sort/exports': 'error',   // export文をアルファベット順に並び替え
+          // === Import順序 ===
+          'import/order': [
+            'error',
+            {
+              groups: [
+                'builtin',   // Node.jsの組み込みモジュール（例: fs, path）
+                'external',  // 外部ライブラリ（node_modules）
+                'internal',  // 内部モジュール（@repo/など）
+                'parent',    // 親ディレクトリからのインポート
+                'sibling',  // 同じディレクトリまたは兄弟ディレクトリからのインポート
+                'index',    // カレントディレクトリのindexファイル
+              ],
+              'newlines-between': 'always', // グループ間に改行を挿入
+              alphabetize: {
+                order: 'asc', // 各グループ内でアルファベット順にソート
+                caseInsensitive: true, // 大文字小文字を区別しない
+              },
+              pathGroups: [
+                {
+                  pattern: '@repo/**',
+                  group: 'internal',
+                  position: 'before',
+                },
+              ],
+              pathGroupsExcludedImportTypes: ['builtin'],
+            },
+          ],
           
           // === React: JSX Props順序 ===
           'react/jsx-sort-props': ['error', {
@@ -154,9 +185,16 @@
     * `semi`: セミコロンを使用しない
     * `quotes`: シングルクォート `'` を強制（ダブルクォート `"` を禁止）
     
-    **Import/Export:**
-    * `simple-import-sort/imports`: import文をアルファベット順に並び替え
-    * `simple-import-sort/exports`: export文をアルファベット順に並び替え
+    **プラグイン:**
+    * `eslint-config-expo`が既に`import`プラグインを含んでいるため、プラグインの再定義は不要
+    * `import/order`ルールを使用するために、`eslint-plugin-import`と`eslint-import-resolver-typescript`をインストールする必要があります
+    
+    **Import順序:**
+    * `import/order`: import文をグループ化して順序を制御
+      * 外部ライブラリ（`node_modules`）が最初
+      * 自分のpackages（`@repo/**`）がその後に配置
+      * グループ間に改行を自動挿入
+      * 各グループ内でアルファベット順にソート
     
     **React:**
     * `react/jsx-sort-props`: JSXのpropsをアルファベット順に（コールバックは最後、shorthandは最初）
