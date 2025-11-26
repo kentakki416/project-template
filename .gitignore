@@ -27,6 +27,7 @@ pnpm-debug.log*
 # Local env files
 .env
 .env*.local
+secret
 
 # Turbo
 .turbo/
