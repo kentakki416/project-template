@@ -72,5 +72,5 @@ app.get('/api/user/:id', (req: Request, res: Response) => {
 
 // サーバー起動
 app.listen(PORT, () => {
-  console.log(`🚀 API Server is running on http://localhost:${PORT}`)
+  console.log(`🚀 API Server is running on http://localhost:${PORT}...`)
 })
