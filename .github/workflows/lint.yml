@@ -8,6 +8,9 @@ on:
       - '.github/workflows/lint.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read    
+
 defaults:
   run:
     shell: bash
@@ -25,7 +28,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 2 # HEAD^とHEADのコミットまで取得
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -36,22 +39,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
+          cache: 'pnpm' # .pnpm-storeをキャッシュ
 
       - name: Cache Turbo
         uses: actions/cache@v4
         with:
           path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-turbo-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile # pnpm-lock.yamlを固定
 
       - name: Run lint on changed packages
-        run: |
-          # GitHub Actionsの場合、Turboが自動的にGITHUB_BASE_REFなどの環境変数を検出
-          # --filter="...[HEAD^]" で前回のコミットからの差分を検出
-          echo "Running lint on changed packages..."
-          pnpm turbo run lint --filter="...[HEAD^]"
+        run: pnpm turbo run lint --filter="...[HEAD^]" # commitの差分の中で変更されたパッケージとその依存パッケージを対象
