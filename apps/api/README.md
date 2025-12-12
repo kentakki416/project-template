@@ -9,7 +9,7 @@ Express.js + TypeScript による API サーバー
 ```
 apps/api/
 ├── src/
-│   ├── index.ts                              # エントリーポイント、DI、サーバー起動等...
+│   ├── index.ts                              # エントリーポイント、DI、サーバー起動等
 │   ├── route/                                # ルーティング定義
 │   │   ├── user-route.ts                     # 
 │   │   └── payment-route.ts                  # 
