@@ -214,8 +214,8 @@
         container_name: project-template-postgres
         restart: unless-stopped
         environment:
-          POSTGRES_USER: postgres_user
-          POSTGRES_PASSWORD: postgres_password
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
           POSTGRES_DB: project_template_dev
           POSTGRES_INITDB_ARGS: '--encoding=UTF-8 --locale=C'
           TZ: Asia/Tokyo
