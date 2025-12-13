@@ -364,7 +364,12 @@
     CORS_ORIGIN=http://localhost:3000
 
     # Database
-    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/project_template_dev
+    DATABASE_URL="postgresql://postgres_user:postgres_password@localhost:5432/ai_trainer_dev"
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID="your-client-id"
+    GOOGLE_CLIENT_SECRET="your-client-secret"
+    GOOGLE_CALLBACK_URL="http://localhost:8080/api/auth/google/callback"
 
     # Redis
     REDIS_URL=redis://localhost:6379
@@ -372,6 +377,9 @@
     # JWT
     JWT_SECRET=your-secret-key-change-in-production
     JWT_EXPIRATION=7d
+
+    # Frontend URL
+    FRONTEND_URL="http://localhost:3000"
     ```
 
 3. .env.localを作成（Gitには含めない）
