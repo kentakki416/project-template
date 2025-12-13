@@ -2,7 +2,6 @@
 
 Turborepo + pnpm monorepoを使用したフルスタックアプリケーションテンプレート
 
-
 ### pnpm ワークスペースコマンド
 
 ```bash
@@ -26,4 +25,25 @@ pnpm --filter <workspace-name> remove <package-name>
 
 # すべての node_modules を削除して再インストール
 pnpm clean && pnpm install
+```
+
+### Docker環境の起動
+
+PostgreSQLとRedisをDockerで起動する：
+
+```bash
+# Dockerコンテナを起動
+docker compose up -d
+
+# コンテナの状態を確認
+docker compose ps
+
+# ログを確認
+docker compose logs -f
+
+# コンテナを停止
+docker compose down
+
+# データを含めて完全に削除
+docker compose down -v
 ```

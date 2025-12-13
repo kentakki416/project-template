@@ -357,25 +357,22 @@
 2. 環境変数のテンプレートを記述
     ```env
     # Server
-    PORT=4000
+    PORT=8080
     NODE_ENV=development
 
     # CORS
     CORS_ORIGIN=http://localhost:3000
 
-    # Database (例)
-    DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+    # Database
+    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/project_template_dev
 
-    # JWT (例)
-    JWT_SECRET=your-secret-key
+    # Redis
+    REDIS_URL=redis://localhost:6379
+
+    # JWT
+    JWT_SECRET=your-secret-key-change-in-production
     JWT_EXPIRATION=7d
     ```
-    ＜解説＞
-    * `PORT`: APIサーバーのポート番号
-    * `NODE_ENV`: 実行環境（development/production）
-    * `CORS_ORIGIN`: CORSで許可するオリジン
-    * `DATABASE_URL`: データベース接続文字列（必要な場合）
-    * `JWT_SECRET`: JWT認証の秘密鍵（必要な場合）
 
 3. .env.localを作成（Gitには含めない）
     ```bash
