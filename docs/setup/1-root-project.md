@@ -210,7 +210,7 @@
       # MySQL Database
       mysql:
         image: mysql:8.0
-        container_name: project-template-mysql
+        container_name: project_template_mysql
         restart: unless-stopped
         environment:
           MYSQL_ROOT_PASSWORD: password
@@ -221,6 +221,7 @@
         command:
           - --character-set-server=utf8mb4
           - --collation-server=utf8mb4_unicode_ci
+          - --default-authentication-plugin=caching_sha2_password
         ports:
           - '3306:3306'
         volumes:
@@ -237,7 +238,7 @@
       # Redis Cache
       redis:
         image: redis:7-alpine
-        container_name: project-template-redis
+        container_name: project_template_redis
         restart: unless-stopped
         command: redis-server --appendonly yes
         ports:
@@ -258,7 +259,7 @@
       #   build:
       #     context: .
       #     dockerfile: apps/api/Dockerfile
-      #   container_name: project-template-api
+      #   container_name: project_template_api
       #   restart: unless-stopped
       #   environment:
       #     NODE_ENV: development
@@ -295,10 +296,10 @@
     ＜解説＞
     * `mysql`: MySQL 8.0データベース
       * `MYSQL_DATABASE`: データベース名
-      * `command`: 読み込みパフォーマンス最適化設定
-        * `innodb-buffer-pool-size`: InnoDBバッファプールサイズ（読み込み高速化）
-        * `query-cache-size`: クエリキャッシュサイズ（頻繁な読み込みクエリをキャッシュ）
-        * `read-buffer-size` / `read-rnd-buffer-size`: 読み込みバッファサイズ
+      * `command`: MySQL サーバー設定
+        * `character-set-server=utf8mb4`: 文字セットをUTF-8（4バイト対応）に設定
+        * `collation-server=utf8mb4_unicode_ci`: 照合順序をUnicodeに設定
+        * `default-authentication-plugin=caching_sha2_password`: デフォルトの認証プラグインを設定
       * `volumes`: データの永続化とSQL初期化スクリプトのマウント
       * `healthcheck`: コンテナの健全性チェック
     * `redis`: Redisキャッシュサーバー

@@ -2,7 +2,7 @@ services:
   # MySQL Database
   mysql:
     image: mysql:8.0
-    container_name: project-template-mysql
+    container_name: project_template_mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: password
@@ -13,6 +13,7 @@ services:
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=caching_sha2_password
     ports:
       - '3306:3306'
     volumes:
@@ -29,7 +30,7 @@ services:
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: project-template-redis
+    container_name: project_template_redis
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
@@ -50,7 +51,7 @@ services:
   #   build:
   #     context: .
   #     dockerfile: apps/api/Dockerfile
-  #   container_name: project-template-api
+  #   container_name: project_template_-api
   #   restart: unless-stopped
   #   environment:
   #     NODE_ENV: development
