@@ -29,7 +29,7 @@ pnpm clean && pnpm install
 
 ### Docker環境の起動
 
-PostgreSQLとRedisをDockerで起動する：
+MySQLとRedisをDockerで起動する：
 
 ```bash
 # Dockerコンテナを起動

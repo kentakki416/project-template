@@ -204,34 +204,37 @@
     ```bash
     touch docker-compose.yaml
     ```
-2. PostgreSQLとRedisの設定を記述
+2. MySQLとRedisの設定を記述
     ```yaml
-    version: '3.8'
-
     services:
-      postgres:
-        image: postgres:16-alpine
-        container_name: project-template-postgres
+      # MySQL Database
+      mysql:
+        image: mysql:8.0
+        container_name: project-template-mysql
         restart: unless-stopped
         environment:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: project_template_dev
-          POSTGRES_INITDB_ARGS: '--encoding=UTF-8 --locale=C'
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: project_template_dev
+          MYSQL_USER: mysql
+          MYSQL_PASSWORD: password
           TZ: Asia/Tokyo
+        command:
+          - --character-set-server=utf8mb4
+          - --collation-server=utf8mb4_unicode_ci
         ports:
-          - '5432:5432'
+          - '3306:3306'
         volumes:
-          - postgres_data:/var/lib/postgresql/data
+          - mysql_data:/var/lib/mysql
           - ./docker/init:/docker-entrypoint-initdb.d
         healthcheck:
-          test: ['CMD-SHELL', 'pg_isready -U postgres']
+          test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-ppassword']
           interval: 10s
           timeout: 5s
           retries: 5
         networks:
           - app-network
 
+      # Redis Cache
       redis:
         image: redis:7-alpine
         container_name: project-template-redis
@@ -249,8 +252,37 @@
         networks:
           - app-network
 
+      # API Server (Future)
+      # Uncomment when ready to containerize the API server
+      # api:
+      #   build:
+      #     context: .
+      #     dockerfile: apps/api/Dockerfile
+      #   container_name: project-template-api
+      #   restart: unless-stopped
+      #   environment:
+      #     NODE_ENV: development
+      #     PORT: 8080
+      #     DATABASE_URL: mysql://mysql:password@mysql:3306/project_template_dev
+      #     REDIS_URL: redis://redis:6379
+      #     CORS_ORIGIN: http://localhost:3000
+      #     JWT_SECRET: your-secret-key-change-in-production
+      #     JWT_EXPIRATION: 7d
+      #   ports:
+      #     - '8080:8080'
+      #   volumes:
+      #     - ./apps/api:/app/apps/api
+      #     - /app/node_modules
+      #   depends_on:
+      #     mysql:
+      #       condition: service_healthy
+      #     redis:
+      #       condition: service_healthy
+      #   networks:
+      #     - app-network
+
     volumes:
-      postgres_data:
+      mysql_data:
         driver: local
       redis_data:
         driver: local
@@ -258,10 +290,15 @@
     networks:
       app-network:
         driver: bridge
+
     ```
     ＜解説＞
-    * `postgres`: PostgreSQL 16データベース
-      * `POSTGRES_DB`: データベース名
+    * `mysql`: MySQL 8.0データベース
+      * `MYSQL_DATABASE`: データベース名
+      * `command`: 読み込みパフォーマンス最適化設定
+        * `innodb-buffer-pool-size`: InnoDBバッファプールサイズ（読み込み高速化）
+        * `query-cache-size`: クエリキャッシュサイズ（頻繁な読み込みクエリをキャッシュ）
+        * `read-buffer-size` / `read-rnd-buffer-size`: 読み込みバッファサイズ
       * `volumes`: データの永続化とSQL初期化スクリプトのマウント
       * `healthcheck`: コンテナの健全性チェック
     * `redis`: Redisキャッシュサーバー

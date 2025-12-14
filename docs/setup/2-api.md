@@ -370,7 +370,7 @@
     CORS_ORIGIN=http://localhost:3000
 
     # Database
-    DATABASE_URL="postgresql://postgres:password@localhost:5432/ai_trainer_dev"
+    DATABASE_URL="mysql://mysql:password@localhost:3306/project_template_dev"
 
     # Google OAuth
     GOOGLE_CLIENT_ID="your-client-id"
