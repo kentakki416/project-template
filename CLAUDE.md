@@ -119,6 +119,15 @@ trivy config aws/env/dev -c .trivy.yml
 
 All apps use ESLint v9 with flat config format (`eslint.config.{js,mjs}`).
 
+### ESLint Configuration Architecture
+- **Web & Admin**: Use `eslint-config-next` which includes `@typescript-eslint` plugin
+  - Do NOT redefine `@typescript-eslint` plugin in custom configs - it will cause "Cannot redefine plugin" errors
+  - Override `languageOptions.parserOptions` and `rules` only
+- **Mobile**: Uses `eslint-config-expo/flat` which includes `@typescript-eslint` plugin
+  - Do NOT redefine `@typescript-eslint` plugin in custom configs
+  - Additional plugins like `tailwindcss` can be added separately
+- **API**: Defines all plugins from scratch (no preset config)
+
 ### Key rules enforced:
 - **No semicolons** (`semi: ["error", "never"]`)
 - **Single quotes** for strings (`quotes: ["error", "single"]`)

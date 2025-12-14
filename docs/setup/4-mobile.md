@@ -59,23 +59,19 @@
     const { defineConfig } = require('eslint/config')
     const expoConfig = require('eslint-config-expo/flat')
     const tailwindcss = require('eslint-plugin-tailwindcss')
-    const typescriptParser = require('@typescript-eslint/parser')
-    const typescriptEslint = require('@typescript-eslint/eslint-plugin')
 
     module.exports = defineConfig([
       expoConfig,
       {
         files: ['**/*.ts', '**/*.tsx'],
         languageOptions: {
-          parser: typescriptParser,
           parserOptions: {
             ecmaVersion: 2020,
-            sourceType: 'module',
             project: './tsconfig.json',
+            sourceType: 'module',
           },
         },
         plugins: {
-          '@typescript-eslint': typescriptEslint,
           'tailwindcss': tailwindcss,
         },
         settings: {
@@ -99,7 +95,7 @@
           'no-multiple-empty-lines': ['error', { max: 1, maxBOF: 0, maxEOF: 0 }], // 連続する空行は最大1行、ファイルの先頭/末尾は0行
           'padded-blocks': ['error', 'never'],          // ブロックの開始/終了での空行を禁止
           'no-trailing-spaces': 'error',                // 行末のスペースを禁止
-
+          
           // === Import順序 ===
           'import/order': [
             'error',
@@ -181,6 +177,7 @@
         ignores: ['dist/*'],
       },
     ])
+
     ```
     ＜解説＞
     **コードスタイル:**

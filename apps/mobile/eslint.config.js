@@ -2,23 +2,19 @@
 const { defineConfig } = require('eslint/config')
 const expoConfig = require('eslint-config-expo/flat')
 const tailwindcss = require('eslint-plugin-tailwindcss')
-const typescriptParser = require('@typescript-eslint/parser')
-const typescriptEslint = require('@typescript-eslint/eslint-plugin')
 
 module.exports = defineConfig([
   expoConfig,
   {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
-      parser: typescriptParser,
       parserOptions: {
         ecmaVersion: 2020,
-        sourceType: 'module',
         project: './tsconfig.json',
+        sourceType: 'module',
       },
     },
     plugins: {
-      '@typescript-eslint': typescriptEslint,
       'tailwindcss': tailwindcss,
     },
     settings: {
