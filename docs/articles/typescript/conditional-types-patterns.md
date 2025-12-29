@@ -2,26 +2,13 @@
 
 ## はじめに
 
-Conditional Types は TypeScript の型システムにおいて最も強力な機能の一つです。`T extends U ? X : Y` という三項演算子のような構文で、型レベルでの条件分岐を実現します。本記事では、基本的な使い方から実践的なパターンまで、Conditional Types を使いこなすためのテクニックを紹介します。
+Conditional Types は TypeScript の型システムにおいて最も強力な機能の一つです。`T extends U ? X : Y` という三項演算子のような構文で、型レベルでの条件分岐を実現します。本記事では、実践的なパターンを中心に解説します。
 
-## 基本的な Conditional Types
-
-最もシンプルな例から始めましょう。
-
-```typescript
-type IsString<T> = T extends string ? true : false
-
-type A = IsString<string>  // true
-type B = IsString<number>  // false
-```
-
-この型は、`T` が `string` 型に代入可能かどうかをチェックし、真偽値の型を返します。
-
-## `infer` キーワードの威力
+## `infer` キーワード - 型の推論と抽出
 
 `infer` は Conditional Types の中で型を推論・抽出するためのキーワードです。これにより、既存の型から部分的な型情報を取り出すことができます。
 
-### 関数の戻り値の型を抽出
+### 関数の戻り値と引数の型を抽出
 
 ```typescript
 type ReturnType<T> = T extends (...args: any[]) => infer R ? R : never
@@ -34,20 +21,18 @@ type User = ReturnType<typeof getUser>
 // { id: number; name: string; }
 ```
 
-### 関数の引数の型を抽出
-
 ```typescript
 type Parameters<T> = T extends (...args: infer P) => any ? P : never
 
 function createUser(name: string, age: number) {
-  return { name, age }
+  return { age, name }
 }
 
 type CreateUserParams = Parameters<typeof createUser>
 // [name: string, age: number]
 ```
 
-### Promise の中身を取り出す
+### Promise と配列の中身を取り出す
 
 ```typescript
 type Awaited<T> = T extends Promise<infer U> ? U : T
@@ -55,8 +40,6 @@ type Awaited<T> = T extends Promise<infer U> ? U : T
 type A = Awaited<Promise<string>>  // string
 type B = Awaited<number>           // number
 ```
-
-### 配列の要素型を抽出
 
 ```typescript
 type ElementType<T> = T extends (infer E)[] ? E : never
@@ -67,7 +50,7 @@ type B = ElementType<number[]>  // number
 
 ## 再帰的な Conditional Types
 
-TypeScript 4.1 以降、Conditional Types を再帰的に使用できるようになりました。これにより、複雑な型操作が可能になります。
+TypeScript 4.1 以降、Conditional Types を再帰的に使用できるようになりました。
 
 ### ネストした Promise を完全に unwrap する
 
@@ -77,8 +60,6 @@ type DeepAwaited<T> = T extends Promise<infer U>
   : T
 
 type A = DeepAwaited<Promise<Promise<Promise<string>>>>  // string
-type B = DeepAwaited<Promise<number>>                    // number
-type C = DeepAwaited<string>                             // string
 ```
 
 ### 深くネストされたオブジェクトを Readonly にする
@@ -104,33 +85,9 @@ type ReadonlyUser = DeepReadonly<User>
 // すべてのプロパティが readonly になる
 ```
 
-### 配列をフラット化する型
-
-```typescript
-type Flatten<T> = T extends (infer Item)[]
-  ? Item extends any[]
-    ? Flatten<Item>
-    : Item
-  : T
-
-type A = Flatten<number[]>           // number
-type B = Flatten<number[][]>         // number
-type C = Flatten<number[][][]>       // number
-type D = Flatten<string>             // string
-```
-
 ## Template Literal Types との組み合わせ
 
-TypeScript 4.1 で導入された Template Literal Types と組み合わせることで、文字列レベルの型操作が可能になります。
-
-### イベント名から型を生成
-
-```typescript
-type EventName<T extends string> = `on${Capitalize<T>}`
-
-type MouseEventName = EventName<'click'>  // 'onClick'
-type KeyEventName = EventName<'press'>    // 'onPress'
-```
+Template Literal Types と組み合わせることで、文字列レベルの型操作が可能になります。
 
 ### API エンドポイントのパスから型を抽出
 
@@ -146,25 +103,13 @@ type Params = ExtractParams<'/users/:userId/posts/:postId'>
 // 'userId' | 'postId'
 ```
 
-### キャメルケースをスネークケースに変換
-
-```typescript
-type CamelToSnake<S extends string> =
-  S extends `${infer T}${infer U}`
-    ? U extends Uncapitalize<U>
-      ? `${Uncapitalize<T>}${CamelToSnake<U>}`
-      : `${Uncapitalize<T>}_${CamelToSnake<U>}`
-    : S
-
-type A = CamelToSnake<'userId'>      // 'user_id'
-type B = CamelToSnake<'firstName'>   // 'first_name'
-```
+このパターンを使えば、API ルートから自動的にパラメータ型を生成できます。
 
 ## 実践的なユースケース
 
 ### 型安全な Pick 実装
 
-特定のキーのみを持つオブジェクトを生成する型です。
+特定の値の型を持つプロパティのみを抽出する型です。
 
 ```typescript
 type PickByValue<T, V> = {
@@ -210,29 +155,6 @@ type NoNull = ExcludeByType<Mixed, null>
 // string | number | boolean
 ```
 
-### 関数のオーバーロードから全ての戻り値の型を取得
-
-```typescript
-type AllReturnTypes<T> = T extends {
-  (...args: any[]): infer R1
-  (...args: any[]): infer R2
-  (...args: any[]): infer R3
-}
-  ? R1 | R2 | R3
-  : T extends (...args: any[]) => infer R
-  ? R
-  : never
-
-function process(x: string): string
-function process(x: number): number
-function process(x: string | number): string | number {
-  return x
-}
-
-type Results = AllReturnTypes<typeof process>
-// string | number
-```
-
 ## Distributive Conditional Types
 
 Union 型に対して Conditional Types を適用すると、各メンバーに対して分配されます。
@@ -251,20 +173,6 @@ type ToArrayNonDist<T> = [T] extends [any] ? T[] : never
 
 type B = ToArrayNonDist<string | number>
 // (string | number)[]
-```
-
-## パフォーマンスの考慮事項
-
-再帰的な Conditional Types は強力ですが、複雑すぎる型はコンパイルパフォーマンスに影響します。
-
-```typescript
-// ❌ 避けるべき: 深すぎる再帰
-type VeryDeepRecursion<T, Depth extends number = 50> =
-  Depth extends 0 ? T : VeryDeepRecursion<T, Subtract<Depth, 1>>
-
-// ✅ 推奨: 適度な深さに制限
-type ModerateRecursion<T, Depth extends number = 5> =
-  Depth extends 0 ? T : ModerateRecursion<T, Subtract<Depth, 1>>
 ```
 
 ## まとめ
