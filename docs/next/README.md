@@ -1,157 +1,180 @@
-# Next.js 1ヶ月マスターカリキュラム
+# Next.js 技術リファレンス
+
+Next.js開発に必要な知識を体系的にまとめた技術リファレンスです。
 
 ## 目次
-- [学習ゴール](#学習ゴール)
-- [前提知識](#前提知識)
-- [学習ロードマップ](#学習ロードマップ)
-- [週別カリキュラム](#週別カリキュラム)
-- [補足資料](#補足資料)
 
-## 学習ゴール
+### 基礎（Fundamentals）
 
-このカリキュラムを完了すると、以下のスキルを習得できます:
+Next.jsの核となる概念を理解するための基礎ドキュメント
 
-### 1. Next.jsの核心概念の理解
-- App Routerの仕組みと使い方
-- ファイルベースルーティングの理解
-- Server ComponentsとClient Componentsの使い分け
-- レンダリング戦略(SSR, SSG, ISR)の理解と実装
+- [App Router](./fundamentals/app-router.md) - App Routerの基本概念とPages Routerとの違い
+- [ルーティング基礎](./fundamentals/routing.md) - ファイルベースルーティング、動的ルート、ナビゲーション
+- [Server Components](./fundamentals/server-components.md) - サーバーコンポーネントの特徴と使い方
+- [Client Components](./fundamentals/client-components.md) - クライアントコンポーネントとReactフック
+- [レイアウト](./fundamentals/layouts.md) - レイアウトシステムとネスト構造
+- [メタデータ](./fundamentals/metadata.md) - SEO対策とメタデータAPI
 
-### 2. データフェッチングの実践
-- Server Actionsの実装
-- APIルートの作成と利用
-- 外部APIとの連携
-- エラーハンドリングとローディング状態の管理
+### データ管理（Data）
 
-### 3. 実践的なアプリケーション開発
-- 認証機能の実装
-- データベース連携(Prisma/Drizzle)
-- フォーム処理とバリデーション
-- レイアウトとスタイリング(Tailwind CSS)
+データの取得、変更、キャッシュに関するドキュメント
 
-### 4. 本番環境へのデプロイ
-- Vercelへのデプロイ
-- 環境変数の管理
-- パフォーマンス最適化
-- SEO対策
+- [データフェッチング](./data/data-fetching.md) - fetch API、並列フェッチング、エラーハンドリング
+- [Server Actions](./data/server-actions.md) - フォーム送信とデータミューテーション
+- [API Routes](./data/api-routes.md) - Route HandlersによるAPI実装
+- [キャッシング](./data/caching.md) - キャッシング戦略とレイヤー
+- [再検証](./data/revalidation.md) - revalidate、revalidatePath、revalidateTag
 
-## 前提知識
+### レンダリング（Rendering）
 
-このカリキュラムを始める前に、以下の知識があることを推奨します:
+レンダリング戦略とパフォーマンス最適化
 
-- **必須**
-  - HTML/CSSの基礎知識
-  - JavaScriptの基礎(変数、関数、配列、オブジェクト)
-  - ES6+の基本的な構文(アロー関数、分割代入、スプレッド構文)
-  - Reactの基礎(JSX、コンポーネント、props、state)
+- [レンダリング戦略](./rendering/rendering-strategies.md) - SSG、ISR、SSR、CSRの使い分け
+- [ストリーミング](./rendering/streaming.md) - SuspenseとReact Server Componentsのストリーミング
+- [Partial Prerendering](./rendering/partial-prerendering.md) - PPRの仕組みと活用
+- [Edge Runtime](./rendering/edge-runtime.md) - Edge RuntimeとNode.js Runtimeの違い
 
-- **推奨**
-  - TypeScriptの基礎
-  - Gitの基本操作
-  - npmまたはyarn/pnpmの使用経験
+### 高度なルーティング（Routing Advanced）
 
-## 学習ロードマップ
+より高度なルーティング機能
 
-```
-第1週: Next.js基礎編
-├── Day 1-2: 環境構築とプロジェクト作成
-├── Day 3-4: App Routerとルーティング
-├── Day 5-6: Server ComponentsとClient Components
-└── Day 7: 復習とミニプロジェクト
+- [動的ルート詳細](./routing-advanced/dynamic-routes.md) - Catch-all、Optional Catch-all、generateStaticParams
+- [パラレルルート](./routing-advanced/parallel-routes.md) - 並列レンダリングと条件付き表示
+- [インターセプトルート](./routing-advanced/intercepting-routes.md) - モーダルとルートインターセプション
+- [ルートグループ](./routing-advanced/route-groups.md) - URLに影響しないルートのグループ化
+- [ミドルウェア](./routing-advanced/middleware.md) - リクエストの事前処理と認証
 
-第2週: データフェッチング編
-├── Day 8-9: Server Actionsの基礎
-├── Day 10-11: APIルートとRESTful API
-├── Day 12-13: データベース連携
-└── Day 14: 復習と実践プロジェクト
+### 最適化（Optimization）
 
-第3週: 実践編
-├── Day 15-16: 認証機能の実装
-├── Day 17-18: フォーム処理とバリデーション
-├── Day 19-20: レイアウトとスタイリング
-└── Day 21: 総合実践プロジェクト
+パフォーマンスとバンドルサイズの最適化
 
-第4週: 応用・本番環境編
-├── Day 22-23: パフォーマンス最適化
-├── Day 24-25: SEO対策とメタデータ
-├── Day 26-27: デプロイと環境設定
-└── Day 28-30: 最終プロジェクトとポートフォリオ作成
-```
+- [画像最適化](./optimization/image-optimization.md) - next/imageとImage Component
+- [フォント最適化](./optimization/font-optimization.md) - next/fontとGoogle Fonts
+- [コード分割](./optimization/code-splitting.md) - dynamic importとReact.lazy
+- [パフォーマンス](./optimization/performance.md) - Core Web Vitals、Lighthouse
+- [バンドル分析](./optimization/bundle-analysis.md) - webpack-bundle-analyzerとバンドルサイズ削減
 
-## 週別カリキュラム
+### ビルドとデプロイ（Build & Deploy）
 
-### [第1週: 基礎編](./week1.md)
-Next.jsの基本概念を学び、App Routerの仕組みを理解します。
+本番環境へのビルドとデプロイ
 
-**学習内容:**
-- プロジェクトセットアップ
-- ファイルベースルーティング
-- Server ComponentsとClient Componentsの違い
-- ページとレイアウトの作成
+- [ビルドプロセス](./build-deploy/build-process.md) - next build、静的最適化、出力モード
+- [静的エクスポート](./build-deploy/static-export.md) - output: 'export'と完全静的サイト生成
+- [環境変数](./build-deploy/environment-variables.md) - .env、NEXT_PUBLIC_、ランタイム環境変数
+- [デプロイ](./build-deploy/deployment.md) - Vercel、Docker、セルフホスティング
+- [next.config.js](./build-deploy/config.md) - 設定ファイルの詳細
 
-**成果物:** シンプルなブログリストページ
+### スタイリング（Styling）
 
-### [第2週: データフェッチング編](./week2.md)
-データの取得と操作方法を習得します。
+CSS とスタイリング手法
 
-**学習内容:**
-- Server Actionsの実装
-- APIルートの作成
-- 外部APIとの連携
-- データベース連携の基礎
+- [Tailwind CSS](./styling/tailwind.md) - Tailwind CSS v4の設定と使い方
 
-**成果物:** CRUD機能を持つTodoアプリ
+### エラーハンドリング（Error Handling）
 
-### [第3週: 実践編](./week3.md)
-実際のアプリケーション開発に必要な機能を実装します。
+エラー処理と例外処理
 
-**学習内容:**
-- NextAuth.jsを使った認証
-- フォームバリデーション(Zod)
-- ミドルウェアによる認証保護
-- 画像最適化
+- [Error Boundaries](./error-handling/error-boundaries.md) - error.tsxとエラーハンドリング
+- [Not Found](./error-handling/not-found.md) - 404ページとnotFound()関数
+- [エラーレポーティング](./error-handling/error-reporting.md) - Sentryなどの統合
 
-**成果物:** 会員制ブログサービス
+### セキュリティ（Security）
 
-### [第4週: 応用・本番環境編](./week4.md)
-パフォーマンス最適化とデプロイを学びます。
+認証、認可、セキュリティ対策
 
-**学習内容:**
-- コード分割とバンドル最適化
-- キャッシング戦略
-- SEO設定
-- Vercelデプロイ
+- [認証](./security/authentication.md) - Auth.js（NextAuth.js）、セッション管理
+- [認可](./security/authorization.md) - ロールベースアクセス制御、権限管理
+- [CSRF保護](./security/csrf-protection.md) - Server ActionsとCSRFトークン
+- [セキュリティヘッダー](./security/security-headers.md) - CSP、HSTS、X-Frame-Options
 
-**成果物:** 本番環境で動作するポートフォリオサイト
+### 高度なトピック（Advanced）
 
-## 補足資料
+上級者向けの機能と設定
 
-- [用語集](./glossary.md) - Next.js関連の重要用語解説
-- [他フレームワークとの比較](./comparison.md) - React, Vue, Remixなどとの違い
+- [国際化](./advanced/internationalization.md) - i18n、多言語対応、next-intl
+- [Instrumentation](./advanced/instrumentation.md) - APM、トレーシング、モニタリング
+- [カスタムサーバー](./advanced/custom-server.md) - Express統合、カスタムサーバー実装
+- [Monorepo](./advanced/monorepo.md) - Turborepo、pnpm workspaces
 
-## 学習のコツ
+### マイグレーション（Migration）
 
-1. **毎日コードを書く**: 理論だけでなく、必ず手を動かして実装してください
-2. **公式ドキュメントを読む**: 最新の情報は公式ドキュメントが最も正確です
-3. **エラーを恐れない**: エラーは学習の機会です。エラーメッセージを読み、原因を探りましょう
-4. **小さく始める**: 大きなプロジェクトより、小さな機能を確実に実装することを優先してください
-5. **コミュニティを活用する**: Discord, Stack Overflow, GitHubで質問・情報収集しましょう
+バージョン移行とアップグレード
+
+- [Pages → App Router移行](./migration/pages-to-app.md) - 段階的な移行戦略
+- [バージョンアップグレード](./migration/version-upgrade.md) - Next.js 14 → 15、破壊的変更
+
+## 学習の進め方
+
+### 初学者向け
+
+1. **基礎から始める**
+   - [App Router](./fundamentals/app-router.md)
+   - [ルーティング基礎](./fundamentals/routing.md)
+   - [Server Components](./fundamentals/server-components.md)
+   - [Client Components](./fundamentals/client-components.md)
+
+2. **データ管理を学ぶ**
+   - [データフェッチング](./data/data-fetching.md)
+   - [Server Actions](./data/server-actions.md)
+
+3. **スタイリングとレイアウト**
+   - [レイアウト](./fundamentals/layouts.md)
+   - [Tailwind CSS](./styling/tailwind.md)
+
+### 中級者向け
+
+1. **レンダリング戦略**
+   - [レンダリング戦略](./rendering/rendering-strategies.md)
+   - [キャッシング](./data/caching.md)
+   - [再検証](./data/revalidation.md)
+
+2. **高度なルーティング**
+   - [動的ルート詳細](./routing-advanced/dynamic-routes.md)
+   - [ミドルウェア](./routing-advanced/middleware.md)
+
+3. **最適化**
+   - [パフォーマンス](./optimization/performance.md)
+   - [画像最適化](./optimization/image-optimization.md)
+
+### 上級者向け
+
+1. **セキュリティ**
+   - [認証](./security/authentication.md)
+   - [CSRF保護](./security/csrf-protection.md)
+
+2. **本番環境**
+   - [ビルドプロセス](./build-deploy/build-process.md)
+   - [デプロイ](./build-deploy/deployment.md)
+
+3. **高度なトピック**
+   - [国際化](./advanced/internationalization.md)
+   - [Monorepo](./advanced/monorepo.md)
 
 ## 推奨リソース
 
+### 公式ドキュメント
 - [Next.js公式ドキュメント](https://nextjs.org/docs)
+- [React公式ドキュメント](https://react.dev/)
+- [TypeScript公式ドキュメント](https://www.typescriptlang.org/docs/)
+
+### 学習リソース
 - [Next.js Learn](https://nextjs.org/learn) - 公式の無料学習コース
 - [Vercel Examples](https://github.com/vercel/next.js/tree/canary/examples) - 公式サンプルコード集
-- [Next.js Discord](https://discord.gg/nextjs) - 公式コミュニティ
 
-## 学習進捗チェックリスト
+### コミュニティ
+- [Next.js Discord](https://discord.gg/nextjs)
+- [Next.js GitHub Discussions](https://github.com/vercel/next.js/discussions)
 
-- [ ] 第1週完了: App Routerの基本を理解した
-- [ ] 第2週完了: データフェッチングを実装できる
-- [ ] 第3週完了: 認証付きアプリを構築できる
-- [ ] 第4週完了: 本番環境にデプロイできる
-- [ ] 最終プロジェクト完成: ポートフォリオに掲載できる作品ができた
+## このリファレンスの使い方
 
----
+- **目的別に探す**: 上記の目次から、実装したい機能に関連するドキュメントを探してください
+- **体系的に学ぶ**: 「学習の進め方」セクションを参考に、順を追って学習してください
+- **リファレンスとして使う**: 実装中に不明点があれば、該当するドキュメントを参照してください
 
-**次のステップ:** [第1週のカリキュラムを始める](./week1.md)
+各ドキュメントには以下の情報が含まれています：
+- **概要**: 機能の説明と主な特徴
+- **基本的な使い方**: 最小限の実装例
+- **詳細な説明**: より高度な使用方法
+- **ベストプラクティス**: 推奨される実装方法
+- **よくある落とし穴**: 避けるべきパターン
+- **関連リソース**: 関連ドキュメントへのリンク
