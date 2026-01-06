@@ -5,7 +5,7 @@ import { authMeResponseSchema, ErrorResponse } from '@repo/api-schema'
 import { logger } from '../../log'
 import { AuthRequest } from '../../middleware/auth'
 import { UserRepository } from '../../repository/mysql'
-import { getUserById } from '../../service/auth-service'
+import * as service from '../../service'
 
 /**
  * 現在ログイン中のユーザー情報を取得するAPI
@@ -19,7 +19,7 @@ export class AuthMeController {
         requestedUserId: req.userId,
       })
 
-      const user = await getUserById(req.userId!, this.userRepository)
+      const user = await service.auth.getUserById(req.userId!, this.userRepository)
 
       if (!user) {
         logger.warn('AuthMeController: User not found', {

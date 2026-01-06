@@ -9,7 +9,7 @@ import {
 import { GoogleOAuthClient } from '../../client/google-oauth'
 import { logger } from '../../log'
 import { AuthAccountRepository, UserRegistrationRepository } from '../../repository/mysql'
-import { authenticateWithGoogle } from '../../service/auth-service'
+import * as service from '../../service'
 
 /**
  * Google からのコールバックを処理し、JWT を返すAPI
@@ -29,7 +29,7 @@ export class AuthGoogleCallbackController {
       const validatedRequest = authGoogleCallbackRequestSchema.parse(req.query)
 
       // Service 層を呼び出して認証処理
-      const result = await authenticateWithGoogle(
+      const result = await service.auth.authenticateWithGoogle(
         validatedRequest.code,
         {
           authAccountRepository: this.authAccountRepository,
