@@ -6,8 +6,7 @@ import {
     UserRegistrationRepository,
     UserRepository,
 } from '../repository/mysql'
-import { User } from '../types/domain'
-import { CharacterCode } from '../types/domain'
+import { User , CharacterCode } from '../types/domain'
 
 export type AuthenticateWithGoogleResult = {
     isNewUser: boolean
