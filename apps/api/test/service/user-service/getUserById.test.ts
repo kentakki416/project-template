@@ -1,10 +1,5 @@
 import { User } from '../../../src/prisma/generated/client'
-import { getUserById } from '../../../src/service/auth-service'
-
-// JWT生成をモック（auth-service.tsがjwtをimportしているため必要）
-jest.mock('../../../src/lib/jwt', () => ({
-    generateToken: jest.fn(),
-}))
+import { getUserById } from '../../../src/service/user-service'
 
 // モック
 const mockFindById = jest.fn()

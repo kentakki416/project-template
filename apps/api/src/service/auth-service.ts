@@ -4,7 +4,6 @@ import { logger } from '../log'
 import {
     AuthAccountRepository,
     UserRegistrationRepository,
-    UserRepository,
 } from '../repository/mysql'
 import { User , CharacterCode } from '../types/domain'
 
@@ -84,27 +83,4 @@ export const authenticateWithGoogle = async (
         jwtToken,
         user,
     }
-}
-
-/**
- * ユーザーIDからユーザー情報を取得
- */
-export const getUserById = async (
-    userId: number,
-    userRepository: UserRepository
-): Promise<User | null> => {
-    logger.debug('AuthService: Fetching user by ID', {
-        userId,
-    })
-    const user = await userRepository.findById(userId)
-    if (user) {
-        logger.debug('AuthService: User found', {
-            userId: user.id,
-        })
-    } else {
-        logger.debug('AuthService: User not found', {
-            userId,
-        })
-    }
-    return user
 }

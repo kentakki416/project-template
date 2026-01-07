@@ -19,7 +19,7 @@ export class AuthMeController {
         requestedUserId: req.userId,
       })
 
-      const user = await service.auth.getUserById(req.userId!, this.userRepository)
+      const user = await service.user.getUserById(req.userId!, this.userRepository)
 
       if (!user) {
         logger.warn('AuthMeController: User not found', {
