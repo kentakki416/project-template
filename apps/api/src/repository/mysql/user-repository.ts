@@ -1,5 +1,4 @@
-import { PrismaClient } from '../../prisma/generated/client'
-import { Prisma as PrismaTypes } from '../../prisma/generated/client'
+import { Prisma as PrismaTypes, PrismaClient } from '../../prisma/generated/client'
 import { User } from '../../types/domain'
 
 /**

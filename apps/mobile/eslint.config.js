@@ -66,6 +66,7 @@ module.exports = defineConfig([
           pathGroupsExcludedImportTypes: ['builtin'],
         },
       ],
+      'import/no-duplicates': ['error', { 'prefer-inline': true }], // 同じソースからの重複importを禁止、inline type importを推奨
       
       // === React: JSX Props順序 ===
       'react/jsx-sort-props': ['error', {

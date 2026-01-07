@@ -72,6 +72,7 @@ module.exports = defineConfig([
           pathGroupsExcludedImportTypes: ['builtin'],
         },
       ],
+      'import/no-duplicates': ['error', { 'prefer-inline': true }], // 同じソースからの重複importを禁止、inline type importを推奨
 
       // === TypeScript: 型安全性 ===
       '@typescript-eslint/no-empty-function': 'error',                 // 空の関数を禁止
