@@ -28,6 +28,7 @@ module.exports = defineConfig([
       },
     },
     rules: {
+      "indent": ["error", 2], // インデントを2スペースに統一（タブも2スペースに変換）
       // === Console ===
       'no-console': ['warn', { allow: ['warn', 'error'] }], // console.log は警告、warn/error は許可
 

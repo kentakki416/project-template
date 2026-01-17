@@ -34,14 +34,14 @@ export class LoggerFactory {
    */
   static createLogger(type: LoggerType): ILogger {
     switch (type) {
-      case LOGGER_TYPE.CONSOLE:
-        return new ConsoleLogger()
-      case LOGGER_TYPE.PINO:
-        return new PinoLogger()
-      case LOGGER_TYPE.WINSTON:
-        return new WinstonLogger()
-      default:
-        return new WinstonLogger()
+    case LOGGER_TYPE.CONSOLE:
+      return new ConsoleLogger()
+    case LOGGER_TYPE.PINO:
+      return new PinoLogger()
+    case LOGGER_TYPE.WINSTON:
+      return new WinstonLogger()
+    default:
+      return new WinstonLogger()
     }
   }
 

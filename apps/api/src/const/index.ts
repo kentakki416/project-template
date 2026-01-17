@@ -2,27 +2,27 @@
  * Logger の種類
  */
 export const LOGGER_TYPE = {
-    PINO: "pino",
-    WINSTON: "winston",
-    CONSOLE: "console"
+  PINO: "pino",
+  WINSTON: "winston",
+  CONSOLE: "console"
 } as const
 
 /**
  * LOGレベル
  */
 export const LOG_LEVEL = {
-    DEBUG: "debug",
-    INFO: "info",
-    WARN: "warn",
-    ERROR: "error"
+  DEBUG: "debug",
+  INFO: "info",
+  WARN: "warn",
+  ERROR: "error"
 } as const
 
 /**
  * Nodeの環境
  */
 export const NODE_ENV = {
-    DEV: "dev",
-    PRD: "prd"
+  DEV: "dev",
+  PRD: "prd"
 } as const
 
 /**

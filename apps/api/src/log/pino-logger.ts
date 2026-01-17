@@ -35,13 +35,13 @@ export class PinoLogger implements ILogger {
       env === NODE_ENV.PRD
         ? process.stdout
         : pino.transport({
-            options: {
-              colorize: true,
-              ignore: "pid,hostname",
-              translateTime: "yyyy-mm-dd HH:MM:ss",
-            },
-            target: "pino-pretty",
-          })
+          options: {
+            colorize: true,
+            ignore: "pid,hostname",
+            translateTime: "yyyy-mm-dd HH:MM:ss",
+          },
+          target: "pino-pretty",
+        })
     )
   }
 

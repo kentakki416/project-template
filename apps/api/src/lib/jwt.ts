@@ -13,19 +13,19 @@ export type JWTPayload = {
  * JWTトークンを生成
  */
 export function generateToken(userId: number): string {
-    const options = {
-        expiresIn: JWT_EXPIRATION as SignOptions["expiresIn"]
-    }
-    return jwt.sign({ userId }, JWT_SECRET, options)
+  const options = {
+    expiresIn: JWT_EXPIRATION as SignOptions["expiresIn"]
+  }
+  return jwt.sign({ userId }, JWT_SECRET, options)
 }
 
 /**
  * JWTトークンを検証
  */
 export function verifyToken(token: string): JWTPayload | null {
-    try {
-        return jwt.verify(token, JWT_SECRET) as JWTPayload
-    } catch {
-        return null
-    }
+  try {
+    return jwt.verify(token, JWT_SECRET) as JWTPayload
+  } catch {
+    return null
+  }
 }

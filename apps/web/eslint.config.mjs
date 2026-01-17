@@ -30,6 +30,7 @@ const eslintConfig = defineConfig([
       },
     },
     rules: {
+      "indent": ["error", 2], // インデントを2スペースに統一（タブも2スペースに変換）
       // === Console ===
       "no-console": ["warn", { allow: ["warn", "error"] }], // console.log は警告、warn/error は許可
 
@@ -69,17 +70,6 @@ const eslintConfig = defineConfig([
         },
       ],
       'import/no-duplicates': ['error', { 'prefer-inline': true }], // 同じソースからの重複importを禁止、inline type importを推奨
-
-      // === React: JSX Props順序 ===
-      "react/jsx-sort-props": [
-        "error",
-        {
-          callbacksLast: true, // コールバックを最後に
-          shorthandFirst: true, // shorthandを最初に
-          ignoreCase: true, // 大文字小文字を区別しない
-          reservedFirst: true, // 予約語を最初に
-        },
-      ],
 
       // === TypeScript: 型安全性 ===
       "@typescript-eslint/no-explicit-any": "warn", // any型は警告
