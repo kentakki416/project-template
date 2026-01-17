@@ -1,8 +1,8 @@
-'use client'
+"use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react"
 
-import { GetUserResponse } from '@repo/api-schema'
+import { GetUserResponse } from "@repo/api-schema"
 
 export default function Home() {
   const [userData, setUserData] = useState<GetUserResponse | null>(null)
@@ -24,7 +24,7 @@ export default function Home() {
       const data: GetUserResponse = await response.json()
       setUserData(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'ユーザー情報の取得に失敗しました')
+      setError(err instanceof Error ? err.message : "ユーザー情報の取得に失敗しました")
     } finally {
       setLoading(false)
     }
@@ -32,7 +32,7 @@ export default function Home() {
 
   // コンポーネントマウント時にAPIを呼び出す（例: userId='123'）
   useEffect(() => {
-    fetchUser('123')
+    fetchUser("123")
   }, [])
 
   return (
@@ -74,7 +74,7 @@ export default function Home() {
           <button
             className="mt-4 rounded-lg bg-blue-600 px-6 py-3 text-white transition-colors hover:bg-blue-700"
             type="button"
-            onClick={async () => fetchUser('123')}
+            onClick={async () => fetchUser("123")}
           >
             再取得
           </button>

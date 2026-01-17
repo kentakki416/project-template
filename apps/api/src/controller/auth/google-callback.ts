@@ -1,15 +1,15 @@
-import { Request, Response } from 'express'
+import { Request, Response } from "express"
 
 import {
   authGoogleCallbackRequestSchema,
   authGoogleCallbackResponseSchema,
   ErrorResponse,
-} from '@repo/api-schema'
+} from "@repo/api-schema"
 
-import { GoogleOAuthClient } from '../../client/google-oauth'
-import { logger } from '../../log'
-import { AuthAccountRepository, UserRegistrationRepository } from '../../repository/mysql'
-import * as service from '../../service'
+import { GoogleOAuthClient } from "../../client/google-oauth"
+import { logger } from "../../log"
+import { AuthAccountRepository, UserRegistrationRepository } from "../../repository/mysql"
+import * as service from "../../service"
 
 /**
  * Google からのコールバックを処理し、JWT を返すAPI
@@ -23,7 +23,7 @@ export class AuthGoogleCallbackController {
 
   async execute(req: Request, res: Response) {
     try {
-      logger.info('AuthGoogleCallbackController: Starting Google OAuth callback process')
+      logger.info("AuthGoogleCallbackController: Starting Google OAuth callback process")
 
       // リクエストスキーマのバリデーション
       const validatedRequest = authGoogleCallbackRequestSchema.parse(req.query)
@@ -38,7 +38,7 @@ export class AuthGoogleCallbackController {
         this.googleOAuthClient
       )
 
-      logger.info('AuthGoogleCallbackController: Authentication successful', {
+      logger.info("AuthGoogleCallbackController: Authentication successful", {
         isNewUser: result.isNewUser,
         userId: result.user.id,
       })
@@ -59,23 +59,23 @@ export class AuthGoogleCallbackController {
       res.status(200).json(response)
     } catch (error) {
       // エラーハンドリング
-      if (error instanceof Error && error.name === 'ZodError') {
-        logger.warn('AuthGoogleCallbackController: Validation error', {
-          error: 'Invalid request parameters',
+      if (error instanceof Error && error.name === "ZodError") {
+        logger.warn("AuthGoogleCallbackController: Validation error", {
+          error: "Invalid request parameters",
         })
         const errorResponse: ErrorResponse = {
-          error: 'Invalid request parameters',
+          error: "Invalid request parameters",
           status_code: 400,
         }
         return res.status(400).json(errorResponse)
       }
 
       logger.error(
-        'AuthGoogleCallbackController: Authentication failed',
-        error instanceof Error ? error : new Error('Unknown error')
+        "AuthGoogleCallbackController: Authentication failed",
+        error instanceof Error ? error : new Error("Unknown error")
       )
       const errorResponse: ErrorResponse = {
-        error: error instanceof Error ? error.message : 'Authentication failed',
+        error: error instanceof Error ? error.message : "Authentication failed",
         status_code: 500,
       }
       res.status(500).json(errorResponse)

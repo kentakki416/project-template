@@ -1,9 +1,9 @@
-import { LOGGER_TYPE } from '../const'
+import { LOGGER_TYPE } from "../const"
 
-import { ConsoleLogger } from './console-logger'
-import type { ILogger } from './interface'
-import { PinoLogger } from './pino-logger'
-import { WinstonLogger } from './winston-logger'
+import { ConsoleLogger } from "./console-logger"
+import type { ILogger } from "./interface"
+import { PinoLogger } from "./pino-logger"
+import { WinstonLogger } from "./winston-logger"
 
 type LoggerType = typeof LOGGER_TYPE[keyof typeof LOGGER_TYPE]
 

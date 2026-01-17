@@ -1,9 +1,9 @@
-import { createLogger, format, transports } from 'winston'
+import { createLogger, format, transports } from "winston"
 
-import { NODE_ENV, LOG_LEVEL } from '../const'
+import { NODE_ENV, LOG_LEVEL } from "../const"
 
-import { logContext } from './context'
-import type { ILogger, LogMetadata } from './interface'
+import { logContext } from "./context"
+import type { ILogger, LogMetadata } from "./interface"
 
 type NodeEnv =  typeof NODE_ENV[keyof typeof NODE_ENV]
 
@@ -26,7 +26,7 @@ export class WinstonLogger implements ILogger {
     const consoleFormat =
       env === NODE_ENV.PRD
         ? combine(errors({ stack: true }), timestamp(), json())
-        : combine(errors({ stack: true }), timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), colorize(), simple())
+        : combine(errors({ stack: true }), timestamp({ format: "YYYY-MM-DD HH:mm:ss" }), colorize(), simple())
 
     this.logger = createLogger({
       exitOnError: false,

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from "zod"
 
 // ===========================
 // GET /api/user/:id
@@ -9,7 +9,7 @@ import { z } from 'zod'
  * GETリクエストのパスパラメータとして受け取る
  */
 export const getUserRequestSchema = z.object({
-  id: z.string().min(1, 'IDは必須です'),
+  id: z.string().min(1, "IDは必須です"),
 })
 
 /**

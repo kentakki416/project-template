@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
-import { logContext } from './context'
-import type { ILogger, LogMetadata } from './interface'
+import { logContext } from "./context"
+import type { ILogger, LogMetadata } from "./interface"
 
 /**
  * Console Logger
@@ -25,15 +25,15 @@ export class ConsoleLogger implements ILogger {
   }
 
   debug(message: string, metadata?: LogMetadata): void {
-    console.log(this.formatLog('debug', message, metadata))
+    console.log(this.formatLog("debug", message, metadata))
   }
 
   info(message: string, metadata?: LogMetadata): void {
-    console.log(this.formatLog('info', message, metadata))
+    console.log(this.formatLog("info", message, metadata))
   }
 
   warn(message: string, metadata?: LogMetadata): void {
-    console.warn(this.formatLog('warn', message, metadata))
+    console.warn(this.formatLog("warn", message, metadata))
   }
 
   error(message: string, error?: Error, metadata?: LogMetadata): void {
@@ -43,9 +43,9 @@ export class ConsoleLogger implements ILogger {
         stack: error.stack,
         ...metadata,
       }
-      console.error(this.formatLog('error', message, errorMetadata))
+      console.error(this.formatLog("error", message, errorMetadata))
     } else {
-      console.error(this.formatLog('error', message, metadata))
+      console.error(this.formatLog("error", message, metadata))
     }
   }
 }

@@ -13,7 +13,7 @@ You are an elite code reviewer with deep expertise in modern TypeScript, React, 
 
 2. **Verify adherence to project coding standards** as defined in CLAUDE.md:
    - No semicolons (semi: ["error", "never"])
-   - Single quotes for strings
+   - Double quotes for strings
    - Object curly spacing required ({ foo } not {foo})
    - Strict equality (=== not ==)
    - Import ordering: builtin → external → internal (@repo) → parent → sibling → index, with newlines between groups

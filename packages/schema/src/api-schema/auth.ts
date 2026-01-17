@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from "zod"
 
 // ========================================================
 // GET /api/auth/google/callback
@@ -8,7 +8,7 @@ import { z } from 'zod'
  * Google OAuth callbackのリクエストスキーマ
  */
 export const authGoogleCallbackRequestSchema = z.object({
-  code: z.string().min(1, 'Authorization code is required'),
+  code: z.string().min(1, "Authorization code is required"),
 })
 
 export type AuthGoogleCallbackRequest = z.infer<typeof authGoogleCallbackRequestSchema>

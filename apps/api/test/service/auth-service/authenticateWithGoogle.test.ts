@@ -1,5 +1,5 @@
-import { CharacterCode, User } from '../../../src/prisma/generated/client'
-import { authenticateWithGoogle } from '../../../src/service/auth-service'
+import { CharacterCode, User } from "../../../src/prisma/generated/client"
+import { authenticateWithGoogle } from "../../../src/service/auth-service"
 
 // モック
 const mockGetUserInfo = jest.fn()
@@ -20,38 +20,38 @@ const mockRepository = {
 }
 
 // JWT生成をモック
-jest.mock('../../../src/lib/jwt', () => ({
+jest.mock("../../../src/lib/jwt", () => ({
     generateToken: jest.fn((userId: number) => `mock-jwt-token-${userId}`),
 }))
 
-describe('authenticateWithGoogle', () => {
+describe("authenticateWithGoogle", () => {
     beforeEach(() => {
         jest.clearAllMocks()
     })
 
-    it('既存ユーザーの場合、ユーザー情報とJWTトークンを返す', async () => {
+    it("既存ユーザーの場合、ユーザー情報とJWTトークンを返す", async () => {
         // Arrange
         const mockGoogleUser = {
-            email: 'test@example.com',
-            id: 'google-123',
-            name: 'Test User',
-            picture: 'https://example.com/avatar.jpg',
+            email: "test@example.com",
+            id: "google-123",
+            name: "Test User",
+            picture: "https://example.com/avatar.jpg",
         }
 
         const mockExistingUser: User = {
-            avatarUrl: 'https://example.com/avatar.jpg',
+            avatarUrl: "https://example.com/avatar.jpg",
             createdAt: new Date(),
-            email: 'test@example.com',
+            email: "test@example.com",
             id: 1,
-            name: 'Test User',
+            name: "Test User",
             updatedAt: new Date(),
         }
 
         const mockExistingAccount = {
             createdAt: new Date(),
             id: 1,
-            provider: 'google' as const,
-            providerAccountId: 'google-123',
+            provider: "google" as const,
+            providerAccountId: "google-123",
             updatedAt: new Date(),
             user: mockExistingUser,
             userId: 1,
@@ -62,7 +62,7 @@ describe('authenticateWithGoogle', () => {
 
         // Act
         const result = await authenticateWithGoogle(
-            'auth-code',
+            "auth-code",
             mockRepository as any,
             mockGoogleAuthClient as any
         )
@@ -70,27 +70,27 @@ describe('authenticateWithGoogle', () => {
         // Assert
         expect(result.isNewUser).toBe(false)
         expect(result.user).toEqual(mockExistingUser)
-        expect(result.jwtToken).toBe('mock-jwt-token-1')
-        expect(mockGetUserInfo).toHaveBeenCalledWith('auth-code')
-        expect(mockFindByProvider).toHaveBeenCalledWith('google', 'google-123')
+        expect(result.jwtToken).toBe("mock-jwt-token-1")
+        expect(mockGetUserInfo).toHaveBeenCalledWith("auth-code")
+        expect(mockFindByProvider).toHaveBeenCalledWith("google", "google-123")
         expect(mockCreateUserWithAuthAccountAndUserCharacterTx).not.toHaveBeenCalled()
     })
 
-    it('新規ユーザーの場合、ユーザーを作成してJWTトークンを返す', async () => {
+    it("新規ユーザーの場合、ユーザーを作成してJWTトークンを返す", async () => {
         // Arrange
         const mockGoogleUser = {
-            email: 'newuser@example.com',
-            id: 'google-456',
-            name: 'New User',
-            picture: 'https://example.com/new-avatar.jpg',
+            email: "newuser@example.com",
+            id: "google-456",
+            name: "New User",
+            picture: "https://example.com/new-avatar.jpg",
         }
 
         const mockNewUser: User = {
-            avatarUrl: 'https://example.com/new-avatar.jpg',
+            avatarUrl: "https://example.com/new-avatar.jpg",
             createdAt: new Date(),
-            email: 'newuser@example.com',
+            email: "newuser@example.com",
             id: 2,
-            name: 'New User',
+            name: "New User",
             updatedAt: new Date(),
         }
 
@@ -100,7 +100,7 @@ describe('authenticateWithGoogle', () => {
 
         // Act
         const result = await authenticateWithGoogle(
-            'auth-code',
+            "auth-code",
             mockRepository as any,
             mockGoogleAuthClient as any
         )
@@ -108,39 +108,39 @@ describe('authenticateWithGoogle', () => {
         // Assert
         expect(result.isNewUser).toBe(true)
         expect(result.user).toEqual(mockNewUser)
-        expect(result.jwtToken).toBe('mock-jwt-token-2')
-        expect(mockGetUserInfo).toHaveBeenCalledWith('auth-code')
-        expect(mockFindByProvider).toHaveBeenCalledWith('google', 'google-456')
+        expect(result.jwtToken).toBe("mock-jwt-token-2")
+        expect(mockGetUserInfo).toHaveBeenCalledWith("auth-code")
+        expect(mockFindByProvider).toHaveBeenCalledWith("google", "google-456")
         expect(mockCreateUserWithAuthAccountAndUserCharacterTx).toHaveBeenCalledWith({
             authAccount: {
-                provider: 'google',
-                providerAccountId: 'google-456',
+                provider: "google",
+                providerAccountId: "google-456",
             },
             user: {
-                avatarUrl: 'https://example.com/new-avatar.jpg',
-                email: 'newuser@example.com',
-                name: 'New User',
+                avatarUrl: "https://example.com/new-avatar.jpg",
+                email: "newuser@example.com",
+                name: "New User",
             },
             userCharacter: {
                 characterCode: CharacterCode.TRAECHAN,
                 isActive: true,
-                nickName: 'トレちゃん',
+                nickName: "トレちゃん",
             },
         })
     })
 
-    it('Google認証エラー時にエラーをスローする', async () => {
+    it("Google認証エラー時にエラーをスローする", async () => {
         // Arrange
-        const mockError = new Error('Google authentication failed')
+        const mockError = new Error("Google authentication failed")
         mockGetUserInfo.mockRejectedValue(mockError)
 
         // Act & Assert
         await expect(
             authenticateWithGoogle(
-                'invalid-code',
+                "invalid-code",
                 mockRepository as any,
                 mockGoogleAuthClient as any
             )
-        ).rejects.toThrow('Google authentication failed')
+        ).rejects.toThrow("Google authentication failed")
     })
 })

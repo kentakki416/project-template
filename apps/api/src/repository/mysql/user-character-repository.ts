@@ -1,5 +1,5 @@
-import { PrismaClient , Prisma as PrismaTypes , CharacterCode as PrismaCharacterCode } from '../../prisma/generated/client'
-import { CharacterCode, UserCharacter } from '../../types/domain'
+import { PrismaClient , Prisma as PrismaTypes , CharacterCode as PrismaCharacterCode } from "../../prisma/generated/client"
+import { CharacterCode, UserCharacter } from "../../types/domain"
 
 /**
  * ユーザーキャラクター作成時の入力
@@ -32,7 +32,7 @@ export class PrismaUserCharacterRepository implements UserCharacterRepository {
 
     async findByUserId(userId: number): Promise<UserCharacter[]> {
         const prismaUserCharacters = await this._prisma.userCharacter.findMany({
-            orderBy: { createdAt: 'asc' },
+            orderBy: { createdAt: "asc" },
             where: { userId },
         })
 

@@ -1,9 +1,9 @@
-import pino from 'pino'
+import pino from "pino"
 
-import { NODE_ENV, LOG_LEVEL } from '../const'
+import { NODE_ENV, LOG_LEVEL } from "../const"
 
-import { logContext } from './context'
-import type { ILogger, LogMetadata } from './interface'
+import { logContext } from "./context"
+import type { ILogger, LogMetadata } from "./interface"
 
 type NodeEnv =  typeof NODE_ENV[keyof typeof NODE_ENV]
 
@@ -37,10 +37,10 @@ export class PinoLogger implements ILogger {
         : pino.transport({
             options: {
               colorize: true,
-              ignore: 'pid,hostname',
-              translateTime: 'yyyy-mm-dd HH:MM:ss',
+              ignore: "pid,hostname",
+              translateTime: "yyyy-mm-dd HH:MM:ss",
             },
-            target: 'pino-pretty',
+            target: "pino-pretty",
           })
     )
   }

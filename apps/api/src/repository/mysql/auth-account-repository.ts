@@ -1,5 +1,5 @@
-import { PrismaClient , Prisma as PrismaTypes } from '../../prisma/generated/client'
-import { AuthAccount, AuthAccountWithUser, User } from '../../types/domain'
+import { PrismaClient , Prisma as PrismaTypes } from "../../prisma/generated/client"
+import { AuthAccount, AuthAccountWithUser, User } from "../../types/domain"
 
 /**
  * 認証アカウント作成時の入力

@@ -1,9 +1,9 @@
-import { NextFunction, Request, Response } from 'express'
+import { NextFunction, Request, Response } from "express"
 
-import { ErrorResponse } from '@repo/api-schema'
+import { ErrorResponse } from "@repo/api-schema"
 
-import { PUBLIC_PATHS } from '../const'
-import { verifyToken } from '../lib/jwt'
+import { PUBLIC_PATHS } from "../const"
+import { verifyToken } from "../lib/jwt"
 
 export interface AuthRequest extends Request {
   userId?: number
@@ -18,9 +18,9 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
   try {
     const authHeader = req.headers.authorization
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       const errorResponse: ErrorResponse = {
-        error: 'No token provided',
+        error: "No token provided",
         status_code: 401,
       }
       return res.status(401).json(errorResponse)
@@ -31,7 +31,7 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
 
     if (!payload) {
       const errorResponse: ErrorResponse = {
-        error: 'Invalid or expired token',
+        error: "Invalid or expired token",
         status_code: 401,
       }
       return res.status(401).json(errorResponse)
@@ -41,7 +41,7 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
     return next()
   } catch {
     const errorResponse: ErrorResponse = {
-      error: 'Authentication failed',
+      error: "Authentication failed",
       status_code: 500,
     }
     res.status(500).json(errorResponse)

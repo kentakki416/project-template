@@ -39,7 +39,7 @@ module.exports = defineConfig([
 
       // === コードスタイル ===
       'object-curly-spacing': ['error', 'always'],  // { foo } のようにスペースを入れる
-      'quotes': ['error', 'single'],                 // シングルクォートを強制
+      'quotes': ['error', 'double'],                 // ダブルクォートを強制
       'semi': ['error', 'never'],                   // セミコロンを禁止
       'no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0, maxBOF: 0 }], // 連続する空行は最大1行、ファイルの先頭/末尾は0行
       'padded-blocks': ['error', 'never'], // ブロックの開始/終了での空行を禁止

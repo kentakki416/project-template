@@ -1,4 +1,4 @@
-import { OAuth2Client } from 'google-auth-library'
+import { OAuth2Client } from "google-auth-library"
 
 export type GoogleUserInfo = {
     email: string
@@ -19,8 +19,8 @@ type GoogleUserInfoResponse = {
 }
 
 export type GoogleAuthUrlOptions = {
-    accessType?: 'offline' | 'online'
-    prompt?: 'none' | 'consent' | 'select_account'
+    accessType?: "offline" | "online"
+    prompt?: "none" | "consent" | "select_account"
     scope?: string[]
     state?: string
 }
@@ -34,11 +34,11 @@ export class GoogleOAuthClient {
 
     public generateAuthUrl(options?: GoogleAuthUrlOptions): string {
         return this.oauth2Client.generateAuthUrl({
-            access_type: options?.accessType ?? 'offline',
-            prompt: options?.prompt ?? 'consent',
+            access_type: options?.accessType ?? "offline",
+            prompt: options?.prompt ?? "consent",
             scope: options?.scope ?? [
-                'https://www.googleapis.com/auth/userinfo.email',
-                'https://www.googleapis.com/auth/userinfo.profile'
+                "https://www.googleapis.com/auth/userinfo.email",
+                "https://www.googleapis.com/auth/userinfo.profile"
             ],
             state: options?.state
         })
@@ -48,7 +48,7 @@ export class GoogleOAuthClient {
         const { tokens } = await this.oauth2Client.getToken(code)
         this.oauth2Client.setCredentials(tokens)
 
-        const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
             headers: {
                 Authorization: `Bearer ${tokens.access_token}`
             }

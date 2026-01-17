@@ -1,5 +1,5 @@
-import { User } from '../../../src/prisma/generated/client'
-import { getUserById } from '../../../src/service/user-service'
+import { User } from "../../../src/prisma/generated/client"
+import { getUserById } from "../../../src/service/user-service"
 
 // モック
 const mockFindById = jest.fn()
@@ -8,19 +8,19 @@ const mockUserRepository = {
     findById: mockFindById,
 }
 
-describe('getUserById', () => {
+describe("getUserById", () => {
     beforeEach(() => {
         jest.clearAllMocks()
     })
 
-    it('ユーザーが存在する場合、ユーザー情報を返す', async () => {
+    it("ユーザーが存在する場合、ユーザー情報を返す", async () => {
         // Arrange
         const mockUser: User = {
-            avatarUrl: 'https://example.com/avatar.jpg',
+            avatarUrl: "https://example.com/avatar.jpg",
             createdAt: new Date(),
-            email: 'test@example.com',
+            email: "test@example.com",
             id: 1,
-            name: 'Test User',
+            name: "Test User",
             updatedAt: new Date(),
         }
 
@@ -35,7 +35,7 @@ describe('getUserById', () => {
         expect(mockFindById).toHaveBeenCalledTimes(1)
     })
 
-    it('ユーザーが存在しない場合、nullを返す', async () => {
+    it("ユーザーが存在しない場合、nullを返す", async () => {
         // Arrange
         mockFindById.mockResolvedValue(null)
 
@@ -48,14 +48,14 @@ describe('getUserById', () => {
         expect(mockFindById).toHaveBeenCalledTimes(1)
     })
 
-    it('データベースエラー時にエラーをスローする', async () => {
+    it("データベースエラー時にエラーをスローする", async () => {
         // Arrange
-        const mockError = new Error('Database connection failed')
+        const mockError = new Error("Database connection failed")
         mockFindById.mockRejectedValue(mockError)
 
         // Act & Assert
         await expect(getUserById(1, mockUserRepository as any)).rejects.toThrow(
-            'Database connection failed'
+            "Database connection failed"
         )
         expect(mockFindById).toHaveBeenCalledWith(1)
     })

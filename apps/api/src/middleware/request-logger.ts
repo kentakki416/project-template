@@ -1,10 +1,10 @@
-import type { Request, Response, NextFunction } from 'express'
-import { v4 as uuidv4 } from 'uuid'
+import type { Request, Response, NextFunction } from "express"
+import { v4 as uuidv4 } from "uuid"
 
-import { LOG_EXCLUDE_PATHS } from '../const'
-import { logger, logContext } from '../log'
+import { LOG_EXCLUDE_PATHS } from "../const"
+import { logger, logContext } from "../log"
 
-import type { AuthRequest } from './auth'
+import type { AuthRequest } from "./auth"
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
   // ヘルスチェック等はログ除外
@@ -15,25 +15,25 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
   const startTime = Date.now()
   const requestId = uuidv4()
   const authReq = req as AuthRequest
-  const userId = authReq.userId || 'unauthenticated'
+  const userId = authReq.userId || "unauthenticated"
 
   // AsyncLocalStorageでコンテキストを設定
   // この中で実行される全てのログに自動的にrequestId/userIdが含まれる
   logContext.run({ requestId, userId }, () => {
     // リクエスト受信時のログ
-    logger.info('API Request Received', {
+    logger.info("API Request Received", {
       duration: 0,
       ip: req.ip,
       method: req.method,
       path: req.originalUrl,
-      userAgent: req.get('user-agent') || 'unknown',
+      userAgent: req.get("user-agent") || "unknown",
     })
 
     // レスポンス完了時のログ
-    res.on('finish', () => {
+    res.on("finish", () => {
       const duration = Date.now() - startTime
 
-      logger.info('API Request Completed', {
+      logger.info("API Request Completed", {
         duration,
         method: req.method,
         path: req.originalUrl,
@@ -42,11 +42,11 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
     })
 
     // 予期しないクローズ時のログ（クライアント切断、タイムアウト等）
-    res.on('close', () => {
+    res.on("close", () => {
       if (!res.writableEnded) {
         const duration = Date.now() - startTime
 
-        logger.warn('API Request Closed Unexpectedly', {
+        logger.warn("API Request Closed Unexpectedly", {
           duration,
           method: req.method,
           path: req.originalUrl,

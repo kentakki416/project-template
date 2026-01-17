@@ -1,7 +1,7 @@
 /**
  * キャラクターコード
  */
-export type CharacterCode = 'TRAECHAN' | 'MASTER'
+export type CharacterCode = "TRAECHAN" | "MASTER"
 
 /**
  * キャラクタードメイン型
