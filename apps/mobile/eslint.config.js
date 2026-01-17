@@ -68,6 +68,18 @@ module.exports = defineConfig([
         },
       ],
       'import/no-duplicates': ['error', { 'prefer-inline': true }], // 同じソースからの重複importを禁止、inline type importを推奨
+
+      // === React: JSXインデント ===
+      "react/jsx-indent": ["error", 2], // JSX要素のインデントを2スペースに強制（子要素は親要素より深くインデント）
+      "react/jsx-indent-props": ["error", 2], // JSX属性のインデントを2スペースに強制
+
+      // === React: JSXタグのスペース ===
+      "react/jsx-tag-spacing": ["error", {
+        "closingSlash": "never",        // </> の / の前のスペース禁止
+        "beforeSelfClosing": "always",  // <Component /> の /> 前にスペース必須
+        "afterOpening": "never",        // < の後のスペース禁止（< Image> をエラーに）
+        "beforeClosing": "never"        // > の前のスペース禁止
+      }],      
       
       // === TypeScript: 型安全性 ===
       '@typescript-eslint/no-explicit-any': 'warn',                    // any型は警告
