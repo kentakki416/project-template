@@ -22,10 +22,12 @@ COPY packages/schema/package.json ./packages/schema/
 # 依存インストール
 RUN pnpm install --frozen-lockfile
 
-# ソースコードをコピー
+# 各パッケージのtsconfig.jsonをコピー
 COPY packages/schema/tsconfig.json ./packages/schema/
-COPY packages/schema/src/ ./packages/schema/src/
 COPY apps/api/tsconfig.json apps/api/tsconfig.build.json ./apps/api/
+
+# ソースコードをコピー
+COPY packages/schema/src/ ./packages/schema/src/
 COPY apps/api/src/ ./apps/api/src/
 
 # 共有スキーマパッケージをビルド → API をビルド
@@ -45,24 +47,26 @@ RUN pnpm deploy --filter api --prod /app/deploy
 # ==============================================================================
 FROM node:20-slim AS runner
 
+# tini: Node.js を PID 1 で直接実行すると SIGTERM 等のシグナルを正しく処理できず、SIGKILLによる強制削除が起きてしまうため
+# 軽量 init プロセスとして tini を使用。ECS Fargate では docker --init が使えないため必須。
+RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# non-root ユーザーを作成
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 --ingroup nodejs appuser
-
 # deploy ステージから本番依存をコピー
-COPY --from=builder /app/deploy/node_modules ./node_modules
-COPY --from=builder /app/deploy/package.json ./package.json
+COPY --chown=node:node --from=builder /app/deploy/node_modules ./node_modules
+COPY --chown=node:node --from=builder /app/deploy/package.json ./package.json
 
 # ビルド済みコードをコピー
-COPY --from=builder /app/apps/api/dist ./dist
-
-ENV NODE_ENV=production
-ENV PORT=8080
+COPY --chown=node:node --from=builder /app/apps/api/dist ./dist
 
 EXPOSE 8080
 
-USER appuser
+# ENTRYPOINT: コンテナ起動時に必ず実行されるコマンド。CMD の内容が引数として渡される。
+# 実行されるコマンド: /usr/bin/tini -- node dist/index.js
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# root で実行すると脆弱性を突かれた際にホストへの影響が大きいため、非特権ユーザーで実行
+USER node
 
 CMD ["node", "dist/index.js"]

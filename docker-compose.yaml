@@ -13,7 +13,7 @@ services:
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
-      - --default-authentication-plugin=caching_sha2_password
+      - --default-authentication-plugin=mysql_native_password
     ports:
       - '3306:3306'
     volumes:
@@ -52,20 +52,21 @@ services:
     container_name: project_template_api
     restart: unless-stopped
     environment:
-      NODE_ENV: production
+      NODE_ENV: local
       PORT: 8080
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: project_template_dev
       DB_USER: mysql
       DB_PASSWORD: password
-      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       CORS_ORIGIN: http://localhost:3000
       JWT_SECRET: your-secret-key-change-in-production
       JWT_EXPIRATION: 7d
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
+      GOOGLE_CLIENT_ID: google-client-id
+      GOOGLE_CLIENT_SECRET: google-client-secret
+      GOOGLE_CALLBACK_URL: http://localhost/google
     ports:
       - '8080:8080'
     depends_on:
