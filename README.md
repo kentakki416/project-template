@@ -91,6 +91,7 @@ cd packages/schema && pnpm build
 
 5. 開発サーバーの起動:
 ```bash
+# ルートに移動して
 pnpm dev
 ```
 

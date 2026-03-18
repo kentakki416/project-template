@@ -11,4 +11,5 @@ export const errorResponseSchema = z.object({
 export type ErrorResponse = z.infer<typeof errorResponseSchema>
 
 export * from "./auth"
+export * from "./health"
 export * from "./user"

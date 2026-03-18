@@ -2,20 +2,26 @@ import cors from "cors"
 import express from "express"
 
 import { GoogleOAuthClient } from "./client/google-oauth"
+import { redis } from "./client/redis"
 import { AuthGoogleController } from "./controller/auth/google"
 import { AuthGoogleCallbackController } from "./controller/auth/google-callback"
 import { AuthMeController } from "./controller/auth/me"
+import { HealthLivenessController } from "./controller/health/liveness"
+import { HealthReadinessController } from "./controller/health/readiness"
 import { logger } from "./log"
 import { authMiddleware } from "./middleware/auth"
 import { requestLogger } from "./middleware/request-logger"
 import { prisma } from "./prisma/prisma.client"
 import {
   PrismaAuthAccountRepository,
+  PrismaDatabaseHealthRepository,
   PrismaUserRepository,
   // PrismaUserCharacterRepository,
   PrismaUserRegistrationRepository
 } from "./repository/mysql"
+import { IoRedisHealthRepository } from "./repository/redis"
 import { authRouter } from "./routes/auth-router"
+import { healthRouter } from "./routes/health-router"
 
 const app = express()
 const PORT = process.env.PORT || 8080
@@ -42,8 +48,9 @@ if (!process.env.JWT_SECRET) {
 // Repository のインスタンス化
 const userRepository = new PrismaUserRepository(prisma)
 const authAccountRepository = new PrismaAuthAccountRepository(prisma)
-// const userCharacterRepository = new PrismaUserCharacterRepository(prisma)
 const userRegistrationRepository = new PrismaUserRegistrationRepository(prisma)
+const databaseHealthRepository = new PrismaDatabaseHealthRepository(prisma)
+const redisHealthRepository = new IoRedisHealthRepository(redis)
 
 // Client のインスタンス化
 const googleOAuthClient = new GoogleOAuthClient(
@@ -52,7 +59,11 @@ const googleOAuthClient = new GoogleOAuthClient(
   process.env.GOOGLE_CALLBACK_URL
 )
 
-// Controller のインスタンス化
+// Health Controller のインスタンス化
+const healthLivenessController = new HealthLivenessController()
+const healthReadinessController = new HealthReadinessController(databaseHealthRepository, redisHealthRepository)
+
+// Auth Controller のインスタンス化
 const authGoogleController = new AuthGoogleController(googleOAuthClient)
 const authGoogleCallbackController = new AuthGoogleCallbackController(
   authAccountRepository,
@@ -75,10 +86,14 @@ app.use(express.json())
 // 認証ミドルウェア
 app.use(authMiddleware)
 
-// リクエストのロギングミドルウェア（認証前に配置することで全リクエストをログ）
+// リクエストのロギングミドルウェア
 app.use(requestLogger)
 
 // ルーティング
+app.use(
+  "/api/health",
+  healthRouter(healthLivenessController, healthReadinessController)
+)
 app.use(
   "/api/auth",
   authRouter(authGoogleController, authGoogleCallbackController, authMeController)
@@ -96,8 +111,11 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on("SIGTERM", async () => {
   logger.info("SIGTERM signal received: closing HTTP server")
-  await prisma.$disconnect()
-  logger.info("Database connection closed")
+  await Promise.all([
+    prisma.$disconnect(),
+    redis.quit(),
+  ])
+  logger.info("Database and Redis connections closed")
   process.exit(0)
 })
 

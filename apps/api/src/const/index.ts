@@ -32,6 +32,7 @@ export const NODE_ENV = {
 export const PUBLIC_PATHS = [
   "/api/auth/google",
   "/api/auth/google/callback",
+  "/api/health",
 ] as const
 
 /**
@@ -40,4 +41,5 @@ export const PUBLIC_PATHS = [
  */
 export const LOG_EXCLUDE_PATHS = [
   "/api/health",
+  "/api/health/ready",
 ] as const
