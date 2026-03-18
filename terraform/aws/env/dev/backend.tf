@@ -10,10 +10,10 @@
 
 terraform {
   backend "s3" {
-    bucket         = "my-project-terraform-state" # ← bootstrap/variables.tfと同じ値に変更
+    bucket         = "my-project-terraform-state" # TODO: bootstrap/variables.tfと同じ値に変更
     key            = "dev/terraform.tfstate"
     region         = "ap-northeast-1"
-    dynamodb_table = "terraform-state-lock" # ← bootstrap/variables.tfと同じ値に変更
+    dynamodb_table = "terraform-state-lock" # TODO: bootstrap/variables.tfと同じ値に変更
     encrypt        = true
   }
 }

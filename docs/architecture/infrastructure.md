@@ -71,7 +71,7 @@ graph LR
 
 | サービス | ポート | 設定 |
 |---------|--------|------|
-| MySQL 8.0 | 3306 | DB: `project_template_dev`, charset: `utf8mb4` |
+| MySQL 8.0 | 3306 | DB: `project_template_dev`, charset: `utf8mb4` | <!-- TODO: DB名をプロジェクト名に変更 -->
 | Redis 7 | 6379 | AOF 永続化有効 |
 | API Server | 8080 | `ts-node-dev` によるホットリロード |
 | Web App | 3000 | `next dev` |

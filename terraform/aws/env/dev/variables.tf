@@ -12,7 +12,7 @@
 variable "project_name" {
   description = "プロジェクト名"
   type        = string
-  default     = "my-project" # ← bootstrapと同じプロジェクト名に変更してください
+  default     = "my-project" # TODO: bootstrapと同じプロジェクト名に変更してください
 }
 
 variable "environment" {
@@ -34,7 +34,7 @@ variable "aws_region" {
 variable "terraform_state_bucket" {
   description = "Terraform State保存用のS3バケット名（bootstrapで作成したバケット名）"
   type        = string
-  default     = "my-project-terraform-state" # ← bootstrapで作成したバケット名に変更してください
+  default     = "my-project-terraform-state" # TODO: bootstrapで作成したバケット名に変更してください
 }
 
 variable "terraform_state_lock_table" {
@@ -104,7 +104,7 @@ variable "log_retention_days" {
 variable "github_repository" {
   description = "GitHubリポジトリ（例: owner/repo-name）"
   type        = string
-  default     = "your-org/project-template" # ← 実際のリポジトリに変更してください
+  default     = "your-org/project-template" # TODO: 実際のリポジトリに変更してください
 }
 
 # =============================================================================
