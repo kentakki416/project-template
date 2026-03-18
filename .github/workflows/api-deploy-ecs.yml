@@ -26,7 +26,7 @@ env:
   ## TODO 適切なプロジェクト名に変更してください
   ECS_CLUSTER: ecs-sample
   ECS_SERVICE: ecs-sample-api-service
-  TASK_DEFINITION_FAMILY: my-project-dev-task
+  TASK_DEFINITION_FAMILY: ecs-sample-api
   ECR_REPOSITORY: ecs-sample-api
   CONTAINER_NAME: ecs-sample-api
 
