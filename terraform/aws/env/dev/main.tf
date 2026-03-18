@@ -211,3 +211,32 @@ module "ecs" {
     }
   )
 }
+
+# =============================================================================
+# CI/CD設定 (GitHub Actions OIDC)
+# =============================================================================
+
+# GitHub OIDC モジュール呼び出し
+# - GitHub Actions から OIDC 認証で AWS リソースにアクセス
+# - 長期的なアクセスキー不要で安全にデプロイ
+module "github_oidc" {
+  source = "../../modules/github-oidc"
+
+  # === 基本設定 ===
+  project_name      = var.project_name
+  environment       = var.environment
+  github_repository = var.github_repository
+
+  # === ポリシー設定 ===
+  ecr_push_policy_arn        = module.ecr.ecr_push_policy_arn
+  ecs_task_execution_role_arn = module.ecs.task_execution_role_arn
+
+  # === タグ設定 ===
+  tags = merge(
+    local.common_tags,
+    {
+      Name      = "${local.name_prefix}-github-oidc"
+      Component = "CI/CD"
+    }
+  )
+}
