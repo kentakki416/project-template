@@ -1,50 +1,9 @@
-# Terraform Infrastructure
-
-![Terraform](https://img.shields.io/badge/Terraform-7B42BC?style=for-the-badge&logo=terraform&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-232F3E?style=for-the-badge&logo=amazonwebservices&logoColor=white)
-
 ## 概要
+本プロジェクトのTerraformによるIaC。
 
-本プロジェクトのAWSインフラストラクチャをTerraformで管理しています。
-
-## インフラ構成図
-
-[`docs/infrastructure.drawio`](docs/infrastructure.drawio) に draw.io 形式のインフラ構成図があります。
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ AWS Cloud                                                   │
-│                                                             │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │ VPC (10.0.0.0/16)                                     │  │
-│  │                                                       │  │
-│  │  ┌─────────────────┐  ┌─────────────────┐             │  │
-│  │  │ Public Subnet   │  │ Public Subnet   │             │  │
-│  │  │ AZ-a            │  │ AZ-c            │             │  │
-│  │  │  ┌───────────┐  │  │  ┌───────────┐  │             │  │
-│  │  │  │    ALB    │◄─┼──┼──┤ Internet  │  │             │  │
-│  │  │  └───────────┘  │  │  │  Gateway  │  │             │  │
-│  │  │  ┌───────────┐  │  │  └───────────┘  │             │  │
-│  │  │  │ NAT GW    │  │  │                 │             │  │
-│  │  │  └─────┬─────┘  │  │                 │             │  │
-│  │  └────────┼────────┘  └─────────────────┘             │  │
-│  │           │                                           │  │
-│  │  ┌────────┼────────┐  ┌─────────────────┐             │  │
-│  │  │ Private Subnet  │  │ Private Subnet  │             │  │
-│  │  │ AZ-a            │  │ AZ-c            │             │  │
-│  │  │  ┌───────────┐  │  │  ┌───────────┐  │  ┌───────┐ │  │
-│  │  │  │ ECS       │  │  │  │ ECS       │  │  │ ECR   │ │  │
-│  │  │  │ Fargate   │  │  │  │ Fargate   │  │  │       │ │  │
-│  │  │  └───────────┘  │  │  └───────────┘  │  └───────┘ │  │
-│  │  └─────────────────┘  └─────────────────┘             │  │
-│  │                                                       │  │
-│  │  ┌─────────────────┐                                  │  │
-│  │  │ CloudWatch Logs │                                  │  │
-│  │  └─────────────────┘                                  │  │
-│  └────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
+- **Trivy**: Aqua Security製のOSSセキュリティスキャナ。Terraform設定ファイルのミスコンフィグや脆弱性を検出する
+- **Checkov**: Bridgecrew製の静的解析ツール。Terraformコードがセキュリティベストプラクティスやコンプライアンスポリシーに準拠しているかチェックする
+- **TFLint**: Terraform専用のリンター。非推奨構文やプロバイダ固有のルール違反を検出する
 ## ディレクトリ構成
 
 ```
@@ -69,85 +28,40 @@ terraform/
 ### 必要なツール
 
 ```bash
-brew install terraform
-brew install tfsec
+brew install terraform tflint trivy
 python3 -m pip install checkov
-brew install trivy
 ```
 
-### AWS認証
-
-ローカルで実行する場合、管理者からシークレット情報をもらい、AWS認証情報を設定してください。
+### セットアップ
 
 ```bash
+# AWS認証（管理者からシークレット情報を取得して設定）
 aws configure
 export AWS_DEFAULT_REGION="ap-northeast-1"
-```
 
-### Terraform 初期化
-
-```bash
+# Terraform初期化（初回のみ）
 cd aws/env/dev
 terraform init
 ```
 
-## 実行コマンド
-
-### 差分検知
+## コマンド
 
 ```bash
+# --- デプロイ関連 ---
 cd aws/env/dev
-terraform plan
-```
+terraform plan      # 差分検知
+terraform apply     # デプロイ
+terraform destroy   # 削除
 
-### デプロイ
+# --- リント・バリデーション ---
+terraform fmt -check -recursive -diff                                    # フォーマットチェック
+terraform validate                                                       # バリデーション（aws/env/dev内で実行）
+tflint --init                                                            # TFLint初期化（初回のみ）
+tflint --chdir=aws/env/dev --config=$(pwd)/.tflint.hcl --recursive      # TFLintチェック
 
-```bash
-cd aws/env/dev
-terraform apply
-```
-
-### 削除
-
-```bash
-cd aws/env/dev
-terraform destroy
-```
-
-## 開発コマンド
-
-### フォーマット整形
-
-```bash
-terraform fmt -check -recursive -diff
-```
-
-### バリデーションチェック
-
-```bash
-cd aws/env/dev
-terraform validate
-```
-
-### TFLint
-
-```bash
-tflint --init
-tflint --chdir=aws/env/dev --config=$(pwd)/.tflint.hcl --recursive
-```
-
-### Checkov ポリシーチェック
-
-```bash
-checkov -d . --framework terraform --config-file .checkov.yml
-```
-
-## セキュリティチェック
-
-### Trivy 脆弱性チェック
-
-```bash
-trivy config aws/env/dev -c .trivy.yml
+# --- セキュリティスキャン ---
+checkov -d . --framework terraform --config-file .checkov.yml   # Checkov ポリシーチェック
+trivy config aws/env/dev -c .trivy.yml                          # Trivy 脆弱性・ミスコンフィグチェック
 ```
 
 ## Terraformモジュール一覧
