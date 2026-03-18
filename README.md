@@ -132,6 +132,16 @@ pnpm --filter <workspace-name> remove <package-name>
 pnpm clean && pnpm install
 ```
 
+### 環境変数の管理（dotenvx）
+
+```bash
+# .env.local の暗号化
+cd apps/api && pnpm exec dotenvx encrypt -f .env.local
+
+# .env.local の復号化
+cd apps/api && pnpm exec dotenvx decrypt -f .env.local
+```
+
 ### Docker環境の起動
 
 ```bash

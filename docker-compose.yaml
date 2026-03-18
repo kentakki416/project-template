@@ -44,34 +44,37 @@ services:
     networks:
       - app-network
 
-  # API Server (Future)
-  # Uncomment when ready to containerize the API server
-  # api:
-  #   build:
-  #     context: .
-  #     dockerfile: apps/api/Dockerfile
-  #   container_name: project_template_-api
-  #   restart: unless-stopped
-  #   environment:
-  #     NODE_ENV: development
-  #     PORT: 8080
-  #     DATABASE_URL: mysql://mysql:password@mysql:3306/project_template_dev
-  #     REDIS_URL: redis://redis:6379
-  #     CORS_ORIGIN: http://localhost:3000
-  #     JWT_SECRET: your-secret-key-change-in-production
-  #     JWT_EXPIRATION: 7d
-  #   ports:
-  #     - '8080:8080'
-  #   volumes:
-  #     - ./apps/api:/app/apps/api
-  #     - /app/node_modules
-  #   depends_on:
-  #     mysql:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - app-network
+  # API Server
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: project_template_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: project_template_dev
+      DB_USER: mysql
+      DB_PASSWORD: password
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGIN: http://localhost:3000
+      JWT_SECRET: your-secret-key-change-in-production
+      JWT_EXPIRATION: 7d
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
+    ports:
+      - '8080:8080'
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
 
 volumes:
   mysql_data:
