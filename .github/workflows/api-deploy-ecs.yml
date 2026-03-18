@@ -21,14 +21,13 @@ defaults:
 
 env:
   AWS_REGION: ap-northeast-1
-  # Terraform の命名規則: ${project_name}-${environment}-xxx
-  # 実際の値に合わせて変更してください
-  ## TODO 適切なプロジェクト名に変更してください
-  ECS_CLUSTER: ecs-sample
-  ECS_SERVICE: ecs-sample-api-service
-  TASK_DEFINITION_FAMILY: ecs-sample-api
-  ECR_REPOSITORY: ecs-sample-api
-  CONTAINER_NAME: ecs-sample-api
+  ## TODO: 以下の値をプロジェクトに合わせて変更してください
+  ## 命名規則: Terraform の ${project_name}-${environment}-xxx に合わせる
+  ECS_CLUSTER: ecs-sample              # TODO: ECS クラスター名に変更
+  ECS_SERVICE: ecs-sample-api-service   # TODO: ECS サービス名に変更
+  TASK_DEFINITION_FAMILY: ecs-sample-api # TODO: ECS タスク定義のファミリー名に変更
+  ECR_REPOSITORY: ecs-sample-api        # TODO: ECR リポジトリ名に変更
+  CONTAINER_NAME: ecs-sample-api        # TODO: タスク定義内のコンテナ名に変更
 
 jobs:
   build:
@@ -41,6 +40,7 @@ jobs:
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
+          ## TODO: GitHub リポジトリの Settings → Secrets に AWS_ROLE_ARN を登録してください
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
@@ -54,6 +54,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           docker build \
+            --platform linux/amd64 \
             -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:${{ github.sha }} \
             -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest \
             -f apps/api/Dockerfile .
@@ -71,6 +72,7 @@ jobs:
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
+          ## TODO: GitHub リポジトリの Settings → Secrets に AWS_ROLE_ARN を登録してください
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
