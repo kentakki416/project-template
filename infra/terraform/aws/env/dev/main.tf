@@ -8,8 +8,7 @@ locals {
   name_prefix = "${var.project_name}-${var.environment}"
 
   # サブネットCIDRの計算
-  public_subnet_cidrs  = [for i in range(2) : cidrsubnet(var.vpc_cidr, 8, i + 1)]
-  private_subnet_cidrs = [for i in range(2) : cidrsubnet(var.vpc_cidr, 8, i + 11)]
+  public_subnet_cidrs = [for i in range(2) : cidrsubnet(var.vpc_cidr, 8, i + 1)]
 
   # 共通タグ
   common_tags = merge(
@@ -43,7 +42,7 @@ module "ecr" {
 
 # VPCモジュール呼び出し
 # - 開発環境用のシンプルなネットワークを構築
-# - パブリックサブネットとプライベートサブネットを使用
+# - パブリックサブネットのみ使用
 module "vpc" {
   source = "../../modules/vpc"
 
@@ -53,47 +52,25 @@ module "vpc" {
   enable_dns_support      = true
   enable_dns_hostnames    = true
   create_internet_gateway = true
-  create_nat_gateway      = true
+  create_nat_gateway      = false
 
   # === サブネット設定 ===
-  subnets = merge(
-    # パブリックサブネット
-    {
-      for i, az in var.availability_zones : "public-${i + 1}" => {
-        cidr_block        = local.public_subnet_cidrs[i]
-        availability_zone = az
-        subnet_type       = "public"
-      }
-    },
-    # プライベートサブネット
-    {
-      for i, az in var.availability_zones : "private-${i + 1}" => {
-        cidr_block        = local.private_subnet_cidrs[i]
-        availability_zone = az
-        subnet_type       = "private"
-      }
+  subnets = {
+    for i, az in var.availability_zones : "public-${i + 1}" => {
+      cidr_block        = local.public_subnet_cidrs[i]
+      availability_zone = az
+      subnet_type       = "public"
     }
-  )
+  }
 
   # === ルートテーブル設定 ===
-  route_tables = merge(
-    # パブリックサブネット用
-    {
-      for i in range(length(var.availability_zones)) : "public-${i + 1}-rt" => {
-        global_type    = "public"
-        subnet_id      = module.vpc.subnets["public-${i + 1}"].id
-        route_table_id = module.vpc.igw_route_table_id
-      }
-    },
-    # プライベートサブネット用
-    {
-      for i in range(length(var.availability_zones)) : "private-${i + 1}-rt" => {
-        global_type    = "private"
-        subnet_id      = module.vpc.subnets["private-${i + 1}"].id
-        route_table_id = module.vpc.nat_route_table_id
-      }
+  route_tables = {
+    for i in range(length(var.availability_zones)) : "public-${i + 1}-rt" => {
+      global_type    = "public"
+      subnet_id      = module.vpc.subnets["public-${i + 1}"].id
+      route_table_id = module.vpc.igw_route_table_id
     }
-  )
+  }
 
   # === セキュリティグループ定義 ===
   security_groups = {
@@ -127,8 +104,6 @@ module "vpc" {
     }
   ]
 
-  # === NAT Gateway設定 ===
-  nat_gateway_subnet_id = module.vpc.subnets["public-1"].id
 }
 
 # =============================================================================
@@ -190,10 +165,10 @@ module "ecs" {
   network_configuration = {
     subnets = [
       for i in range(length(var.availability_zones)) :
-      module.vpc.subnets["private-${i + 1}"].id
+      module.vpc.subnets["public-${i + 1}"].id
     ]
     security_groups  = [module.vpc.security_groups["ecs_sg"].id]
-    assign_public_ip = false
+    assign_public_ip = true
   }
 
   # === ロードバランサー連携 ===
@@ -228,7 +203,7 @@ module "github_oidc" {
   github_repository = var.github_repository
 
   # === ポリシー設定 ===
-  ecr_push_policy_arn        = module.ecr.ecr_push_policy_arn
+  ecr_push_policy_arn         = module.ecr.ecr_push_policy_arn
   ecs_task_execution_role_arn = module.ecs.task_execution_role_arn
 
   # === タグ設定 ===

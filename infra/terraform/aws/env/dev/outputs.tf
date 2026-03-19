@@ -17,14 +17,6 @@ output "public_subnet_ids" {
   ]
 }
 
-output "private_subnet_ids" {
-  description = "プライベートサブネットIDのリスト"
-  value = [
-    for i in range(length(var.availability_zones)) :
-    module.vpc.subnets["private-${i + 1}"].id
-  ]
-}
-
 # ALB
 output "alb_dns_name" {
   description = "ALBのDNS名（アプリケーションへのアクセスURL）"
