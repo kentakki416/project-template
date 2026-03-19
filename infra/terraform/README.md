@@ -2,8 +2,8 @@
 本プロジェクトのTerraformによるIaCディレクトリ
 
 ### 外部ツール
-- **Trivy**: Aqua Security製のOSSセキュリティスキャナ。Terraform設定ファイルのミスコンフィグや脆弱性を検出する
-- **TFLint**: Terraform専用のリンター。非推奨構文やプロバイダ固有のルール違反を検出する
+- **[Trivy](https://trivy.dev/)**: Aqua Security製のOSSセキュリティスキャナ。Terraform設定ファイルのミスコンフィグや脆弱性を検出する
+- **[TFLint](https://github.com/terraform-linters/tflint)**: Terraform専用のリンター。非推奨構文やプロバイダ固有のルール違反を検出する
 
 ## ディレクトリ構成
 

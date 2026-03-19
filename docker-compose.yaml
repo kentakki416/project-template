@@ -1,13 +1,13 @@
-## TODO: container_name と DB_NAME の "project_template" 部分をプロジェクト名に変更してください
+## TODO: container_name と DB_NAME の "project-template" 部分をプロジェクト名に変更してください
 services:
   # MySQL Database
   mysql:
     image: mysql:8.0
-    container_name: project_template_mysql # TODO: プロジェクト名に変更
+    container_name: project-template-mysql # TODO: プロジェクト名に変更
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: project_template_dev # TODO: プロジェクト名に変更
+      MYSQL_DATABASE: project_template_dev # TODO: プロジェクト名に変更（MySQL DB名はアンダースコア推奨）
       MYSQL_USER: mysql
       MYSQL_PASSWORD: password
       TZ: Asia/Tokyo
@@ -30,7 +30,7 @@ services:
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: project_template_redis # TODO: プロジェクト名に変更
+    container_name: project-template-redis # TODO: プロジェクト名に変更
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
@@ -50,14 +50,14 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    container_name: project_template_api # TODO: プロジェクト名に変更
+    container_name: project-template-api # TODO: プロジェクト名に変更
     restart: unless-stopped
     environment:
       NODE_ENV: local
       PORT: 8080
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_NAME: project_template_dev # TODO: MYSQL_DATABASE と同じ値に変更
+      DB_NAME: project_template_dev # TODO: MYSQL_DATABASE と同じ値に変更（MySQL DB名はアンダースコア推奨）
       DB_USER: mysql
       DB_PASSWORD: password
       REDIS_HOST: redis

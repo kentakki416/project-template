@@ -5,7 +5,7 @@
 variable "project_name" {
   description = "プロジェクト名"
   type        = string
-  default     = "my-project" # TODO: bootstrapと同じプロジェクト名に変更してください
+  default     = "project-template" # TODO: bootstrapと同じプロジェクト名に変更してください
 }
 
 variable "environment" {
@@ -27,13 +27,13 @@ variable "aws_region" {
 variable "terraform_state_bucket" {
   description = "Terraform State保存用のS3バケット名（bootstrapで作成したバケット名）"
   type        = string
-  default     = "my-project-terraform-state" # TODO: bootstrapで作成したバケット名に変更してください
+  default     = "project-template-terraform-state" # TODO: bootstrapで作成したバケット名に変更してください
 }
 
 variable "terraform_state_lock_table" {
   description = "Terraform State Lock用のDynamoDBテーブル名（bootstrapで作成したテーブル名）"
   type        = string
-  default     = "terraform-state-lock"
+  default     = "project-template-terraform-state-lock"
 }
 
 # =============================================================================

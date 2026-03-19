@@ -23,11 +23,11 @@ env:
   AWS_REGION: ap-northeast-1
   ## TODO: 以下の値をプロジェクトに合わせて変更してください
   ## 命名規則: Terraform の ${project_name}-${environment}-xxx に合わせる
-  ECS_CLUSTER: ecs-sample              # TODO: ECS クラスター名に変更
-  ECS_SERVICE: ecs-sample-api-service   # TODO: ECS サービス名に変更
-  TASK_DEFINITION_FAMILY: ecs-sample-api # TODO: ECS タスク定義のファミリー名に変更
-  ECR_REPOSITORY: ecs-sample-api        # TODO: ECR リポジトリ名に変更
-  CONTAINER_NAME: ecs-sample-api        # TODO: タスク定義内のコンテナ名に変更
+  ECS_CLUSTER: project-template-dev-cluster       # TODO: ECS クラスター名に変更
+  ECS_SERVICE: project-template-dev-service        # TODO: ECS サービス名に変更
+  TASK_DEFINITION_FAMILY: project-template-dev-task # TODO: ECS タスク定義のファミリー名に変更
+  ECR_REPOSITORY: project-template-server-dev      # TODO: ECR リポジトリ名に変更
+  CONTAINER_NAME: project-template-dev-app         # TODO: タスク定義内のコンテナ名に変更
 
 jobs:
   build:
