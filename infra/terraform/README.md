@@ -1,9 +1,11 @@
 ## 概要
-本プロジェクトのTerraformによるIaC。
+本プロジェクトのTerraformによるIaCディレクトリ
 
+### 外部ツール
 - **Trivy**: Aqua Security製のOSSセキュリティスキャナ。Terraform設定ファイルのミスコンフィグや脆弱性を検出する
 - **Checkov**: Bridgecrew製の静的解析ツール。Terraformコードがセキュリティベストプラクティスやコンプライアンスポリシーに準拠しているかチェックする
 - **TFLint**: Terraform専用のリンター。非推奨構文やプロバイダ固有のルール違反を検出する
+
 ## ディレクトリ構成
 
 ```
@@ -25,7 +27,7 @@ terraform/
 
 ## クイックスタート
 
-### 必要なツール
+### 必要なツールのインストール
 
 ```bash
 brew install terraform tflint trivy
@@ -72,7 +74,19 @@ cd aws/env/dev
 terraform init
 ```
 
-## コマンド
+#### 3. リソースのデプロイ
+リソースをデプロイします。詳細は以下のインフラ図を参照してください。
+- [AWS インフラ構成図](./aws-infrastructure.drawio)
+
+```bash
+cd aws/env/dev
+
+terraform plan
+
+terrafomr apply
+```
+
+## コマンド集
 
 ```bash
 # --- デプロイ関連 ---
@@ -91,12 +105,3 @@ tflint --chdir=aws/env/dev --config=$(pwd)/.tflint.hcl --recursive      # TFLint
 checkov -d . --framework terraform --config-file .checkov.yml   # Checkov ポリシーチェック
 trivy config aws/env/dev -c .trivy.yml                          # Trivy 脆弱性・ミスコンフィグチェック
 ```
-
-## Terraformモジュール一覧
-
-| モジュール | 説明 |
-|-----------|------|
-| `vpc` | VPC、サブネット（パブリック/プライベート）、Internet Gateway、NAT Gateway、ルートテーブル、セキュリティグループ |
-| `alb` | Application Load Balancer、ターゲットグループ、リスナー |
-| `ecs` | ECS Fargate クラスター、タスク定義、サービス、IAMロール、CloudWatch Logs |
-| `ecr` | Elastic Container Registry（Dockerイメージ管理） |
