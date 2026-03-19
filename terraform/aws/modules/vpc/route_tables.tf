@@ -1,4 +1,8 @@
-### route table for igw
+# =============================================================================
+# Route Tables
+# =============================================================================
+
+# Route table for Internet Gateway
 resource "aws_route_table" "route_table_igw" {
   count = var.create_internet_gateway ? 1 : 0
 
@@ -8,7 +12,7 @@ resource "aws_route_table" "route_table_igw" {
   }
 }
 
-### route table detail for igw
+# Route for Internet Gateway
 resource "aws_route" "global_igw" {
   count = var.create_internet_gateway ? 1 : 0
 
@@ -17,7 +21,7 @@ resource "aws_route" "global_igw" {
   destination_cidr_block = "0.0.0.0/0"
 }
 
-### route table for nat gateway
+# Route table for NAT Gateway
 resource "aws_route_table" "route_table_nat" {
   count = var.create_nat_gateway ? 1 : 0
 
@@ -27,7 +31,7 @@ resource "aws_route_table" "route_table_nat" {
   }
 }
 
-### route table detail for nat gateway
+# Route for NAT Gateway
 resource "aws_route" "global_nat" {
   count = var.create_nat_gateway ? 1 : 0
 
@@ -36,7 +40,7 @@ resource "aws_route" "global_nat" {
   destination_cidr_block = "0.0.0.0/0"
 }
 
-### route table for subnet
+# Route tables for subnets
 resource "aws_route_table" "route_tables" {
   for_each = var.route_tables
   vpc_id   = aws_vpc.vpc.id
@@ -45,7 +49,7 @@ resource "aws_route_table" "route_tables" {
   }
 }
 
-### route table association
+# Route table associations
 resource "aws_route_table_association" "route_table_associations" {
   for_each = var.route_tables
 

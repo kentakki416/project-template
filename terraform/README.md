@@ -38,9 +38,37 @@ python3 -m pip install checkov
 # AWS認証（管理者からシークレット情報を取得して設定）
 aws configure
 export AWS_DEFAULT_REGION="ap-northeast-1"
+```
 
-# Terraform初期化（初回のみ）
+#### 1. Bootstrap（初回のみ）
+
+tfstateを管理するためのS3バケットとDynamoDBテーブルを作成します。
+
+```bash
+cd aws/bootstrap
+
+# 1. variables.tf の以下のデフォルト値をプロジェクトに合わせて変更
+#    - project_name
+#    - s3_bucket_name（AWSグローバルで一意にする）
+#    - dynamodb_table_name
+
+# 2. リソースを作成
+terraform init
+terraform plan
+terraform apply
+```
+
+#### 2. Backend設定
+
+Bootstrapで作成したリソースを環境側のbackendに反映します。
+
+```bash
 cd aws/env/dev
+
+# backend.tf の以下の値をBootstrapで作成した値に更新
+#   - bucket（= bootstrap の s3_bucket_name）
+#   - dynamodb_table（= bootstrap の dynamodb_table_name）
+
 terraform init
 ```
 

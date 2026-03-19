@@ -1,3 +1,7 @@
+# =============================================================================
+# DynamoDB Table for Terraform State Lock
+# =============================================================================
+
 # Terraform state lock用のDynamoDBテーブル
 resource "aws_dynamodb_table" "terraform_state_lock" {
   name         = var.dynamodb_table_name

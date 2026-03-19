@@ -1,3 +1,7 @@
+# =============================================================================
+# ECR Resources
+# =============================================================================
+
 resource "aws_ecr_repository" "server" {
   name                 = "${var.project_name}-server-${var.environment}"
   image_tag_mutability = "MUTABLE"
