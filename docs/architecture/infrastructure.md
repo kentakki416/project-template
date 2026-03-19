@@ -95,7 +95,6 @@ docker compose down -v
 
 ```
 packages/terraform/
-├── .checkov.yml              # セキュリティポリシーチェック
 ├── .tflint.hcl               # Terraform リンター設定
 ├── .trivy.yml                # 脆弱性スキャン設定
 └── aws/
@@ -140,8 +139,7 @@ graph TD
 | ツール | 用途 |
 |-------|------|
 | **tflint** | Terraform コードの静的解析 |
-| **checkov** | セキュリティポリシー準拠チェック |
-| **trivy** | 脆弱性スキャン |
+| **trivy** | 脆弱性・ミスコンフィグスキャン |
 | **terraform validate** | 構文検証 |
 | **terraform fmt** | コードフォーマット |
 

@@ -70,7 +70,6 @@ terraform fmt -check -recursive -diff
 terraform validate
 tflint --init
 tflint --chdir=aws/env/dev --config=$(pwd)/.tflint.hcl --recursive
-checkov -d . --framework terraform --config-file .checkov.yml
 trivy config aws/env/dev -c .trivy.yml
 ```
 
@@ -113,7 +112,7 @@ trivy config aws/env/dev -c .trivy.yml
 - Bootstrap: S3 backend and DynamoDB for state locking
 - Env: Environment-specific configs (dev/staging/prod)
 - Modules: Reusable Terraform modules
-- Uses tflint, checkov, and trivy for security/policy checks
+- Uses tflint and trivy for security/policy checks
 
 ## Code Style and Linting
 

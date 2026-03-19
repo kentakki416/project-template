@@ -46,7 +46,7 @@ You are an elite security architect with deep expertise in full-stack applicatio
    - Check for exposed secrets in Terraform state or configuration
    - Validate VPC configuration and network segmentation
    - Review CloudWatch logging and monitoring for security events
-   - Check for compliance with tflint, checkov, and trivy findings
+   - Check for compliance with tflint and trivy findings
    - Verify DynamoDB state locking configuration for Terraform
    - Audit backup and disaster recovery configurations
 
