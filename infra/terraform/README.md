@@ -3,7 +3,6 @@
 
 ### 外部ツール
 - **Trivy**: Aqua Security製のOSSセキュリティスキャナ。Terraform設定ファイルのミスコンフィグや脆弱性を検出する
-- **Checkov**: Bridgecrew製の静的解析ツール。Terraformコードがセキュリティベストプラクティスやコンプライアンスポリシーに準拠しているかチェックする
 - **TFLint**: Terraform専用のリンター。非推奨構文やプロバイダ固有のルール違反を検出する
 
 ## ディレクトリ構成
@@ -19,7 +18,6 @@ terraform/
 │       ├── ecr/          # Elastic Container Registry
 │       ├── ecs/          # ECS Fargate クラスター・サービス
 │       └── vpc/          # VPC・サブネット・セキュリティグループ
-├── .checkov.yml          # Checkovポリシー設定
 ├── .tflint.hcl           # TFLint設定
 ├── .trivy.yml            # Trivy設定
 └── README.md
@@ -31,7 +29,6 @@ terraform/
 
 ```bash
 brew install terraform tflint trivy
-python3 -m pip install checkov
 ```
 
 ### セットアップ
@@ -102,6 +99,5 @@ tflint --init                                                            # TFLin
 tflint --chdir=aws/env/dev --config=$(pwd)/.tflint.hcl --recursive      # TFLintチェック
 
 # --- セキュリティスキャン ---
-checkov -d . --framework terraform --config-file .checkov.yml   # Checkov ポリシーチェック
 trivy config aws/env/dev -c .trivy.yml                          # Trivy 脆弱性・ミスコンフィグチェック
 ```
