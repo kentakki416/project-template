@@ -42,18 +42,6 @@ variable "create_internet_gateway" {
   description = "インターネットゲートウェイを作成するかどうか"
 }
 
-variable "route_tables" {
-  type = map(object({
-    global_type           = string
-    vpc_gateway_endpoints = optional(set(string), [])
-    subnet_id             = string
-    route_table_id        = string
-  }))
-  default = {
-  }
-  description = "route tableを定義"
-}
-
 variable "security_groups" {
   type = map(object({
     name        = string

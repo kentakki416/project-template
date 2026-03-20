@@ -18,7 +18,7 @@ resource "aws_security_group" "security_groups" {
   description = each.value.description
   vpc_id      = aws_vpc.vpc.id
   tags = {
-    Name = "${var.name}-${each.key}-sg"
+    Name = "${var.name}-${each.key}"
   }
 }
 

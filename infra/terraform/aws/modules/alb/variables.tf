@@ -90,6 +90,12 @@ variable "health_check" {
   }
 }
 
+variable "enable_blue_green" {
+  description = "Enable Blue/Green deployment support"
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags to apply to ALB resources"
   type        = map(string)

@@ -12,8 +12,8 @@ output "vpc_id" {
 output "public_subnet_ids" {
   description = "パブリックサブネットIDのリスト"
   value = [
-    for i in range(length(var.availability_zones)) :
-    module.vpc.subnets["public-${i + 1}"].id
+    for i, az in var.availability_zones :
+    module.vpc.subnets["public${substr(az, length(az) - 2, 1)}-${substr(az, length(az) - 1, 1)}"].id
   ]
 }
 

@@ -9,8 +9,8 @@ data "aws_caller_identity" "current" {}
 # GitHub OIDC プロバイダー
 resource "aws_iam_openid_connect_provider" "github" {
   url             = "https://token.actions.githubusercontent.com" # Github Actions OIDCトークン発行元URL
-  client_id_list  = ["sts.amazonaws.com"] # OIDCトークンのaudience（対象者）
-  thumbprint_list = ["ffffffffffffffffffffffffffffffffffffffff"] # ダミーデータ
+  client_id_list  = ["sts.amazonaws.com"]                         # OIDCトークンのaudience（対象者）
+  thumbprint_list = ["ffffffffffffffffffffffffffffffffffffffff"]  # ダミーデータでOK
 }
 
 # GitHub Actions 用 IAM ロール

@@ -32,7 +32,7 @@ module "vpc" {
   source = "../../modules/vpc"
 
   # === 基本設定 ===
-  name                    = "${local.name_prefix}-vpc"
+  name                    = local.name_prefix
   cidr_block              = var.vpc_cidr
   enable_dns_support      = true
   enable_dns_hostnames    = true
@@ -41,45 +41,60 @@ module "vpc" {
 
   # === サブネット設定 ===
   subnets = {
-    for i, az in var.availability_zones : "public-${i + 1}" => {
+    for i, az in var.availability_zones : "public${substr(az, length(az) - 2, 1)}-${substr(az, length(az) - 1, 1)}" => {
       cidr_block        = local.public_subnet_cidrs[i]
       availability_zone = az
       subnet_type       = "public"
     }
   }
 
-  # === ルートテーブル設定 ===
-  route_tables = {
-    for i in range(length(var.availability_zones)) : "public-${i + 1}-rt" => {
-      global_type    = "public"
-      subnet_id      = module.vpc.subnets["public-${i + 1}"].id
-      route_table_id = module.vpc.igw_route_table_id
-    }
-  }
-
   # === セキュリティグループ定義 ===
   security_groups = {
-    ecs_sg = {
-      name        = "${local.name_prefix}-ecs-sg"
+    alb = {
+      name        = "${local.name_prefix}-alb"
+      description = "Security group for ALB"
+    }
+    ecs = {
+      name        = "${local.name_prefix}-ecs"
       description = "Security group for ECS tasks"
     }
   }
 
   # === セキュリティグループルール ===
   security_group_rules = [
-    # ECS Ingress
+    # ALB Ingress - インターネットからHTTPを受け付ける
     {
-      security_group_name = "ecs_sg"
+      security_group_name = "alb"
       type                = "ingress"
-      from_port           = var.app_port
-      to_port             = var.app_port
+      from_port           = 80
+      to_port             = 80
       protocol            = "tcp"
       cidr_blocks         = ["0.0.0.0/0"]
-      description         = "Application port access"
+      description         = "HTTP from internet"
+    },
+    # ALB Egress
+    {
+      security_group_name = "alb"
+      type                = "egress"
+      from_port           = 0
+      to_port             = 0
+      protocol            = "-1"
+      cidr_blocks         = ["0.0.0.0/0"]
+      description         = "All outbound traffic"
+    },
+    # ECS Ingress - ALBからのみアプリポートを受け付ける
+    {
+      security_group_name        = "ecs"
+      type                       = "ingress"
+      from_port                  = var.app_port
+      to_port                    = var.app_port
+      protocol                   = "tcp"
+      source_security_group_name = "alb"
+      description                = "From ALB only"
     },
     # ECS Egress
     {
-      security_group_name = "ecs_sg"
+      security_group_name = "ecs"
       type                = "egress"
       from_port           = 0
       to_port             = 0
@@ -103,15 +118,18 @@ module "alb" {
   # === 基本設定 ===
   name            = "${local.name_prefix}-alb"
   vpc_id          = module.vpc.vpc_id
-  security_groups = [module.vpc.security_groups["ecs_sg"].id]
+  security_groups = [module.vpc.security_groups["alb"].id]
   subnets = [
-    for i in range(length(var.availability_zones)) :
-    module.vpc.subnets["public-${i + 1}"].id
+    for i, az in var.availability_zones :
+    module.vpc.subnets["public${substr(az, length(az) - 2, 1)}-${substr(az, length(az) - 1, 1)}"].id
   ]
 
   # === ターゲットグループ設定 ===
   target_group_port = var.app_port
   listener_port     = "80"
+
+  # === Blue/Greenデプロイ設定 ===
+  enable_blue_green = true
 
   # === タグ設定 ===
   tags = merge(
@@ -142,22 +160,30 @@ module "ecs" {
   memory = var.ecs_task_memory
 
   # === コンテナ設定 ===
-  container_name  = "${local.name_prefix}-app"
+  container_name  = "${local.name_prefix}-api"
   container_image = var.container_image
   container_port  = var.app_port
 
   # === ネットワーク設定 ===
   network_configuration = {
     subnets = [
-      for i in range(length(var.availability_zones)) :
-      module.vpc.subnets["public-${i + 1}"].id
+      for i, az in var.availability_zones :
+      module.vpc.subnets["public${substr(az, length(az) - 2, 1)}-${substr(az, length(az) - 1, 1)}"].id
     ]
-    security_groups  = [module.vpc.security_groups["ecs_sg"].id]
+    security_groups  = [module.vpc.security_groups["ecs"].id]
     assign_public_ip = true
   }
 
   # === ロードバランサー連携 ===
-  target_group_arn = module.alb.target_group_arn
+  target_group_arn = module.alb.target_group_blue_arn
+
+  # === Blue/Greenデプロイ設定 ===
+  enable_blue_green = true
+  blue_green_configuration = {
+    alternate_target_group_arn   = module.alb.target_group_green_arn
+    production_listener_rule_arn = module.alb.listener_rule_arn
+    bake_time_in_minutes         = 5
+  }
 
   # === ログ設定 ===
   log_retention_in_days = var.log_retention_days

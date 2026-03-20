@@ -27,7 +27,7 @@ variable "aws_region" {
 variable "terraform_state_bucket" {
   description = "Terraform State保存用のS3バケット名（bootstrapで作成したバケット名）"
   type        = string
-  default     = "project-template-terraform-state" # TODO: bootstrapで作成したバケット名に変更してください
+  default     = "project-template-terraform-state-20250101" # TODO: bootstrapで作成したバケット名に変更してください
 }
 
 variable "terraform_state_lock_table" {

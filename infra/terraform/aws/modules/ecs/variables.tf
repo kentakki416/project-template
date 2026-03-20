@@ -63,6 +63,22 @@ variable "target_group_arn" {
   default     = ""
 }
 
+variable "enable_blue_green" {
+  description = "Enable Blue/Green deployment strategy"
+  type        = bool
+  default     = false
+}
+
+variable "blue_green_configuration" {
+  description = "Blue/Green deployment configuration"
+  type = object({
+    alternate_target_group_arn   = string
+    production_listener_rule_arn = string
+    bake_time_in_minutes         = number
+  })
+  default = null
+}
+
 variable "log_retention_in_days" {
   description = "CloudWatch log retention in days"
   type        = number

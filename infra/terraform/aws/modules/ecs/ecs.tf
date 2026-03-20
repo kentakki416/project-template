@@ -3,8 +3,6 @@
 # =============================================================================
 
 # ECS Fargate Cluster
-# - サーバーレスコンテナ実行環境
-# - Container Insightsでメトリクス監視を有効化
 resource "aws_ecs_cluster" "main" {
   name = var.cluster_name
 
@@ -17,8 +15,6 @@ resource "aws_ecs_cluster" "main" {
 }
 
 # ECS Task Definition
-# - Fargateタスクの仕様を定義
-# - コンテナ、リソース、ネットワーク設定を含む
 resource "aws_ecs_task_definition" "main" {
   family                   = var.task_definition_family
   network_mode             = "awsvpc"    # Fargate必須のネットワークモード
@@ -46,7 +42,7 @@ resource "aws_ecs_task_definition" "main" {
         logDriver = "awslogs"
         options = {
           "awslogs-group"         = aws_cloudwatch_log_group.ecs_log_group.name
-          "awslogs-region"        = data.aws_region.current.name
+          "awslogs-region"        = data.aws_region.current.id
           "awslogs-stream-prefix" = "ecs"
         }
       }
@@ -57,8 +53,6 @@ resource "aws_ecs_task_definition" "main" {
 }
 
 # ECS Service
-# - タスクの実行とスケーリングを管理
-# - ロードバランサーとの連携設定
 resource "aws_ecs_service" "main" {
   name            = var.service_name
   cluster         = aws_ecs_cluster.main.id
@@ -73,13 +67,38 @@ resource "aws_ecs_service" "main" {
     assign_public_ip = var.network_configuration.assign_public_ip
   }
 
-  # ロードバランサー連携設定
+  # Blue/Greenデプロイメント設定
+  dynamic "deployment_configuration" {
+    for_each = var.enable_blue_green ? [1] : []
+    content {
+      strategy             = "BLUE_GREEN"
+      bake_time_in_minutes = var.blue_green_configuration.bake_time_in_minutes
+    }
+  }
+
+  # ロードバランサー連携設定（通常モード）
   dynamic "load_balancer" {
-    for_each = var.target_group_arn != "" ? [1] : []
+    for_each = !var.enable_blue_green && var.target_group_arn != "" ? [1] : []
     content {
       target_group_arn = var.target_group_arn
       container_name   = var.container_name
       container_port   = var.container_port
+    }
+  }
+
+  # ロードバランサー連携設定（Blue/Greenモード）
+  dynamic "load_balancer" {
+    for_each = var.enable_blue_green && var.target_group_arn != "" ? [1] : []
+    content {
+      target_group_arn = var.target_group_arn
+      container_name   = var.container_name
+      container_port   = var.container_port
+
+      advanced_configuration {
+        alternate_target_group_arn = var.blue_green_configuration.alternate_target_group_arn
+        production_listener_rule   = var.blue_green_configuration.production_listener_rule_arn
+        role_arn                   = aws_iam_role.ecs_alb_service_role[0].arn
+      }
     }
   }
 

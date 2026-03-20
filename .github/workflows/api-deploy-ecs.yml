@@ -27,7 +27,7 @@ env:
   ECS_SERVICE: project-template-dev-service        # TODO: ECS サービス名に変更
   TASK_DEFINITION_FAMILY: project-template-dev-task # TODO: ECS タスク定義のファミリー名に変更
   ECR_REPOSITORY: project-template-server            # ECR リポジトリ名
-  CONTAINER_NAME: project-template-dev-app         # TODO: タスク定義内のコンテナ名に変更
+  CONTAINER_NAME: project-template-dev-api
 
 jobs:
   build:

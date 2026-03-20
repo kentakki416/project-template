@@ -22,12 +22,22 @@ output "alb_zone_id" {
   value       = aws_lb.main.zone_id
 }
 
-output "target_group_arn" {
-  description = "Target group ARN"
-  value       = aws_lb_target_group.main.arn
+output "target_group_blue_arn" {
+  description = "Blue target group ARN"
+  value       = aws_lb_target_group.blue.arn
+}
+
+output "target_group_green_arn" {
+  description = "Green target group ARN"
+  value       = var.enable_blue_green ? aws_lb_target_group.green[0].arn : null
 }
 
 output "listener_arn" {
   description = "Listener ARN"
   value       = aws_lb_listener.main.arn
+}
+
+output "listener_rule_arn" {
+  description = "Production listener rule ARN for Blue/Green deployment"
+  value       = var.enable_blue_green ? aws_lb_listener_rule.production[0].arn : null
 }

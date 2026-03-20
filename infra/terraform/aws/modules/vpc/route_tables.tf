@@ -40,19 +40,22 @@ resource "aws_route" "global_nat" {
   destination_cidr_block = "0.0.0.0/0"
 }
 
-# Route tables for subnets
-resource "aws_route_table" "route_tables" {
-  for_each = var.route_tables
-  vpc_id   = aws_vpc.vpc.id
-  tags = {
-    Name = "${var.name}-${each.key}-rt"
-  }
+# パブリックサブネットをIGWルートテーブルに自動紐づけ
+resource "aws_route_table_association" "public" {
+  for_each = var.create_internet_gateway ? {
+    for key, subnet in var.subnets : key => subnet if subnet.subnet_type == "public"
+  } : {}
+
+  subnet_id      = aws_subnet.subnets[each.key].id
+  route_table_id = aws_route_table.route_table_igw[0].id
 }
 
-# Route table associations
-resource "aws_route_table_association" "route_table_associations" {
-  for_each = var.route_tables
+# プライベートサブネットをNATルートテーブルに自動紐づけ
+resource "aws_route_table_association" "private" {
+  for_each = var.create_nat_gateway ? {
+    for key, subnet in var.subnets : key => subnet if subnet.subnet_type == "private"
+  } : {}
 
-  subnet_id      = each.value.subnet_id
-  route_table_id = each.value.route_table_id
+  subnet_id      = aws_subnet.subnets[each.key].id
+  route_table_id = aws_route_table.route_table_nat[0].id
 }
