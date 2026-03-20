@@ -33,5 +33,5 @@ variable "dynamodb_table_name" {
 variable "github_repository" {
   description = "GitHubリポジトリ（例: owner/repo-name）"
   type        = string
-  default     = "your-org/project-template" # TODO: 実際のリポジトリに変更してください
+  default     = "kentakki416/project-template" # TODO: 実際のリポジトリに変更してください
 }
