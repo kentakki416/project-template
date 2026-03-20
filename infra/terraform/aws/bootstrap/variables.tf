@@ -1,9 +1,6 @@
 # =============================================================================
 # Bootstrap Variables
 # =============================================================================
-# 注意: プロジェクトごとに以下の値を変更してください
-# - project_name
-# - s3_bucket_name（グローバルで一意である必要があります）
 
 variable "project_name" {
   description = "プロジェクト名（S3バケット名とDynamoDBテーブル名のプレフィックスに使用）"
@@ -27,4 +24,14 @@ variable "dynamodb_table_name" {
   description = "Terraform State Lock用のDynamoDBテーブル名"
   type        = string
   default     = "project-template-terraform-state-lock" # TODO: 一意のテーブル名に変更してください
+}
+
+# =============================================================================
+# CI/CD設定
+# =============================================================================
+
+variable "github_repository" {
+  description = "GitHubリポジトリ（例: owner/repo-name）"
+  type        = string
+  default     = "your-org/project-template" # TODO: 実際のリポジトリに変更してください
 }

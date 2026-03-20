@@ -38,15 +38,3 @@ output "ecs_service_name" {
   description = "ECSサービス名"
   value       = module.ecs.service_name
 }
-
-# ECR
-output "ecr_repository_url" {
-  description = "ECRリポジトリURL"
-  value       = module.ecr.repository_url
-}
-
-# GitHub OIDC
-output "github_actions_role_arn" {
-  description = "GitHub Actions用IAMロールのARN"
-  value       = module.github_oidc.role_arn
-}
