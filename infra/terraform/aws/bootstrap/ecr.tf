@@ -1,8 +1,6 @@
 # =============================================================================
 # コンテナレジストリ設定 (ECR)
 # =============================================================================
-# Docker イメージの保存・管理
-# 全環境で共有するため bootstrap で一度だけ作成
 
 resource "aws_ecr_repository" "server" {
   name                 = "${var.project_name}-server"
@@ -52,36 +50,6 @@ resource "aws_ecr_lifecycle_policy" "server" {
         action = {
           type = "expire"
         }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_policy" "ecr_push" {
-  name        = "${var.project_name}-ecr-push"
-  description = "Policy for pushing images to ECR from GitHub Actions"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["ecr:GetAuthorizationToken"]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-          "ecr:BatchImportLayerPart",
-          "ecr:CompleteLayerUpload",
-          "ecr:InitiateLayerUpload",
-          "ecr:PutImage",
-          "ecr:UploadLayerPart"
-        ]
-        Resource = aws_ecr_repository.server.arn
       }
     ]
   })

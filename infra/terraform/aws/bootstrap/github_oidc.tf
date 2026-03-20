@@ -8,9 +8,9 @@ data "aws_caller_identity" "current" {}
 
 # GitHub OIDC プロバイダー
 resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["ffffffffffffffffffffffffffffffffffffffff"]
+  url             = "https://token.actions.githubusercontent.com" # Github Actions OIDCトークン発行元URL
+  client_id_list  = ["sts.amazonaws.com"] # OIDCトークンのaudience（対象者）
+  thumbprint_list = ["ffffffffffffffffffffffffffffffffffffffff"] # ダミーデータ
 }
 
 # GitHub Actions 用 IAM ロール
@@ -39,7 +39,38 @@ resource "aws_iam_role" "github_actions" {
   })
 }
 
-# ECR プッシュポリシーをアタッチ
+# ECR プッシュポリシー
+resource "aws_iam_policy" "ecr_push" {
+  name        = "${var.project_name}-ecr-push"
+  description = "Policy for pushing images to ECR from GitHub Actions"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchImportLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart"
+        ]
+        Resource = aws_ecr_repository.server.arn
+      }
+    ]
+  })
+}
+
+# ECR プッシュポリシーを GitHub Actions ロールにアタッチ
 resource "aws_iam_role_policy_attachment" "ecr_push" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.ecr_push.arn
@@ -72,7 +103,7 @@ resource "aws_iam_policy" "ecs_deploy" {
   })
 }
 
-# ECS デプロイポリシーをアタッチ
+# ECS デプロイポリシーを GitHub Actions ロールにアタッチ
 resource "aws_iam_role_policy_attachment" "ecs_deploy" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.ecs_deploy.arn
