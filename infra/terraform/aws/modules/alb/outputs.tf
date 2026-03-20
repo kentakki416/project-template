@@ -41,3 +41,8 @@ output "listener_rule_arn" {
   description = "Production listener rule ARN for Blue/Green deployment"
   value       = var.enable_blue_green ? aws_lb_listener_rule.production[0].arn : null
 }
+
+output "test_listener_rule_arn" {
+  description = "Test listener rule ARN for Blue/Green deployment verification"
+  value       = var.enable_blue_green ? aws_lb_listener_rule.test[0].arn : null
+}

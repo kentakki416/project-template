@@ -20,21 +20,6 @@ variable "aws_region" {
   default     = "ap-northeast-1"
 }
 
-# =============================================================================
-# Backend設定（bootstrap実行後に更新）
-# =============================================================================
-
-variable "terraform_state_bucket" {
-  description = "Terraform State保存用のS3バケット名（bootstrapで作成したバケット名）"
-  type        = string
-  default     = "project-template-terraform-state-20250101" # TODO: bootstrapで作成したバケット名に変更してください
-}
-
-variable "terraform_state_lock_table" {
-  description = "Terraform State Lock用のDynamoDBテーブル名（bootstrapで作成したテーブル名）"
-  type        = string
-  default     = "project-template-terraform-state-lock"
-}
 
 # =============================================================================
 # ネットワーク設定
@@ -59,13 +44,17 @@ variable "availability_zones" {
 variable "app_port" {
   description = "アプリケーションのポート番号"
   type        = number
-  default     = 80
+  default     = 8080
 }
 
-variable "container_image" {
-  description = "コンテナイメージ（ECRのURLまたはDocker Hubのイメージ）"
-  type        = string
-  default     = "nginx:latest"
+# =============================================================================
+# Blue/Greenデプロイ設定
+# =============================================================================
+
+variable "test_listener_allowed_cidrs" {
+  description = "テスト用リスナー（ポート9000）へのアクセスを許可するCIDRリスト（本番ではVPN/社内IPに制限推奨）"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
 }
 
 # =============================================================================

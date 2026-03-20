@@ -12,6 +12,8 @@ resource "aws_lb" "main" {
 
   enable_deletion_protection = var.enable_deletion_protection
 
+  drop_invalid_header_fields = true
+
   tags = var.tags
 }
 
@@ -109,6 +111,57 @@ resource "aws_lb_listener_rule" "production" {
   }
 
   # ECSがデプロイ時にactionの重みを変更するため、差分を無視
+  lifecycle {
+    ignore_changes = [action]
+  }
+}
+
+# =============================================================================
+# Test Listener (Blue/Green deployment)
+# =============================================================================
+
+# テスト用リスナー
+# - デプロイ中にGreen環境をポート9000経由で事前検証するためのリスナー
+# - Web/Mobileから http://<ALB_DNS>:9000 でGreen環境にアクセス可能
+resource "aws_lb_listener" "test" {
+  count = var.enable_blue_green ? 1 : 0
+
+  load_balancer_arn = aws_lb.main.arn
+  port              = var.test_listener_port
+  protocol          = var.listener_protocol
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.green[0].arn
+  }
+
+  # ECSがデプロイ時にdefault_actionを変更するため、差分を無視
+  lifecycle {
+    ignore_changes = [default_action]
+  }
+}
+
+# テスト用リスナールール
+# - ECSのadvanced_configuration.test_listener_ruleに渡すルール
+# - デプロイ中にECSがこのルールを制御してGreen TGにテストトラフィックをルーティング
+resource "aws_lb_listener_rule" "test" {
+  count = var.enable_blue_green ? 1 : 0
+
+  listener_arn = aws_lb_listener.test[0].arn
+  priority     = 1
+
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.green[0].arn
+  }
+
+  # ECSがデプロイ時にactionを変更するため、差分を無視
   lifecycle {
     ignore_changes = [action]
   }

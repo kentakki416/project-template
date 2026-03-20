@@ -99,5 +99,6 @@ tflint --init                                                            # TFLin
 tflint --chdir=aws/env/dev --config=$(pwd)/.tflint.hcl --recursive      # TFLintチェック
 
 # --- セキュリティスキャン ---
-trivy config aws/env/dev -c .trivy.yml                          # Trivy 脆弱性・ミスコンフィグチェック
+trivy config aws/env/dev -c aws/env/dev/.trivy.yml                      # Trivy 脆弱性・ミスコンフィグチェック(devはコスト削減のため、.trivyignoreでいくつかのチェックを無効化している)
+trivy config aws/env/prd -c aws/env/dev/.trivy.yml                      # Trivy 脆弱性・ミスコンフィグチェック
 ```

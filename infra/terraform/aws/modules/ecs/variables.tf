@@ -74,6 +74,7 @@ variable "blue_green_configuration" {
   type = object({
     alternate_target_group_arn   = string
     production_listener_rule_arn = string
+    test_listener_rule_arn       = optional(string)
     bake_time_in_minutes         = number
   })
   default = null

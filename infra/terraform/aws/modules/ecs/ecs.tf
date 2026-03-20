@@ -49,6 +49,12 @@ resource "aws_ecs_task_definition" "main" {
     }
   ])
 
+  # CI/CDがcontainer_definitionsのimageを更新するため、Terraformでの差分を無視
+  # 初回作成時のみvar.container_imageが使用され、以降はCI/CDが管理
+  lifecycle {
+    ignore_changes = [container_definitions]
+  }
+
   tags = var.tags
 }
 
@@ -73,6 +79,13 @@ resource "aws_ecs_service" "main" {
     content {
       strategy             = "BLUE_GREEN"
       bake_time_in_minutes = var.blue_green_configuration.bake_time_in_minutes
+
+      # テストトラフィック切り替え後にデプロイを一時停止し、手動承認を待つ
+      lifecycle_hook {
+        hook_target_arn  = aws_lambda_function.deployment_hook[0].arn
+        lifecycle_stages = ["POST_TEST_TRAFFIC_SHIFT"]
+        role_arn         = aws_iam_role.ecs_lifecycle_hook[0].arn
+      }
     }
   }
 
@@ -97,6 +110,7 @@ resource "aws_ecs_service" "main" {
       advanced_configuration {
         alternate_target_group_arn = var.blue_green_configuration.alternate_target_group_arn
         production_listener_rule   = var.blue_green_configuration.production_listener_rule_arn
+        test_listener_rule         = var.blue_green_configuration.test_listener_rule_arn
         role_arn                   = aws_iam_role.ecs_alb_service_role[0].arn
       }
     }

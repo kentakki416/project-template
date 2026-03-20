@@ -1,3 +1,20 @@
+# =============================================================================
+# API Deploy on ECS (Blue/Green)
+# =============================================================================
+#
+# Blue/Greenデプロイのため、デプロイ後に手動承認が必要です。
+#
+# 1. このワークフローが実行されると、新バージョンがGreen環境にデプロイされる
+# 2. テスト用ポート(:9000)で新バージョンの動作確認を行う
+#    curl http://<ALB_DNS>:9000/health
+# 3. 承認して本番トラフィックを切り替える:
+#    aws ssm put-parameter --name "/project-template-dev-service/deploy/approval" --value "approved" --overwrite
+# 4. ロールバックする場合:
+#    aws ssm put-parameter --name "/project-template-dev-service/deploy/approval" --value "rejected" --overwrite
+#
+# ※ 承認しない限り、本番(:80)には反映されません
+# =============================================================================
+
 name: API Deploy on ECS
 
 on:

@@ -72,6 +72,16 @@ module "vpc" {
       cidr_blocks         = ["0.0.0.0/0"]
       description         = "HTTP from internet"
     },
+    # ALB Ingress - Blue/Greenテスト用リスナー（ポート9000）
+    {
+      security_group_name = "alb"
+      type                = "ingress"
+      from_port           = 9000
+      to_port             = 9000
+      protocol            = "tcp"
+      cidr_blocks         = var.test_listener_allowed_cidrs
+      description         = "Test listener for Blue/Green deployment"
+    },
     # ALB Egress
     {
       security_group_name = "alb"
@@ -104,6 +114,15 @@ module "vpc" {
     }
   ]
 
+}
+
+# =============================================================================
+# コンテナレジストリ (ECR)
+# =============================================================================
+
+# bootstrapで作成済みのECRリポジトリを参照
+data "aws_ecr_repository" "api" {
+  name = "${var.project_name}-server"
 }
 
 # =============================================================================
@@ -161,7 +180,7 @@ module "ecs" {
 
   # === コンテナ設定 ===
   container_name  = "${local.name_prefix}-api"
-  container_image = var.container_image
+  container_image = "${data.aws_ecr_repository.api.repository_url}:latest"
   container_port  = var.app_port
 
   # === ネットワーク設定 ===
@@ -182,6 +201,7 @@ module "ecs" {
   blue_green_configuration = {
     alternate_target_group_arn   = module.alb.target_group_green_arn
     production_listener_rule_arn = module.alb.listener_rule_arn
+    test_listener_rule_arn       = module.alb.test_listener_rule_arn
     bake_time_in_minutes         = 5
   }
 

@@ -82,7 +82,7 @@ variable "health_check" {
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200"
-    path                = "/"
+    path                = "/api/health"
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5
@@ -94,6 +94,12 @@ variable "enable_blue_green" {
   description = "Enable Blue/Green deployment support"
   type        = bool
   default     = false
+}
+
+variable "test_listener_port" {
+  description = "Test listener port for Blue/Green deployment verification"
+  type        = number
+  default     = 9000
 }
 
 variable "tags" {
