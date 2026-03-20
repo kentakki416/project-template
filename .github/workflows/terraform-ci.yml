@@ -11,14 +11,14 @@ on:
   pull_request:
     paths:
       - 'infra/terraform/**'
-      - '.github/workflows/terraform-lint.yml'
+      - '.github/workflows/terraform-ci.yml'
   push:
     branches:
       - main
       - develop
     paths:
       - 'infra/terraform/**'
-      - '.github/workflows/terraform-lint.yml'
+      - '.github/workflows/terraform-ci.yml'
   workflow_dispatch:
 
 permissions:
