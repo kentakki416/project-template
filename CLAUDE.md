@@ -100,7 +100,7 @@ trivy config aws/env/dev -c .trivy.yml
 ### Frontend architecture
 - **Web & Admin**: Next.js 16 with App Router
   - Uses Tailwind CSS v4 with PostCSS
-  - App Router structure in `app/` directory
+  - App Router structure in `src/app/` directory
   - Both apps import types/schemas from `@repo/api-schema`
 - **Mobile**: Expo with file-based routing (expo-router)
   - Uses React Navigation with bottom tabs

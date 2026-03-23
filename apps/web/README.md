@@ -8,48 +8,49 @@ Next.js 16 (App Router) を使用した Web アプリケーション
 
 ```
 apps/web/
-├── app/
-│   ├── (auth)/                    # Route Group（認証関連）
-│   │   ├── login/
-│   │   │   ├── page.tsx           # ログインページ
-│   │   │   └── actions.ts         # Server Actions
-│   │   └── signup/
-│   │       ├── page.tsx           # サインアップページ
-│   │       └── actions.ts         # Server Actions
-│   ├── dashboard/
-│   │   ├── page.tsx               # ダッシュボードページ
-│   │   ├── actions.ts             # Server Actions
-│   │   ├── layout.tsx             # ダッシュボードレイアウト
-│   │   └── loading.tsx            # ローディングUI
-│   ├── api/                       # API Route Handlers
-│   │   └── webhook/
-│   │       └── stripe/
-│   │           └── route.ts       # POST /api/webhook/stripe
-│   ├── layout.tsx                 # ルートレイアウト
-│   ├── page.tsx                   # ホームページ
-│   ├── loading.tsx                # グローバルローディングUI
-│   ├── error.tsx                  # グローバルエラーUI
-│   └── globals.css                # グローバルスタイル
-├── components/                    # 共通コンポーネント
-│   └── ui/                        # 汎用UIコンポーネント
-│       ├── button.tsx
-│       ├── card.tsx
-│       └── input.tsx
-├── hooks/                         # カスタムReact Hooks
-│   ├── use-auth.ts                # 認証状態管理
-│   └── use-debounce.ts            # デバウンス処理
-├── lib/
-│   ├── actions/                   # 共通Server Actions
-│   │   └── auth.ts                # 認証関連
-│   ├── api/                       # API呼び出しロジック
-│   │   └── client.ts              # fetch wrapper
-│   └── utils/
-│       └── format.ts              # ユーティリティ関数
-├── types/                         # グローバル型定義
-│   └── index.ts
-├── middleware.ts                  # ミドルウェア（認証チェックなど）
-├── .env.local                     # 環境変数
-└── public/                        # 静的ファイル
+├── src/
+│   ├── app/
+│   │   ├── (auth)/                    # Route Group（認証関連）
+│   │   │   ├── login/
+│   │   │   │   ├── page.tsx           # ログインページ
+│   │   │   │   └── actions.ts         # Server Actions
+│   │   │   └── signup/
+│   │   │       ├── page.tsx           # サインアップページ
+│   │   │       └── actions.ts         # Server Actions
+│   │   ├── dashboard/
+│   │   │   ├── page.tsx               # ダッシュボードページ
+│   │   │   ├── actions.ts             # Server Actions
+│   │   │   ├── layout.tsx             # ダッシュボードレイアウト
+│   │   │   └── loading.tsx            # ローディングUI
+│   │   ├── api/                       # API Route Handlers
+│   │   │   └── webhook/
+│   │   │       └── stripe/
+│   │   │           └── route.ts       # POST /api/webhook/stripe
+│   │   ├── layout.tsx                 # ルートレイアウト
+│   │   ├── page.tsx                   # ホームページ
+│   │   ├── loading.tsx                # グローバルローディングUI
+│   │   ├── error.tsx                  # グローバルエラーUI
+│   │   └── globals.css                # グローバルスタイル
+│   ├── components/                    # 共通コンポーネント
+│   │   └── ui/                        # 汎用UIコンポーネント
+│   │       ├── button.tsx
+│   │       ├── card.tsx
+│   │       └── input.tsx
+│   ├── hooks/                         # カスタムReact Hooks
+│   │   ├── use-auth.ts                # 認証状態管理
+│   │   └── use-debounce.ts            # デバウンス処理
+│   ├── lib/
+│   │   ├── actions/                   # 共通Server Actions
+│   │   │   └── auth.ts                # 認証関連
+│   │   ├── api/                       # API呼び出しロジック
+│   │   │   └── client.ts              # fetch wrapper
+│   │   └── utils/
+│   │       └── format.ts              # ユーティリティ関数
+│   ├── types/                         # グローバル型定義
+│   │   └── index.ts
+│   └── middleware.ts                  # ミドルウェア（認証チェックなど）
+├── .env.local                         # 環境変数
+└── public/                            # 静的ファイル
     └── images/
 ```
 
@@ -73,7 +74,7 @@ apps/web/
 
 **例:**
 ```typescript
-// app/login/actions.ts
+// src/app/login/actions.ts
 'use server'
 
 import { LoginRequestSchema } from '@repo/api-schema'
@@ -116,7 +117,7 @@ export async function loginAction(formData: FormData) {
 
 **例:**
 ```typescript
-// app/api/webhook/stripe/route.ts
+// src/app/api/webhook/stripe/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
 
 **例:**
 ```typescript
-// components/ui/button.tsx
+// src/components/ui/button.tsx
 import { ButtonHTMLAttributes, forwardRef } from 'react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -204,7 +205,7 @@ Button.displayName = 'Button'
 
 **例:**
 ```typescript
-// hooks/use-debounce.ts
+// src/hooks/use-debounce.ts
 import { useEffect, useState } from 'react'
 
 export function useDebounce<T>(value: T, delay: number): T {
@@ -231,7 +232,7 @@ export function useDebounce<T>(value: T, delay: number): T {
 
 **例:**
 ```typescript
-// lib/actions/auth.ts
+// src/lib/actions/auth.ts
 'use server'
 
 import { cookies } from 'next/headers'
@@ -250,7 +251,7 @@ export async function logout() {
 
 **例:**
 ```typescript
-// lib/api/client.ts
+// src/lib/api/client.ts
 import { GetUserResponse, GetUserResponseSchema } from '@repo/api-schema'
 
 export class ApiClient {
@@ -292,7 +293,7 @@ export class ApiError extends Error {
 
 **例:**
 ```typescript
-// middleware.ts
+// src/middleware.ts
 import { NextRequest, NextResponse } from 'next/server'
 
 export function middleware(request: NextRequest) {
