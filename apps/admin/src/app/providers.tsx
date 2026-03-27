@@ -2,12 +2,12 @@
 
 import { ThemeProvider } from "next-themes"
 
-import { SidebarProvider } from "@/components/Layouts/sidevar/sidevar-context"
+import { SidebarProvider } from "@/components/Layouts/sidebar/sidebar-context"
 
 export function Providers({ children }: {children: React.ReactNode }) {
   return (
     <ThemeProvider defaultTheme="light" attribute="class">
-      <SidevarProvider>{children}</SidevarProvider>
+      <SidebarProvider>{children}</SidebarProvider>
     </ThemeProvider>
   )
 }

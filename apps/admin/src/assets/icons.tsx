@@ -1,4 +1,4 @@
-import type { IconProps } from "@/types/icon-props"
+type IconProps = React.SVGProps<SVGSVGElement>;
 
 export function SearchIcon(props: IconProps) {
   return (

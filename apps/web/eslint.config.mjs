@@ -1,10 +1,26 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import tailwindcss from "eslint-plugin-tailwindcss";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  ...tailwindcss.configs["flat/recommended"],
+  {
+    // Tailwind CSS プラグイン設定（全ファイル共通）
+    settings: {
+      tailwindcss: {
+        config: path.resolve(__dirname, "src/app/globals.css"),
+        cssFiles: ["src/app/globals.css"],
+      },
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -114,6 +130,9 @@ const eslintConfig = defineConfig([
       "prefer-template": "error", // 文字列結合ではなくテンプレートリテラルを使用
       "prefer-arrow-callback": "error", // コールバック関数はアロー関数にする
       "no-unneeded-ternary": "error", // 不要な三項演算子を禁止（例: x ? true : false → x）
+
+      // === Tailwind CSS ===
+      "tailwindcss/classnames-order": "off", // クラス名の順序は自由にする
     },
   },
 ]);

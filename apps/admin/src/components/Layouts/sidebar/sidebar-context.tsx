@@ -16,7 +16,7 @@ type SidebarContextType = {
 
 const SidebarContext = createContext<SidebarContextType | null>(null)
 
-export const useSidebarContext = () => {
+export function useSidebarContext() {
   const context = useContext(SidebarContext)
   if (!context) {
     throw new Error("useSidebarContext must be used withen a SidebarProvider")
@@ -24,7 +24,7 @@ export const useSidebarContext = () => {
   return context
 }
 
-export const SidebarProvider = ({ children, defaultOpen = true }: { children: React.ReactNode, defaultOpen?: boolean}) => {
+export function SidebarProvider({ children, defaultOpen = true }: { children: React.ReactNode, defaultOpen?: boolean}) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
   const isMobile = useIsMobile()
 
