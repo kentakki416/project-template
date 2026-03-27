@@ -8,7 +8,9 @@ import { SearchIcon } from "@/assets/icons"
 import { useSidebarContext } from "../sidebar/sidebar-context"
 
 import { MenuIcon } from "./data/icons"
+import { Notification } from "./notification"
 import { ThemeToogleSwitch } from "./theme-toggle"
+import { UserInfo } from "./user-info"
 
 export function Header() {
   const { toggleSidebar, isMobile } = useSidebarContext()
@@ -21,7 +23,7 @@ export function Header() {
       <span className="sr-only">Toogle Sidebar</span>
 
       {isMobile && (
-        <Link href={"/"} className="ml-2 max-[430px]:hidden min-[375px]:ml-4">
+        <Link href={"/"} className="ml-2 max-[430px]:hidden 2xsm:ml-4">
           <Image src={"/images/logo/logo-icon.svg"} width={32} height={32} alt="" role="presentation" />
         </Link>
       )}
@@ -31,7 +33,7 @@ export function Header() {
         <p className="font-medium">Next.js Admin Dashboard Solution</p>
       </div>
 
-      <div className="flex flex-1 items-center justify-end gap-2 min-[375px]:gap-4">
+      <div className="flex flex-1 items-center justify-end gap-2 2xsm:gap-4">
         <div className="relative w-full max-w-[300px]">
           <input
             type="search"
@@ -44,10 +46,10 @@ export function Header() {
 
         <ThemeToogleSwitch />
 
-        {/* <Notification /> */}
+        <Notification />
 
         <div className="shrink-0">
-          {/* <UserInfo /> */}
+          <UserInfo />
         </div>
       </div>
 
