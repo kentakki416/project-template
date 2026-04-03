@@ -19,7 +19,6 @@ import {
   UserCircleIcon,
 } from "../icons/index"
 
-
 type NavItem = {
   name: string;
   icon: React.ReactNode;
