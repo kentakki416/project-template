@@ -1,4 +1,4 @@
-import MemoForm from "@/components/memo-form"
+import MemoForm from "@/components/features/memo/MemoForm"
 import { memoApi } from "@/modules/memo/memo.api"
 
 export default function MemoNewScreen() {

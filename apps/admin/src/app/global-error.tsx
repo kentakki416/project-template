@@ -3,7 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 
-import GridShape from "@/components/common/GridShape"
+import GridShape from "@/components/layout/GridShape"
 
 export default function GlobalError({
   reset,

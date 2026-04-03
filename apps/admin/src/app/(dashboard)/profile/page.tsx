@@ -1,9 +1,9 @@
 import { Metadata } from "next"
 import React from "react"
 
-import UserAddressCard from "@/components/user-profile/UserAddressCard"
-import UserInfoCard from "@/components/user-profile/UserInfoCard"
-import UserMetaCard from "@/components/user-profile/UserMetaCard"
+import UserAddressCard from "@/components/features/user-profile/UserAddressCard"
+import UserInfoCard from "@/components/features/user-profile/UserInfoCard"
+import UserMetaCard from "@/components/features/user-profile/UserMetaCard"
 
 export const metadata: Metadata = {
   title: "Next.js Profile | TailAdmin - Next.js Dashboard Template",

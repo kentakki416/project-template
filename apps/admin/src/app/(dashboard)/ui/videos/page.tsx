@@ -1,8 +1,8 @@
 import { Metadata } from "next"
 import React from "react"
 
-import PageBreadcrumb from "@/components/common/PageBreadCrumb"
-import VideosExample from "@/components/ui/video/VideosExample"
+import VideosExample from "@/components/features/example/VideosExample"
+import PageBreadcrumb from "@/components/layout/PageBreadCrumb"
 
 export const metadata: Metadata = {
   title: "Next.js Videos | TailAdmin - Next.js Dashboard Template",

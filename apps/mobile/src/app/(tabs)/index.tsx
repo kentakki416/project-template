@@ -9,7 +9,7 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import MemoListItem from "@/components/memo-list-item"
+import MemoListItem from "@/components/features/memo/MemoListItem"
 import { COLORS } from "@/constants/color"
 
 export default function MemoListScreen() {

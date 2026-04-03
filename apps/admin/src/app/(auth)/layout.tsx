@@ -2,8 +2,8 @@ import Image from "next/image"
 import Link from "next/link"
 import React from "react"
 
-import GridShape from "@/components/common/GridShape"
-import ThemeTogglerTwo from "@/components/common/ThemeTogglerTwo"
+import GridShape from "@/components/layout/GridShape"
+import ThemeTogglerTwo from "@/components/layout/ThemeTogglerTwo"
 import { ThemeProvider } from "@/context/ThemeContext"
 
 export default function AuthLayout({

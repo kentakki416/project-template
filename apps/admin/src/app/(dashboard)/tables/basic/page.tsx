@@ -1,9 +1,9 @@
 import { Metadata } from "next"
 import React from "react"
 
-import ComponentCard from "@/components/common/ComponentCard"
-import PageBreadcrumb from "@/components/common/PageBreadCrumb"
-import BasicTableOne from "@/components/tables/BasicTableOne"
+import BasicTableOne from "@/components/features/example/BasicTableOne"
+import ComponentCard from "@/components/layout/ComponentCard"
+import PageBreadcrumb from "@/components/layout/PageBreadCrumb"
 
 export const metadata: Metadata = {
   title: "Next.js Basic Table | TailAdmin - Next.js Dashboard Template",

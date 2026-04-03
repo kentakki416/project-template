@@ -1,8 +1,8 @@
 import { Metadata } from "next"
 import React from "react"
 
-import ComponentCard from "@/components/common/ComponentCard"
-import PageBreadcrumb from "@/components/common/PageBreadCrumb"
+import ComponentCard from "@/components/layout/ComponentCard"
+import PageBreadcrumb from "@/components/layout/PageBreadCrumb"
 import ResponsiveImage from "@/components/ui/images/ResponsiveImage"
 import ThreeColumnImageGrid from "@/components/ui/images/ThreeColumnImageGrid"
 import TwoColumnImageGrid from "@/components/ui/images/TwoColumnImageGrid"

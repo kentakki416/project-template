@@ -1,9 +1,9 @@
 import { Metadata } from "next"
 import React from "react"
 
-import LineChartOne from "@/components/charts/line/LineChartOne"
-import ComponentCard from "@/components/common/ComponentCard"
-import PageBreadcrumb from "@/components/common/PageBreadCrumb"
+import ComponentCard from "@/components/layout/ComponentCard"
+import PageBreadcrumb from "@/components/layout/PageBreadCrumb"
+import LineChartOne from "@/components/ui/charts/line/LineChartOne"
 
 export const metadata: Metadata = {
   title: "Next.js Line Chart | TailAdmin - Next.js Dashboard Template",

@@ -167,35 +167,22 @@ export async function POST(request: NextRequest) {
 ---
 
 #### `components/`
-- **役割**: アプリ全体で共通のコンポーネント
-- **ルール**: 3回以上使われる、または複数のRoute Groupで使われるコンポーネントを配置
-- **命名規則**: kebab-case（例: `button.tsx`, `card.tsx`）
 
-**例:**
-```typescript
-// src/components/ui/button.tsx
-import { ButtonHTMLAttributes, forwardRef } from 'react'
+3層構造（ui / features / layout）で分類する。画面ベースではなく機能ベースで分ける。
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary'
-}
+| 層 | 配置するもの | 依存ルール |
+|---|---|---|
+| **ui/** | props だけで動く汎用パーツ。ビジネスロジックを持たない | 他の層に依存しない |
+| **features/** | 特定のドメイン・機能に紐づくコンポーネント | `ui/` と `layout/` を使ってよい |
+| **layout/** | ページの構造やレイアウトを決めるコンポーネント | `ui/` を使ってよい |
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ children, className, variant = 'primary', ...props }, ref) => {
-    return (
-      <button
-        ref={ref}
-        className={`rounded px-4 py-2 ${variant === 'primary' ? 'bg-blue-600 text-white' : 'bg-gray-200'} ${className}`}
-        {...props}
-      >
-        {children}
-      </button>
-    )
-  }
-)
+**理由:**
+- 画面ベースだと複数画面で使うコンポーネントの置き場所に困り、再利用性が下がる
+- `ui/` を分離することで依存方向が明確になり、安全に再利用・テストできる
+- App Router がルーティングを担うため、`components/` は画面に縛られる必要がない
+- web / admin / mobile で同じ考え方を採用し、アプリ間の認知負荷を統一する
 
-Button.displayName = 'Button'
-```
+**判断基準:** ドメイン知識なしで動く → `ui/` / レイアウト系 → `layout/` / それ以外 → `features/{domain}/`
 
 #### `hooks/`
 - **役割**: カスタムReact Hooks

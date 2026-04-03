@@ -1,9 +1,9 @@
 import { Metadata } from "next"
 import React from "react"
 
-import BarChartOne from "@/components/charts/bar/BarChartOne"
-import ComponentCard from "@/components/common/ComponentCard"
-import PageBreadcrumb from "@/components/common/PageBreadCrumb"
+import ComponentCard from "@/components/layout/ComponentCard"
+import PageBreadcrumb from "@/components/layout/PageBreadCrumb"
+import BarChartOne from "@/components/ui/charts/bar/BarChartOne"
 
 export const metadata: Metadata = {
   title: "Next.js Bar Chart | TailAdmin - Next.js Dashboard Template",

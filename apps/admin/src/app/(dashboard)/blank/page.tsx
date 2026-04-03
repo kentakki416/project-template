@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 import React from "react"
 
-import PageBreadcrumb from "@/components/common/PageBreadCrumb"
+import PageBreadcrumb from "@/components/layout/PageBreadCrumb"
 
 export const metadata: Metadata = {
   title: "Next.js Blank Page | TailAdmin - Next.js Dashboard Template",

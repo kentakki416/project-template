@@ -3,9 +3,9 @@ import Image from "next/image"
 import Link from "next/link"
 import React, { useState ,useEffect,useRef } from "react"
 
-import { ThemeToggleButton } from "@/components/common/ThemeToggleButton"
-import NotificationDropdown from "@/components/header/NotificationDropdown"
-import UserDropdown from "@/components/header/UserDropdown"
+import NotificationDropdown from "@/components/features/header/NotificationDropdown"
+import UserDropdown from "@/components/features/header/UserDropdown"
+import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton"
 import { useSidebar } from "@/context/SidebarContext"
 
 const AppHeader: React.FC = () => {

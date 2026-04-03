@@ -1,8 +1,8 @@
 import { Metadata } from "next"
 import React from "react"
 
-import ComponentCard from "@/components/common/ComponentCard"
-import PageBreadcrumb from "@/components/common/PageBreadCrumb"
+import ComponentCard from "@/components/layout/ComponentCard"
+import PageBreadcrumb from "@/components/layout/PageBreadCrumb"
 import Button from "@/components/ui/button/Button"
 import { BoxIcon } from "@/icons"
 

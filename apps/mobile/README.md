@@ -25,6 +25,24 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## コンポーネントの分類方針
+
+`src/components/` は以下の3層で分類する。画面ベースではなく機能ベースで分ける。
+
+| 層 | 配置するもの | 依存ルール |
+|---|---|---|
+| **ui/** | props だけで動く汎用パーツ。ビジネスロジックを持たない | 他の層に依存しない |
+| **features/** | 特定のドメイン・機能に紐づくコンポーネント | `ui/` と `layout/` を使ってよい |
+| **layout/** | 画面の構造やナビゲーションを決めるコンポーネント | `ui/` を使ってよい |
+
+**理由:**
+- 画面ベースだと複数画面で使うコンポーネントの置き場所に困り、再利用性が下がる
+- `ui/` を分離することで依存方向が明確になり、安全に再利用・テストできる
+- Expo Router がルーティングを担うため、`components/` は画面に縛られる必要がない
+- web / admin / mobile で同じ考え方を採用し、アプリ間の認知負荷を統一する
+
+**判断基準:** ドメイン知識なしで動く → `ui/` / レイアウト系 → `layout/` / それ以外 → `features/{domain}/`
+
 ## Get a fresh project
 
 When you're ready, run:
