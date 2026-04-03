@@ -91,3 +91,14 @@ model UserCharacter {
     @@index([characterCode])
     @@map("user_characters")
 }
+
+// メモ
+model Memo {
+    id        Int      @id @default(autoincrement())
+    title     String   @db.VarChar(255)
+    body      String   @db.Text
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    @@map("memos")
+}

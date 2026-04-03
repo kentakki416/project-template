@@ -54,7 +54,8 @@ export const ModelName = {
   User: 'User',
   AuthAccount: 'AuthAccount',
   Character: 'Character',
-  UserCharacter: 'UserCharacter'
+  UserCharacter: 'UserCharacter',
+  Memo: 'Memo'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -129,6 +130,17 @@ export const UserCharacterScalarFieldEnum = {
 export type UserCharacterScalarFieldEnum = (typeof UserCharacterScalarFieldEnum)[keyof typeof UserCharacterScalarFieldEnum]
 
 
+export const MemoScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  body: 'body',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MemoScalarFieldEnum = (typeof MemoScalarFieldEnum)[keyof typeof MemoScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -180,4 +192,12 @@ export const UserCharacterOrderByRelevanceFieldEnum = {
 } as const
 
 export type UserCharacterOrderByRelevanceFieldEnum = (typeof UserCharacterOrderByRelevanceFieldEnum)[keyof typeof UserCharacterOrderByRelevanceFieldEnum]
+
+
+export const MemoOrderByRelevanceFieldEnum = {
+  title: 'title',
+  body: 'body'
+} as const
+
+export type MemoOrderByRelevanceFieldEnum = (typeof MemoOrderByRelevanceFieldEnum)[keyof typeof MemoOrderByRelevanceFieldEnum]
 

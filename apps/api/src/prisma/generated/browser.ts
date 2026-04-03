@@ -37,3 +37,8 @@ export type Character = Prisma.CharacterModel
  * 
  */
 export type UserCharacter = Prisma.UserCharacterModel
+/**
+ * Model Memo
+ * 
+ */
+export type Memo = Prisma.MemoModel

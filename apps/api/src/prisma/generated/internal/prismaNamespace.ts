@@ -387,7 +387,8 @@ export const ModelName = {
   User: 'User',
   AuthAccount: 'AuthAccount',
   Character: 'Character',
-  UserCharacter: 'UserCharacter'
+  UserCharacter: 'UserCharacter',
+  Memo: 'Memo'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -403,7 +404,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "authAccount" | "character" | "userCharacter"
+    modelProps: "user" | "authAccount" | "character" | "userCharacter" | "memo"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -671,6 +672,72 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    Memo: {
+      payload: Prisma.$MemoPayload<ExtArgs>
+      fields: Prisma.MemoFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MemoFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MemoFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload>
+        }
+        findFirst: {
+          args: Prisma.MemoFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MemoFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload>
+        }
+        findMany: {
+          args: Prisma.MemoFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload>[]
+        }
+        create: {
+          args: Prisma.MemoCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload>
+        }
+        createMany: {
+          args: Prisma.MemoCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        delete: {
+          args: Prisma.MemoDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload>
+        }
+        update: {
+          args: Prisma.MemoUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload>
+        }
+        deleteMany: {
+          args: Prisma.MemoDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MemoUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        upsert: {
+          args: Prisma.MemoUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload>
+        }
+        aggregate: {
+          args: Prisma.MemoAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMemo>
+        }
+        groupBy: {
+          args: Prisma.MemoGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MemoGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MemoCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MemoCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -766,6 +833,17 @@ export const UserCharacterScalarFieldEnum = {
 export type UserCharacterScalarFieldEnum = (typeof UserCharacterScalarFieldEnum)[keyof typeof UserCharacterScalarFieldEnum]
 
 
+export const MemoScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  body: 'body',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MemoScalarFieldEnum = (typeof MemoScalarFieldEnum)[keyof typeof MemoScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -817,6 +895,14 @@ export const UserCharacterOrderByRelevanceFieldEnum = {
 } as const
 
 export type UserCharacterOrderByRelevanceFieldEnum = (typeof UserCharacterOrderByRelevanceFieldEnum)[keyof typeof UserCharacterOrderByRelevanceFieldEnum]
+
+
+export const MemoOrderByRelevanceFieldEnum = {
+  title: 'title',
+  body: 'body'
+} as const
+
+export type MemoOrderByRelevanceFieldEnum = (typeof MemoOrderByRelevanceFieldEnum)[keyof typeof MemoOrderByRelevanceFieldEnum]
 
 
 
@@ -965,6 +1051,7 @@ export type GlobalOmitConfig = {
   authAccount?: Prisma.AuthAccountOmit
   character?: Prisma.CharacterOmit
   userCharacter?: Prisma.UserCharacterOmit
+  memo?: Prisma.MemoOmit
 }
 
 /* Types for Logging */

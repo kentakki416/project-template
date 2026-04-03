@@ -8,6 +8,11 @@ import { AuthGoogleCallbackController } from "./controller/auth/google-callback"
 import { AuthMeController } from "./controller/auth/me"
 import { HealthLivenessController } from "./controller/health/liveness"
 import { HealthReadinessController } from "./controller/health/readiness"
+import { MemoCreateController } from "./controller/memo/create"
+import { MemoDeleteController } from "./controller/memo/delete"
+import { MemoDetailController } from "./controller/memo/detail"
+import { MemoListController } from "./controller/memo/list"
+import { MemoUpdateController } from "./controller/memo/update"
 import { logger } from "./log"
 import { authMiddleware } from "./middleware/auth"
 import { requestLogger } from "./middleware/request-logger"
@@ -15,6 +20,7 @@ import { prisma } from "./prisma/prisma.client"
 import {
   PrismaAuthAccountRepository,
   PrismaDatabaseHealthRepository,
+  PrismaMemoRepository,
   PrismaUserRepository,
   // PrismaUserCharacterRepository,
   PrismaUserRegistrationRepository
@@ -22,6 +28,7 @@ import {
 import { IoRedisHealthRepository } from "./repository/redis"
 import { authRouter } from "./routes/auth-router"
 import { healthRouter } from "./routes/health-router"
+import { memoRouter } from "./routes/memo-router"
 
 const app = express()
 const PORT = process.env.PORT || 8080
@@ -36,6 +43,7 @@ const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || "http://localhost
 const userRepository = new PrismaUserRepository(prisma)
 const authAccountRepository = new PrismaAuthAccountRepository(prisma)
 const userRegistrationRepository = new PrismaUserRegistrationRepository(prisma)
+const memoRepository = new PrismaMemoRepository(prisma)
 const databaseHealthRepository = new PrismaDatabaseHealthRepository(prisma)
 const redisHealthRepository = new IoRedisHealthRepository(redis)
 
@@ -58,6 +66,13 @@ const authGoogleCallbackController = new AuthGoogleCallbackController(
   googleOAuthClient,
 )
 const authMeController = new AuthMeController(userRepository)
+
+// Memo Controller のインスタンス化
+const memoListController = new MemoListController(memoRepository)
+const memoDetailController = new MemoDetailController(memoRepository)
+const memoCreateController = new MemoCreateController(memoRepository)
+const memoUpdateController = new MemoUpdateController(memoRepository)
+const memoDeleteController = new MemoDeleteController(memoRepository)
 
 // cors設定のミドルウェア
 app.use(
@@ -84,6 +99,10 @@ app.use(
 app.use(
   "/api/auth",
   authRouter(authGoogleController, authGoogleCallbackController, authMeController)
+)
+app.use(
+  "/api/memo",
+  memoRouter(memoListController, memoDetailController, memoCreateController, memoUpdateController, memoDeleteController)
 )
 
 // サーバー起動

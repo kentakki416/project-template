@@ -6,3 +6,6 @@ export type { AuthAccount, AuthAccountWithUser } from "./auth-account"
 
 // UserCharacter
 export type { Character, CharacterCode, UserCharacter } from "./user-character"
+
+// Memo
+export type { Memo } from "./memo"

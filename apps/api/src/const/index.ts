@@ -33,6 +33,7 @@ export const PUBLIC_PATHS = [
   "/api/auth/google",
   "/api/auth/google/callback",
   "/api/health",
+  "/api/memo",
 ] as const
 
 /**
