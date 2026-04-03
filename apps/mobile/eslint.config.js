@@ -30,8 +30,14 @@ module.exports = defineConfig([
       // === Console ===
       'no-console': ['warn', { allow: ['warn', 'error'] }],  // console.log は警告、warn/error は許可
       
-      // 未使用変数（Expoデフォルトで有効なのでスキップ）
-      
+      // === 未使用変数 ===
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        args: 'after-used',           // 使われていない引数を検出
+        argsIgnorePattern: '^_',      // _で始まる引数は除外
+        varsIgnorePattern: '^_',      // _で始まる変数は除外
+        ignoreRestSiblings: true,     // 分割代入の残余は除外
+      }],
+
       // === コードスタイル ===
       'object-curly-spacing': ['error', 'always'],  // { foo } のようにスペースを入れる
       'semi': ['error', 'never'],                   // セミコロンを禁止

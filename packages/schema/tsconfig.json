@@ -25,7 +25,7 @@
     // ファイル名の大文字小文字の一貫性を強制
     "forceConsistentCasingInFileNames": true,
     // モジュール解決方法: Node.js方式
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
     // JSONファイルをモジュールとしてインポート可能にする
     "resolveJsonModule": true
   },
