@@ -6,7 +6,6 @@ import Link from "next/link"
 import GridShape from "@/components/common/GridShape"
 
 export default function GlobalError({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };

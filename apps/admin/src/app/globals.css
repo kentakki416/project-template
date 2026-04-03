@@ -204,6 +204,10 @@
   @apply text-gray-700 hover:bg-gray-100 group-hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-300;
 }
 
+@utility menu-item-text {
+  @apply whitespace-nowrap;
+}
+
 @utility menu-item-icon {
   @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400;
 }
@@ -250,6 +254,117 @@
 
 @utility menu-dropdown-badge-inactive {
   @apply bg-brand-50 group-hover:bg-brand-100 dark:bg-brand-500/15 dark:group-hover:bg-brand-500/20;
+}
+
+/*
+ * カスタムユーティリティクラスの定義
+ *
+ * tailwindcss/no-custom-classname の warning が出た場合の解決方法:
+ * 1. タイポの場合 → クラス名を修正（例: border-gary-200 → border-gray-200）
+ * 2. 存在しないテーマ色の場合 → @theme に色を追加するか、既存の色に置換
+ * 3. カスタムクラスの場合 → ここに @utility 定義を追加
+ * 4. サードパーティライブラリのクラスの場合 → @utility で空定義を追加
+ *
+ * @utility の定義例:
+ *   @utility my-custom-class {
+ *     @apply text-sm font-medium;
+ *   }
+ */
+
+/* dropdown */
+@utility dropdown-toggle {
+  @apply inline-flex items-center;
+}
+
+/* modal */
+@utility modal {
+  @apply fixed inset-0;
+}
+
+@utility modal-title {
+  @apply font-semibold;
+}
+
+@utility modal-footer {
+  @apply flex items-center gap-3;
+}
+
+/* button */
+@utility btn {
+  @apply inline-flex items-center justify-center;
+}
+
+@utility btn-success {
+  @apply bg-brand-500 text-white hover:bg-brand-600;
+}
+
+@utility btn-update-event {
+  @apply rounded-lg;
+}
+
+/* form */
+@utility n-chk {
+  @apply flex items-center;
+}
+
+@utility form-check {
+  @apply flex items-center;
+}
+
+@utility form-check-danger {
+  --form-check-color: var(--color-error-500);
+}
+
+@utility form-check-primary {
+  --form-check-color: var(--color-brand-500);
+}
+
+@utility form-check-success {
+  --form-check-color: var(--color-success-500);
+}
+
+@utility form-check-warning {
+  --form-check-color: var(--color-warning-500);
+}
+
+@utility form-check-inline {
+  @apply inline-flex;
+}
+
+@utility form-check-label {
+  @apply flex items-center;
+}
+
+/* dropzone */
+@utility dropzone {
+  @apply cursor-pointer;
+}
+
+@utility dz-message {
+  @apply flex flex-col items-center;
+}
+
+/* map */
+@utility mapOne {
+  @apply relative;
+}
+
+@utility map-btn {
+  @apply relative overflow-hidden;
+}
+
+/* select */
+@utility max-h-select {
+  max-height: 300px;
+}
+
+/* FullCalendar サードパーティクラス */
+@utility fc-event-main {
+  @apply flex items-center;
+}
+
+@utility fc-event-time {
+  @apply text-sm;
 }
 
 @utility no-scrollbar {

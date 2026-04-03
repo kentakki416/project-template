@@ -71,6 +71,16 @@ graph TB
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
+## 命名規則
+
+### ディレクトリ・ファイル
+
+| 対象 | 規則 | 例 |
+|---|---|---|
+| ディレクトリ | kebab-case | `user-profile/`, `api-schema/` |
+| 一般ファイル（hooks, utils, lib等） | kebab-case | `use-auth.ts`, `api-client.ts`, `format-date.ts` |
+| Componentをexportするファイル | PascalCase | `UserProfile.tsx`, `LoginForm.tsx`, `Button.tsx` |
+
 ## 環境構築
 
 1. 管理者に.env.keysをもらってルートに配置してください。（シンボリックはgitにpush済み）
