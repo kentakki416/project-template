@@ -2,10 +2,10 @@
 
 import React from "react"
 
-import { useSidebar } from "@/features/sidebar/sidebar.context"
 import AppHeader from "@/components/layout/AppHeader"
 import AppSidebar from "@/components/layout/AppSidebar"
 import Backdrop from "@/components/layout/Backdrop"
+import { useSidebar } from "@/features/sidebar/sidebar.context"
 
 export default function AdminLayout({
   children,
