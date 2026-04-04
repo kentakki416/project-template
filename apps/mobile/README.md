@@ -43,6 +43,73 @@ You can start developing by editing the files inside the **app** directory. This
 
 **判断基準:** ドメイン知識なしで動く → `ui/` / レイアウト系 → `layout/` / それ以外 → `features/{domain}/`
 
+## EAS によるビルド・公開
+
+[EAS (Expo Application Services)](https://docs.expo.dev/eas/) を使ってアプリをビルド・公開できます。
+
+### セットアップ
+
+```bash
+# EAS CLI をグローバルにインストール
+npm install -g eas-cli
+
+# Expo アカウントにログイン
+eas login
+
+# プロジェクトを Expo に紐付け（初回のみ）
+eas init
+```
+
+### ビルドプロファイル
+
+`eas.json` に3つのプロファイルが定義されています。
+
+| プロファイル | 用途 | 配布方法 |
+|---|---|---|
+| `development` | 開発ビルド（dev client） | 内部配布 |
+| `preview` | テスト・レビュー用ビルド | 内部配布 |
+| `production` | ストア公開用ビルド | ストア |
+
+### ビルド
+
+```bash
+# 開発ビルド（iOS + Android）
+pnpm eas:build:dev
+
+# プレビュービルド（iOS + Android）
+pnpm eas:build:preview
+
+# 本番ビルド（iOS + Android）
+pnpm eas:build:prod
+
+# プラットフォーム別ビルド
+pnpm eas:build:ios
+pnpm eas:build:android
+```
+
+### ストアへの提出
+
+```bash
+# iOS（App Store Connect）
+pnpm eas:submit:ios
+
+# Android（Google Play Console）
+pnpm eas:submit:android
+```
+
+提出前に `eas.json` の `submit.production` セクションを設定してください。
+
+- **iOS**: `appleId`, `ascAppId`, `appleTeamId` を設定
+- **Android**: `serviceAccountKeyPath` に Google Play サービスアカウントキーのパスを設定
+
+### OTA アップデート (EAS Update)
+
+JavaScript バンドルのみの変更であれば、ストアを経由せずにアップデートを配信できます。
+
+```bash
+pnpm eas:update
+```
+
 ## Get a fresh project
 
 When you're ready, run:
