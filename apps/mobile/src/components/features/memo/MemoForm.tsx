@@ -11,14 +11,16 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { COLORS } from "@/constants/color"
+import { Memo } from "@/modules/memo/memo.entity"
 
 type Props = {
   onSave: (title: string, body: string) => Promise<void>
+  memo?: Memo
 }
 
-export default function MemoForm({ onSave }: Props) {
-  const [title, setTitle] = useState("")
-  const [body, setBody] = useState("")
+export default function MemoForm({ onSave, memo }: Props) {
+  const [title, setTitle] = useState(memo?.title || "")
+  const [body, setBody] = useState(memo?.body || "")
 
   const canSave = title.trim().length > 0
 

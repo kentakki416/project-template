@@ -1,18 +1,35 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable"
 
 import { COLORS } from "@/constants/color"
+import { Memo } from "@/modules/memo/memo.entity"
 
-export default function MemoListItem() {
+type Props = {
+  memo: Memo
+  onPress: () => void
+  onDelete: (id: string) => void
+}
+
+export default function MemoListItem({ memo, onPress, onDelete }: Props) {
+  const formatedDate = new Date(memo.created_at).toLocaleDateString("ja-JP")
   return (
-    <TouchableOpacity style={styles.item}>
-      <View style={styles.itemContent}>
-        <Text style={styles.itemTitle} numberOfLines={1}>
-          買い物リスト
-        </Text>
-        <Text style={styles.itemDate}>2024/01/15</Text>
-      </View>
-      <Text style={styles.chevron}>›</Text>
-    </TouchableOpacity>
+    <ReanimatedSwipeable renderRightActions={() => (
+      <TouchableOpacity style={styles.deleteButton} onPress={() => { onDelete(memo.id) }}>
+        <Text style={styles.deleteButtonText}>削除</Text>
+      </TouchableOpacity>
+    )
+
+    }>
+      <TouchableOpacity style={styles.item} onPress={onPress}>
+        <View style={styles.itemContent}>
+          <Text style={styles.itemTitle} numberOfLines={1}>
+            {memo.title}
+          </Text>
+          <Text style={styles.itemDate}>{formatedDate}</Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </TouchableOpacity>
+    </ReanimatedSwipeable>
   )
 }
 

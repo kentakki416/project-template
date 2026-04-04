@@ -1,5 +1,6 @@
+import crypto from "crypto"
+
 import type { Request, Response, NextFunction } from "express"
-import { v4 as uuidv4 } from "uuid"
 
 import { LOG_EXCLUDE_PATHS } from "../const"
 import { logger, logContext } from "../log"
@@ -13,7 +14,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
   }
 
   const startTime = Date.now()
-  const requestId = uuidv4()
+  const requestId = crypto.randomUUID()
   const authReq = req as AuthRequest
   const userId = authReq.userId || "unauthenticated"
 

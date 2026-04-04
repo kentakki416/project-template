@@ -1,7 +1,9 @@
+import { useFocusEffect } from "@react-navigation/native"
+import * as Haptics from "expo-haptics"
 import { Stack, useRouter } from "expo-router"
+import { memo, useCallback } from "react"
 import {
-  ActivityIndicator,
-  ScrollView,
+  FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -9,11 +11,42 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
+import EmptyView from "@/components/features/memo/EmptyView"
 import MemoListItem from "@/components/features/memo/MemoListItem"
 import { COLORS } from "@/constants/color"
+import { memoApi } from "@/modules/memo/memo.api"
+import { useMemoStore } from "@/modules/memo/memo.state"
 
 export default function MemoListScreen() {
   const router = useRouter()
+  const { isLoading, memos, setStoreIsLoading, setStoreMemos, deleteStoreMemo } = useMemoStore()
+
+  useFocusEffect(
+    useCallback(() => {
+      const fetchMemos = async () => {
+        setStoreIsLoading(true)
+        try {
+          const data = await memoApi.getAll()
+          setStoreMemos(data)
+        } catch (err) {
+          console.error("Failed to fetch memos:", err)
+        } finally {
+          setStoreIsLoading(false)
+        }
+      }
+      fetchMemos()
+    }, [setStoreIsLoading, setStoreMemos])
+  )
+
+  const deleteMemo = async (id: string) => {
+    try {
+      await memoApi.delete(id)
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
+      deleteStoreMemo(id)
+    } catch (err) {
+      alert(err)
+    }
+  }
 
   return (
     <>
@@ -28,33 +61,29 @@ export default function MemoListScreen() {
         }}
       />
       <SafeAreaView style={styles.container} edges={["bottom"]}>
-        {/* ローディング表示 - コメントアウトを切り替えて表示/非表示を変更 */}
-        {/* <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-        </View> */}
-
-        {/* 空状態表示 - コメントアウトを切り替えて表示/非表示を変更 */}
-        {/* <EmptyView /> */}
-
-        <ScrollView>
-          <MemoListItem />
-          <MemoListItem />
-          <MemoListItem />
-        </ScrollView>
+        {isLoading ? (
+          <View style={styles.loaderContainer}>
+            <Text>Loading...</Text>
+          </View>
+        ) : memos.length === 0 ? (
+          <EmptyView />
+        ) : (
+          <FlatList
+            data={memos}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <MemoListItem
+                memo={item}
+                onPress={() => router.push(`/memo/${item.id}`)}
+                onDelete={deleteMemo}
+              />
+            )}
+          />
+        )}
       </SafeAreaView>
     </>
   )
 }
-
-// function EmptyView() {
-//   return (
-//     <View style={styles.emptyContainer}>
-//       <Text style={styles.emptyIcon}>📝</Text>
-//       <Text style={styles.emptyText}>メモがありません</Text>
-//       <Text style={styles.emptySubText}>右上の＋から作成できます</Text>
-//     </View>
-//   );
-// }
 
 const styles = StyleSheet.create({
   container: {
@@ -72,25 +101,5 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontWeight: "300",
     marginRight: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 120,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: COLORS.subText,
-    marginBottom: 4,
-  },
-  emptySubText: {
-    fontSize: 14,
-    color: COLORS.subText,
   },
 })
