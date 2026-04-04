@@ -25,21 +25,53 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
-## コンポーネントの分類方針
+## アーキテクチャ
 
-`src/components/` は以下の3層で分類する。画面ベースではなく機能ベースで分ける。
+### ディレクトリ構成
+
+```
+src/
+  app/                        # ルーティング + ページ構成（薄く保つ）
+  components/
+    ui/                       # 汎用UIコンポーネント（Button, Input等）
+    layout/                   # レイアウト系（Header, Sidebar等）
+    features/                 # 機能固有のUIコンポーネント
+      {feature}/              #   例: memo/MemoForm.tsx, memo/MemoListItem.tsx
+  features/                   # ロジックのみ（レンダリングなし）
+    {feature}/
+      {feature}.api.ts        #   API通信
+      {feature}.entity.ts     #   型・エンティティ
+      {feature}.state.ts      #   状態管理（zustand）
+  hooks/                      # 共有カスタムフック
+  constants/                  # 定数
+```
+
+### 依存の方向
+
+```
+app/ → components/ → features/(ロジック)
+                   → hooks/
+                   → constants/
+```
+
+上位から下位への一方向のみ。`features/`（ロジック）はUIに依存しない。
+
+### 設計原則
+
+| 原則 | 内容 |
+|---|---|
+| **ルートファイルは薄く** | `app/`にはビジネスロジックを書かず、コンポーネントの組み合わせのみ |
+| **features/ = ロジック層** | API通信・状態管理・型定義を機能単位で凝集。レンダリングは持たない |
+| **components/ = UI層** | 見た目を担当。`features/`のロジックはprops経由で受け取る |
+| **状態管理はfeatures内** | zustandのstoreは各featureに配置。グローバルなContextには出さない |
+
+### コンポーネントの分類基準
 
 | 層 | 配置するもの | 依存ルール |
 |---|---|---|
-| **ui/** | props だけで動く汎用パーツ。ビジネスロジックを持たない | 他の層に依存しない |
-| **features/** | 特定のドメイン・機能に紐づくコンポーネント | `ui/` と `layout/` を使ってよい |
-| **layout/** | 画面の構造やナビゲーションを決めるコンポーネント | `ui/` を使ってよい |
-
-**理由:**
-- 画面ベースだと複数画面で使うコンポーネントの置き場所に困り、再利用性が下がる
-- `ui/` を分離することで依存方向が明確になり、安全に再利用・テストできる
-- Expo Router がルーティングを担うため、`components/` は画面に縛られる必要がない
-- web / admin / mobile で同じ考え方を採用し、アプリ間の認知負荷を統一する
+| **ui/** | propsだけで動く汎用パーツ。ビジネスロジックを持たない | 他の層に依存しない |
+| **features/** | 特定のドメイン・機能に紐づくコンポーネント | `ui/`と`layout/`を使ってよい |
+| **layout/** | 画面の構造やナビゲーションを決めるコンポーネント | `ui/`を使ってよい |
 
 **判断基準:** ドメイン知識なしで動く → `ui/` / レイアウト系 → `layout/` / それ以外 → `features/{domain}/`
 

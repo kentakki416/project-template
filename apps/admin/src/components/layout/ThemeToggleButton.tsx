@@ -1,6 +1,6 @@
 import React from "react"
 
-import { useTheme } from "@/context/ThemeContext"
+import { useTheme } from "@/features/theme/theme.context"
 
 export const ThemeToggleButton: React.FC = () => {
   const { toggleTheme } = useTheme()

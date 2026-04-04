@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { useSidebar } from "../context/SidebarContext"
+import { useSidebar } from "@/features/sidebar/sidebar.context"
 import {
   BoxCubeIcon,
   CalenderIcon,
@@ -17,7 +17,7 @@ import {
   PlugInIcon,
   TableIcon,
   UserCircleIcon,
-} from "../icons/index"
+} from "@/icons"
 
 type NavItem = {
   name: string;

@@ -14,8 +14,8 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import EmptyView from "@/components/features/memo/EmptyView"
 import MemoListItem from "@/components/features/memo/MemoListItem"
 import { COLORS } from "@/constants/color"
-import { memoApi } from "@/modules/memo/memo.api"
-import { useMemoStore } from "@/modules/memo/memo.state"
+import { memoApi } from "@/features/memo/memo.api"
+import { useMemoStore } from "@/features/memo/memo.state"
 
 export default function MemoListScreen() {
   const router = useRouter()

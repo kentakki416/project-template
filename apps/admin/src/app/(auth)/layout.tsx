@@ -4,7 +4,7 @@ import React from "react"
 
 import GridShape from "@/components/layout/GridShape"
 import ThemeTogglerTwo from "@/components/layout/ThemeTogglerTwo"
-import { ThemeProvider } from "@/context/ThemeContext"
+import { ThemeProvider } from "@/features/theme/theme.context"
 
 export default function AuthLayout({
   children,

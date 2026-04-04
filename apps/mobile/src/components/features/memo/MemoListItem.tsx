@@ -2,7 +2,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable"
 
 import { COLORS } from "@/constants/color"
-import { Memo } from "@/modules/memo/memo.entity"
+import { Memo } from "@/features/memo/memo.entity"
 
 type Props = {
   memo: Memo

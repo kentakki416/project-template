@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context"
 
 import { COLORS } from "@/constants/color"
-import { Memo } from "@/modules/memo/memo.entity"
+import { Memo } from "@/features/memo/memo.entity"
 
 type Props = {
   onSave: (title: string, body: string) => Promise<void>

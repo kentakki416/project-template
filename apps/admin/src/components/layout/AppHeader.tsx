@@ -6,7 +6,7 @@ import React, { useState ,useEffect,useRef } from "react"
 import NotificationDropdown from "@/components/features/header/NotificationDropdown"
 import UserDropdown from "@/components/features/header/UserDropdown"
 import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton"
-import { useSidebar } from "@/context/SidebarContext"
+import { useSidebar } from "@/features/sidebar/sidebar.context"
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false)

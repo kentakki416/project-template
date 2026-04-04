@@ -1,8 +1,8 @@
 import { useRouter } from "expo-router"
 
 import MemoForm from "@/components/features/memo/MemoForm"
-import { memoApi } from "@/modules/memo/memo.api"
-import { useMemoStore } from "@/modules/memo/memo.state"
+import { memoApi } from "@/features/memo/memo.api"
+import { useMemoStore } from "@/features/memo/memo.state"
 
 export default function MemoNewScreen() {
   const router = useRouter()
