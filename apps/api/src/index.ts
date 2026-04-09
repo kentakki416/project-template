@@ -94,15 +94,28 @@ app.use(requestLogger)
 // ルーティング
 app.use(
   "/api/health",
-  healthRouter(healthLivenessController, healthReadinessController)
+  healthRouter({
+    liveness: healthLivenessController,
+    readiness: healthReadinessController,
+  })
 )
 app.use(
   "/api/auth",
-  authRouter(authGoogleController, authGoogleCallbackController, authMeController)
+  authRouter({
+    callback: authGoogleCallbackController,
+    google: authGoogleController,
+    me: authMeController,
+  })
 )
 app.use(
   "/api/memo",
-  memoRouter(memoListController, memoDetailController, memoCreateController, memoUpdateController, memoDeleteController)
+  memoRouter({
+    create: memoCreateController,
+    delete: memoDeleteController,
+    detail: memoDetailController,
+    list: memoListController,
+    update: memoUpdateController,
+  })
 )
 
 // サーバー起動

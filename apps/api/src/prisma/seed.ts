@@ -23,8 +23,6 @@ async function main() {
     update: {},
     where: { characterCode: CharacterCode.MASTER },
   })
-
-  console.log("Character master data seeded successfully")
 }
 
 main()

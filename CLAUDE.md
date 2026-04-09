@@ -145,6 +145,10 @@ All apps use ESLint v9 with flat config format (`eslint.config.{js,mjs}`).
   - Types: PascalCase
 - **Prefer**: const over let/var, template literals over string concatenation, arrow callbacks
 
+### Function style:
+- **API (`apps/api`)**: `function` 宣言は使わず、`const` + アロー関数で統一する（例: `export const foo = async () => {}`）
+- **Web / Mobile / Admin**: コンポーネントは `function` ベースでもOK
+
 ### When editing files:
 - Run `pnpm lint:fix` after making changes to auto-fix formatting
 - If adding new imports, ensure they follow the import order rules

@@ -1,8 +1,5 @@
 import request from "supertest"
 
-import { GoogleOAuthClient, IGoogleOAuthClient } from "../../../src/client/google-oauth"
-import { AuthGoogleController } from "../../../src/controller/auth/google"
-import { AuthGoogleCallbackController } from "../../../src/controller/auth/google-callback"
 import { AuthMeController } from "../../../src/controller/auth/me"
 import { generateToken } from "../../../src/lib/jwt"
 import { PrismaUserRepository } from "../../../src/repository/mysql/user-repository"
@@ -14,22 +11,9 @@ const userRepository = new PrismaUserRepository(testPrisma)
 
 const app = createTestApp()
 
-// Google OAuth はモック
-const mockGoogleOAuthClient: IGoogleOAuthClient = {
-  generateAuthUrl: jest.fn(),
-  getUserInfo: jest.fn(),
-}
-
-const dummyGoogleController = new AuthGoogleController(mockGoogleOAuthClient as GoogleOAuthClient)
-const dummyCallbackController = new AuthGoogleCallbackController(
-  { create: jest.fn(), findByProvider: jest.fn() },
-  { createUserWithAuthAccountAndUserCharacterTx: jest.fn() },
-  mockGoogleOAuthClient as GoogleOAuthClient,
-)
-
 const authMeController = new AuthMeController(userRepository)
 
-app.use("/api/auth", authRouter(dummyGoogleController, dummyCallbackController, authMeController))
+app.use("/api/auth", authRouter({ me: authMeController }))
 
 beforeEach(async () => {
   await cleanupTestData()

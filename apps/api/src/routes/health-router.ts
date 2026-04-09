@@ -3,22 +3,29 @@ import { Router } from "express"
 import { HealthLivenessController } from "../controller/health/liveness"
 import { HealthReadinessController } from "../controller/health/readiness"
 
+type HealthRouterControllers = {
+  liveness?: HealthLivenessController
+  readiness?: HealthReadinessController
+}
+
 /**
  * ヘルスチェック関連のルーター
+ * 渡されたコントローラーのルートのみ登録する
  */
-export const healthRouter = (
-  healthLivenessController: HealthLivenessController,
-  healthReadinessController: HealthReadinessController
-): Router => {
+export const healthRouter = (controllers: HealthRouterControllers): Router => {
   const router = Router()
 
   // GET /api/health
-  router.get("/", (req, res) => healthLivenessController.execute(req, res))
+  if (controllers.liveness) {
+    const controller = controllers.liveness
+    router.get("/", (req, res) => controller.execute(req, res))
+  }
 
   // GET /api/health/ready
-  router.get("/ready", async (req, res) =>
-    healthReadinessController.execute(req, res)
-  )
+  if (controllers.readiness) {
+    const controller = controllers.readiness
+    router.get("/ready", async (req, res) => controller.execute(req, res))
+  }
 
   return router
 }

@@ -1,9 +1,7 @@
 import request from "supertest"
 
-import { GoogleOAuthClient, IGoogleOAuthClient } from "../../../src/client/google-oauth"
+import { IGoogleOAuthClient } from "../../../src/client/google-oauth"
 import { AuthGoogleController } from "../../../src/controller/auth/google"
-import { AuthGoogleCallbackController } from "../../../src/controller/auth/google-callback"
-import { AuthMeController } from "../../../src/controller/auth/me"
 import { authRouter } from "../../../src/routes/auth-router"
 import { createTestApp } from "../helper"
 
@@ -17,19 +15,9 @@ const mockGoogleOAuthClient: IGoogleOAuthClient = {
 
 const app = createTestApp()
 
-// ダミーのコントローラー（google.testでは使わない）
-const dummyCallbackController = new AuthGoogleCallbackController(
-  { create: jest.fn(), findByProvider: jest.fn() },
-  { createUserWithAuthAccountAndUserCharacterTx: jest.fn() },
-  mockGoogleOAuthClient as GoogleOAuthClient,
-)
-const dummyMeController = new AuthMeController(
-  { create: jest.fn(), findByEmail: jest.fn(), findById: jest.fn() },
-)
+const authGoogleController = new AuthGoogleController(mockGoogleOAuthClient)
 
-const authGoogleController = new AuthGoogleController(mockGoogleOAuthClient as GoogleOAuthClient)
-
-app.use("/api/auth", authRouter(authGoogleController, dummyCallbackController, dummyMeController))
+app.use("/api/auth", authRouter({ google: authGoogleController }))
 
 describe("GET /api/auth/google", () => {
   beforeEach(() => {

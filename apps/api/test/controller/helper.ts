@@ -1,6 +1,10 @@
 import express from "express"
 
+import { generateToken } from "../../src/lib/jwt"
 import { authMiddleware } from "../../src/middleware/auth"
+import { User } from "../../src/types/domain"
+
+import { testPrisma } from "./setup"
 
 /**
  * テスト用Expressアプリを構築する
@@ -11,4 +15,35 @@ export const createTestApp = (): express.Express => {
   app.use(express.json())
   app.use(authMiddleware)
   return app
+}
+
+/**
+ * テスト用ユーザーをDBに作成し、JWTトークンを返す
+ * 認証必須のAPIテストで、リクエスト前に呼び出して使用する
+ */
+export const createTestUser = async (overrides?: {
+  avatarUrl?: string
+  email?: string
+  name?: string
+}): Promise<{ token: string; user: User }> => {
+  const prismaUser = await testPrisma.user.create({
+    data: {
+      avatarUrl: overrides?.avatarUrl ?? "https://example.com/avatar.jpg",
+      email: overrides?.email ?? `test-${Date.now()}@example.com`,
+      name: overrides?.name ?? "Test User",
+    },
+  })
+
+  const user: User = {
+    avatarUrl: prismaUser.avatarUrl,
+    createdAt: prismaUser.createdAt,
+    email: prismaUser.email,
+    id: prismaUser.id,
+    name: prismaUser.name,
+    updatedAt: prismaUser.updatedAt,
+  }
+
+  const token = generateToken(user.id)
+
+  return { token, user }
 }

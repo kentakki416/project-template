@@ -1,9 +1,7 @@
 import request from "supertest"
 
-import { GoogleOAuthClient, GoogleUserInfo, IGoogleOAuthClient } from "../../../src/client/google-oauth"
-import { AuthGoogleController } from "../../../src/controller/auth/google"
+import { GoogleUserInfo, IGoogleOAuthClient } from "../../../src/client/google-oauth"
 import { AuthGoogleCallbackController } from "../../../src/controller/auth/google-callback"
-import { AuthMeController } from "../../../src/controller/auth/me"
 import { PrismaUserRegistrationRepository } from "../../../src/repository/mysql/aggregate/user-registration-repository"
 import { PrismaAuthAccountRepository } from "../../../src/repository/mysql/auth-account-repository"
 import { authRouter } from "../../../src/routes/auth-router"
@@ -27,16 +25,10 @@ const app = createTestApp()
 const callbackController = new AuthGoogleCallbackController(
   authAccountRepository,
   userRegistrationRepository,
-  mockGoogleOAuthClient as GoogleOAuthClient,
+  mockGoogleOAuthClient,
 )
 
-// ダミーのコントローラー
-const dummyGoogleController = new AuthGoogleController(mockGoogleOAuthClient as GoogleOAuthClient)
-const dummyMeController = new AuthMeController(
-  { create: jest.fn(), findByEmail: jest.fn(), findById: jest.fn() },
-)
-
-app.use("/api/auth", authRouter(dummyGoogleController, callbackController, dummyMeController))
+app.use("/api/auth", authRouter({ callback: callbackController }))
 
 beforeAll(async () => {
   await seedTestData()

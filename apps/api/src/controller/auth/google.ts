@@ -2,14 +2,14 @@ import { Request, Response } from "express"
 
 import { ErrorResponse } from "@repo/api-schema"
 
-import { GoogleOAuthClient } from "../../client/google-oauth"
+import { IGoogleOAuthClient } from "../../client/google-oauth"
 import { logger } from "../../log"
 
 /**
  * Google OAuth 認証を開始（Googleの認証画面にリダイレクト）API
  */
 export class AuthGoogleController {
-  constructor(private googleOAuthClient: GoogleOAuthClient) {}
+  constructor(private googleOAuthClient: IGoogleOAuthClient) {}
 
   execute(_req: Request, res: Response) {
     try {

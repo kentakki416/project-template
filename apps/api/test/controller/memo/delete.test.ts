@@ -1,10 +1,7 @@
 import request from "supertest"
 
-import { MemoCreateController } from "../../../src/controller/memo/create"
 import { MemoDeleteController } from "../../../src/controller/memo/delete"
 import { MemoDetailController } from "../../../src/controller/memo/detail"
-import { MemoListController } from "../../../src/controller/memo/list"
-import { MemoUpdateController } from "../../../src/controller/memo/update"
 import { PrismaMemoRepository } from "../../../src/repository/mysql/memo-repository"
 import { memoRouter } from "../../../src/routes/memo-router"
 import { createTestApp } from "../helper"
@@ -14,16 +11,10 @@ const memoRepository = new PrismaMemoRepository(testPrisma)
 
 const app = createTestApp()
 
-app.use(
-  "/api/memo",
-  memoRouter(
-    new MemoListController(memoRepository),
-    new MemoDetailController(memoRepository),
-    new MemoCreateController(memoRepository),
-    new MemoUpdateController(memoRepository),
-    new MemoDeleteController(memoRepository),
-  ),
-)
+app.use("/api/memo", memoRouter({
+  delete: new MemoDeleteController(memoRepository),
+  detail: new MemoDetailController(memoRepository),
+}))
 
 beforeEach(async () => {
   await cleanupTestData()

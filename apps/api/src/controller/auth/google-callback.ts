@@ -6,7 +6,7 @@ import {
   ErrorResponse,
 } from "@repo/api-schema"
 
-import { GoogleOAuthClient } from "../../client/google-oauth"
+import { IGoogleOAuthClient } from "../../client/google-oauth"
 import { generateToken } from "../../lib/jwt"
 import { logger } from "../../log"
 import { AuthAccountRepository, UserRegistrationRepository } from "../../repository/mysql"
@@ -19,7 +19,7 @@ export class AuthGoogleCallbackController {
   constructor(
     private authAccountRepository: AuthAccountRepository,
     private userRegistrationRepository: UserRegistrationRepository,
-    private googleOAuthClient: GoogleOAuthClient
+    private googleOAuthClient: IGoogleOAuthClient
   ) {}
 
   async execute(req: Request, res: Response) {
