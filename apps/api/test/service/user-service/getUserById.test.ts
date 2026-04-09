@@ -1,10 +1,13 @@
-import { User } from "../../../src/prisma/generated/client"
+import { UserRepository } from "../../../src/repository/mysql/user-repository"
 import { getUserById } from "../../../src/service/user-service"
+import { User } from "../../../src/types/domain"
 
 // モック
-const mockFindById = jest.fn()
+const mockFindById = jest.fn<Promise<User | null>, [number]>()
 
-const mockUserRepository = {
+const mockUserRepository: UserRepository = {
+  create: jest.fn(),
+  findByEmail: jest.fn(),
   findById: mockFindById,
 }
 
@@ -27,7 +30,7 @@ describe("getUserById", () => {
     mockFindById.mockResolvedValue(mockUser)
 
     // Act
-    const result = await getUserById(1, mockUserRepository as any)
+    const result = await getUserById(1, mockUserRepository)
 
     // Assert
     expect(result).toEqual(mockUser)
@@ -40,7 +43,7 @@ describe("getUserById", () => {
     mockFindById.mockResolvedValue(null)
 
     // Act
-    const result = await getUserById(999, mockUserRepository as any)
+    const result = await getUserById(999, mockUserRepository)
 
     // Assert
     expect(result).toBeNull()
@@ -54,7 +57,7 @@ describe("getUserById", () => {
     mockFindById.mockRejectedValue(mockError)
 
     // Act & Assert
-    await expect(getUserById(1, mockUserRepository as any)).rejects.toThrow(
+    await expect(getUserById(1, mockUserRepository)).rejects.toThrow(
       "Database connection failed"
     )
     expect(mockFindById).toHaveBeenCalledWith(1)

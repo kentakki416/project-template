@@ -1,8 +1,11 @@
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret'
+process.env.JWT_EXPIRATION = process.env.JWT_EXPIRATION || '1h'
+
 module.exports = {
     preset: 'ts-jest',
     testEnvironment: 'node',
     roots: ['<rootDir>/test'],
-    testMatch: ['<rootDir>/test/**/*.ts'],
+    testMatch: ['<rootDir>/test/**/*.test.ts'],
     moduleFileExtensions: ['ts', 'js', 'json'],
     collectCoverageFrom: [
         'src/**/*.ts',

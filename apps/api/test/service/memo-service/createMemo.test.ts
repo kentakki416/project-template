@@ -1,0 +1,63 @@
+import { CreateMemoInput, MemoRepository } from "../../../src/repository/mysql/memo-repository"
+import { createMemo } from "../../../src/service/memo-service"
+import { Memo } from "../../../src/types/domain"
+
+// モック
+const mockCreate = jest.fn<Promise<Memo>, [CreateMemoInput]>()
+
+const mockMemoRepository: MemoRepository = {
+  create: mockCreate,
+  deleteById: jest.fn(),
+  findAll: jest.fn(),
+  findById: jest.fn(),
+  update: jest.fn(),
+}
+
+describe("createMemo", () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it("メモを作成して返す", async () => {
+    // Arrange
+    const input: CreateMemoInput = {
+      body: "New Body",
+      title: "New Title",
+    }
+
+    const mockMemo: Memo = {
+      body: "New Body",
+      createdAt: new Date(),
+      id: 1,
+      title: "New Title",
+      updatedAt: new Date(),
+    }
+
+    mockCreate.mockResolvedValue(mockMemo)
+
+    // Act
+    const result = await createMemo(input, mockMemoRepository)
+
+    // Assert
+    expect(result).toEqual(mockMemo)
+    expect(mockCreate).toHaveBeenCalledWith(input)
+    expect(mockCreate).toHaveBeenCalledTimes(1)
+  })
+
+  it("データベースエラー時にエラーをスローする", async () => {
+    // Arrange
+    const input: CreateMemoInput = {
+      body: "New Body",
+      title: "New Title",
+    }
+
+    const mockError = new Error("Database connection failed")
+    mockCreate.mockRejectedValue(mockError)
+
+    // Act & Assert
+    await expect(createMemo(input, mockMemoRepository)).rejects.toThrow(
+      "Database connection failed"
+    )
+    expect(mockCreate).toHaveBeenCalledWith(input)
+  })
+})

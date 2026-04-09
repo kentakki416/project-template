@@ -25,7 +25,15 @@ export type GoogleAuthUrlOptions = {
     state?: string
 }
 
-export class GoogleOAuthClient {
+/**
+ * GoogleOAuthクライアントのインターフェース
+ */
+export interface IGoogleOAuthClient {
+    generateAuthUrl(options?: GoogleAuthUrlOptions): string
+    getUserInfo(code: string): Promise<GoogleUserInfo>
+}
+
+export class GoogleOAuthClient implements IGoogleOAuthClient {
   private oauth2Client: OAuth2Client
 
   constructor(clientId: string, clientSecret: string, callbackUrl: string) {

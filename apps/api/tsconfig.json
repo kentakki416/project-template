@@ -27,7 +27,9 @@
     // 型定義ファイル（.d.ts）を生成
     "declaration": true,
     // デバッグ用のソースマップを生成
-    "sourceMap": true
+    "sourceMap": true,
+    // Jest のグローバル型を認識させる
+    "types": ["node", "jest"]
   },
   // コンパイル対象のファイル（ESLintとIDEがsrcとtestの両方を認識）
   "include": ["src/**/*", "test/**/*"],

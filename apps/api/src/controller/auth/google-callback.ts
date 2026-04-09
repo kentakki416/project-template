@@ -7,6 +7,7 @@ import {
 } from "@repo/api-schema"
 
 import { GoogleOAuthClient } from "../../client/google-oauth"
+import { generateToken } from "../../lib/jwt"
 import { logger } from "../../log"
 import { AuthAccountRepository, UserRegistrationRepository } from "../../repository/mysql"
 import * as service from "../../service"
@@ -35,7 +36,8 @@ export class AuthGoogleCallbackController {
           authAccountRepository: this.authAccountRepository,
           userRegistrationRepository: this.userRegistrationRepository,
         },
-        this.googleOAuthClient
+        this.googleOAuthClient,
+        generateToken
       )
 
       logger.info("AuthGoogleCallbackController: Authentication successful", {

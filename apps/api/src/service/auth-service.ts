@@ -1,5 +1,4 @@
-import { GoogleOAuthClient, GoogleUserInfo } from "../client/google-oauth"
-import { generateToken } from "../lib/jwt"
+import { IGoogleOAuthClient, GoogleUserInfo } from "../client/google-oauth"
 import { logger } from "../log"
 import {
   AuthAccountRepository,
@@ -22,7 +21,8 @@ export const authenticateWithGoogle = async (
         authAccountRepository: AuthAccountRepository
         userRegistrationRepository: UserRegistrationRepository
     },
-  googleAuthClient: GoogleOAuthClient
+  googleAuthClient: IGoogleOAuthClient,
+  tokenGenerator: (userId: number) => string
 ): Promise<AuthenticateWithGoogleResult> => {
   const { authAccountRepository, userRegistrationRepository } = repository
 
@@ -73,7 +73,7 @@ export const authenticateWithGoogle = async (
   }
 
   // JWTトークンの生成
-  const jwtToken = generateToken(user.id)
+  const jwtToken = tokenGenerator(user.id)
   logger.debug("AuthService: JWT token generated", {
     userId: user.id,
   })

@@ -80,6 +80,7 @@ graph TB
 | ディレクトリ | kebab-case | `user-profile/`, `api-schema/` |
 | 一般ファイル（hooks, utils, lib等） | kebab-case | `use-auth.ts`, `api-client.ts`, `format-date.ts` |
 | Componentをexportするファイル | PascalCase | `UserProfile.tsx`, `LoginForm.tsx`, `Button.tsx` |
+| テストファイル | テスト対象の関数名 + `.test.ts` | `getUserById.test.ts`, `authenticateWithGoogle.test.ts` |
 
 ## 環境構築
 

@@ -1,17 +1,25 @@
-import { CharacterCode, User } from "../../../src/prisma/generated/client"
+import { type IGoogleOAuthClient, GoogleUserInfo } from "../../../src/client/google-oauth"
+import { UserRegistrationRepository } from "../../../src/repository/mysql/aggregate/user-registration-repository"
+import { AuthAccountRepository } from "../../../src/repository/mysql/auth-account-repository"
 import { authenticateWithGoogle } from "../../../src/service/auth-service"
+import { AuthAccountWithUser, User } from "../../../src/types/domain"
 
 // モック
-const mockGetUserInfo = jest.fn()
-const mockFindByProvider = jest.fn()
-const mockCreateUserWithAuthAccountAndUserCharacterTx = jest.fn()
+const mockGetUserInfo = jest.fn<Promise<GoogleUserInfo>, [string]>()
+const mockFindByProvider = jest.fn<Promise<AuthAccountWithUser | null>, [string, string]>()
+const mockCreateUserWithAuthAccountAndUserCharacterTx = jest.fn<Promise<User>, [Parameters<UserRegistrationRepository["createUserWithAuthAccountAndUserCharacterTx"]>[0]]>()
 
-const mockGoogleAuthClient = {
+const mockGoogleAuthClient: IGoogleOAuthClient = {
+  generateAuthUrl: jest.fn(),
   getUserInfo: mockGetUserInfo,
 }
 
-const mockRepository = {
+const mockRepository: {
+  authAccountRepository: AuthAccountRepository
+  userRegistrationRepository: UserRegistrationRepository
+} = {
   authAccountRepository: {
+    create: jest.fn(),
     findByProvider: mockFindByProvider,
   },
   userRegistrationRepository: {
@@ -19,10 +27,9 @@ const mockRepository = {
   },
 }
 
-// JWT生成をモック
-jest.mock("../../../src/lib/jwt", () => ({
-  generateToken: jest.fn((userId: number) => `mock-jwt-token-${userId}`),
-}))
+const mockTokenGenerator = jest.fn<string, [number]>(
+  (userId: number) => `mock-jwt-token-${userId}`
+)
 
 describe("authenticateWithGoogle", () => {
   beforeEach(() => {
@@ -31,7 +38,7 @@ describe("authenticateWithGoogle", () => {
 
   it("既存ユーザーの場合、ユーザー情報とJWTトークンを返す", async () => {
     // Arrange
-    const mockGoogleUser = {
+    const mockGoogleUser: GoogleUserInfo = {
       email: "test@example.com",
       id: "google-123",
       name: "Test User",
@@ -47,11 +54,17 @@ describe("authenticateWithGoogle", () => {
       updatedAt: new Date(),
     }
 
-    const mockExistingAccount = {
+    const mockExistingAccount: AuthAccountWithUser = {
+      accessToken: null,
       createdAt: new Date(),
+      expiresAt: null,
       id: 1,
-      provider: "google" as const,
+      idToken: null,
+      provider: "google",
       providerAccountId: "google-123",
+      refreshToken: null,
+      scope: null,
+      tokenType: null,
       updatedAt: new Date(),
       user: mockExistingUser,
       userId: 1,
@@ -63,8 +76,9 @@ describe("authenticateWithGoogle", () => {
     // Act
     const result = await authenticateWithGoogle(
       "auth-code",
-            mockRepository as any,
-            mockGoogleAuthClient as any
+      mockRepository,
+      mockGoogleAuthClient,
+      mockTokenGenerator
     )
 
     // Assert
@@ -78,7 +92,7 @@ describe("authenticateWithGoogle", () => {
 
   it("新規ユーザーの場合、ユーザーを作成してJWTトークンを返す", async () => {
     // Arrange
-    const mockGoogleUser = {
+    const mockGoogleUser: GoogleUserInfo = {
       email: "newuser@example.com",
       id: "google-456",
       name: "New User",
@@ -101,8 +115,9 @@ describe("authenticateWithGoogle", () => {
     // Act
     const result = await authenticateWithGoogle(
       "auth-code",
-            mockRepository as any,
-            mockGoogleAuthClient as any
+      mockRepository,
+      mockGoogleAuthClient,
+      mockTokenGenerator
     )
 
     // Assert
@@ -122,7 +137,7 @@ describe("authenticateWithGoogle", () => {
         name: "New User",
       },
       userCharacter: {
-        characterCode: CharacterCode.TRAECHAN,
+        characterCode: "TRAECHAN",
         isActive: true,
         nickName: "トレちゃん",
       },
@@ -138,8 +153,9 @@ describe("authenticateWithGoogle", () => {
     await expect(
       authenticateWithGoogle(
         "invalid-code",
-                mockRepository as any,
-                mockGoogleAuthClient as any
+        mockRepository,
+        mockGoogleAuthClient,
+        mockTokenGenerator
       )
     ).rejects.toThrow("Google authentication failed")
   })
