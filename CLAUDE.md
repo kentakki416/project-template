@@ -106,6 +106,9 @@ trivy config aws/env/dev -c .trivy.yml
   - Uses React Navigation with bottom tabs
   - File-based routing in `app/` directory
   - Theme support via `@react-navigation/native`
+- **フロントエンド共通ルール（Web / Mobile / Admin）**:
+  - APIのリクエスト・レスポンスの型はローカルで独自定義せず、必ず `@repo/api-schema` からインポートして使用する
+  - ローカルに同等の型を定義すると、API側の変更に追従できず型の不整合バグが発生するため禁止
 
 ### Infrastructure (Terraform)
 - Structure: `packages/terraform/aws/{bootstrap,env,modules}`

@@ -37,6 +37,25 @@ app/ → components/ → features/(ロジック)
 
 上位から下位への一方向のみ。`features/`（ロジック）はUIに依存しない。
 
+### API型の利用ルール
+
+- APIのリクエスト・レスポンスの型は、ローカルで独自定義せず `@repo/api-schema` からインポートして使用する
+- `@repo/api-schema` には Zod スキーマと推論された TypeScript 型がエクスポートされているため、バリデーションと型安全性の両方が得られる
+- これにより API とフロントエンドの型が常に一致し、型の不整合によるバグを防げる
+
+```typescript
+// OK: @repo/api-schema から型をインポート
+import { AuthMeResponse } from "@repo/api-schema"
+type User = AuthMeResponse
+
+// NG: ローカルで独自に型を定義
+type User = {
+  id: number
+  email: string | null
+  name: string | null
+}
+```
+
 ### 設計原則
 
 | 原則 | 内容 |
