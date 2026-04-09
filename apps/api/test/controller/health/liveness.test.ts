@@ -1,8 +1,8 @@
 import request from "supertest"
 
 import { HealthLivenessController } from "../../../src/controller/health/liveness"
-import { healthRouter } from "../../../src/routes/health-router"
 import { HealthReadinessController } from "../../../src/controller/health/readiness"
+import { healthRouter } from "../../../src/routes/health-router"
 import { createTestApp } from "../helper"
 
 const app = createTestApp()

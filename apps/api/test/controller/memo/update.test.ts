@@ -5,76 +5,54 @@ import { MemoDeleteController } from "../../../src/controller/memo/delete"
 import { MemoDetailController } from "../../../src/controller/memo/detail"
 import { MemoListController } from "../../../src/controller/memo/list"
 import { MemoUpdateController } from "../../../src/controller/memo/update"
-import { MemoRepository, UpdateMemoInput } from "../../../src/repository/mysql/memo-repository"
+import { PrismaMemoRepository } from "../../../src/repository/mysql/memo-repository"
 import { memoRouter } from "../../../src/routes/memo-router"
-import { Memo } from "../../../src/types/domain"
 import { createTestApp } from "../helper"
+import { cleanupTestData, disconnectTestDb, testPrisma } from "../setup"
 
-// モック
-const mockFindById = jest.fn<Promise<Memo | null>, [number]>()
-const mockUpdate = jest.fn<Promise<Memo>, [number, UpdateMemoInput]>()
-
-const mockMemoRepository: MemoRepository = {
-  create: jest.fn(),
-  deleteById: jest.fn(),
-  findAll: jest.fn(),
-  findById: mockFindById,
-  update: mockUpdate,
-}
+const memoRepository = new PrismaMemoRepository(testPrisma)
 
 const app = createTestApp()
 
 app.use(
   "/api/memo",
   memoRouter(
-    new MemoListController(mockMemoRepository),
-    new MemoDetailController(mockMemoRepository),
-    new MemoCreateController(mockMemoRepository),
-    new MemoUpdateController(mockMemoRepository),
-    new MemoDeleteController(mockMemoRepository),
+    new MemoListController(memoRepository),
+    new MemoDetailController(memoRepository),
+    new MemoCreateController(memoRepository),
+    new MemoUpdateController(memoRepository),
+    new MemoDeleteController(memoRepository),
   ),
 )
 
+beforeEach(async () => {
+  await cleanupTestData()
+})
+
+afterAll(async () => {
+  await cleanupTestData()
+  await disconnectTestDb()
+})
+
 describe("PUT /api/memo/:id", () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-  })
-
   it("200 と更新されたメモを返す", async () => {
-    const existingMemo: Memo = {
-      body: "Old Body",
-      createdAt: new Date("2024-01-01T00:00:00.000Z"),
-      id: 1,
-      title: "Old Title",
-      updatedAt: new Date("2024-01-01T00:00:00.000Z"),
-    }
-
-    const updatedMemo: Memo = {
-      body: "Updated Body",
-      createdAt: new Date("2024-01-01T00:00:00.000Z"),
-      id: 1,
-      title: "Updated Title",
-      updatedAt: new Date("2024-01-02T00:00:00.000Z"),
-    }
-
-    mockFindById.mockResolvedValue(existingMemo)
-    mockUpdate.mockResolvedValue(updatedMemo)
+    const memo = await testPrisma.memo.create({
+      data: { body: "Old Body", title: "Old Title" },
+    })
 
     const res = await request(app)
-      .put("/api/memo/1")
+      .put(`/api/memo/${memo.id}`)
       .send({ body: "Updated Body", title: "Updated Title" })
 
     expect(res.status).toBe(200)
-    expect(res.body.id).toBe(1)
+    expect(res.body.id).toBe(memo.id)
     expect(res.body.title).toBe("Updated Title")
     expect(res.body.body).toBe("Updated Body")
   })
 
   it("メモが存在しない場合、404 を返す", async () => {
-    mockFindById.mockResolvedValue(null)
-
     const res = await request(app)
-      .put("/api/memo/999")
+      .put("/api/memo/999999")
       .send({ body: "Updated Body", title: "Updated Title" })
 
     expect(res.status).toBe(404)

@@ -1,76 +1,69 @@
 import request from "supertest"
 
-import { IGoogleOAuthClient } from "../../../src/client/google-oauth"
-import { AuthGoogleCallbackController } from "../../../src/controller/auth/google-callback"
+import { GoogleOAuthClient, IGoogleOAuthClient } from "../../../src/client/google-oauth"
 import { AuthGoogleController } from "../../../src/controller/auth/google"
+import { AuthGoogleCallbackController } from "../../../src/controller/auth/google-callback"
 import { AuthMeController } from "../../../src/controller/auth/me"
 import { generateToken } from "../../../src/lib/jwt"
-import { UserRepository } from "../../../src/repository/mysql/user-repository"
+import { PrismaUserRepository } from "../../../src/repository/mysql/user-repository"
 import { authRouter } from "../../../src/routes/auth-router"
-import { User } from "../../../src/types/domain"
 import { createTestApp } from "../helper"
+import { cleanupTestData, disconnectTestDb, testPrisma } from "../setup"
 
-// モック
-const mockFindById = jest.fn<Promise<User | null>, [number]>()
-
-const mockUserRepository: UserRepository = {
-  create: jest.fn(),
-  findByEmail: jest.fn(),
-  findById: mockFindById,
-}
+const userRepository = new PrismaUserRepository(testPrisma)
 
 const app = createTestApp()
 
-// ダミーのコントローラー
+// Google OAuth はモック
 const mockGoogleOAuthClient: IGoogleOAuthClient = {
   generateAuthUrl: jest.fn(),
   getUserInfo: jest.fn(),
 }
 
-const dummyGoogleController = new AuthGoogleController(mockGoogleOAuthClient as any)
+const dummyGoogleController = new AuthGoogleController(mockGoogleOAuthClient as GoogleOAuthClient)
 const dummyCallbackController = new AuthGoogleCallbackController(
   { create: jest.fn(), findByProvider: jest.fn() },
   { createUserWithAuthAccountAndUserCharacterTx: jest.fn() },
-  mockGoogleOAuthClient as any,
+  mockGoogleOAuthClient as GoogleOAuthClient,
 )
 
-const authMeController = new AuthMeController(mockUserRepository)
+const authMeController = new AuthMeController(userRepository)
 
 app.use("/api/auth", authRouter(dummyGoogleController, dummyCallbackController, authMeController))
 
+beforeEach(async () => {
+  await cleanupTestData()
+})
+
+afterAll(async () => {
+  await cleanupTestData()
+  await disconnectTestDb()
+})
+
 describe("GET /api/auth/me", () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-  })
-
   it("認証済みユーザーの場合、200 とユーザー情報を返す", async () => {
-    const mockUser: User = {
-      avatarUrl: "https://example.com/avatar.jpg",
-      createdAt: new Date("2024-01-01T00:00:00.000Z"),
-      email: "test@example.com",
-      id: 1,
-      name: "Test User",
-      updatedAt: new Date("2024-01-01T00:00:00.000Z"),
-    }
+    const user = await testPrisma.user.create({
+      data: {
+        avatarUrl: "https://example.com/avatar.jpg",
+        email: "test@example.com",
+        name: "Test User",
+      },
+    })
 
-    mockFindById.mockResolvedValue(mockUser)
-
-    const token = generateToken(1)
+    const token = generateToken(user.id)
 
     const res = await request(app)
       .get("/api/auth/me")
       .set("Authorization", `Bearer ${token}`)
 
     expect(res.status).toBe(200)
-    expect(res.body.id).toBe(1)
+    expect(res.body.id).toBe(user.id)
     expect(res.body.email).toBe("test@example.com")
     expect(res.body.name).toBe("Test User")
   })
 
   it("ユーザーが存在しない場合、404 を返す", async () => {
-    mockFindById.mockResolvedValue(null)
-
-    const token = generateToken(999)
+    const token = generateToken(999999)
 
     const res = await request(app)
       .get("/api/auth/me")

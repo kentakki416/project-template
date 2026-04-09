@@ -132,7 +132,7 @@ All apps use ESLint v9 with flat config format (`eslint.config.{js,mjs}`).
 
 ### Key rules enforced:
 - **No semicolons** (`semi: ["error", "never"]`)
-- **Single quotes** for strings (`quotes: ["error", "single"]`)
+- **Double quotes** for strings (`quotes: ["error", "double"]`)
 - **Object curly spacing** required (`{ foo }` not `{foo}`)
 - **Strict equality** (`===` not `==`)
 - **Import ordering**: builtin → external → internal (@repo) → parent → sibling → index, with newlines between groups

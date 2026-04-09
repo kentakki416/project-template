@@ -1,7 +1,17 @@
 // Generator
+// Prisma v7 はデフォルトで ESM 形式のコードを生成する。
+// ESM 形式だと generated/client.ts 内で import.meta.url が使われるが、
+// Jest は CJS (CommonJS) 環境で動作するため import.meta が使えず
+// 「SyntaxError: Cannot use 'import.meta' outside a module」エラーになる。
+// (既知の問題: https://github.com/prisma/prisma/issues/27876)
+//
+// moduleFormat = "cjs" を指定することで、生成コードを CJS 互換にし、
+// import.meta.url の代わりに Node.js の __dirname を使用するようになる。
+// これにより Jest 環境でも Prisma Client を直接インポートできる。
 generator client {
-    provider = "prisma-client"
-    output = "./generated"
+    provider     = "prisma-client"
+    output       = "./generated"
+    moduleFormat = "cjs"
 }
 
 // Data source

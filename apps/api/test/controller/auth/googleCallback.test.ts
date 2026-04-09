@@ -1,90 +1,81 @@
 import request from "supertest"
 
-import { GoogleUserInfo, IGoogleOAuthClient } from "../../../src/client/google-oauth"
-import { AuthGoogleCallbackController } from "../../../src/controller/auth/google-callback"
+import { GoogleOAuthClient, GoogleUserInfo, IGoogleOAuthClient } from "../../../src/client/google-oauth"
 import { AuthGoogleController } from "../../../src/controller/auth/google"
+import { AuthGoogleCallbackController } from "../../../src/controller/auth/google-callback"
 import { AuthMeController } from "../../../src/controller/auth/me"
-import { AuthAccountRepository } from "../../../src/repository/mysql/auth-account-repository"
-import { UserRegistrationRepository } from "../../../src/repository/mysql/aggregate/user-registration-repository"
+import { PrismaUserRegistrationRepository } from "../../../src/repository/mysql/aggregate/user-registration-repository"
+import { PrismaAuthAccountRepository } from "../../../src/repository/mysql/auth-account-repository"
 import { authRouter } from "../../../src/routes/auth-router"
-import { AuthAccountWithUser, User } from "../../../src/types/domain"
 import { createTestApp } from "../helper"
+import { cleanupTestData, disconnectTestDb, seedTestData, testPrisma } from "../setup"
 
-// モック
+// Google OAuth はモック
 const mockGetUserInfo = jest.fn<Promise<GoogleUserInfo>, [string]>()
-const mockFindByProvider = jest.fn<Promise<AuthAccountWithUser | null>, [string, string]>()
-const mockCreateUserWithAuthAccountAndUserCharacterTx = jest.fn<Promise<User>, [any]>()
 
 const mockGoogleOAuthClient: IGoogleOAuthClient = {
   generateAuthUrl: jest.fn(),
   getUserInfo: mockGetUserInfo,
 }
 
-const mockAuthAccountRepository: AuthAccountRepository = {
-  create: jest.fn(),
-  findByProvider: mockFindByProvider,
-}
-
-const mockUserRegistrationRepository: UserRegistrationRepository = {
-  createUserWithAuthAccountAndUserCharacterTx: mockCreateUserWithAuthAccountAndUserCharacterTx,
-}
+// リポジトリは実DB
+const authAccountRepository = new PrismaAuthAccountRepository(testPrisma)
+const userRegistrationRepository = new PrismaUserRegistrationRepository(testPrisma)
 
 const app = createTestApp()
 
 const callbackController = new AuthGoogleCallbackController(
-  mockAuthAccountRepository,
-  mockUserRegistrationRepository,
-  mockGoogleOAuthClient as any,
+  authAccountRepository,
+  userRegistrationRepository,
+  mockGoogleOAuthClient as GoogleOAuthClient,
 )
 
 // ダミーのコントローラー
-const dummyGoogleController = new AuthGoogleController(mockGoogleOAuthClient as any)
+const dummyGoogleController = new AuthGoogleController(mockGoogleOAuthClient as GoogleOAuthClient)
 const dummyMeController = new AuthMeController(
   { create: jest.fn(), findByEmail: jest.fn(), findById: jest.fn() },
 )
 
 app.use("/api/auth", authRouter(dummyGoogleController, callbackController, dummyMeController))
 
-describe("GET /api/auth/google/callback", () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-  })
+beforeAll(async () => {
+  await seedTestData()
+})
 
+beforeEach(async () => {
+  await cleanupTestData()
+  jest.clearAllMocks()
+})
+
+afterAll(async () => {
+  await cleanupTestData()
+  await disconnectTestDb()
+})
+
+describe("GET /api/auth/google/callback", () => {
   it("既存ユーザーの場合、200 とユーザー情報・トークンを返す", async () => {
-    const mockGoogleUser: GoogleUserInfo = {
+    // テスト用のユーザーとAuthAccountをDBに作成
+    const user = await testPrisma.user.create({
+      data: {
+        avatarUrl: "https://example.com/avatar.jpg",
+        email: "test@example.com",
+        name: "Test User",
+      },
+    })
+    await testPrisma.authAccount.create({
+      data: {
+        provider: "google",
+        providerAccountId: "google-123",
+        userId: user.id,
+      },
+    })
+
+    mockGetUserInfo.mockResolvedValue({
       email: "test@example.com",
       id: "google-123",
       name: "Test User",
       picture: "https://example.com/avatar.jpg",
-    }
-
-    const mockExistingUser: User = {
-      avatarUrl: "https://example.com/avatar.jpg",
-      createdAt: new Date("2024-01-01T00:00:00.000Z"),
-      email: "test@example.com",
-      id: 1,
-      name: "Test User",
-      updatedAt: new Date("2024-01-01T00:00:00.000Z"),
-    }
-
-    const mockExistingAccount: AuthAccountWithUser = {
-      accessToken: null,
-      createdAt: new Date(),
-      expiresAt: null,
-      id: 1,
-      idToken: null,
-      provider: "google",
-      providerAccountId: "google-123",
-      refreshToken: null,
-      scope: null,
-      tokenType: null,
-      updatedAt: new Date(),
-      user: mockExistingUser,
-      userId: 1,
-    }
-
-    mockGetUserInfo.mockResolvedValue(mockGoogleUser)
-    mockFindByProvider.mockResolvedValue(mockExistingAccount)
+    })
 
     const res = await request(app)
       .get("/api/auth/google/callback")
@@ -93,30 +84,17 @@ describe("GET /api/auth/google/callback", () => {
     expect(res.status).toBe(200)
     expect(res.body.is_new_user).toBe(false)
     expect(res.body.token).toBeDefined()
-    expect(res.body.user.id).toBe(1)
+    expect(res.body.user.id).toBe(user.id)
     expect(res.body.user.email).toBe("test@example.com")
   })
 
   it("新規ユーザーの場合、200 と is_new_user: true を返す", async () => {
-    const mockGoogleUser: GoogleUserInfo = {
+    mockGetUserInfo.mockResolvedValue({
       email: "new@example.com",
       id: "google-456",
       name: "New User",
       picture: "https://example.com/new-avatar.jpg",
-    }
-
-    const mockNewUser: User = {
-      avatarUrl: "https://example.com/new-avatar.jpg",
-      createdAt: new Date("2024-01-01T00:00:00.000Z"),
-      email: "new@example.com",
-      id: 2,
-      name: "New User",
-      updatedAt: new Date("2024-01-01T00:00:00.000Z"),
-    }
-
-    mockGetUserInfo.mockResolvedValue(mockGoogleUser)
-    mockFindByProvider.mockResolvedValue(null)
-    mockCreateUserWithAuthAccountAndUserCharacterTx.mockResolvedValue(mockNewUser)
+    })
 
     const res = await request(app)
       .get("/api/auth/google/callback")
@@ -124,7 +102,13 @@ describe("GET /api/auth/google/callback", () => {
 
     expect(res.status).toBe(200)
     expect(res.body.is_new_user).toBe(true)
-    expect(res.body.user.id).toBe(2)
+    expect(res.body.user.email).toBe("new@example.com")
+
+    // DBにユーザーが実際に作成されていることを確認
+    const createdUser = await testPrisma.user.findUnique({
+      where: { email: "new@example.com" },
+    })
+    expect(createdUser).not.toBeNull()
   })
 
   it("codeパラメータがない場合、400 を返す", async () => {
