@@ -82,6 +82,33 @@ graph TB
 | Componentをexportするファイル | PascalCase | `UserProfile.tsx`, `LoginForm.tsx`, `Button.tsx` |
 | テストファイル | テスト対象の関数名 + `.test.ts` | `getUserById.test.ts`, `authenticateWithGoogle.test.ts` |
 
+## テンプレートからプロジェクトを作成
+
+```bash
+# 基本的な使い方
+./scripts/copy-template.sh <コピー先パス> [プロジェクト名]
+
+# 例: 相対パスで指定
+./scripts/copy-template.sh ../my-new-app
+
+# 例: プロジェクト名を明示的に指定
+./scripts/copy-template.sh ../my-new-app my-new-app
+
+# 例: 絶対パスで指定
+./scripts/copy-template.sh ~/workspace/my-new-app
+```
+
+プロジェクト名を省略した場合、コピー先ディレクトリ名が使用されます。
+
+コピー後は以下を実行してください:
+
+```bash
+cd <コピー先パス>
+git init
+pnpm install
+pnpm dev
+```
+
 ## 環境構築
 
 1. 管理者に.env.keysをもらってルートに配置してください。（シンボリックはgitにpush済み）
