@@ -3,7 +3,22 @@
 
 Turborepo + pnpm monorepo を使用したフルスタックアプリケーションテンプレート
 
-## プロジェクト概要
+## 目次
+
+- [プロジェクト構成図](#プロジェクト構成図)
+- [技術スタック](#技術スタック)
+- [使い方](#使い方)
+  - [1. プロジェクトのコピー](#1-プロジェクトのコピー)
+  - [2. 環境変数の設定](#2-環境変数の設定)
+  - [3. セットアップ](#3-セットアップ)
+- [開発ルール](#開発ルール)
+  - [1. 命名規則](#1-命名規則)
+  - [2. 基本コマンド](#2-基本コマンド)
+  - [3. pnpm ワークスペースコマンド](#3-pnpm-ワークスペースコマンド)
+  - [4. 環境変数の管理コマンド](#4-環境変数の管理コマンド)
+  - [5. Docker環境の起動コマンド](#5-docker環境の起動コマンド)
+
+## プロジェクト構成図
 
 ```mermaid
 graph TB
@@ -71,23 +86,13 @@ graph TB
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
-## 命名規則
+## 使い方
 
-### ディレクトリ・ファイル
+### 1. プロジェクトのコピー
 
-| 対象 | 規則 | 例 |
-|---|---|---|
-| ディレクトリ | kebab-case | `user-profile/`, `api-schema/` |
-| 一般ファイル（hooks, utils, lib等） | kebab-case | `use-auth.ts`, `api-client.ts`, `format-date.ts` |
-| Componentをexportするファイル | PascalCase | `UserProfile.tsx`, `LoginForm.tsx`, `Button.tsx` |
-| テストファイル | テスト対象の関数名 + `.test.ts` | `getUserById.test.ts`, `authenticateWithGoogle.test.ts` |
-
-## テンプレートからプロジェクトを作成
+`scripts/copy-template.sh` を実行して、テンプレートを新しいプロジェクトとしてコピーします。
 
 ```bash
-# 基本的な使い方
-./scripts/copy-template.sh <コピー先パス> [プロジェクト名]
-
 # 例: 相対パスで指定
 ./scripts/copy-template.sh ../my-new-app
 
@@ -100,43 +105,86 @@ graph TB
 
 プロジェクト名を省略した場合、コピー先ディレクトリ名が使用されます。
 
-コピー後は以下を実行してください:
+### 2. 環境変数の設定
+
+各アプリの `.env.local` は [dotenvx](https://dotenvx.com/) で暗号化されています。復号に必要な `.env.keys` をプロジェクトルートに配置してください。
+
+**既存プロジェクトに参加する場合:**
+
+管理者から `.env.keys` を受け取り、プロジェクトルートに配置してください。
+各アプリ (`apps/api`, `apps/web`, `apps/mobile`) にはルートへのシンボリックリンクが git に含まれているため、ルートに置くだけで全アプリから参照されます。
+
+```
+<project-root>/
+├── .env.keys                        ← ここに配置
+├── apps/
+│   ├── api/.env.keys → ../../.env.keys   (シンボリックリンク)
+│   ├── web/.env.keys → ../../.env.keys   (シンボリックリンク)
+│   └── mobile/.env.keys → ../../.env.keys (シンボリックリンク)
+```
+
+**新規プロジェクトとして始める場合:**
+
+1. 各アプリに `.env.local` を作成し、必要な環境変数を設定:
+```bash
+# 例: apps/api/.env.local
+cp apps/api/.env.local.example apps/api/.env.local  # テンプレートがある場合
+```
+
+2. dotenvx で暗号化（`.env.keys` が自動生成される）:
+```bash
+cd apps/api && pnpm exec dotenvx encrypt -f .env.local
+```
+
+3. 生成された `.env.keys` をプロジェクトルートに移動:
+```bash
+mv apps/api/.env.keys .env.keys
+```
+
+4. 他のアプリからシンボリックリンクを作成:
+```bash
+ln -s ../../.env.keys apps/api/.env.keys
+ln -s ../../.env.keys apps/web/.env.keys
+ln -s ../../.env.keys apps/mobile/.env.keys
+```
+
+> `.env.keys` には復号キーが含まれるため、**git にコミットしないでください**（`.gitignore` で除外済み）。
+
+### 3. セットアップ
 
 ```bash
+# コピー先に移動
 cd <コピー先パス>
+
+# git リポジトリを初期化
 git init
+
+# 依存関係のインストール
 pnpm install
-pnpm dev
-```
 
-## 環境構築
-
-1. 管理者に.env.keysをもらってルートに配置してください。（シンボリックはgitにpush済み）
-
-2. 依存関係のインストール:
-```bash
-pnpm install
-```
-
-3. Docker 環境の起動（MySQL + Redis）:
-```bash
+# Docker 環境の起動（MySQL + Redis）
 docker compose up -d
-```
 
-4. スキーマパッケージのビルド:
-```bash
+# スキーマパッケージのビルド
 cd packages/schema && pnpm build
-```
 
-5. 開発サーバーの起動:
-```bash
-# ルートに移動して
+# 開発サーバーの起動（ルートに戻って）
+cd ../..
 pnpm dev
 ```
 
-## 開発コマンド
+## 開発ルール
 
-### 基本コマンド
+### 1. 命名規則
+
+| 対象 | 規則 | 例 |
+|---|---|---|
+| ディレクトリ | kebab-case | `user-profile/`, `api-schema/` |
+| 一般ファイル（hooks, utils, lib等） | kebab-case | `use-auth.ts`, `api-client.ts`, `format-date.ts` |
+| Componentをexportするファイル | PascalCase | `UserProfile.tsx`, `LoginForm.tsx`, `Button.tsx` |
+| テストファイル | テスト対象の関数名 + `.test.ts` | `getUserById.test.ts`, `authenticateWithGoogle.test.ts` |
+
+### 2. 基本コマンド
 
 ```bash
 pnpm dev          # 全アプリを開発モードで起動
@@ -146,7 +194,7 @@ pnpm lint:fix     # ESLint 自動修正
 pnpm test         # テスト実行
 ```
 
-### pnpm ワークスペースコマンド
+### 3. pnpm ワークスペースコマンド
 
 ```bash
 # 特定のワークスペースでコマンドを実行
@@ -171,7 +219,7 @@ pnpm --filter <workspace-name> remove <package-name>
 pnpm clean && pnpm install
 ```
 
-### 環境変数の管理（dotenvx）
+### 4. 環境変数の管理コマンド
 
 ```bash
 # .env.local の暗号化
@@ -181,7 +229,7 @@ cd apps/api && pnpm exec dotenvx encrypt -f .env.local
 cd apps/api && pnpm exec dotenvx decrypt -f .env.local
 ```
 
-### Docker環境の起動
+### 5. Docker環境の起動コマンド
 
 ```bash
 # Dockerコンテナを起動
