@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: project_template_dev # TODO: プロジェクト名に変更（MySQL DB名はアンダースコア推奨）
+      MYSQL_DATABASE: project-template_dev # TODO: プロジェクト名に変更（MySQL DB名はアンダースコア推奨）
       MYSQL_USER: mysql
       MYSQL_PASSWORD: password
       TZ: Asia/Tokyo
@@ -57,7 +57,7 @@ services:
       PORT: 8080
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_NAME: project_template_dev # TODO: MYSQL_DATABASE と同じ値に変更（MySQL DB名はアンダースコア推奨）
+      DB_NAME: project-template_dev # TODO: MYSQL_DATABASE と同じ値に変更（MySQL DB名はアンダースコア推奨）
       DB_USER: mysql
       DB_PASSWORD: password
       REDIS_HOST: redis

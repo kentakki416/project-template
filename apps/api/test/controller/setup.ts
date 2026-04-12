@@ -1,9 +1,9 @@
 // テスト用DBの指定（prisma.client.ts のインポート前にセットする必要がある）
 // prisma.client.ts が process.env.DB_NAME を参照してDB名を決定するため、
-// ここでテスト専用DB名をセットすることで、開発用DB(project_template_dev)とテスト用DB(project_template_test)を分離する。
+// ここでテスト専用DB名をセットすることで、開発用DB(project-template_dev)とテスト用DB(project-template_test)を分離する。
 // 同一MySQLコンテナ内に別DBを作成する方式なので、Docker Compose の変更は不要。
 // CI(GitHub Actions等)でも services: mysql を1つ立てて CREATE DATABASE するだけで対応できる。
-process.env.DB_NAME = process.env.DB_NAME || "project_template_test"
+process.env.DB_NAME = process.env.DB_NAME || "project-template_test"
 
 // テスト用RedisのDB番号を指定（redis.ts のインポート前にセットする必要がある）
 // Redisはデフォルトで DB 0〜15 を持つ。開発用(DB 0)とテスト用(DB 1)を分離することで、
