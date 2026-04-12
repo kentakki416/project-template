@@ -50,7 +50,6 @@ pnpm-debug.log*
 # dotenvx (root only symlink to git)
 /.env.keys
 secret
-.env.local
 
 # Turbo
 .turbo/
