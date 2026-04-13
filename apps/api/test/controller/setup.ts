@@ -11,45 +11,40 @@ process.env.DB_NAME = process.env.DB_NAME || "project-template_test"
 process.env.REDIS_DB = process.env.REDIS_DB || "1"
 
 import { redis } from "../../src/client/redis"
-import { CharacterCode } from "../../src/prisma/generated/client"
+import { Prisma } from "../../src/prisma/generated/client"
 import { prisma } from "../../src/prisma/prisma.client"
 
 export { prisma as testPrisma }
 export { redis as testRedis }
 
 /**
- * テスト用のマスターデータを投入する
+ * Prisma の ModelName からモデルの delegate（prisma.user 等）を取得する
+ * ModelName は PascalCase（例: "UserCharacter"）なので先頭を小文字に変換する
  */
-export const seedTestData = async (): Promise<void> => {
-  await prisma.character.upsert({
-    create: {
-      characterCode: CharacterCode.TRAECHAN,
-      description: "目標達成をサポートするあなたの相棒",
-      name: "トレちゃん",
-    },
-    update: {},
-    where: { characterCode: CharacterCode.TRAECHAN },
-  })
-
-  await prisma.character.upsert({
-    create: {
-      characterCode: CharacterCode.MASTER,
-      description: "あなたの成長を見守る師匠",
-      name: "マスター",
-    },
-    update: {},
-    where: { characterCode: CharacterCode.MASTER },
-  })
+const getModelDelegate = (modelName: string): { deleteMany: () => Promise<unknown> } | null => {
+  const key = modelName.charAt(0).toLowerCase() + modelName.slice(1)
+  const delegate = (prisma as unknown as Record<string, unknown>)[key]
+  if (delegate && typeof (delegate as Record<string, unknown>).deleteMany === "function") {
+    return delegate as { deleteMany: () => Promise<unknown> }
+  }
+  return null
 }
 
 /**
- * テスト間でデータをクリーンアップする（マスターデータは残す）
+ * テスト間でデータをクリーンアップする（全モデルのデータを動的に削除する）
+ * Prisma の ModelName から全モデルを取得し、FK制約を無効にして deleteMany する
+ * テーブル追加時に手動でメンテナンスする必要がない
+ * 各テストは beforeEach で呼び出し、必要なデータは自分で seed する方針
  */
 export const cleanupTestData = async (): Promise<void> => {
-  await prisma.userCharacter.deleteMany()
-  await prisma.authAccount.deleteMany()
-  await prisma.memo.deleteMany()
-  await prisma.user.deleteMany()
+  await prisma.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS = 0")
+  for (const modelName of Object.values(Prisma.ModelName)) {
+    const delegate = getModelDelegate(modelName)
+    if (delegate) {
+      await delegate.deleteMany()
+    }
+  }
+  await prisma.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS = 1")
 }
 
 /**

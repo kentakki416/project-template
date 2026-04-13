@@ -2,9 +2,10 @@
  * Logger の種類
  */
 export const LOGGER_TYPE = {
+  CONSOLE: "console",
   PINO: "pino",
+  SILENT: "silent",
   WINSTON: "winston",
-  CONSOLE: "console"
 } as const
 
 /**

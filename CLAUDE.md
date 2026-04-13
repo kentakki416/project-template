@@ -97,6 +97,34 @@ trivy config aws/env/dev -c .trivy.yml
 - Uses `ts-node-dev` for hot reload in development
 - Compiles to `dist/` for production
 
+### API レイヤードアーキテクチャ（必ず既存ファイルを参考にして実装すること）
+新しい機能を追加する際は、必ず既存の実装（例: memo, health）のコードを読んでからパターンを合わせること。
+
+- **Repository**（`src/repository/mysql/`）: Interface + Class パターン
+  - `interface {Feature}Repository` でインターフェースを定義
+  - `class Prisma{Feature}Repository implements {Feature}Repository` で実装
+  - constructor で `PrismaClient` を受け取る
+  - `private _toDomain()` メソッドで Prisma の型 → ドメイン型に変換
+  - Input 型（`Create{Feature}Input`, `Update{Feature}Input`）はリポジトリファイル内に定義
+- **Service**（`src/service/`）: エクスポート関数パターン
+  - クラスではなく `export const` のアロー関数で定義
+  - Repository をパラメーターとして受け取る（DI はコントローラー経由）
+  - `service/index.ts` で `export * as {feature} from "./{feature}-service"` としてバレルエクスポート
+  - 呼び出し側は `service.{feature}.{method}(data, repository)` の形式
+  - `logger.debug()` で処理の開始・完了をログ出力
+- **Controller**（`src/controller/{feature}/`）: Class + `execute(req, res)` パターン
+  - `class {Feature}{Action}Controller` で定義（例: `CategoryListController`）
+  - constructor で Repository を受け取る
+  - `async execute(req: Request, res: Response)` メソッドで処理
+  - `@repo/api-schema` のスキーマで req.body をバリデーション、レスポンスを parse
+  - try-catch で `logger.error()` + `ErrorResponse` を返す
+- **Router**（`src/routes/`）: Optional controllers オブジェクトパターン
+  - `type {Feature}RouterControllers = { list?: ..., create?: ..., ... }` で定義
+  - `export const {feature}Router = (controllers: {Feature}RouterControllers): Router => { ... }`
+  - 各コントローラーが存在する場合のみルートを登録
+- **Domain 型**（`src/types/domain/`）: 各機能ごとにファイルを作成し、`index.ts` でバレルエクスポート
+- **DI（依存性注入）**: `index.ts` で Repository → Controller → Router の順にインスタンス化して組み立て
+
 ### Frontend architecture
 - **Web & Admin**: Next.js 16 with App Router
   - Uses Tailwind CSS v4 with PostCSS
@@ -136,7 +164,12 @@ All apps use ESLint v9 with flat config format (`eslint.config.{js,mjs}`).
 - **Object curly spacing** required (`{ foo }` not `{foo}`)
 - **Strict equality** (`===` not `==`)
 - **Import ordering**: builtin → external → internal (@repo) → parent → sibling → index, with newlines between groups
-- **Sort object keys** alphabetically (2+ keys)
+- **Sort object keys** alphabetically (2+ keys)。ただし以下の例外あり:
+  - `id` は常に先頭に配置
+  - `createdAt` / `updatedAt` / `deletedAt`（およびスネークケースの `created_at` / `updated_at` / `deleted_at`）は常に末尾に配置
+  - それ以外のプロパティはアルファベット順
+  - 例: `{ id, color, name, sortOrder, createdAt, updatedAt }`
+- **バレルエクスポート（index.ts）** はファイル名のアルファベット順で記載する
 - **React JSX props**: callbacks last, shorthand first, reserved first
 - **TypeScript**: No `any` (warn), no empty functions, use `async` for Promise-returning functions
 - **Naming conventions**:
@@ -144,10 +177,24 @@ All apps use ESLint v9 with flat config format (`eslint.config.{js,mjs}`).
   - Functions: camelCase or PascalCase
   - Types: PascalCase
 - **Prefer**: const over let/var, template literals over string concatenation, arrow callbacks
+- **関数名は処理内容が明確にわかる名前にする**:
+  - 何を・どう変換/処理するかが関数名だけで伝わること
+  - 悪い例: `parseCsvLine`, `toHalfWidth`, `parseAmount`
+  - 良い例: `splitCsvLineWithQuotes`, `convertFullWidthToHalfWidth`, `convertCommaAmountToNumber`
 
 ### Function style:
 - **API (`apps/api`)**: `function` 宣言は使わず、`const` + アロー関数で統一する（例: `export const foo = async () => {}`）
 - **Web / Mobile / Admin**: コンポーネントは `function` ベースでもOK
+
+### Comment style:
+- コメントの書き方は既存のファイルを参考にして統一する
+- ブロックコメントは `/** */` 形式で統一する（`//` は使わない）
+- 1行でも複数行形式で書く:
+  ```
+  /**
+   * コメント内容
+   */
+  ```
 
 ### When editing files:
 - Run `pnpm lint:fix` after making changes to auto-fix formatting

@@ -3,6 +3,7 @@ import { LOGGER_TYPE } from "../const"
 import { ConsoleLogger } from "./console-logger"
 import type { ILogger } from "./interface"
 import { PinoLogger } from "./pino-logger"
+import { SilentLogger } from "./silent-logger"
 import { WinstonLogger } from "./winston-logger"
 
 type LoggerType = typeof LOGGER_TYPE[keyof typeof LOGGER_TYPE]
@@ -38,6 +39,8 @@ export class LoggerFactory {
       return new ConsoleLogger()
     case LOGGER_TYPE.PINO:
       return new PinoLogger()
+    case LOGGER_TYPE.SILENT:
+      return new SilentLogger()
     case LOGGER_TYPE.WINSTON:
       return new WinstonLogger()
     default:

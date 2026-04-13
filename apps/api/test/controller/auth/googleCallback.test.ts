@@ -6,7 +6,7 @@ import { PrismaUserRegistrationRepository } from "../../../src/repository/mysql/
 import { PrismaAuthAccountRepository } from "../../../src/repository/mysql/auth-account-repository"
 import { authRouter } from "../../../src/routes/auth-router"
 import { createTestApp } from "../helper"
-import { cleanupTestData, disconnectTestDb, seedTestData, testPrisma } from "../setup"
+import { cleanupTestData, disconnectTestDb, testPrisma } from "../setup"
 
 // Google OAuth はモック
 const mockGetUserInfo = jest.fn<Promise<GoogleUserInfo>, [string]>()
@@ -30,12 +30,15 @@ const callbackController = new AuthGoogleCallbackController(
 
 app.use("/api/auth", authRouter({ callback: callbackController }))
 
-beforeAll(async () => {
-  await seedTestData()
-})
-
 beforeEach(async () => {
   await cleanupTestData()
+  // 新規ユーザー登録時に characters テーブルが参照されるため seed が必要
+  await testPrisma.character.createMany({
+    data: [
+      { characterCode: "TRAECHAN", description: "目標達成をサポートするあなたの相棒", name: "トレちゃん" },
+      { characterCode: "MASTER", description: "あなたの成長を見守る師匠", name: "マスター" },
+    ],
+  })
   jest.clearAllMocks()
 })
 
