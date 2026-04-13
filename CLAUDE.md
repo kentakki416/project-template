@@ -138,6 +138,13 @@ trivy config aws/env/dev -c .trivy.yml
   - APIのリクエスト・レスポンスの型はローカルで独自定義せず、必ず `@repo/api-schema` からインポートして使用する
   - ローカルに同等の型を定義すると、API側の変更に追従できず型の不整合バグが発生するため禁止
 
+### Admin API 設計方針
+- Admin が利用する API はすべて `/api/admin/` 配下に配置する
+- ユーザー向けアプリ（Web / Mobile）の API（`/api/transactions` 等）とは分離し、Admin 専用のエンドポイントとして管理する
+- Controller / Service は共通のものを使い、Router（`admin-router.ts`）でパスを `/api/admin/` にマッピングする
+- `/api/admin/` 配下は `PUBLIC_PATHS` に含まれており、JWT 認証なしでアクセス可能（将来的に Admin 専用認証を追加予定）
+- 環境変数 `ADMIN_USE_DUMMY=true`（API 側の `.env.local`）でダミーデータを返す
+
 ### Infrastructure (Terraform)
 - Structure: `packages/terraform/aws/{bootstrap,env,modules}`
 - Bootstrap: S3 backend and DynamoDB for state locking
