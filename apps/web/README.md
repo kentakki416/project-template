@@ -23,6 +23,7 @@ src/
       {feature}.entity.ts     #   型・エンティティ
       {feature}.state.ts      #   状態管理
   hooks/                      # 共有カスタムフック
+  libs/                       # ユーティリティ（APIクライアント等）
   constants/                  # 定数
   middleware.ts               # ミドルウェア（認証チェック等）
 ```

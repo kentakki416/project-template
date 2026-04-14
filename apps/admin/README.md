@@ -43,6 +43,7 @@ src/
       {feature}.context.tsx   #   状態管理（React Context）
   hooks/                      # 共有カスタムフック
   icons/                      # SVGアイコン（@svgr/webpack）
+  libs/                       # ユーティリティ（APIクライアント等）
 ```
 
 ### 依存の方向
