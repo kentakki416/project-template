@@ -63,4 +63,4 @@ function TableCell({
 
 export { Table, TableHeader, TableBody, TableRow, TableCell }
 export { default as DataTable } from "./DataTable"
-export type { Column } from "./DataTable"
+export type { Column, FilterConfig } from "./DataTable"
