@@ -41,7 +41,7 @@ type Marker = {
   };
 };
 
-const CountryMap: React.FC<CountryMapProps> = ({ mapColor }) => {
+export default function CountryMap({ mapColor }: CountryMapProps) {
   return (
     <VectorMap
       map={worldMill}
@@ -128,5 +128,3 @@ const CountryMap: React.FC<CountryMapProps> = ({ mapColor }) => {
     />
   )
 }
-
-export default CountryMap

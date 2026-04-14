@@ -54,6 +54,14 @@ apps/api/
 - types/domainにドメインモデルの型だけ定義している。
 - 実装はドメインロジックが必要になるまでしない（おそらく必要になるケースが少ないので対応しない）
 - Repository層でPrisma -> ドメインモデル型に変化することでInterfaceを差し替え可能なものにしている
+- ビジネス上の区分・列挙型もここに定義する（例: `RegistrationPeriod`）
+- Repository / Service は `types/domain` から型をインポートする（`@repo/api-schema` には依存しない）
+
+### Repository 層の役割分担
+
+- `repository/mysql/{feature}-repository.ts`: 単一テーブルに対する操作（CRUD、count、集計クエリ等）
+- `repository/mysql/aggregate/`: 複数テーブルをまたぐ集約操作（リレーションの include、トランザクション等）
+- Service層は欲しいデータを取得するだけで、詳細なリレーションは把握しなくて良い。必要なデータのリポジトリの関数を呼ぶだけでドメインロジックに集中できる設計にする
 
 
 ## テスト戦略

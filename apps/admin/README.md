@@ -77,10 +77,28 @@ app/ → components/ → features/(ロジック)
 ## API 設計方針
 
 - Admin が利用する API はすべて `/api/admin/` プレフィックスを付与する
-- ユーザー向けアプリ（Web / Mobile）の API（例: `/api/transactions`）とは名前空間を分離し、Admin 専用のエンドポイントとして管理する
-- API サーバー側では `admin-router.ts` で `/api/admin/` 配下のルートを一括管理する。Controller / Service は既存のものを共用してよい
-- 認証: 現時点では `PUBLIC_PATHS` に含め認証なしでアクセス可能。将来的に Admin 専用の認証ミドルウェアを追加予定
 - ダミーデータ: 環境変数 `ADMIN_USE_DUMMY=true`（API 側の `.env.local`）で DB 接続なしのダミーデータモードに切替可能
+
+### API 通信方式
+
+ブラウザから Express API を直接 fetch しない。Next.js の Server Components / Server Actions / Route Handlers を経由してサーバー間通信する。
+
+```
+[初期表示] Server Component → Express API（サーバー間通信、CORS不要）
+[CRUD操作] Client Component → Server Action → Express API（サーバー間通信）
+```
+
+**メリット:**
+- CORS 設定が不要（サーバー間通信のため）
+- 認証トークンをサーバー側で管理できる
+- Express API を内部ネットワークに閉じられる
+
+| 用途 | 方式 |
+|------|------|
+| ダッシュボードの初期データ表示 | Server Component で直接取得 |
+| テーブルの一覧取得 | Server Component で直接取得 |
+| 作成・更新・削除（モーダル操作等） | Server Action |
+| 外部公開が必要なAPI | Route Handler（必要になった場合のみ） |
 
 ## 開発コマンド
 

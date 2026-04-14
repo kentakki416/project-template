@@ -93,7 +93,7 @@ const othersItems: NavItem[] = [
   },
 ]
 
-const AppSidebar: React.FC = () => {
+export default function AppSidebar() {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar()
   const pathname = usePathname()
 
@@ -370,5 +370,3 @@ const AppSidebar: React.FC = () => {
     </aside>
   )
 }
-
-export default AppSidebar

@@ -1,5 +1,6 @@
 "use client"
-import React, { useRef, useEffect } from "react"
+import { useRef, useEffect } from "react"
+import type React from "react"
 
 interface ModalProps {
   isOpen: boolean;
@@ -10,14 +11,14 @@ interface ModalProps {
   isFullscreen?: boolean; // Default to false for backwards compatibility
 }
 
-export const Modal: React.FC<ModalProps> = ({
+export function Modal({
   isOpen,
   onClose,
   children,
   className,
   showCloseButton = true, // Default to true for backwards compatibility
   isFullscreen = false,
-}) => {
+}: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

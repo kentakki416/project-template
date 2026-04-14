@@ -1,6 +1,6 @@
-import React, { useState } from "react"
+import { useState } from "react"
 
-const ChartTab: React.FC = () => {
+export default function ChartTab() {
   const [selected, setSelected] = useState<
     "optionOne" | "optionTwo" | "optionThree"
   >("optionOne")
@@ -41,5 +41,3 @@ const ChartTab: React.FC = () => {
     </div>
   )
 }
-
-export default ChartTab

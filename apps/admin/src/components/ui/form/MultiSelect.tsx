@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import { useState } from "react"
 
 interface Option {
   value: string;
@@ -14,13 +14,13 @@ interface MultiSelectProps {
   disabled?: boolean;
 }
 
-const MultiSelect: React.FC<MultiSelectProps> = ({
+export default function MultiSelect({
   label,
   options,
   defaultSelected = [],
   onChange,
   disabled = false,
-}) => {
+}: MultiSelectProps) {
   const [selectedOptions, setSelectedOptions] =
     useState<string[]>(defaultSelected)
   const [isOpen, setIsOpen] = useState(false)
@@ -162,5 +162,3 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
     </div>
   )
 }
-
-export default MultiSelect

@@ -1,5 +1,5 @@
 "use client"
-import React, { useState } from "react"
+import { useState } from "react"
 
 interface SwitchProps {
   label: string;
@@ -9,13 +9,13 @@ interface SwitchProps {
   color?: "blue" | "gray"; // Added prop to toggle color theme
 }
 
-const Switch: React.FC<SwitchProps> = ({
+export default function Switch({
   label,
   defaultChecked = false,
   disabled = false,
   onChange,
   color = "blue", // Default to blue color
-}) => {
+}: SwitchProps) {
   const [isChecked, setIsChecked] = useState(defaultChecked)
 
   const handleToggle = () => {
@@ -69,5 +69,3 @@ const Switch: React.FC<SwitchProps> = ({
     </label>
   )
 }
-
-export default Switch

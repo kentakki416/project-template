@@ -1,4 +1,4 @@
-import React from "react"
+import type React from "react"
 
 type BadgeVariant = "light" | "solid";
 type BadgeSize = "sm" | "md";
@@ -20,14 +20,14 @@ interface BadgeProps {
   children: React.ReactNode; // Badge content
 }
 
-const Badge: React.FC<BadgeProps> = ({
+export default function Badge({
   variant = "light",
   color = "primary",
   size = "md",
   startIcon,
   endIcon,
   children,
-}) => {
+}: BadgeProps) {
   const baseStyles =
     "inline-flex items-center px-2.5 py-0.5 justify-center gap-1 rounded-full font-medium"
 
@@ -75,5 +75,3 @@ const Badge: React.FC<BadgeProps> = ({
     </span>
   )
 }
-
-export default Badge

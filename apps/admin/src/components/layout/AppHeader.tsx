@@ -8,7 +8,7 @@ import UserDropdown from "@/components/features/header/UserDropdown"
 import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton"
 import { useSidebar } from "@/features/sidebar/sidebar.context"
 
-const AppHeader: React.FC = () => {
+export default function AppHeader() {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false)
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar()
@@ -177,5 +177,3 @@ const AppHeader: React.FC = () => {
     </header>
   )
 }
-
-export default AppHeader

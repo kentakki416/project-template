@@ -1,5 +1,6 @@
 "use client"
-import React, { useEffect, useRef } from "react"
+import { useEffect, useRef } from "react"
+import type React from "react"
 
 interface DropdownProps {
   isOpen: boolean;
@@ -8,12 +9,12 @@ interface DropdownProps {
   className?: string;
 }
 
-export const Dropdown: React.FC<DropdownProps> = ({
+export function Dropdown({
   isOpen,
   onClose,
   children,
   className = "",
-}) => {
+}: DropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

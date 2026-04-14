@@ -75,18 +75,20 @@ type User = {
 
 **判断基準:** ドメイン知識なしで動く → `ui/` / レイアウト系 → `layout/` / それ以外 → `features/{domain}/`
 
-### Server Actions と API Route Handlers の使い分け
+### API 通信方式
 
-| 用途 | Server Actions | API Route Handlers |
-|------|---------------|-------------------|
-| フォーム送信 | 推奨 | 使える |
-| ページ内データ変更 | 推奨 | 使える |
-| 外部公開API | 使えない | 推奨 |
-| Webhook受信 | 使えない | 推奨 |
+ブラウザから Express API を直接 fetch しない。Next.js の Server Components / Server Actions / Route Handlers を経由してサーバー間通信する。
 
-**推奨方針:**
-- **基本はServer Actionsを使う**（フォーム送信、ページ内完結の処理）
-- **外部公開が必要な場合のみAPI Route Handlers**
+```
+[初期表示] Server Component → Express API（サーバー間通信、CORS不要）
+[データ変更] Client Component → Server Action → Express API（サーバー間通信）
+```
+
+| 用途 | 方式 |
+|------|------|
+| ページの初期データ表示 | Server Component で直接取得 |
+| フォーム送信・データ変更 | Server Action |
+| 外部公開API・Webhook受信 | Route Handler（必要な場合のみ） |
 
 ---
 

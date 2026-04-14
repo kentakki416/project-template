@@ -1,11 +1,9 @@
-import React from "react"
-
 interface AvatarTextProps {
   name: string;
   className?: string;
 }
 
-const AvatarText: React.FC<AvatarTextProps> = ({ name, className = "" }) => {
+export default function AvatarText({ name, className = "" }: AvatarTextProps) {
   // Generate initials from name
   const initials = name
     .split(" ")
@@ -43,5 +41,3 @@ const AvatarText: React.FC<AvatarTextProps> = ({ name, className = "" }) => {
     </div>
   )
 }
-
-export default AvatarText

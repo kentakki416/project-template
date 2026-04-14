@@ -1,5 +1,4 @@
 import Image from "next/image"
-import React from "react"
 
 interface AvatarProps {
   src: string; // URL of the avatar image
@@ -32,12 +31,12 @@ const statusColorClasses = {
   busy: "bg-warning-500",
 }
 
-const Avatar: React.FC<AvatarProps> = ({
+export default function Avatar({
   src,
   alt = "User Avatar",
   size = "medium",
   status = "none",
-}) => {
+}: AvatarProps) {
   return (
     <div className={`relative  rounded-full ${sizeClasses[size]}`}>
       {/* Avatar Image */}
@@ -61,5 +60,3 @@ const Avatar: React.FC<AvatarProps> = ({
     </div>
   )
 }
-
-export default Avatar

@@ -1,5 +1,3 @@
-import React from "react"
-
 interface RadioProps {
   id: string; // Unique ID for the radio button
   name: string; // Group name for the radio button
@@ -10,7 +8,7 @@ interface RadioProps {
   className?: string; // Optional custom classes for styling
 }
 
-const RadioSm: React.FC<RadioProps> = ({
+export default function RadioSm({
   id,
   name,
   value,
@@ -18,7 +16,7 @@ const RadioSm: React.FC<RadioProps> = ({
   label,
   onChange,
   className = "",
-}) => {
+}: RadioProps) {
   return (
     <label
       htmlFor={id}
@@ -55,5 +53,3 @@ const RadioSm: React.FC<RadioProps> = ({
     </label>
   )
 }
-
-export default RadioSm

@@ -7,12 +7,12 @@ interface ComponentCardProps {
   desc?: string; // Description text
 }
 
-const ComponentCard: React.FC<ComponentCardProps> = ({
+export default function ComponentCard({
   title,
   children,
   className = "",
   desc = "",
-}) => {
+}: ComponentCardProps) {
   return (
     <div
       className={`rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/3 ${className}`}
@@ -36,5 +36,3 @@ const ComponentCard: React.FC<ComponentCardProps> = ({
     </div>
   )
 }
-
-export default ComponentCard

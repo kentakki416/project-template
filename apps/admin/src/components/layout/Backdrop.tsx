@@ -2,7 +2,7 @@ import React from "react"
 
 import { useSidebar } from "@/features/sidebar/sidebar.context"
 
-const Backdrop: React.FC = () => {
+export default function Backdrop() {
   const { isMobileOpen, toggleMobileSidebar } = useSidebar()
 
   if (!isMobileOpen) return null
@@ -14,5 +14,3 @@ const Backdrop: React.FC = () => {
     />
   )
 }
-
-export default Backdrop

@@ -20,7 +20,7 @@ interface CalendarEvent extends EventInput {
   };
 }
 
-const Calendar: React.FC = () => {
+export default function Calendar() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
     null
   )
@@ -266,4 +266,3 @@ const renderEventContent = (eventInfo: EventContentArg) => {
   )
 }
 
-export default Calendar

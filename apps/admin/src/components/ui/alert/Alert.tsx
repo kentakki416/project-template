@@ -1,5 +1,4 @@
 import Link from "next/link"
-import React from "react"
 
 interface AlertProps {
   variant: "success" | "error" | "warning" | "info"; // Alert type
@@ -10,14 +9,14 @@ interface AlertProps {
   linkText?: string; // Link text
 }
 
-const Alert: React.FC<AlertProps> = ({
+export default function Alert({
   variant,
   title,
   message,
   showLink = false,
   linkHref = "#",
   linkText = "Learn more",
-}) => {
+}: AlertProps) {
   // Tailwind classes for each variant
   const variantClasses = {
     success: {
@@ -141,5 +140,3 @@ const Alert: React.FC<AlertProps> = ({
     </div>
   )
 }
-
-export default Alert
