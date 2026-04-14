@@ -265,4 +265,3 @@ const renderEventContent = (eventInfo: EventContentArg) => {
     </div>
   )
 }
-

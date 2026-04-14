@@ -1,6 +1,5 @@
 "use client"
-import { useRef, useEffect } from "react"
-import type React from "react"
+import React, { useRef, useEffect } from "react"
 
 interface ModalProps {
   isOpen: boolean;
