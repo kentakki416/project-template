@@ -147,10 +147,15 @@ trivy config aws/env/dev -c .trivy.yml
   - Uses Tailwind CSS v4 with PostCSS
   - App Router structure in `src/app/` directory
   - Both apps import types/schemas from `@repo/api-schema`
-  - **API 通信はブラウザから直接 Express API を fetch しない**。Server Components / Server Actions を経由してサーバー間通信する
-  - 初期データ表示: Server Component で `apiClient.get()` → Express API
-  - データ変更（CRUD）: Client Component → Server Action → Express API
-  - 外部公開 API が必要な場合のみ Route Handler を使用
+  - **API 通信はブラウザから直接 Express API を fetch しない**。必ずサーバーサイドを経由してサーバー間通信する
+  - **データ取得（GET）**:
+    - 基本: Server Component で `apiClient.get()` → Express API
+    - Client Component から動的に取得が必要な場合（タブ切替、検索等）: Route Handler (`app/api/*/route.ts`) を作成し、Client Component から fetch する
+  - **データ変更（POST/PUT/DELETE）**:
+    - 基本: Server Action (`"use server"`) → Express API。フォーム送信やボタンクリックによる CRUD 操作に使用
+    - Server Action が適さない場合（ファイルアップロード、外部公開 API 等）: Route Handler を使用
+  - **Server Action をデータ取得（GET 相当）に使ってはならない**。Server Action は mutation 専用。データ取得には Server Component または Route Handler を使う
+  - **Server Action の配置**: 対応するページと同じディレクトリに `actions.ts` として配置する（例: `app/(dashboard)/categories/actions.ts`）。`app/actions/` のような共通ディレクトリには置かない
 - **Mobile**: Expo with file-based routing (expo-router)
   - Uses React Navigation with bottom tabs
   - File-based routing in `app/` directory

@@ -37,7 +37,7 @@ src/
     ui/                       # 汎用UIコンポーネント（Button, Input等）
     layout/                   # レイアウト系（AppHeader, AppSidebar, Backdrop等）
     features/                 # 機能固有のUIコンポーネント
-      {feature}/              #   例: auth/SignInForm.tsx, ecommerce/EcommerceMetrics.tsx
+      {feature}/              #   例: auth/SignInForm.tsx, dashboard/DashboardMetrics.tsx
   features/                   # ロジックのみ（レンダリングなし）
     {feature}/
       {feature}.context.tsx   #   状態管理（React Context）
@@ -84,22 +84,24 @@ app/ → components/ → features/(ロジック)
 
 ブラウザから Express API を直接 fetch しない。Next.js の Server Components / Server Actions / Route Handlers を経由してサーバー間通信する。
 
-```
-[初期表示] Server Component → Express API（サーバー間通信、CORS不要）
-[CRUD操作] Client Component → Server Action → Express API（サーバー間通信）
-```
-
 **メリット:**
 - CORS 設定が不要（サーバー間通信のため）
 - 認証トークンをサーバー側で管理できる
 - Express API を内部ネットワークに閉じられる
 
-| 用途 | 方式 |
-|------|------|
-| ダッシュボードの初期データ表示 | Server Component で直接取得 |
-| テーブルの一覧取得 | Server Component で直接取得 |
-| 作成・更新・削除（モーダル操作等） | Server Action |
-| 外部公開が必要なAPI | Route Handler（必要になった場合のみ） |
+#### データ取得（GET）
+
+| 用途 | 方式 | 例 |
+|------|------|----|
+| ページの初期データ表示 | Server Component で `apiClient.get()` | ダッシュボード、一覧テーブル |
+| Client Component からの動的データ取得 | Route Handler (`app/api/*/route.ts`) | タブ切替、検索、モーダル内の詳細取得 |
+
+#### データ変更（POST/PUT/DELETE）
+
+| 用途 | 方式 | 例 |
+|------|------|----|
+| フォーム送信・ボタンによる CRUD | Server Action (`"use server"`) | 作成・更新・削除モーダル |
+| Server Action が適さない場合 | Route Handler | ファイルアップロード等 |
 
 ## 開発コマンド
 

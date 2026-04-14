@@ -80,16 +80,19 @@ type User = {
 
 ブラウザから Express API を直接 fetch しない。Next.js の Server Components / Server Actions / Route Handlers を経由してサーバー間通信する。
 
-```
-[初期表示] Server Component → Express API（サーバー間通信、CORS不要）
-[データ変更] Client Component → Server Action → Express API（サーバー間通信）
-```
+#### データ取得（GET）
 
-| 用途 | 方式 |
-|------|------|
-| ページの初期データ表示 | Server Component で直接取得 |
-| フォーム送信・データ変更 | Server Action |
-| 外部公開API・Webhook受信 | Route Handler（必要な場合のみ） |
+| 用途 | 方式 | 例 |
+|------|------|----|
+| ページの初期データ表示 | Server Component で `apiClient.get()` | ダッシュボード、一覧表示 |
+| Client Component からの動的データ取得 | Route Handler (`app/api/*/route.ts`) | タブ切替、検索、フィルタ変更 |
+
+#### データ変更（POST/PUT/DELETE）
+
+| 用途 | 方式 | 例 |
+|------|------|----|
+| フォーム送信・ボタンによる CRUD | Server Action (`"use server"`) | 作成・更新・削除 |
+| Server Action が適さない場合 | Route Handler | ファイルアップロード、Webhook受信 |
 
 ---
 
