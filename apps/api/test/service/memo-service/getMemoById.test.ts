@@ -18,7 +18,7 @@ describe("getMemoById", () => {
     jest.clearAllMocks()
   })
 
-  it("メモが存在する場合、メモを返す", async () => {
+  it("メモが存在する場合、ok: true とメモを返す", async () => {
     // Arrange
     const mockMemo: Memo = {
       body: "Test Body",
@@ -34,12 +34,15 @@ describe("getMemoById", () => {
     const result = await getMemoById(1, mockMemoRepository)
 
     // Assert
-    expect(result).toEqual(mockMemo)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual(mockMemo)
+    }
     expect(mockFindById).toHaveBeenCalledWith(1)
     expect(mockFindById).toHaveBeenCalledTimes(1)
   })
 
-  it("メモが存在しない場合、nullを返す", async () => {
+  it("メモが存在しない場合、ok: false と NOT_FOUND エラーを返す", async () => {
     // Arrange
     mockFindById.mockResolvedValue(null)
 
@@ -47,7 +50,12 @@ describe("getMemoById", () => {
     const result = await getMemoById(999, mockMemoRepository)
 
     // Assert
-    expect(result).toBeNull()
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.type).toBe("NOT_FOUND")
+      expect(result.error.statusCode).toBe(404)
+      expect(result.error.message).toBe("Memo not found")
+    }
     expect(mockFindById).toHaveBeenCalledWith(999)
     expect(mockFindById).toHaveBeenCalledTimes(1)
   })

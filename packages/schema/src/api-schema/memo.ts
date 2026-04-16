@@ -26,13 +26,17 @@ export type GetMemoListResponse = z.infer<typeof getMemoListResponseSchema>
 // GET /api/memo/:id - メモ詳細取得
 // ===========================
 
-export const getMemoRequestSchema = z.object({
-  id: z.string().min(1, "IDは必須です"),
+/**
+ * 路径パラメータ `:id` を検証するスキーマ
+ * string → number に coerce してから int/positive の制約を掛ける
+ */
+export const getMemoPathParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
 })
 
 export const getMemoResponseSchema = memoSchema
 
-export type GetMemoRequest = z.infer<typeof getMemoRequestSchema>
+export type GetMemoPathParam = z.infer<typeof getMemoPathParamSchema>
 export type GetMemoResponse = z.infer<typeof getMemoResponseSchema>
 
 // ===========================
@@ -53,6 +57,13 @@ export type CreateMemoResponse = z.infer<typeof createMemoResponseSchema>
 // PUT /api/memo/:id - メモ更新
 // ===========================
 
+/**
+ * 路径パラメータ `:id` を検証するスキーマ
+ */
+export const updateMemoPathParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
+})
+
 export const updateMemoRequestSchema = z.object({
   body: z.string().min(1, "本文は必須です"),
   title: z.string().min(1, "タイトルは必須です").max(255, "タイトルは255文字以内です"),
@@ -60,6 +71,7 @@ export const updateMemoRequestSchema = z.object({
 
 export const updateMemoResponseSchema = memoSchema
 
+export type UpdateMemoPathParam = z.infer<typeof updateMemoPathParamSchema>
 export type UpdateMemoRequest = z.infer<typeof updateMemoRequestSchema>
 export type UpdateMemoResponse = z.infer<typeof updateMemoResponseSchema>
 
@@ -67,13 +79,16 @@ export type UpdateMemoResponse = z.infer<typeof updateMemoResponseSchema>
 // DELETE /api/memo/:id - メモ削除
 // ===========================
 
-export const deleteMemoRequestSchema = z.object({
-  id: z.string().min(1, "IDは必須です"),
+/**
+ * 路径パラメータ `:id` を検証するスキーマ
+ */
+export const deleteMemoPathParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
 })
 
 export const deleteMemoResponseSchema = z.object({
   message: z.string(),
 })
 
-export type DeleteMemoRequest = z.infer<typeof deleteMemoRequestSchema>
+export type DeleteMemoPathParam = z.infer<typeof deleteMemoPathParamSchema>
 export type DeleteMemoResponse = z.infer<typeof deleteMemoResponseSchema>

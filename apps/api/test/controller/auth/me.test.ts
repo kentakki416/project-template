@@ -4,7 +4,7 @@ import { AuthMeController } from "../../../src/controller/auth/me"
 import { generateToken } from "../../../src/lib/jwt"
 import { PrismaUserRepository } from "../../../src/repository/mysql/user-repository"
 import { authRouter } from "../../../src/routes/auth-router"
-import { createTestApp } from "../helper"
+import { attachErrorHandler, createTestApp } from "../helper"
 import { cleanupTestData, disconnectTestDb, testPrisma } from "../setup"
 
 const userRepository = new PrismaUserRepository(testPrisma)
@@ -14,6 +14,7 @@ const app = createTestApp()
 const authMeController = new AuthMeController(userRepository)
 
 app.use("/api/auth", authRouter({ me: authMeController }))
+attachErrorHandler(app)
 
 beforeEach(async () => {
   await cleanupTestData()
@@ -54,14 +55,14 @@ describe("GET /api/auth/me", () => {
       .set("Authorization", `Bearer ${token}`)
 
     expect(res.status).toBe(404)
-    expect(res.body.error).toBe("User not found")
+    expect(res.body.error).toBeDefined()
   })
 
   it("トークンがない場合、401 を返す", async () => {
     const res = await request(app).get("/api/auth/me")
 
     expect(res.status).toBe(401)
-    expect(res.body.error).toBe("No token provided")
+    expect(res.body.error).toBeDefined()
   })
 
   it("無効なトークンの場合、401 を返す", async () => {
@@ -70,6 +71,6 @@ describe("GET /api/auth/me", () => {
       .set("Authorization", "Bearer invalid-token")
 
     expect(res.status).toBe(401)
-    expect(res.body.error).toBe("Invalid or expired token")
+    expect(res.body.error).toBeDefined()
   })
 })

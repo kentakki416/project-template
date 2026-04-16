@@ -15,6 +15,7 @@ import { MemoListController } from "./controller/memo/list"
 import { MemoUpdateController } from "./controller/memo/update"
 import { logger } from "./log"
 import { authMiddleware } from "./middleware/auth"
+import { errorHandler } from "./middleware/error-handler"
 import { requestLogger } from "./middleware/request-logger"
 import { prisma } from "./prisma/prisma.client"
 import {
@@ -116,6 +117,9 @@ app.use(
     update: memoUpdateController,
   })
 )
+
+// グローバルエラーハンドラ（ルーティング定義の最後に登録する必要がある）
+app.use(errorHandler)
 
 // サーバー起動
 app.listen(PORT, () => {

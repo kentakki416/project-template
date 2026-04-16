@@ -18,7 +18,7 @@ describe("getAllMemos", () => {
     jest.clearAllMocks()
   })
 
-  it("メモ一覧を返す", async () => {
+  it("成功時は ok: true とメモ一覧を返す", async () => {
     // Arrange
     const mockMemos: Memo[] = [
       {
@@ -43,12 +43,15 @@ describe("getAllMemos", () => {
     const result = await getAllMemos(mockMemoRepository)
 
     // Assert
-    expect(result).toEqual(mockMemos)
-    expect(result).toHaveLength(2)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual(mockMemos)
+      expect(result.value).toHaveLength(2)
+    }
     expect(mockFindAll).toHaveBeenCalledTimes(1)
   })
 
-  it("メモが存在しない場合、空配列を返す", async () => {
+  it("メモが存在しない場合、ok: true と空配列を返す", async () => {
     // Arrange
     mockFindAll.mockResolvedValue([])
 
@@ -56,8 +59,11 @@ describe("getAllMemos", () => {
     const result = await getAllMemos(mockMemoRepository)
 
     // Assert
-    expect(result).toEqual([])
-    expect(result).toHaveLength(0)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual([])
+      expect(result.value).toHaveLength(0)
+    }
     expect(mockFindAll).toHaveBeenCalledTimes(1)
   })
 

@@ -5,13 +5,13 @@ import { z } from "zod"
 // ========================================================
 
 /**
- * Google OAuth callbackのリクエストスキーマ
+ * Google OAuth callbackのパスパラメータスキーマ
  */
-export const authGoogleCallbackRequestSchema = z.object({
+export const authGoogleCallbackPathParamSchema = z.object({
   code: z.string().min(1, "Authorization code is required"),
 })
 
-export type AuthGoogleCallbackRequest = z.infer<typeof authGoogleCallbackRequestSchema>
+export type AuthGoogleCallbackPathParam = z.infer<typeof authGoogleCallbackPathParamSchema>
 
 /**
  * Google OAuth callbackのレスポンススキーマ

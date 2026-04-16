@@ -64,6 +64,93 @@ apps/api/
 - Service層は欲しいデータを取得するだけで、詳細なリレーションは把握しなくて良い。必要なデータのリポジトリの関数を呼ぶだけでドメインロジックに集中できる設計にする
 
 
+## エラーハンドリング（Result 型）
+
+Service 層は **業務エラー（4xx 系で返すべきエラー）は `Result<T>` で返却し、想定外の例外（DB 障害等）は throw** する。Controller は Result を透過で返し、想定外エラーはグローバルエラーハンドラが 500 で処理する。
+
+### 設計方針
+
+- **業務エラーを例外にしない**: Service が `throw` するのは「想定外」のみ。業務上想定されるエラー（バリデーション、重複、NotFound 等）は戻り値で表現する
+- **呼び出し側で型安全に扱える**: `Result<T>` を返すことで、呼び出し側（Controller や他 Service）は ok/err を型で判別して分岐できる
+- **Controller は透過返却**: `statusCode` と `message` をそのまま HTTP レスポンスに変換する。再解釈が必要な場合のみ Controller で変換
+- **予期しない例外はグローバルエラーハンドラに委譲**: Controller で try-catch は書かない（リダイレクトなど UX 上 JSON を返せない特殊ケースを除く）
+
+### Result 型の定義（`src/types/result.ts`）
+
+```typescript
+export type ApiError = {
+  statusCode: number
+  type: "BAD_REQUEST" | "CONFLICT" | "FORBIDDEN" | "NOT_FOUND" | "UNAUTHORIZED"
+  message: string
+}
+
+export type Result<T> =
+  | { ok: true; value: T }
+  | { error: ApiError; ok: false }
+```
+
+### ヘルパー関数
+
+```typescript
+import { ok, err, notFoundError, conflictError, badRequestError } from "../types/result"
+
+return ok(user)                                              // 成功
+return err(notFoundError("User not found"))                  // 404
+return err(conflictError("Same file already uploaded"))      // 409
+return err(badRequestError("Invalid category_id"))           // 400
+```
+
+### Service 実装ルール
+
+- **戻り値は必ず `Promise<Result<T>>`**（`Promise<T>` や `Promise<T | null>` は使わない）
+- **業務エラー**: `return err(notFoundError(...))` のように Result で返却
+- **想定外エラー**: DB 呼び出し等で throw される例外はそのまま伝播させる（catch しない）
+
+```typescript
+export const createMemo = async (
+  data: CreateMemoInput,
+  memoRepository: MemoRepository
+): Promise<Result<Memo>> => {
+  const existing = await memoRepository.findByTitle(data.title)
+  if (existing) {
+    return err(conflictError("Same title already exists"))  // 業務エラー
+  }
+  const memo = await memoRepository.create(data)            // DB 障害時は throw（catch しない）
+  return ok(memo)
+}
+```
+
+### Controller 実装ルール
+
+- **try-catch は書かない**（google-callback のようなリダイレクト分岐が必要な特殊ケースを除く）。Service が `throw` した想定外エラーはグローバルエラーハンドラが 500 で返却する
+- **Service の `Result` は if-else で透過返却**（3 行 inline。ヘルパー関数は使わない）
+
+```typescript
+async execute(req: Request, res: Response) {
+  const { id } = deleteMemoPathParamSchema.parse(req.params)
+
+  const result = await service.memo.deleteMemo(id, this.memoRepository)
+
+  if (!result.ok) {
+    const errorResponse: ErrorResponse = {
+      error: result.error.message,
+      status_code: result.error.statusCode,
+    }
+    return res.status(result.error.statusCode).json(errorResponse)
+  }
+
+  return res.status(200).json(deleteMemoResponseSchema.parse({ message: "Memo deleted successfully" }))
+}
+```
+
+### グローバルエラーハンドラ（`src/middleware/error-handler.ts`）
+
+すべてのルート登録後に `app.use(errorHandler)` で登録される。
+
+- **ZodError** → 400 "Invalid request"（リクエスト検証失敗）
+- **その他の throw** → 500 "Internal Server Error"（DB 障害などの想定外エラー）
+
+
 ## テスト戦略
 
 ### 基本方針
@@ -110,18 +197,69 @@ const result = await getUserById(1, mockUserRepository as any)
 
 #### テストケースの観点
 
-- 正常系（期待通りの入力 → 期待通りの出力）
-- 異常系（データなし → null / エラー → throw）
+- 正常系（期待通りの入力 → `ok: true` で期待通りの値）
+- 異常系（業務エラー → `ok: false` で `type` / `statusCode` / `message` を検証）
+- 予期しないエラー（DB 障害等の throw → `rejects.toThrow(...)`）
 - 依存の呼び出し検証（正しい引数で呼ばれたか）
+
+#### Result 型のアサーション
+
+Service は `Result<T>` を返すため、ok 判定で分岐してから値・エラーを検証する。
+
+```typescript
+// 成功時
+const result = await getMemoById(1, mockMemoRepository)
+expect(result.ok).toBe(true)
+if (result.ok) {
+  expect(result.value).toEqual(mockMemo)
+}
+
+// 業務エラー時
+const result = await getMemoById(999, mockMemoRepository)
+expect(result.ok).toBe(false)
+if (!result.ok) {
+  expect(result.error.type).toBe("NOT_FOUND")
+  expect(result.error.statusCode).toBe(404)
+  expect(result.error.message).toBe("Memo not found")  // Service 層のエラーメッセージは実装と一致
+}
+
+// 想定外の throw
+mockFindById.mockRejectedValue(new Error("Database connection failed"))
+await expect(getMemoById(1, mockMemoRepository)).rejects.toThrow("Database connection failed")
+```
 
 ### インテグレーションテスト（Controller）
 
 ユニットテストで検証できない以下の項目をテストする。
 
-- **controllerが返すレスポンスの全パターン**: 正常系・異常系のHTTPステータスコードとレスポンスボディ
+- **controllerが返すレスポンスの全パターン**: 正常系・異常系のHTTPステータスコードとレスポンスボディの存在
 - **最終的なDBの状態**: データの作成・更新・削除が正しく反映されているか
 
 ※ 認証ミドルウェア単体のテストやリクエストバリデーション単体のテストは行わない。あくまでcontrollerのレスポンスパターンを網羅することで、これらも含めて検証する。
+
+#### アサーションの方針
+
+- **ステータスコード、主要なレスポンスフィールドの値は検証する**（`expect(res.status).toBe(404)`, `expect(res.body.id).toBe(user.id)` など）
+- **エラーメッセージの文字列は検証しない**。メッセージはユーザー向け表記の微調整で変わり得るため、`expect(res.body.error).toBeDefined()` のみで「エラーフィールドが返っていること」を確認する
+
+```typescript
+// ❌ 悪い例: エラーメッセージの文字列に依存
+expect(res.body.error).toBe("Memo not found")
+
+// ✅ 良い例: ステータスコードとエラーフィールドの存在のみ検証
+expect(res.status).toBe(404)
+expect(res.body.error).toBeDefined()
+```
+
+#### グローバルエラーハンドラの適用
+
+`attachErrorHandler(app)` をルート登録後に必ず呼び出し、本番同様に ZodError を 400、想定外 throw を 500 に変換する状態でテストする。
+
+```typescript
+const app = createTestApp()
+app.use("/api/memo", memoRouter({ detail: new MemoDetailController(memoRepository) }))
+attachErrorHandler(app)  // ルート登録後に呼び出すこと
+```
 
 #### テスト用DB
 

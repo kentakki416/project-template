@@ -1,28 +1,18 @@
 import { Request, Response } from "express"
 
-import { ErrorResponse } from "@repo/api-schema"
-
 import { IGoogleOAuthClient } from "../../client/google-oauth"
 import { logger } from "../../log"
 
 /**
  * Google OAuth 認証を開始（Googleの認証画面にリダイレクト）API
+ * エラー（OAuth クライアント設定エラー等）はグローバルエラーハンドラが 500 で返す
  */
 export class AuthGoogleController {
   constructor(private googleOAuthClient: IGoogleOAuthClient) {}
 
   execute(_req: Request, res: Response) {
-    try {
-      logger.info("AuthGoogleCallbackController: Starting Google OAuth callback process")
-
-      const authUrl = this.googleOAuthClient.generateAuthUrl()
-      res.redirect(authUrl)
-    } catch (error) {
-      const errorResponse: ErrorResponse = {
-        error: error instanceof Error ? error.message : "Failed to generate auth URL",
-        status_code: 500,
-      }
-      res.status(500).json(errorResponse)
-    }
+    logger.info("AuthGoogleController: Redirecting to Google OAuth")
+    const authUrl = this.googleOAuthClient.generateAuthUrl()
+    res.redirect(authUrl)
   }
 }

@@ -103,6 +103,29 @@ trivy config aws/env/dev -c .trivy.yml
   export const getCategoryListResponseSchema = z.object({ ... })
   ```
 
+#### スキーマの命名規則
+
+**パラメータ種別ごとに個別のスキーマを定義する**（共通スキーマは作らない。AI の観点からも例外を作らず、エンドポイントごとに独立した検証を行うため）。
+
+| 種類 | 命名 | 例 |
+|---|---|---|
+| 路径パラメータ（`/resource/:id`） | `{action}{Domain}PathParamSchema` | `deleteMemoPathParamSchema` |
+| クエリ文字列（`?foo=bar`） | `{action}{Domain}QueryStringSchema` | `getMemoQueryStringSchema` |
+| リクエストボディ（POST/PUT） | `{action}{Domain}RequestSchema` | `createMemoRequestSchema` |
+| レスポンス | `{action}{Domain}ResponseSchema` | `createMemoResponseSchema` |
+
+- **型は `z.infer` で自動生成**し、手書きの interface は使わない
+- **路径パラメータの ID 検証は `z.coerce.number().int().positive()`** で string → number の変換を Zod 側で行う（Controller で `Number()` しない）
+- **すべてのリクエスト入力（body / params / query）は Zod で検証**する。`Number()` + `isNaN` や `parseInt` の inline 検証は使わない
+
+#### Zod 検証の適用範囲
+
+- **body**: 必ず Zod 検証（複雑な構造・型安全性のため）
+- **params (path)**: 必ず Zod 検証（`z.coerce.number().int().positive()` で数値変換も同時に）
+- **query string**: 必ず Zod 検証（`z.coerce.number()` で coerce、`.min().max()` で範囲制約、`.optional()` / `.default()` で省略対応）
+
+一貫性のため例外を作らない。簡単な 1 フィールドでも Zod を通す。
+
 ### API server architecture
 - Express.js with TypeScript
 - All endpoints validate requests/responses using Zod schemas from `@repo/api-schema`
@@ -125,13 +148,24 @@ trivy config aws/env/dev -c .trivy.yml
   - `service/index.ts` で `export * as {feature} from "./{feature}-service"` としてバレルエクスポート
   - 呼び出し側は `service.{feature}.{method}(data, repository)` の形式
   - `logger.debug()` で処理の開始・完了をログ出力
+  - **戻り値は必ず `Promise<Result<T>>`**（業務エラーは `err(...)` で、想定外エラーは throw）
 - **Controller**（`src/controller/{feature}/`）: Class + `execute(req, res)` パターン。API（エンドポイント）と1対1でファイルを作成する
   - Admin とアプリケーションでリクエスト・レスポンスが異なるため、同じドメインでもアプリごとにコントローラーを分ける（例: `controller/category/list.ts` と `controller/admin/category-list.ts`）
   - `class {Feature}{Action}Controller` で定義（例: `CategoryListController`）
   - constructor で Repository を受け取る
   - `async execute(req: Request, res: Response)` メソッドで処理
-  - `@repo/api-schema` のスキーマで req.body をバリデーション、レスポンスを parse
-  - try-catch で `logger.error()` + `ErrorResponse` を返す
+  - `@repo/api-schema` のスキーマで req.params / req.body / req.query をバリデーション、レスポンスを parse
+  - **try-catch は書かない**。Service が `throw` した想定外エラーはグローバルエラーハンドラが 500 で返却する
+  - **Service の `Result` は if-else で透過返却**（3 行 inline。ヘルパー関数は使わない）:
+    ```typescript
+    if (!result.ok) {
+      const errorResponse: ErrorResponse = {
+        error: result.error.message,
+        status_code: result.error.statusCode,
+      }
+      return res.status(result.error.statusCode).json(errorResponse)
+    }
+    ```
 - **Router**（`src/routes/`）: Optional controllers オブジェクトパターン
   - `type {Feature}RouterControllers = { list?: ..., create?: ..., ... }` で定義
   - `export const {feature}Router = (controllers: {Feature}RouterControllers): Router => { ... }`
@@ -141,6 +175,85 @@ trivy config aws/env/dev -c .trivy.yml
   - Repository / Service は `types/domain` から型をインポートする（`@repo/api-schema` に依存しない）
   - `@repo/api-schema` の Zod スキーマは同じ値で独立定義し、API バリデーション用として使う
 - **DI（依存性注入）**: `index.ts` で Repository → Controller → Router の順にインスタンス化して組み立て
+
+### エラーハンドリング（Result 型）
+
+Service 層は **業務エラー（4xx 系で返すべきエラー）は `Result<T>` で返却し、想定外の例外（DB 障害等）は throw** する。Controller は Result を透過で返し、想定外エラーはグローバルエラーハンドラが 500 で処理する。
+
+#### Result 型の定義（`src/types/result.ts`）
+
+```typescript
+export type ApiError = {
+  statusCode: number
+  type: "BAD_REQUEST" | "CONFLICT" | "FORBIDDEN" | "NOT_FOUND" | "UNAUTHORIZED"
+  message: string
+}
+
+export type Result<T> =
+  | { ok: true; value: T }
+  | { error: ApiError; ok: false }
+```
+
+#### ヘルパー関数
+
+```typescript
+import { ok, err, notFoundError, conflictError, badRequestError } from "../types/result"
+
+return ok(user)                                              // 成功
+return err(notFoundError("User not found"))                  // 404
+return err(conflictError("Same file already uploaded"))      // 409
+return err(badRequestError("Invalid category_id"))           // 400
+```
+
+#### Service 実装ルール
+
+- **業務エラー**: `return err(conflictError(...))` のように Result で返却
+- **想定外エラー**: DB 呼び出し等での `throw` はそのまま伝播（catch しない）
+- **シグネチャ**: `Promise<Result<T>>` を返す（`Promise<T>` ではなく）
+
+```typescript
+export const createFoo = async (...): Promise<Result<Foo>> => {
+  const existing = await repo.findById(...)
+  if (existing) {
+    return err(conflictError("Already exists"))  // 業務エラー
+  }
+  const foo = await repo.create(...)             // DB 障害時は throw する（catch しない）
+  return ok(foo)
+}
+```
+
+#### Controller 実装ルール
+
+- **Service から別 Service を呼ぶときも Result の ok 判定を行い、そのまま re-return か再解釈する**
+- **透過返却が基本**（Service の statusCode がそのまま API の statusCode）
+- **再解釈が必要な場合のみ Controller で明示的に変換**（例: pre-condition check の 404 を 400 に変換）
+
+```typescript
+async execute(req, res) {
+  const { id } = deleteMemoPathParamSchema.parse(req.params)
+
+  const result = await service.memo.deleteMemo(id, this.memoRepository)
+
+  if (!result.ok) {
+    const errorResponse: ErrorResponse = {
+      error: result.error.message,
+      status_code: result.error.statusCode,
+    }
+    return res.status(result.error.statusCode).json(errorResponse)
+  }
+
+  return res.status(200).json(deleteMemoResponseSchema.parse({ message: "OK" }))
+}
+```
+
+#### グローバルエラーハンドラ（`src/middleware/error-handler.ts`）
+
+すべてのルート登録後に `app.use(errorHandler)` で登録される。
+
+- **ZodError** → 400 "Invalid request"（リクエスト検証失敗）
+- **その他の throw** → 500 "Internal Server Error"（DB 障害などの想定外エラー）
+
+Controller で try-catch を書く必要はない。
 
 ### Frontend architecture
 - **Web & Admin**: Next.js 16 with App Router
@@ -170,6 +283,75 @@ trivy config aws/env/dev -c .trivy.yml
 - スキーマは `api-schema/admin/` に集約。既存と同一なら re-export、Admin 固有のレスポンスが必要になった時点で新規定義
 - 認証: 現時点は `PUBLIC_PATHS` で認証なし（将来 Admin 専用認証を追加予定）
 - ダミーデータ: `ADMIN_USE_DUMMY=true`（API の `.env.local`）で DB 不要のダミーモード
+
+### テスト戦略とテストの耐久性（必須）
+
+#### レイヤー別のテスト種別
+
+- **Service層 → ユニットテスト**（`apps/api/test/service/`）: DB 不要、`jest.fn()` で Repository をモック、高速・並列実行可
+- **Controller層 → インテグレーションテスト**（`apps/api/test/controller/`）: 実 DB を使い、`supertest` で HTTP レイヤーから検証
+
+#### テストの耐久性（重要）
+
+**エラーメッセージなどの文字列は assertion しない**。テストが脆くなり、文言変更・i18n 対応・ログ改善のたびに無関係なテストが落ちるため。
+
+##### ❌ 禁止パターン
+
+```typescript
+// メッセージの文言に依存した assertion は禁止
+await expect(uploadCsv(...)).rejects.toThrow("このCSVファイルはすでにアップロード済みです")
+expect(res.body.error).toBe("Invalid memo ID")
+expect(result.error.message).toContain("すでに")
+```
+
+##### ✅ 推奨パターン
+
+**Service のユニットテスト**: Result 型の構造（`ok` / `statusCode` / `type`）のみを検証
+
+```typescript
+// 業務エラー
+const result = await uploadCsv(...)
+expect(result.ok).toBe(false)
+if (!result.ok) {
+  expect(result.error.statusCode).toBe(409)
+  expect(result.error.type).toBe("CONFLICT")
+}
+
+// 想定外の例外（DB 障害等）
+await expect(uploadCsv(...)).rejects.toThrow()  // メッセージは引数に渡さない
+```
+
+**Controller のインテグレーションテスト**: HTTP ステータスコードとレスポンスボディの「存在」のみを検証
+
+```typescript
+expect(res.status).toBe(400)
+expect(res.body.error).toBeDefined()  // 文言は照合しない
+```
+
+#### Controller テストのセットアップ
+
+バリデーションエラー（`ZodError`）を 400 として返すには、テスト用 app に `attachErrorHandler` を登録する必要がある:
+
+```typescript
+import { attachErrorHandler, createTestApp } from "../helper"
+
+const app = createTestApp()
+app.use("/api/memo", memoRouter({ ... }))
+attachErrorHandler(app)  // ← ルート登録後に必ず呼ぶ
+```
+
+#### モックの方針
+
+- **デフォルトは `jest.fn()` を使用する**。interface に基づいたオブジェクトを `jest.fn()` で作成し、引数として渡す
+- **`jest.mock()` は非推奨**。import パスに結合するためリファクタリング耐性が低い
+- **自作 Fake（例: `InMemoryXxxRepository`）は、テスト内で状態の読み書きが複数回絡む場合のみ検討する**
+
+#### この方針の理由
+
+1. **リファクタリング耐性**: 文言改善・ログ改修・i18n 対応でテストが落ちない
+2. **レビュー負荷軽減**: 文言変更のたびにテストを更新する必要がない
+3. **網羅性と独立性**: 「何が起きたか」は `statusCode` / `type` で構造的に表現し、文字列で表現しない
+4. **AI/自動化フレンドリー**: 文言に例外を作らないため、AI による自動リファクタリングで誤検知が起きにくい
 
 ### Infrastructure (Terraform)
 - Structure: `packages/terraform/aws/{bootstrap,env,modules}`

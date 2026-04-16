@@ -19,7 +19,7 @@ describe("deleteMemo", () => {
     jest.clearAllMocks()
   })
 
-  it("メモが存在する場合、削除してtrueを返す", async () => {
+  it("メモが存在する場合、削除して ok: true を返す", async () => {
     // Arrange
     const existingMemo: Memo = {
       body: "Test Body",
@@ -36,12 +36,15 @@ describe("deleteMemo", () => {
     const result = await deleteMemo(1, mockMemoRepository)
 
     // Assert
-    expect(result).toBe(true)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual({ deleted: true })
+    }
     expect(mockFindById).toHaveBeenCalledWith(1)
     expect(mockDeleteById).toHaveBeenCalledWith(1)
   })
 
-  it("メモが存在しない場合、falseを返す", async () => {
+  it("メモが存在しない場合、ok: false と NOT_FOUND エラーを返す", async () => {
     // Arrange
     mockFindById.mockResolvedValue(null)
 
@@ -49,7 +52,12 @@ describe("deleteMemo", () => {
     const result = await deleteMemo(999, mockMemoRepository)
 
     // Assert
-    expect(result).toBe(false)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.type).toBe("NOT_FOUND")
+      expect(result.error.statusCode).toBe(404)
+      expect(result.error.message).toBe("Memo not found")
+    }
     expect(mockFindById).toHaveBeenCalledWith(999)
     expect(mockDeleteById).not.toHaveBeenCalled()
   })

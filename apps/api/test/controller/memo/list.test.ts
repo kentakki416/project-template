@@ -3,7 +3,7 @@ import request from "supertest"
 import { MemoListController } from "../../../src/controller/memo/list"
 import { PrismaMemoRepository } from "../../../src/repository/mysql/memo-repository"
 import { memoRouter } from "../../../src/routes/memo-router"
-import { createTestApp } from "../helper"
+import { attachErrorHandler, createTestApp } from "../helper"
 import { cleanupTestData, disconnectTestDb, testPrisma } from "../setup"
 
 const memoRepository = new PrismaMemoRepository(testPrisma)
@@ -11,6 +11,7 @@ const memoRepository = new PrismaMemoRepository(testPrisma)
 const app = createTestApp()
 
 app.use("/api/memo", memoRouter({ list: new MemoListController(memoRepository) }))
+attachErrorHandler(app)
 
 beforeEach(async () => {
   await cleanupTestData()

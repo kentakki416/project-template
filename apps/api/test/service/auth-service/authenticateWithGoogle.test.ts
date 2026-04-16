@@ -36,7 +36,7 @@ describe("authenticateWithGoogle", () => {
     jest.clearAllMocks()
   })
 
-  it("既存ユーザーの場合、ユーザー情報とJWTトークンを返す", async () => {
+  it("既存ユーザーの場合、ok: true とユーザー情報・JWTトークンを返す", async () => {
     // Arrange
     const mockGoogleUser: GoogleUserInfo = {
       email: "test@example.com",
@@ -82,15 +82,18 @@ describe("authenticateWithGoogle", () => {
     )
 
     // Assert
-    expect(result.isNewUser).toBe(false)
-    expect(result.user).toEqual(mockExistingUser)
-    expect(result.jwtToken).toBe("mock-jwt-token-1")
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.isNewUser).toBe(false)
+      expect(result.value.user).toEqual(mockExistingUser)
+      expect(result.value.jwtToken).toBe("mock-jwt-token-1")
+    }
     expect(mockGetUserInfo).toHaveBeenCalledWith("auth-code")
     expect(mockFindByProvider).toHaveBeenCalledWith("google", "google-123")
     expect(mockCreateUserWithAuthAccountTx).not.toHaveBeenCalled()
   })
 
-  it("新規ユーザーの場合、ユーザーを作成してJWTトークンを返す", async () => {
+  it("新規ユーザーの場合、ok: true でユーザーを作成してJWTトークンを返す", async () => {
     // Arrange
     const mockGoogleUser: GoogleUserInfo = {
       email: "newuser@example.com",
@@ -121,9 +124,12 @@ describe("authenticateWithGoogle", () => {
     )
 
     // Assert
-    expect(result.isNewUser).toBe(true)
-    expect(result.user).toEqual(mockNewUser)
-    expect(result.jwtToken).toBe("mock-jwt-token-2")
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.isNewUser).toBe(true)
+      expect(result.value.user).toEqual(mockNewUser)
+      expect(result.value.jwtToken).toBe("mock-jwt-token-2")
+    }
     expect(mockGetUserInfo).toHaveBeenCalledWith("auth-code")
     expect(mockFindByProvider).toHaveBeenCalledWith("google", "google-456")
     expect(mockCreateUserWithAuthAccountTx).toHaveBeenCalledWith({

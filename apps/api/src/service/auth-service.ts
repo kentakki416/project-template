@@ -5,8 +5,9 @@ import {
   UserRegistrationRepository,
 } from "../repository/mysql"
 import { User } from "../types/domain"
+import { ok, Result } from "../types/result"
 
-export type AuthenticateWithGoogleResult = {
+export type AuthenticateWithGoogleSuccess = {
     isNewUser: boolean
     jwtToken: string
     user: User
@@ -14,6 +15,7 @@ export type AuthenticateWithGoogleResult = {
 
 /**
  * Googleアカウントでの認証
+ * 業務エラー（現状なし）は Result.err として返し、外部サービス障害などの予期しないエラーは throw する
  */
 export const authenticateWithGoogle = async (
   code: string,
@@ -23,7 +25,7 @@ export const authenticateWithGoogle = async (
     },
   googleAuthClient: IGoogleOAuthClient,
   tokenGenerator: (userId: number) => string
-): Promise<AuthenticateWithGoogleResult> => {
+): Promise<Result<AuthenticateWithGoogleSuccess>> => {
   const { authAccountRepository, userRegistrationRepository } = repository
 
   logger.info("AuthService: Starting Google authentication")
@@ -73,9 +75,9 @@ export const authenticateWithGoogle = async (
     userId: user.id,
   })
 
-  return {
+  return ok({
     isNewUser,
     jwtToken,
     user,
-  }
+  })
 }

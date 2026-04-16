@@ -1,6 +1,7 @@
 import { logger } from "../log"
 import { UserRepository } from "../repository/mysql"
 import { User } from "../types/domain"
+import { err, notFoundError, ok, Result } from "../types/result"
 
 /**
  * ユーザーIDからユーザー情報を取得
@@ -8,19 +9,19 @@ import { User } from "../types/domain"
 export const getUserById = async (
   userId: number,
   userRepository: UserRepository
-): Promise<User | null> => {
+): Promise<Result<User>> => {
   logger.debug("UserService: Fetching user by ID", {
     userId,
   })
   const user = await userRepository.findById(userId)
-  if (user) {
-    logger.debug("UserService: User found", {
-      userId: user.id,
-    })
-  } else {
+  if (!user) {
     logger.debug("UserService: User not found", {
       userId,
     })
+    return err(notFoundError("User not found"))
   }
-  return user
+  logger.debug("UserService: User found", {
+    userId: user.id,
+  })
+  return ok(user)
 }

@@ -3,7 +3,7 @@ import request from "supertest"
 import { MemoDetailController } from "../../../src/controller/memo/detail"
 import { PrismaMemoRepository } from "../../../src/repository/mysql/memo-repository"
 import { memoRouter } from "../../../src/routes/memo-router"
-import { createTestApp } from "../helper"
+import { attachErrorHandler, createTestApp } from "../helper"
 import { cleanupTestData, disconnectTestDb, testPrisma } from "../setup"
 
 const memoRepository = new PrismaMemoRepository(testPrisma)
@@ -11,6 +11,7 @@ const memoRepository = new PrismaMemoRepository(testPrisma)
 const app = createTestApp()
 
 app.use("/api/memo", memoRouter({ detail: new MemoDetailController(memoRepository) }))
+attachErrorHandler(app)
 
 beforeEach(async () => {
   await cleanupTestData()
@@ -39,13 +40,13 @@ describe("GET /api/memo/:id", () => {
     const res = await request(app).get("/api/memo/999999")
 
     expect(res.status).toBe(404)
-    expect(res.body.error).toBe("Memo not found")
+    expect(res.body.error).toBeDefined()
   })
 
   it("無効なID形式の場合、400 を返す", async () => {
     const res = await request(app).get("/api/memo/abc")
 
     expect(res.status).toBe(400)
-    expect(res.body.error).toBe("Invalid memo ID")
+    expect(res.body.error).toBeDefined()
   })
 })

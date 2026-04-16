@@ -1,7 +1,7 @@
 import { Request, Response } from "express"
 
 import {
-  authGoogleCallbackRequestSchema,
+  authGoogleCallbackPathParamSchema,
   authGoogleCallbackResponseSchema,
 } from "@repo/api-schema"
 
@@ -12,7 +12,9 @@ import { AuthAccountRepository, UserRegistrationRepository } from "../../reposit
 import * as service from "../../service"
 
 /**
- * Google からのコールバックを処理し、フロントエンドにリダイレクトするAPI
+ * Google からのコールバックを処理し、JWT を返すAPI
+ * 成功時・失敗時ともにフロントエンドへリダイレクトする（JSON ではない特殊ケース）
+ * そのため、ここで独自にリダイレクト先を分岐する
  */
 export class AuthGoogleCallbackController {
   constructor(
@@ -22,15 +24,15 @@ export class AuthGoogleCallbackController {
   ) {}
 
   async execute(req: Request, res: Response) {
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000"
+
     try {
       logger.info("AuthGoogleCallbackController: Starting Google OAuth callback process")
 
-      // リクエストスキーマのバリデーション
-      const validatedRequest = authGoogleCallbackRequestSchema.parse(req.query)
+      const { code } = authGoogleCallbackPathParamSchema.parse(req.query)
 
-      // Service 層を呼び出して認証処理
-      const result = await service.auth.authenticateWithGoogle(
-        validatedRequest.code,
+      const authResult = await service.auth.authenticateWithGoogle(
+        code,
         {
           authAccountRepository: this.authAccountRepository,
           userRegistrationRepository: this.userRegistrationRepository,
@@ -39,29 +41,37 @@ export class AuthGoogleCallbackController {
         generateToken
       )
 
+      /**
+       * 業務エラー発生時もサインインページへリダイレクト（UX 上 JSON を返せないため）
+       */
+      if (!authResult.ok) {
+        logger.warn("AuthGoogleCallbackController: Business error", {
+          error: authResult.error,
+        })
+        const signinUrl = new URL("/signin", frontendUrl)
+        signinUrl.searchParams.set("error", "auth_failed")
+        return res.redirect(signinUrl.toString())
+      }
+
+      const { isNewUser, jwtToken, user } = authResult.value
       logger.info("AuthGoogleCallbackController: Authentication successful", {
-        isNewUser: result.isNewUser,
-        userId: result.user.id,
+        isNewUser,
+        userId: user.id,
       })
 
-      // レスポンスデータのバリデーション
       const response = authGoogleCallbackResponseSchema.parse({
-        is_new_user: result.isNewUser,
-        token: result.jwtToken,
+        is_new_user: isNewUser,
+        token: jwtToken,
         user: {
-          avatar_url: result.user.avatarUrl,
-          created_at: result.user.createdAt.toISOString(),
-          email: result.user.email,
-          id: result.user.id,
-          name: result.user.name,
+          avatar_url: user.avatarUrl,
+          created_at: user.createdAt.toISOString(),
+          email: user.email,
+          id: user.id,
+          name: user.name,
         },
       })
 
-      /**
-       * フロントエンドの /api/auth/callback にリダイレクト
-       * トークンとユーザー情報をクエリパラメータで渡す
-       */
-      const callbackUrl = new URL("/api/auth/callback", process.env.FRONTEND_URL || "http://localhost:3000")
+      const callbackUrl = new URL("/api/auth/callback", frontendUrl)
       callbackUrl.searchParams.set("token", response.token)
       callbackUrl.searchParams.set("user", JSON.stringify({
         avatar_url: response.user.avatar_url,
@@ -72,21 +82,14 @@ export class AuthGoogleCallbackController {
 
       res.redirect(callbackUrl.toString())
     } catch (error) {
-      if (error instanceof Error && error.name === "ZodError") {
-        logger.warn("AuthGoogleCallbackController: Validation error", {
-          error: "Invalid request parameters",
-        })
-      } else {
-        logger.error(
-          "AuthGoogleCallbackController: Authentication failed",
-          error instanceof Error ? error : new Error("Unknown error")
-        )
-      }
-
       /**
-       * エラー時もフロントエンドのサインインページにリダイレクト
+       * バリデーションエラーや予期しないエラーも UX 上サインインページに戻す
        */
-      const signinUrl = new URL("/signin", process.env.FRONTEND_URL || "http://localhost:3000")
+      logger.error(
+        "AuthGoogleCallbackController: Authentication failed",
+        error instanceof Error ? error : new Error("Unknown error")
+      )
+      const signinUrl = new URL("/signin", frontendUrl)
       signinUrl.searchParams.set("error", "auth_failed")
       res.redirect(signinUrl.toString())
     }

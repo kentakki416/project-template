@@ -16,7 +16,7 @@ describe("getUserById", () => {
     jest.clearAllMocks()
   })
 
-  it("ユーザーが存在する場合、ユーザー情報を返す", async () => {
+  it("ユーザーが存在する場合、ok: true とユーザー情報を返す", async () => {
     // Arrange
     const mockUser: User = {
       avatarUrl: "https://example.com/avatar.jpg",
@@ -33,12 +33,15 @@ describe("getUserById", () => {
     const result = await getUserById(1, mockUserRepository)
 
     // Assert
-    expect(result).toEqual(mockUser)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual(mockUser)
+    }
     expect(mockFindById).toHaveBeenCalledWith(1)
     expect(mockFindById).toHaveBeenCalledTimes(1)
   })
 
-  it("ユーザーが存在しない場合、nullを返す", async () => {
+  it("ユーザーが存在しない場合、ok: false と NOT_FOUND エラーを返す", async () => {
     // Arrange
     mockFindById.mockResolvedValue(null)
 
@@ -46,7 +49,12 @@ describe("getUserById", () => {
     const result = await getUserById(999, mockUserRepository)
 
     // Assert
-    expect(result).toBeNull()
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.type).toBe("NOT_FOUND")
+      expect(result.error.statusCode).toBe(404)
+      expect(result.error.message).toBe("User not found")
+    }
     expect(mockFindById).toHaveBeenCalledWith(999)
     expect(mockFindById).toHaveBeenCalledTimes(1)
   })

@@ -18,7 +18,7 @@ describe("createMemo", () => {
     jest.clearAllMocks()
   })
 
-  it("メモを作成して返す", async () => {
+  it("メモを作成して ok: true で返す", async () => {
     // Arrange
     const input: CreateMemoInput = {
       body: "New Body",
@@ -39,7 +39,10 @@ describe("createMemo", () => {
     const result = await createMemo(input, mockMemoRepository)
 
     // Assert
-    expect(result).toEqual(mockMemo)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual(mockMemo)
+    }
     expect(mockCreate).toHaveBeenCalledWith(input)
     expect(mockCreate).toHaveBeenCalledTimes(1)
   })

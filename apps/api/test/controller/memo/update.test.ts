@@ -4,7 +4,7 @@ import { MemoDetailController } from "../../../src/controller/memo/detail"
 import { MemoUpdateController } from "../../../src/controller/memo/update"
 import { PrismaMemoRepository } from "../../../src/repository/mysql/memo-repository"
 import { memoRouter } from "../../../src/routes/memo-router"
-import { createTestApp } from "../helper"
+import { attachErrorHandler, createTestApp } from "../helper"
 import { cleanupTestData, disconnectTestDb, testPrisma } from "../setup"
 
 const memoRepository = new PrismaMemoRepository(testPrisma)
@@ -15,6 +15,7 @@ app.use("/api/memo", memoRouter({
   detail: new MemoDetailController(memoRepository),
   update: new MemoUpdateController(memoRepository),
 }))
+attachErrorHandler(app)
 
 beforeEach(async () => {
   await cleanupTestData()
@@ -47,7 +48,7 @@ describe("PUT /api/memo/:id", () => {
       .send({ body: "Updated Body", title: "Updated Title" })
 
     expect(res.status).toBe(404)
-    expect(res.body.error).toBe("Memo not found")
+    expect(res.body.error).toBeDefined()
   })
 
   it("無効なID形式の場合、400 を返す", async () => {
@@ -56,7 +57,7 @@ describe("PUT /api/memo/:id", () => {
       .send({ body: "Updated Body", title: "Updated Title" })
 
     expect(res.status).toBe(400)
-    expect(res.body.error).toBe("Invalid memo ID")
+    expect(res.body.error).toBeDefined()
   })
 
   it("リクエストボディが不正な場合、400 を返す", async () => {

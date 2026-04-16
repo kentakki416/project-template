@@ -23,7 +23,7 @@ describe("checkReadiness", () => {
     jest.clearAllMocks()
   })
 
-  it("全サービスが正常な場合、全てokを返す", async () => {
+  it("全サービスが正常な場合、ok: true で全てokを返す", async () => {
     // Arrange
     mockDatabasePing.mockResolvedValue(undefined)
     mockRedisPing.mockResolvedValue(undefined)
@@ -32,15 +32,18 @@ describe("checkReadiness", () => {
     const result = await checkReadiness(mockRepository)
 
     // Assert
-    expect(result.database.status).toBe("ok")
-    expect(result.redis.status).toBe("ok")
-    expect(result.database.latency_ms).toBeGreaterThanOrEqual(0)
-    expect(result.redis.latency_ms).toBeGreaterThanOrEqual(0)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.database.status).toBe("ok")
+      expect(result.value.redis.status).toBe("ok")
+      expect(result.value.database.latency_ms).toBeGreaterThanOrEqual(0)
+      expect(result.value.redis.latency_ms).toBeGreaterThanOrEqual(0)
+    }
     expect(mockDatabasePing).toHaveBeenCalledTimes(1)
     expect(mockRedisPing).toHaveBeenCalledTimes(1)
   })
 
-  it("データベースがエラーの場合、databaseのみerrorを返す", async () => {
+  it("データベースがエラーの場合、ok: true のまま database のみ error を返す", async () => {
     // Arrange
     mockDatabasePing.mockRejectedValue(new Error("DB connection failed"))
     mockRedisPing.mockResolvedValue(undefined)
@@ -49,11 +52,14 @@ describe("checkReadiness", () => {
     const result = await checkReadiness(mockRepository)
 
     // Assert
-    expect(result.database.status).toBe("error")
-    expect(result.redis.status).toBe("ok")
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.database.status).toBe("error")
+      expect(result.value.redis.status).toBe("ok")
+    }
   })
 
-  it("Redisがエラーの場合、redisのみerrorを返す", async () => {
+  it("Redisがエラーの場合、ok: true のまま redis のみ error を返す", async () => {
     // Arrange
     mockDatabasePing.mockResolvedValue(undefined)
     mockRedisPing.mockRejectedValue(new Error("Redis connection failed"))
@@ -62,11 +68,14 @@ describe("checkReadiness", () => {
     const result = await checkReadiness(mockRepository)
 
     // Assert
-    expect(result.database.status).toBe("ok")
-    expect(result.redis.status).toBe("error")
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.database.status).toBe("ok")
+      expect(result.value.redis.status).toBe("error")
+    }
   })
 
-  it("全サービスがエラーの場合、全てerrorを返す", async () => {
+  it("全サービスがエラーの場合、ok: true のまま全て error を返す", async () => {
     // Arrange
     mockDatabasePing.mockRejectedValue(new Error("DB connection failed"))
     mockRedisPing.mockRejectedValue(new Error("Redis connection failed"))
@@ -75,7 +84,10 @@ describe("checkReadiness", () => {
     const result = await checkReadiness(mockRepository)
 
     // Assert
-    expect(result.database.status).toBe("error")
-    expect(result.redis.status).toBe("error")
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.database.status).toBe("error")
+      expect(result.value.redis.status).toBe("error")
+    }
   })
 })

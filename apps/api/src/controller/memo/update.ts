@@ -1,8 +1,7 @@
 import { Request, Response } from "express"
 
-import { ErrorResponse, updateMemoRequestSchema, updateMemoResponseSchema } from "@repo/api-schema"
+import { ErrorResponse, updateMemoPathParamSchema, updateMemoRequestSchema, updateMemoResponseSchema } from "@repo/api-schema"
 
-import { logger } from "../../log"
 import { MemoRepository } from "../../repository/mysql"
 import * as service from "../../service"
 
@@ -13,48 +12,26 @@ export class MemoUpdateController {
   constructor(private memoRepository: MemoRepository) {}
 
   async execute(req: Request, res: Response) {
-    try {
-      const id = Number(req.params.id)
+    const { id } = updateMemoPathParamSchema.parse(req.params)
+    const data = updateMemoRequestSchema.parse(req.body)
 
-      if (isNaN(id)) {
-        const errorResponse: ErrorResponse = {
-          error: "Invalid memo ID",
-          status_code: 400,
-        }
-        return res.status(400).json(errorResponse)
-      }
+    const result = await service.memo.updateMemo(id, data, this.memoRepository)
 
-      const data = updateMemoRequestSchema.parse(req.body)
-
-      const memo = await service.memo.updateMemo(id, data, this.memoRepository)
-
-      if (!memo) {
-        const errorResponse: ErrorResponse = {
-          error: "Memo not found",
-          status_code: 404,
-        }
-        return res.status(404).json(errorResponse)
-      }
-
-      const response = updateMemoResponseSchema.parse({
-        body: memo.body,
-        created_at: memo.createdAt.toISOString(),
-        id: memo.id,
-        title: memo.title,
-        updated_at: memo.updatedAt.toISOString(),
-      })
-
-      res.status(200).json(response)
-    } catch (error) {
-      logger.error(
-        "MemoUpdateController: Failed to update memo",
-        error instanceof Error ? error : new Error("Unknown error")
-      )
+    if (!result.ok) {
       const errorResponse: ErrorResponse = {
-        error: error instanceof Error ? error.message : "Failed to update memo",
-        status_code: 400,
+        error: result.error.message,
+        status_code: result.error.statusCode,
       }
-      res.status(400).json(errorResponse)
+      return res.status(result.error.statusCode).json(errorResponse)
     }
+
+    const response = updateMemoResponseSchema.parse({
+      body: result.value.body,
+      created_at: result.value.createdAt.toISOString(),
+      id: result.value.id,
+      title: result.value.title,
+      updated_at: result.value.updatedAt.toISOString(),
+    })
+    return res.status(200).json(response)
   }
 }

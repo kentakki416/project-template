@@ -1,8 +1,7 @@
 import { Request, Response } from "express"
 
-import { ErrorResponse, healthReadinessResponseSchema } from "@repo/api-schema"
+import { healthReadinessResponseSchema } from "@repo/api-schema"
 
-import { logger } from "../../log"
 import { DatabaseHealthRepository } from "../../repository/mysql"
 import { RedisHealthRepository } from "../../repository/redis"
 import * as service from "../../service"
@@ -10,6 +9,8 @@ import * as service from "../../service"
 /**
  * Readiness チェック
  * 外部サービス（DB, Redis）への接続状態を確認する
+ * 健康診断エンドポイントなので、依存サービスが落ちている場合は 503 を返す
+ * （他の Controller と異なり、独自にステータスコードを制御）
  */
 export class HealthReadinessController {
   constructor(
@@ -18,35 +19,28 @@ export class HealthReadinessController {
   ) {}
 
   async execute(_req: Request, res: Response) {
-    try {
-      const result = await service.health.checkReadiness({
-        databaseHealthRepository: this._databaseHealthRepository,
-        redisHealthRepository: this._redisHealthRepository,
-      })
+    const result = await service.health.checkReadiness({
+      databaseHealthRepository: this._databaseHealthRepository,
+      redisHealthRepository: this._redisHealthRepository,
+    })
 
-      const overallStatus =
-        result.database.status === "ok" && result.redis.status === "ok" ? "ok" : "degraded"
-
-      const response = healthReadinessResponseSchema.parse({
-        services: {
-          database: result.database,
-          redis: result.redis,
-        },
-        status: overallStatus,
-      })
-
-      const statusCode = overallStatus === "ok" ? 200 : 503
-      res.status(statusCode).json(response)
-    } catch (error) {
-      logger.error(
-        "HealthReadinessController: Unexpected error",
-        error instanceof Error ? error : new Error("Unknown error")
-      )
-      const errorResponse: ErrorResponse = {
-        error: "Health check failed",
-        status_code: 500,
-      }
-      res.status(500).json(errorResponse)
+    /**
+     * checkReadiness は常に ok: true を返す（個別サービス失敗は status: "error" に集約される）
+     * 予期しない throw はグローバルエラーハンドラが 500 で返す
+     */
+    if (!result.ok) {
+      return res.status(503).json({ error: result.error.message, status_code: 503 })
     }
+
+    const { database, redis } = result.value
+    const overallStatus = database.status === "ok" && redis.status === "ok" ? "ok" : "degraded"
+
+    const response = healthReadinessResponseSchema.parse({
+      services: { database, redis },
+      status: overallStatus,
+    })
+
+    const statusCode = overallStatus === "ok" ? 200 : 503
+    res.status(statusCode).json(response)
   }
 }

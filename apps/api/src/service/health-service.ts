@@ -1,6 +1,7 @@
 import { logger } from "../log"
 import { DatabaseHealthRepository } from "../repository/mysql"
 import { RedisHealthRepository } from "../repository/redis"
+import { ok, Result } from "../types/result"
 
 export type ServiceStatus = {
   latency_ms: number
@@ -15,22 +16,23 @@ export type ReadinessResult = {
 /**
  * Readiness チェック
  * 外部サービス（DB, Redis）への接続状態を並列で確認する
+ * 個別サービスの失敗は "error" ステータスとして結果に含め、業務エラーにはしない
  */
 export const checkReadiness = async (
   repository: {
     databaseHealthRepository: DatabaseHealthRepository
     redisHealthRepository: RedisHealthRepository
   },
-): Promise<ReadinessResult> => {
+): Promise<Result<ReadinessResult>> => {
   const [database, redis] = await Promise.all([
     checkService("Database", repository.databaseHealthRepository),
     checkService("Redis", repository.redisHealthRepository),
   ])
 
-  return {
+  return ok({
     database,
     redis,
-  }
+  })
 }
 
 const checkService = async (

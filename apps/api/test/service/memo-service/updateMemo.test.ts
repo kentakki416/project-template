@@ -19,7 +19,7 @@ describe("updateMemo", () => {
     jest.clearAllMocks()
   })
 
-  it("メモが存在する場合、更新して返す", async () => {
+  it("メモが存在する場合、更新して ok: true で返す", async () => {
     // Arrange
     const existingMemo: Memo = {
       body: "Old Body",
@@ -49,12 +49,15 @@ describe("updateMemo", () => {
     const result = await updateMemo(1, input, mockMemoRepository)
 
     // Assert
-    expect(result).toEqual(updatedMemo)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual(updatedMemo)
+    }
     expect(mockFindById).toHaveBeenCalledWith(1)
     expect(mockUpdate).toHaveBeenCalledWith(1, input)
   })
 
-  it("メモが存在しない場合、nullを返す", async () => {
+  it("メモが存在しない場合、ok: false と NOT_FOUND エラーを返す", async () => {
     // Arrange
     const input: UpdateMemoInput = {
       body: "Updated Body",
@@ -67,7 +70,12 @@ describe("updateMemo", () => {
     const result = await updateMemo(999, input, mockMemoRepository)
 
     // Assert
-    expect(result).toBeNull()
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.type).toBe("NOT_FOUND")
+      expect(result.error.statusCode).toBe(404)
+      expect(result.error.message).toBe("Memo not found")
+    }
     expect(mockFindById).toHaveBeenCalledWith(999)
     expect(mockUpdate).not.toHaveBeenCalled()
   })

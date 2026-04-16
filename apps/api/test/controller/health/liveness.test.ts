@@ -2,13 +2,14 @@ import request from "supertest"
 
 import { HealthLivenessController } from "../../../src/controller/health/liveness"
 import { healthRouter } from "../../../src/routes/health-router"
-import { createTestApp } from "../helper"
+import { attachErrorHandler, createTestApp } from "../helper"
 
 const app = createTestApp()
 
 const livenessController = new HealthLivenessController()
 
 app.use("/api/health", healthRouter({ liveness: livenessController }))
+attachErrorHandler(app)
 
 describe("GET /api/health", () => {
   it("200 と status: ok を返す", async () => {
