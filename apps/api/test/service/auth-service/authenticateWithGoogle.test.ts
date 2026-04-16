@@ -7,7 +7,7 @@ import { AuthAccountWithUser, User } from "../../../src/types/domain"
 // モック
 const mockGetUserInfo = jest.fn<Promise<GoogleUserInfo>, [string]>()
 const mockFindByProvider = jest.fn<Promise<AuthAccountWithUser | null>, [string, string]>()
-const mockCreateUserWithAuthAccountAndUserCharacterTx = jest.fn<Promise<User>, [Parameters<UserRegistrationRepository["createUserWithAuthAccountAndUserCharacterTx"]>[0]]>()
+const mockCreateUserWithAuthAccountTx = jest.fn<Promise<User>, [Parameters<UserRegistrationRepository["createUserWithAuthAccountTx"]>[0]]>()
 
 const mockGoogleAuthClient: IGoogleOAuthClient = {
   generateAuthUrl: jest.fn(),
@@ -23,7 +23,7 @@ const mockRepository: {
     findByProvider: mockFindByProvider,
   },
   userRegistrationRepository: {
-    createUserWithAuthAccountAndUserCharacterTx: mockCreateUserWithAuthAccountAndUserCharacterTx,
+    createUserWithAuthAccountTx: mockCreateUserWithAuthAccountTx,
   },
 }
 
@@ -87,7 +87,7 @@ describe("authenticateWithGoogle", () => {
     expect(result.jwtToken).toBe("mock-jwt-token-1")
     expect(mockGetUserInfo).toHaveBeenCalledWith("auth-code")
     expect(mockFindByProvider).toHaveBeenCalledWith("google", "google-123")
-    expect(mockCreateUserWithAuthAccountAndUserCharacterTx).not.toHaveBeenCalled()
+    expect(mockCreateUserWithAuthAccountTx).not.toHaveBeenCalled()
   })
 
   it("新規ユーザーの場合、ユーザーを作成してJWTトークンを返す", async () => {
@@ -110,7 +110,7 @@ describe("authenticateWithGoogle", () => {
 
     mockGetUserInfo.mockResolvedValue(mockGoogleUser)
     mockFindByProvider.mockResolvedValue(null)
-    mockCreateUserWithAuthAccountAndUserCharacterTx.mockResolvedValue(mockNewUser)
+    mockCreateUserWithAuthAccountTx.mockResolvedValue(mockNewUser)
 
     // Act
     const result = await authenticateWithGoogle(
@@ -126,7 +126,7 @@ describe("authenticateWithGoogle", () => {
     expect(result.jwtToken).toBe("mock-jwt-token-2")
     expect(mockGetUserInfo).toHaveBeenCalledWith("auth-code")
     expect(mockFindByProvider).toHaveBeenCalledWith("google", "google-456")
-    expect(mockCreateUserWithAuthAccountAndUserCharacterTx).toHaveBeenCalledWith({
+    expect(mockCreateUserWithAuthAccountTx).toHaveBeenCalledWith({
       authAccount: {
         provider: "google",
         providerAccountId: "google-456",
@@ -135,11 +135,6 @@ describe("authenticateWithGoogle", () => {
         avatarUrl: "https://example.com/new-avatar.jpg",
         email: "newuser@example.com",
         name: "New User",
-      },
-      userCharacter: {
-        characterCode: "TRAECHAN",
-        isActive: true,
-        nickName: "トレちゃん",
       },
     })
   })

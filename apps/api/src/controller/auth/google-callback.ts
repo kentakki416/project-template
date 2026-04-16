@@ -3,7 +3,6 @@ import { Request, Response } from "express"
 import {
   authGoogleCallbackRequestSchema,
   authGoogleCallbackResponseSchema,
-  ErrorResponse,
 } from "@repo/api-schema"
 
 import { IGoogleOAuthClient } from "../../client/google-oauth"
@@ -13,7 +12,7 @@ import { AuthAccountRepository, UserRegistrationRepository } from "../../reposit
 import * as service from "../../service"
 
 /**
- * Google からのコールバックを処理し、JWT を返すAPI
+ * Google からのコールバックを処理し、フロントエンドにリダイレクトするAPI
  */
 export class AuthGoogleCallbackController {
   constructor(
@@ -45,7 +44,7 @@ export class AuthGoogleCallbackController {
         userId: result.user.id,
       })
 
-      // レスポンススキーマのバリデーション
+      // レスポンスデータのバリデーション
       const response = authGoogleCallbackResponseSchema.parse({
         is_new_user: result.isNewUser,
         token: result.jwtToken,
@@ -58,29 +57,38 @@ export class AuthGoogleCallbackController {
         },
       })
 
-      res.status(200).json(response)
+      /**
+       * フロントエンドの /api/auth/callback にリダイレクト
+       * トークンとユーザー情報をクエリパラメータで渡す
+       */
+      const callbackUrl = new URL("/api/auth/callback", process.env.FRONTEND_URL || "http://localhost:3000")
+      callbackUrl.searchParams.set("token", response.token)
+      callbackUrl.searchParams.set("user", JSON.stringify({
+        avatar_url: response.user.avatar_url,
+        email: response.user.email,
+        id: response.user.id,
+        name: response.user.name,
+      }))
+
+      res.redirect(callbackUrl.toString())
     } catch (error) {
-      // エラーハンドリング
       if (error instanceof Error && error.name === "ZodError") {
         logger.warn("AuthGoogleCallbackController: Validation error", {
           error: "Invalid request parameters",
         })
-        const errorResponse: ErrorResponse = {
-          error: "Invalid request parameters",
-          status_code: 400,
-        }
-        return res.status(400).json(errorResponse)
+      } else {
+        logger.error(
+          "AuthGoogleCallbackController: Authentication failed",
+          error instanceof Error ? error : new Error("Unknown error")
+        )
       }
 
-      logger.error(
-        "AuthGoogleCallbackController: Authentication failed",
-        error instanceof Error ? error : new Error("Unknown error")
-      )
-      const errorResponse: ErrorResponse = {
-        error: error instanceof Error ? error.message : "Authentication failed",
-        status_code: 500,
-      }
-      res.status(500).json(errorResponse)
+      /**
+       * エラー時もフロントエンドのサインインページにリダイレクト
+       */
+      const signinUrl = new URL("/signin", process.env.FRONTEND_URL || "http://localhost:3000")
+      signinUrl.searchParams.set("error", "auth_failed")
+      res.redirect(signinUrl.toString())
     }
   }
 }

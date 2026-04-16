@@ -22,7 +22,6 @@ import {
   PrismaDatabaseHealthRepository,
   PrismaMemoRepository,
   PrismaUserRepository,
-  // PrismaUserCharacterRepository,
   PrismaUserRegistrationRepository
 } from "./repository/mysql"
 import { IoRedisHealthRepository } from "./repository/redis"

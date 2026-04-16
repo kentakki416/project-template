@@ -32,13 +32,6 @@ app.use("/api/auth", authRouter({ callback: callbackController }))
 
 beforeEach(async () => {
   await cleanupTestData()
-  // 新規ユーザー登録時に characters テーブルが参照されるため seed が必要
-  await testPrisma.character.createMany({
-    data: [
-      { characterCode: "TRAECHAN", description: "目標達成をサポートするあなたの相棒", name: "トレちゃん" },
-      { characterCode: "MASTER", description: "あなたの成長を見守る師匠", name: "マスター" },
-    ],
-  })
   jest.clearAllMocks()
 })
 
@@ -48,7 +41,7 @@ afterAll(async () => {
 })
 
 describe("GET /api/auth/google/callback", () => {
-  it("既存ユーザーの場合、200 とユーザー情報・トークンを返す", async () => {
+  it("既存ユーザーの場合、/api/auth/callback にリダイレクトする", async () => {
     // テスト用のユーザーとAuthAccountをDBに作成
     const user = await testPrisma.user.create({
       data: {
@@ -76,14 +69,18 @@ describe("GET /api/auth/google/callback", () => {
       .get("/api/auth/google/callback")
       .query({ code: "auth-code" })
 
-    expect(res.status).toBe(200)
-    expect(res.body.is_new_user).toBe(false)
-    expect(res.body.token).toBeDefined()
-    expect(res.body.user.id).toBe(user.id)
-    expect(res.body.user.email).toBe("test@example.com")
+    expect(res.status).toBe(302)
+    const redirectUrl = new URL(res.headers.location)
+    expect(redirectUrl.origin).toBe("http://localhost:3000")
+    expect(redirectUrl.pathname).toBe("/api/auth/callback")
+    expect(redirectUrl.searchParams.get("token")).toBeDefined()
+
+    const userParam = JSON.parse(redirectUrl.searchParams.get("user")!)
+    expect(userParam.id).toBe(user.id)
+    expect(userParam.email).toBe("test@example.com")
   })
 
-  it("新規ユーザーの場合、200 と is_new_user: true を返す", async () => {
+  it("新規ユーザーの場合、/api/auth/callback にリダイレクトし DB にユーザーが作成される", async () => {
     mockGetUserInfo.mockResolvedValue({
       email: "new@example.com",
       id: "google-456",
@@ -95,9 +92,12 @@ describe("GET /api/auth/google/callback", () => {
       .get("/api/auth/google/callback")
       .query({ code: "auth-code" })
 
-    expect(res.status).toBe(200)
-    expect(res.body.is_new_user).toBe(true)
-    expect(res.body.user.email).toBe("new@example.com")
+    expect(res.status).toBe(302)
+    const redirectUrl = new URL(res.headers.location)
+    expect(redirectUrl.pathname).toBe("/api/auth/callback")
+
+    const userParam = JSON.parse(redirectUrl.searchParams.get("user")!)
+    expect(userParam.email).toBe("new@example.com")
 
     // DBにユーザーが実際に作成されていることを確認
     const createdUser = await testPrisma.user.findUnique({
@@ -106,22 +106,26 @@ describe("GET /api/auth/google/callback", () => {
     expect(createdUser).not.toBeNull()
   })
 
-  it("codeパラメータがない場合、400 を返す", async () => {
+  it("codeパラメータがない場合、/signin にリダイレクトする", async () => {
     const res = await request(app)
       .get("/api/auth/google/callback")
 
-    expect(res.status).toBe(400)
-    expect(res.body.error).toBe("Invalid request parameters")
+    expect(res.status).toBe(302)
+    const redirectUrl = new URL(res.headers.location)
+    expect(redirectUrl.pathname).toBe("/signin")
+    expect(redirectUrl.searchParams.get("error")).toBe("auth_failed")
   })
 
-  it("Google認証エラー時、500 を返す", async () => {
+  it("Google認証エラー時、/signin にリダイレクトする", async () => {
     mockGetUserInfo.mockRejectedValue(new Error("Google authentication failed"))
 
     const res = await request(app)
       .get("/api/auth/google/callback")
       .query({ code: "invalid-code" })
 
-    expect(res.status).toBe(500)
-    expect(res.body.error).toBe("Google authentication failed")
+    expect(res.status).toBe(302)
+    const redirectUrl = new URL(res.headers.location)
+    expect(redirectUrl.pathname).toBe("/signin")
+    expect(redirectUrl.searchParams.get("error")).toBe("auth_failed")
   })
 })

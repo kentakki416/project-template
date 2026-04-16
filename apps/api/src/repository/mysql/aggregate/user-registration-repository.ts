@@ -1,5 +1,5 @@
-import { PrismaClient , Prisma as PrismaTypes , CharacterCode as PrismaCharacterCode } from "../../../prisma/generated/client"
-import { CharacterCode, User } from "../../../types/domain"
+import { PrismaClient, Prisma as PrismaTypes } from "../../../prisma/generated/client"
+import { User } from "../../../types/domain"
 
 /**
  * ユーザー登録時の入力
@@ -14,18 +14,13 @@ export type CreateUserRegistrationInput = {
         email?: string
         name?: string
     }
-    userCharacter: {
-        characterCode: CharacterCode
-        isActive?: boolean
-        nickName: string
-    }
 }
 
 /**
  * ユーザー登録リポジトリのインターフェース
  */
 export interface UserRegistrationRepository {
-    createUserWithAuthAccountAndUserCharacterTx(data: CreateUserRegistrationInput): Promise<User>
+    createUserWithAuthAccountTx(data: CreateUserRegistrationInput): Promise<User>
 }
 
 /**
@@ -35,10 +30,10 @@ export class PrismaUserRegistrationRepository implements UserRegistrationReposit
   constructor(private prisma: PrismaClient) {}
 
   /**
-     * ユーザーの新規作成時のDB処理（トランザクション）
-     * User, AuthAccount, UserCharacterを同時に作成する集約処理
-     */
-  async createUserWithAuthAccountAndUserCharacterTx(
+   * ユーザーの新規作成時のDB処理（トランザクション）
+   * User と AuthAccount を同時に作成する集約処理
+   */
+  async createUserWithAuthAccountTx(
     data: CreateUserRegistrationInput
   ): Promise<User> {
     const prismaUser = await this.prisma.$transaction(async (tx) => {
@@ -60,18 +55,6 @@ export class PrismaUserRegistrationRepository implements UserRegistrationReposit
         },
       })
 
-      // UserCharacter 作成
-      const prismaCharacterCode = data.userCharacter.characterCode as PrismaCharacterCode
-
-      await tx.userCharacter.create({
-        data: {
-          characterCode: prismaCharacterCode,
-          isActive: data.userCharacter.isActive ?? false,
-          nickName: data.userCharacter.nickName,
-          userId: user.id,
-        },
-      })
-
       return user
     })
 
@@ -79,8 +62,8 @@ export class PrismaUserRegistrationRepository implements UserRegistrationReposit
   }
 
   /**
-     * Prismaの型 → ドメインの型に変換
-     */
+   * Prismaの型 → ドメインの型に変換
+   */
   private _toDomainUser(prismaUser: PrismaTypes.UserGetPayload<{}>): User {
     return {
       avatarUrl: prismaUser.avatarUrl,
