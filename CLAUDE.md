@@ -472,7 +472,9 @@ All apps use ESLint v9 with flat config format (`eslint.config.{js,mjs}`).
 
 #### README.mdファイルの記述ルール
 - 全て日本語で記述
-
+- **目次（Table of Contents）を必ず含める**: `## 目次` セクションとして、ドキュメント内の全 `##` / `###` 見出しへのリンクをネストしたリスト形式で記載する
+  - 見出しが追加・変更された場合は目次も同期して更新する
+  - GitHub の Markdown アンカーリンク形式を使用（例: `[セクション名](#セクション名)`）
 
 #### テンプレート
 `docs/spec/template/README.md` にREADME.mdファイルのテンプレートがあります。
