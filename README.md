@@ -7,14 +7,12 @@ Turborepo + pnpm monorepo を使用したフルスタックアプリケーショ
 
 - [プロジェクト構成図](#プロジェクト構成図)
 - [技術スタック](#技術スタック)
-- [MCP サーバー](#mcp-サーバー)
-  - [一覧](#一覧)
-  - [使い方](#使い方)
-  - [MCP サーバーの追加方法](#mcp-サーバーの追加方法)
-- [使い方](#使い方-1)
+- [ドキュメント](#ドキュメント)
+- [使い方](#使い方)
   - [1. プロジェクトのコピー](#1-プロジェクトのコピー)
   - [2. 環境変数の設定](#2-環境変数の設定)
   - [3. セットアップ](#3-セットアップ)
+- [Claude Code（MCP設定）](#claude-codemcp設定)
 - [開発ルール](#開発ルール)
   - [1. 命名規則](#1-命名規則)
   - [2. 基本コマンド](#2-基本コマンド)
@@ -90,209 +88,12 @@ graph TB
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
-## MCP サーバー
+## クイックリファレンス
 
-このプロジェクトでは [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) を使い、Claude Code に外部ツール・サービスを接続しています。設定は `.mcp.json` に記載されています。
-
-### 一覧
-
-| MCP サーバー | パッケージ | 機能 |
-|---|---|---|
-| `context7` | `@upstash/context7-mcp` | ライブラリの最新ドキュメントをリアルタイム取得。古い情報に基づくコード生成を防止 |
-| `aws-knowledge-mcp-server` | `mcp-remote` (リモート) | AWS公式ナレッジベース。AWSサービスのベストプラクティス・設定例を参照 |
-| `github` | `@modelcontextprotocol/server-github` | GitHub操作（Issue・PR作成、コード検索、リポジトリ管理等） |
-| `playwright` | `@playwright/mcp` | ブラウザ操作の自動化。E2Eテスト・スクレイピング・UI確認 |
-| `serena` | `serena` (uvx) | 言語サーバー統合。シンボル検索・参照検索・コード操作・プロジェクトメモリ管理 |
-| `docker` | `mcp/docker` (Docker公式) | コンテナ一覧表示・ログ確認・コンテナ操作。トラブルシューティングが高速化 |
-| `sqlite` | `@modelcontextprotocol/server-sqlite` | SQLiteデータベースのスキーマ確認・読み取りクエリ実行。自然言語でDB分析可能 |
-| `browser-tools` | `@anthropic-ai/browser-mcp` | Chrome DevTools連携。Consoleログ監視・ネットワーク分析・Lighthouse監査 |
-| `drawio` | `@drawio/mcp` | Draw.io図の作成・編集。アーキテクチャ図やフローチャートをAIで生成 |
-| `lottiefiles` | `mcp-server-lottiefiles` | LottieFilesからアニメーション検索・取得。UIアニメーション素材の検索 |
-| `lottie-creator` | `@nicepkg/lottie-mcp` | Lottieアニメーションの作成・編集。カスタムアニメーション生成 |
-| `notion` (無効) | `@notionhq/notion-mcp-server` | Notionページ・DB検索・作成・更新。ドキュメント管理をAIから操作 |
-| `slack` (無効) | `@anthropic-ai/mcp-server-slack` | Slackメッセージ送受信・チャンネル操作。チーム連携をAIから実行 |
-
-### 使い方
-
-#### GitHub MCP Server
-
-ブラウザを開かず、Claude Code 内だけで GitHub 操作が完結します。
-
-```
-# 使用例（Claude Code に自然言語で指示）
-- 「このリポジトリの Issue 一覧を見せて」
-- 「PR #42 の変更内容をレビューして」
-- 「新しい Issue を作成して: タイトル〇〇、本文△△」
-```
-
-**セットアップ**: 環境変数 `GITHUB_PAT` に GitHub Personal Access Token を設定してください。
-
-#### Docker MCP Server
-
-コンテナのトラブルシューティングが爆速になります。
-
-```
-# 使用例
-- 「Docker のコンテナ一覧を表示して」
-- 「api コンテナのログを見て原因を教えて」
-- 「停止しているコンテナを再起動して」
-```
-
-**前提条件**: Docker Desktop が起動していること。Docker ソケット (`/var/run/docker.sock`) へのアクセスが必要です。
-
-#### SQLite MCP Server
-
-自然言語で DB 分析ができます。ローカル開発時のデータ確認に便利です。
-
-```
-# 使用例
-- 「users テーブルのスキーマを見せて」
-- 「先週登録したユーザーの数を数えて」
-- 「orders テーブルから売上上位10件を取得して」
-```
-
-**セットアップ**: 環境変数 `SQLITE_DB_PATH` にデータベースファイルのパスを設定してください（デフォルト: `./data/local.db`）。
-
-#### Browser Tools (Chrome DevTools) MCP
-
-ブラウザのデバッグも AI にお任せできます。
-
-```
-# 使用例
-- 「コンソールに出ているエラーの原因を特定して修正案を出して」
-- 「ページの読み込みが遅い原因をネットワークタブから分析して」
-- 「Lighthouse 監査を実行してパフォーマンススコアを教えて」
-```
-
-#### Playwright MCP
-
-ブラウザ操作の自動化・テスト作成に使用します。
-
-```
-# 使用例
-- 「ログインフローの E2E テストコードを書いて」
-- 「サイトを巡回してデザイン崩れがないかチェックして」
-- 「このページのスクリーンショットを撮って」
-```
-
-#### Draw.io MCP
-
-アーキテクチャ図やフローチャートを AI で生成・編集できます。
-
-```
-# 使用例
-- 「このシステムのアーキテクチャ図を draw.io で作成して」
-- 「既存の図にマイクロサービス間の通信フローを追加して」
-- 「ER図を draw.io 形式で生成して」
-```
-
-#### LottieFiles MCP
-
-LottieFiles のアニメーションライブラリから素材を検索・取得します。
-
-```
-# 使用例
-- 「ローディング用のアニメーションを検索して」
-- 「成功時に表示するチェックマークアニメーションを探して」
-- 「404ページ用のアニメーション素材を提案して」
-```
-
-#### Lottie Creator MCP
-
-Lottie アニメーションをカスタム作成・編集します。
-
-```
-# 使用例
-- 「ブランドカラーを使ったローディングアニメーションを作成して」
-- 「既存の Lottie JSON を編集して速度を変更して」
-- 「ボタンのホバーアニメーションを Lottie で作って」
-```
-
-#### Notion MCP (無効 - 要セットアップ)
-
-Notion のページやデータベースを AI から直接操作できます。議事録の作成、タスク管理、ドキュメント検索がチャット内で完結します。
-
-```
-# 使用例
-- 「Notion の〇〇データベースからタスク一覧を取得して」
-- 「今日の議事録ページを作成して、参加者は△△」
-- 「プロジェクト仕様書のページを検索して内容を要約して」
-- 「Notion のタスクのステータスを"完了"に更新して」
-```
-
-**使用感**: Notion をブラウザで開かずに、Claude Code 内からページの検索・閲覧・作成・更新ができます。特にドキュメント参照しながらコーディングする場面で、コンテキストスイッチが不要になります。
-
-**有効化手順**:
-
-1. [Notion Integrations](https://www.notion.so/my-integrations) で Internal Integration を作成
-2. 作成した Integration の「Internal Integration Secret」をコピー
-3. 環境変数を設定:
-   ```bash
-   export NOTION_API_TOKEN="ntn_xxxxxxxxxxxx"
-   ```
-4. Notion 上で、アクセスしたいページ/データベースに Integration を接続（ページ右上「...」→「コネクト」→ 作成した Integration を選択）
-5. `.mcp.json` のキー名を `_disabled_notion` → `notion` に変更
-6. Claude Code を再起動
-
-#### Slack MCP (無効 - 要セットアップ)
-
-Slack のメッセージ送受信・チャンネル操作を AI から実行できます。開発中に Slack を確認したり、通知を送ったりがチャット内で完結します。
-
-```
-# 使用例
-- 「#dev チャンネルの最新メッセージを10件見せて」
-- 「@田中さん に『デプロイ完了しました』と DM して」
-- 「#general チャンネルに今日のリリースノートを投稿して」
-- 「昨日の #incident チャンネルの議論を要約して」
-```
-
-**使用感**: Slack アプリを切り替えずに、開発フロー内でチームとのコミュニケーションが可能になります。「このバグについて Slack で何か報告あった？」→ 検索 → 要約、のような流れが1ステップで完了します。
-
-**有効化手順**:
-
-1. [Slack API](https://api.slack.com/apps) で新しい App を作成
-2. 「OAuth & Permissions」で以下の Bot Token Scopes を追加:
-   - `channels:history` - パブリックチャンネルのメッセージ読取
-   - `channels:read` - チャンネル一覧取得
-   - `chat:write` - メッセージ送信
-   - `groups:history` - プライベートチャンネルのメッセージ読取
-   - `groups:read` - プライベートチャンネル一覧
-   - `im:history` - DM読取
-   - `im:write` - DM送信
-   - `users:read` - ユーザー情報取得
-3. App をワークスペースにインストールし、Bot User OAuth Token を取得
-4. 環境変数を設定:
-   ```bash
-   export SLACK_BOT_TOKEN="xoxb-xxxxxxxxxxxx"
-   export SLACK_TEAM_ID="T0XXXXXXXXX"  # ワークスペースのチームID
-   ```
-5. `.mcp.json` のキー名を `_disabled_slack` → `slack` に変更
-6. Claude Code を再起動
-
-> **注意**: Slack MCP でメッセージを送信する場合、Claude Code が確認プロンプトを表示します（外部への送信アクションのため）。意図しない送信を防ぐ安全機構です。
-
-### MCP サーバーの追加方法
-
-`.mcp.json` に新しいエントリを追加:
-
-```json
-{
-  "mcpServers": {
-    "new-server": {
-      "command": "npx",
-      "args": ["-y", "@package/mcp-server@latest"],
-      "env": {
-        "API_KEY": "${env:MY_API_KEY}"
-      }
-    }
-  }
-}
-```
-
-- `command`: 実行コマンド（`npx`, `uvx`, `docker` 等）
-- `args`: コマンド引数
-- `env`: 環境変数。`${env:VAR_NAME}` でシステム環境変数を参照可能
-- 追加後、Claude Code を再起動すると利用可能になる
+| ドキュメント | 内容 |
+|---|---|
+| [docs/mcp.md](docs/mcp.md) | MCP サーバーの一覧・使い方・追加方法 |
+| [.claude/README.md](.claude/README.md) | Claude Code の設定（Agents・Commands・Skills） |
 
 ---
 
@@ -382,6 +183,16 @@ cd packages/schema && pnpm build
 cd ../..
 pnpm dev
 ```
+
+## Claude Code（MCP設定）
+
+このプロジェクトでは MCP サーバーの設定ファイル（`.mcp.json`）をリポジトリルートに配置しています。Claude Code 起動時に MCP サーバーを認識させるには、以下のコマンドを使用してください:
+
+```bash
+claude --mcp-config=./.mcp.json
+```
+
+MCP サーバーの詳細は [docs/mcp.md](docs/mcp.md) を参照してください。
 
 ## 開発ルール
 

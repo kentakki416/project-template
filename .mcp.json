@@ -52,13 +52,12 @@
         "mcp/docker"
       ]
     },
-    "sqlite": {
+    "postgres": {
       "command": "npx",
       "args": [
         "-y",
-        "@modelcontextprotocol/server-sqlite",
-        "--db-path",
-        "${env:SQLITE_DB_PATH:-./data/local.db}"
+        "@modelcontextprotocol/server-postgres",
+        "${env:POSTGRES_CONNECTION_STRING}"
       ]
     },
     "browser-tools": {
@@ -86,7 +85,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@nicepkg/lottie-mcp"
+        "@lottiefiles/creator-mcp@latest"
       ]
     },
     "_disabled_notion": {
