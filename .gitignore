@@ -92,3 +92,10 @@ app-example
 
 # Secret
 .secret
+
+
+# playwright
+.playwright-mcp
+
+# serena
+.serena

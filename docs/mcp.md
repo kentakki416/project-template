@@ -8,11 +8,8 @@
 - [使い方](#使い方)
   - [GitHub MCP Server](#github-mcp-server)
   - [PostgreSQL MCP Server](#postgresql-mcp-server)
-  - [Docker MCP Server](#docker-mcp-server)
-  - [Browser Tools (Chrome DevTools) MCP](#browser-tools-chrome-devtools-mcp)
   - [Playwright MCP](#playwright-mcp)
   - [Draw.io MCP](#drawio-mcp)
-  - [LottieFiles MCP](#lottiefiles-mcp)
   - [Lottie Creator MCP](#lottie-creator-mcp)
   - [Serena MCP](#serena-mcp)
   - [Notion MCP (無効 - 要セットアップ)](#notion-mcp-無効---要セットアップ)
@@ -23,16 +20,13 @@
 
 | MCP サーバー | パッケージ | 機能 |
 |---|---|---|
-| `context7` | `@upstash/context7-mcp` | ライブラリの最新ドキュメントをリアルタイム取得。古い情報に基づくコード生成を防止 |
-| `aws-knowledge-mcp-server` | `mcp-remote` (リモート) | AWS公式ナレッジベース。AWSサービスのベストプラクティス・設定例を参照 |
-| `github` | `@modelcontextprotocol/server-github` | GitHub操作（Issue・PR作成、コード検索、リポジトリ管理等） |
-| `playwright` | `@playwright/mcp` | ブラウザ操作の自動化。E2Eテスト・スクレイピング・UI確認 |
-| `serena` | `serena` (uvx) | 言語サーバー統合。シンボル検索・参照検索・コード操作・プロジェクトメモリ管理 |
-| `postgres` | `@modelcontextprotocol/server-postgres` | PostgreSQLデータベースのスキーマ確認・クエリ実行。自然言語でDB分析可能 |
-| `docker` | `mcp/docker` (Docker公式) | コンテナ一覧表示・ログ確認・コンテナ操作。トラブルシューティングが高速化 |
-| `browser-tools` | `@anthropic-ai/browser-mcp` | Chrome DevTools連携。Consoleログ監視・ネットワーク分析・Lighthouse監査 |
-| `drawio` | `@drawio/mcp` | Draw.io図の作成・編集。アーキテクチャ図やフローチャートをAIで生成 |
-| `lottiefiles` | `mcp-server-lottiefiles` | LottieFilesからアニメーション検索・取得。UIアニメーション素材の検索 |
+| `context7` | [`@upstash/context7-mcp`](https://github.com/upstash/context7) | ライブラリの最新ドキュメントをリアルタイム取得。古い情報に基づくコード生成を防止 |
+| `aws-knowledge-mcp-server` | [`mcp-remote`](https://github.com/awslabs/mcp/tree/main) (リモート) | AWS公式ナレッジベース。AWSサービスのベストプラクティス・設定例を参照 |
+| `github` | [`@modelcontextprotocol/server-github`](https://github.com/github/github-mcp-server) | GitHub操作（Issue・PR作成、コード検索、リポジトリ管理等） |
+| `playwright` | [`@playwright/mcp`](https://github.com/microsoft/playwright-mcp) | ブラウザ操作の自動化。E2Eテスト・スクレイピング・UI確認 |
+| `serena` | [`serena`](https://github.com/oraios/serena) (uvx) | 言語サーバー統合。シンボル検索・参照検索・コード操作・プロジェクトメモリ管理 |
+| `postgres` | [`@modelcontextprotocol/server-postgres`](https://github.com/crystaldba/postgres-mcp) | PostgreSQLデータベースのスキーマ確認・クエリ実行。自然言語でDB分析可能 |
+| `drawio` | [`@drawio/mcp`](https://github.com/jgraph/drawio-mcp) | Draw.io図の作成・編集。アーキテクチャ図やフローチャートをAIで生成 |
 | `lottie-creator` | `@lottiefiles/creator-mcp` | LottieFiles Creator連携。ブラウザ上のCreatorエディタをAIから操作してアニメーション作成・編集 |
 | `notion` (無効) | `@notionhq/notion-mcp-server` | Notionページ・DB検索・作成・更新。ドキュメント管理をAIから操作 |
 | `slack` (無効) | `@anthropic-ai/mcp-server-slack` | Slackメッセージ送受信・チャンネル操作。チーム連携をAIから実行 |
@@ -70,30 +64,6 @@
 export POSTGRES_CONNECTION_STRING="postgresql://user:password@localhost:5432/dbname"
 ```
 
-### Docker MCP Server
-
-コンテナのトラブルシューティングが爆速になります。
-
-```
-# 使用例
-- 「Docker のコンテナ一覧を表示して」
-- 「api コンテナのログを見て原因を教えて」
-- 「停止しているコンテナを再起動して」
-```
-
-**前提条件**: Docker Desktop が起動していること。Docker ソケット (`/var/run/docker.sock`) へのアクセスが必要です。初回は `docker pull mcp/docker` でイメージを取得してください。
-
-### Browser Tools (Chrome DevTools) MCP
-
-ブラウザのデバッグも AI にお任せできます。
-
-```
-# 使用例
-- 「コンソールに出ているエラーの原因を特定して修正案を出して」
-- 「ページの読み込みが遅い原因をネットワークタブから分析して」
-- 「Lighthouse 監査を実行してパフォーマンススコアを教えて」
-```
-
 ### Playwright MCP
 
 ブラウザ操作の自動化・テスト作成に使用します。
@@ -114,17 +84,6 @@ export POSTGRES_CONNECTION_STRING="postgresql://user:password@localhost:5432/dbn
 - 「このシステムのアーキテクチャ図を draw.io で作成して」
 - 「既存の図にマイクロサービス間の通信フローを追加して」
 - 「ER図を draw.io 形式で生成して」
-```
-
-### LottieFiles MCP
-
-LottieFiles のアニメーションライブラリから素材を検索・取得します。
-
-```
-# 使用例
-- 「ローディング用のアニメーションを検索して」
-- 「成功時に表示するチェックマークアニメーションを探して」
-- 「404ページ用のアニメーション素材を提案して」
 ```
 
 ### Lottie Creator MCP

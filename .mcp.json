@@ -21,7 +21,7 @@
         "@modelcontextprotocol/server-github"
       ],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_PAT}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:MY_GITHUB_PAT}"
       }
     },
     "playwright": {
@@ -41,17 +41,6 @@
         "ide-assistant"
       ]
     },
-    "docker": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "-i",
-        "-v",
-        "/var/run/docker.sock:/var/run/docker.sock",
-        "mcp/docker"
-      ]
-    },
     "postgres": {
       "command": "npx",
       "args": [
@@ -60,25 +49,11 @@
         "${env:POSTGRES_CONNECTION_STRING}"
       ]
     },
-    "browser-tools": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@anthropic-ai/browser-mcp@latest"
-      ]
-    },
     "drawio": {
       "command": "npx",
       "args": [
         "-y",
         "@drawio/mcp"
-      ]
-    },
-    "lottiefiles": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-server-lottiefiles"
       ]
     },
     "lottie-creator": {
