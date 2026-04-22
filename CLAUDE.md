@@ -353,6 +353,33 @@ attachErrorHandler(app)  // ← ルート登録後に必ず呼ぶ
 3. **網羅性と独立性**: 「何が起きたか」は `statusCode` / `type` で構造的に表現し、文字列で表現しない
 4. **AI/自動化フレンドリー**: 文言に例外を作らないため、AI による自動リファクタリングで誤検知が起きにくい
 
+#### 境界値テスト（必須）
+
+日付フィルタや条件分岐を含むAPIでは、**境界値のテストケースを必ず追加する**。正常系だけでなく、境界の直前・直後のデータで意図通りに含まれる/除外されることを検証する。
+
+##### 日付フィルタの場合
+
+月フィルタでは**前月末日・当月初日・当月末日・翌月初日**の4点をテストデータに含め、当月のデータだけが返ることを検証する:
+
+```typescript
+// 3月フィルタの境界値テスト
+await testPrisma.transaction.createMany({
+  data: [
+    { transactionDate: new Date("2026-02-28"), description: "前月末" },  // 含まれない
+    { transactionDate: new Date("2026-03-01"), description: "当月初" },  // 含まれる
+    { transactionDate: new Date("2026-03-31"), description: "当月末" },  // 含まれる
+    { transactionDate: new Date("2026-04-01"), description: "翌月初" },  // 含まれない
+  ],
+})
+
+const res = await request(app).get("/api/transactions").query({ month: 3, year: 2026 })
+expect(res.body.transactions).toHaveLength(2)
+```
+
+##### 条件分岐の場合
+
+if文やswitch文でデータの振り分けがある場合、**各分岐の境界値**をテストデータに含める（例: 金額が0以下でスキップする処理なら `amount: 0` と `amount: 1` の両方をテスト）。
+
 ### Infrastructure (Terraform)
 - Structure: `packages/terraform/aws/{bootstrap,env,modules}`
 - Bootstrap: S3 backend and DynamoDB for state locking
