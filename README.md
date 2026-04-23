@@ -37,14 +37,14 @@ graph TB
     end
 
     subgraph Infrastructure
-        MySQL[(MySQL 8.0)]
+        PostgreSQL[(PostgreSQL 16)]
         Redis[(Redis 7)]
     end
 
     Web --> API
     Admin --> API
     Mobile --> API
-    API --> MySQL
+    API --> PostgreSQL
     API --> Redis
     Schema --> Web
     Schema --> Admin
@@ -78,7 +78,7 @@ graph TB
 ![Google OAuth](https://img.shields.io/badge/Google%20OAuth-4285F4?style=for-the-badge&logo=google&logoColor=white)
 
 #### データベース・キャッシュ
-![MySQL](https://img.shields.io/badge/MySQL%208.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL%2016-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis%207-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 
 #### インフラ・CI/CD
@@ -173,7 +173,7 @@ git init
 # 依存関係のインストール
 pnpm install
 
-# Docker 環境の起動（MySQL + Redis）
+# Docker 環境の起動（PostgreSQL + Redis）
 docker compose up -d
 
 # スキーマパッケージのビルド

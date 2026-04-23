@@ -297,7 +297,6 @@ export type AuthAccountOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
-  _relevance?: Prisma.AuthAccountOrderByRelevanceInput
 }
 
 export type AuthAccountWhereUniqueInput = Prisma.AtLeast<{
@@ -467,12 +466,6 @@ export type AuthAccountListRelationFilter = {
 
 export type AuthAccountOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
-}
-
-export type AuthAccountOrderByRelevanceInput = {
-  fields: Prisma.AuthAccountOrderByRelevanceFieldEnum | Prisma.AuthAccountOrderByRelevanceFieldEnum[]
-  sort: Prisma.SortOrder
-  search: string
 }
 
 export type AuthAccountProviderProviderAccountIdCompoundUniqueInput = {
@@ -735,7 +728,37 @@ export type AuthAccountSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["authAccount"]>
 
+export type AuthAccountSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  id?: boolean
+  userId?: boolean
+  provider?: boolean
+  providerAccountId?: boolean
+  accessToken?: boolean
+  refreshToken?: boolean
+  expiresAt?: boolean
+  tokenType?: boolean
+  scope?: boolean
+  idToken?: boolean
+  createdAt?: boolean
+  updatedAt?: boolean
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+}, ExtArgs["result"]["authAccount"]>
 
+export type AuthAccountSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  id?: boolean
+  userId?: boolean
+  provider?: boolean
+  providerAccountId?: boolean
+  accessToken?: boolean
+  refreshToken?: boolean
+  expiresAt?: boolean
+  tokenType?: boolean
+  scope?: boolean
+  idToken?: boolean
+  createdAt?: boolean
+  updatedAt?: boolean
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+}, ExtArgs["result"]["authAccount"]>
 
 export type AuthAccountSelectScalar = {
   id?: boolean
@@ -754,6 +777,12 @@ export type AuthAccountSelectScalar = {
 
 export type AuthAccountOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "provider" | "providerAccountId" | "accessToken" | "refreshToken" | "expiresAt" | "tokenType" | "scope" | "idToken" | "createdAt" | "updatedAt", ExtArgs["result"]["authAccount"]>
 export type AuthAccountInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+}
+export type AuthAccountIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+}
+export type AuthAccountIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
 
@@ -893,6 +922,30 @@ export interface AuthAccountDelegate<ExtArgs extends runtime.Types.Extensions.In
   createMany<T extends AuthAccountCreateManyArgs>(args?: Prisma.SelectSubset<T, AuthAccountCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<Prisma.BatchPayload>
 
   /**
+   * Create many AuthAccounts and returns the data saved in the database.
+   * @param {AuthAccountCreateManyAndReturnArgs} args - Arguments to create many AuthAccounts.
+   * @example
+   * // Create many AuthAccounts
+   * const authAccount = await prisma.authAccount.createManyAndReturn({
+   *   data: [
+   *     // ... provide data here
+   *   ]
+   * })
+   * 
+   * // Create many AuthAccounts and only return the `id`
+   * const authAccountWithIdOnly = await prisma.authAccount.createManyAndReturn({
+   *   select: { id: true },
+   *   data: [
+   *     // ... provide data here
+   *   ]
+   * })
+   * Note, that providing `undefined` is treated as the value not being there.
+   * Read more here: https://pris.ly/d/null-undefined
+   * 
+   */
+  createManyAndReturn<T extends AuthAccountCreateManyAndReturnArgs>(args?: Prisma.SelectSubset<T, AuthAccountCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AuthAccountPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+  /**
    * Delete a AuthAccount.
    * @param {AuthAccountDeleteArgs} args - Arguments to delete one AuthAccount.
    * @example
@@ -955,6 +1008,36 @@ export interface AuthAccountDelegate<ExtArgs extends runtime.Types.Extensions.In
    * 
    */
   updateMany<T extends AuthAccountUpdateManyArgs>(args: Prisma.SelectSubset<T, AuthAccountUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<Prisma.BatchPayload>
+
+  /**
+   * Update zero or more AuthAccounts and returns the data updated in the database.
+   * @param {AuthAccountUpdateManyAndReturnArgs} args - Arguments to update many AuthAccounts.
+   * @example
+   * // Update many AuthAccounts
+   * const authAccount = await prisma.authAccount.updateManyAndReturn({
+   *   where: {
+   *     // ... provide filter here
+   *   },
+   *   data: [
+   *     // ... provide data here
+   *   ]
+   * })
+   * 
+   * // Update zero or more AuthAccounts and only return the `id`
+   * const authAccountWithIdOnly = await prisma.authAccount.updateManyAndReturn({
+   *   select: { id: true },
+   *   where: {
+   *     // ... provide filter here
+   *   },
+   *   data: [
+   *     // ... provide data here
+   *   ]
+   * })
+   * Note, that providing `undefined` is treated as the value not being there.
+   * Read more here: https://pris.ly/d/null-undefined
+   * 
+   */
+  updateManyAndReturn<T extends AuthAccountUpdateManyAndReturnArgs>(args: Prisma.SelectSubset<T, AuthAccountUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AuthAccountPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
 
   /**
    * Create or update one AuthAccount.
@@ -1390,6 +1473,29 @@ export type AuthAccountCreateManyArgs<ExtArgs extends runtime.Types.Extensions.I
 }
 
 /**
+ * AuthAccount createManyAndReturn
+ */
+export type AuthAccountCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AuthAccount
+   */
+  select?: Prisma.AuthAccountSelectCreateManyAndReturn<ExtArgs> | null
+  /**
+   * Omit specific fields from the AuthAccount
+   */
+  omit?: Prisma.AuthAccountOmit<ExtArgs> | null
+  /**
+   * The data used to create many AuthAccounts.
+   */
+  data: Prisma.AuthAccountCreateManyInput | Prisma.AuthAccountCreateManyInput[]
+  skipDuplicates?: boolean
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AuthAccountIncludeCreateManyAndReturn<ExtArgs> | null
+}
+
+/**
  * AuthAccount update
  */
 export type AuthAccountUpdateArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1431,6 +1537,36 @@ export type AuthAccountUpdateManyArgs<ExtArgs extends runtime.Types.Extensions.I
    * Limit how many AuthAccounts to update.
    */
   limit?: number
+}
+
+/**
+ * AuthAccount updateManyAndReturn
+ */
+export type AuthAccountUpdateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AuthAccount
+   */
+  select?: Prisma.AuthAccountSelectUpdateManyAndReturn<ExtArgs> | null
+  /**
+   * Omit specific fields from the AuthAccount
+   */
+  omit?: Prisma.AuthAccountOmit<ExtArgs> | null
+  /**
+   * The data used to update AuthAccounts.
+   */
+  data: Prisma.XOR<Prisma.AuthAccountUpdateManyMutationInput, Prisma.AuthAccountUncheckedUpdateManyInput>
+  /**
+   * Filter which AuthAccounts to update
+   */
+  where?: Prisma.AuthAccountWhereInput
+  /**
+   * Limit how many AuthAccounts to update.
+   */
+  limit?: number
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AuthAccountIncludeUpdateManyAndReturn<ExtArgs> | null
 }
 
 /**

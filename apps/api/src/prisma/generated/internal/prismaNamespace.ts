@@ -386,8 +386,6 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 export const ModelName = {
   User: 'User',
   AuthAccount: 'AuthAccount',
-  Character: 'Character',
-  UserCharacter: 'UserCharacter',
   Memo: 'Memo'
 } as const
 
@@ -404,7 +402,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "authAccount" | "character" | "userCharacter" | "memo"
+    modelProps: "user" | "authAccount" | "memo"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -440,6 +438,10 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
           args: Prisma.UserCreateManyArgs<ExtArgs>
           result: BatchPayload
         }
+        createManyAndReturn: {
+          args: Prisma.UserCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserPayload>[]
+        }
         delete: {
           args: Prisma.UserDeleteArgs<ExtArgs>
           result: runtime.Types.Utils.PayloadToResult<Prisma.$UserPayload>
@@ -455,6 +457,10 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         updateMany: {
           args: Prisma.UserUpdateManyArgs<ExtArgs>
           result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.UserUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserPayload>[]
         }
         upsert: {
           args: Prisma.UserUpsertArgs<ExtArgs>
@@ -506,6 +512,10 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
           args: Prisma.AuthAccountCreateManyArgs<ExtArgs>
           result: BatchPayload
         }
+        createManyAndReturn: {
+          args: Prisma.AuthAccountCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthAccountPayload>[]
+        }
         delete: {
           args: Prisma.AuthAccountDeleteArgs<ExtArgs>
           result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthAccountPayload>
@@ -522,6 +532,10 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
           args: Prisma.AuthAccountUpdateManyArgs<ExtArgs>
           result: BatchPayload
         }
+        updateManyAndReturn: {
+          args: Prisma.AuthAccountUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthAccountPayload>[]
+        }
         upsert: {
           args: Prisma.AuthAccountUpsertArgs<ExtArgs>
           result: runtime.Types.Utils.PayloadToResult<Prisma.$AuthAccountPayload>
@@ -537,138 +551,6 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.AuthAccountCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.AuthAccountCountAggregateOutputType> | number
-        }
-      }
-    }
-    Character: {
-      payload: Prisma.$CharacterPayload<ExtArgs>
-      fields: Prisma.CharacterFieldRefs
-      operations: {
-        findUnique: {
-          args: Prisma.CharacterFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$CharacterPayload> | null
-        }
-        findUniqueOrThrow: {
-          args: Prisma.CharacterFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$CharacterPayload>
-        }
-        findFirst: {
-          args: Prisma.CharacterFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$CharacterPayload> | null
-        }
-        findFirstOrThrow: {
-          args: Prisma.CharacterFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$CharacterPayload>
-        }
-        findMany: {
-          args: Prisma.CharacterFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$CharacterPayload>[]
-        }
-        create: {
-          args: Prisma.CharacterCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$CharacterPayload>
-        }
-        createMany: {
-          args: Prisma.CharacterCreateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        delete: {
-          args: Prisma.CharacterDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$CharacterPayload>
-        }
-        update: {
-          args: Prisma.CharacterUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$CharacterPayload>
-        }
-        deleteMany: {
-          args: Prisma.CharacterDeleteManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateMany: {
-          args: Prisma.CharacterUpdateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        upsert: {
-          args: Prisma.CharacterUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$CharacterPayload>
-        }
-        aggregate: {
-          args: Prisma.CharacterAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateCharacter>
-        }
-        groupBy: {
-          args: Prisma.CharacterGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.CharacterGroupByOutputType>[]
-        }
-        count: {
-          args: Prisma.CharacterCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.CharacterCountAggregateOutputType> | number
-        }
-      }
-    }
-    UserCharacter: {
-      payload: Prisma.$UserCharacterPayload<ExtArgs>
-      fields: Prisma.UserCharacterFieldRefs
-      operations: {
-        findUnique: {
-          args: Prisma.UserCharacterFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserCharacterPayload> | null
-        }
-        findUniqueOrThrow: {
-          args: Prisma.UserCharacterFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserCharacterPayload>
-        }
-        findFirst: {
-          args: Prisma.UserCharacterFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserCharacterPayload> | null
-        }
-        findFirstOrThrow: {
-          args: Prisma.UserCharacterFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserCharacterPayload>
-        }
-        findMany: {
-          args: Prisma.UserCharacterFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserCharacterPayload>[]
-        }
-        create: {
-          args: Prisma.UserCharacterCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserCharacterPayload>
-        }
-        createMany: {
-          args: Prisma.UserCharacterCreateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        delete: {
-          args: Prisma.UserCharacterDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserCharacterPayload>
-        }
-        update: {
-          args: Prisma.UserCharacterUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserCharacterPayload>
-        }
-        deleteMany: {
-          args: Prisma.UserCharacterDeleteManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateMany: {
-          args: Prisma.UserCharacterUpdateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        upsert: {
-          args: Prisma.UserCharacterUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserCharacterPayload>
-        }
-        aggregate: {
-          args: Prisma.UserCharacterAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateUserCharacter>
-        }
-        groupBy: {
-          args: Prisma.UserCharacterGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.UserCharacterGroupByOutputType>[]
-        }
-        count: {
-          args: Prisma.UserCharacterCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.UserCharacterCountAggregateOutputType> | number
         }
       }
     }
@@ -704,6 +586,10 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
           args: Prisma.MemoCreateManyArgs<ExtArgs>
           result: BatchPayload
         }
+        createManyAndReturn: {
+          args: Prisma.MemoCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload>[]
+        }
         delete: {
           args: Prisma.MemoDeleteArgs<ExtArgs>
           result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload>
@@ -719,6 +605,10 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         updateMany: {
           args: Prisma.MemoUpdateManyArgs<ExtArgs>
           result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MemoUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MemoPayload>[]
         }
         upsert: {
           args: Prisma.MemoUpsertArgs<ExtArgs>
@@ -807,32 +697,6 @@ export const AuthAccountScalarFieldEnum = {
 export type AuthAccountScalarFieldEnum = (typeof AuthAccountScalarFieldEnum)[keyof typeof AuthAccountScalarFieldEnum]
 
 
-export const CharacterScalarFieldEnum = {
-  characterCode: 'characterCode',
-  name: 'name',
-  description: 'description',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type CharacterScalarFieldEnum = (typeof CharacterScalarFieldEnum)[keyof typeof CharacterScalarFieldEnum]
-
-
-export const UserCharacterScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  characterCode: 'characterCode',
-  nickName: 'nickName',
-  level: 'level',
-  experience: 'experience',
-  isActive: 'isActive',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type UserCharacterScalarFieldEnum = (typeof UserCharacterScalarFieldEnum)[keyof typeof UserCharacterScalarFieldEnum]
-
-
 export const MemoScalarFieldEnum = {
   id: 'id',
   title: 'title',
@@ -852,57 +716,20 @@ export const SortOrder = {
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
+export const QueryMode = {
+  default: 'default',
+  insensitive: 'insensitive'
+} as const
+
+export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
+
+
 export const NullsOrder = {
   first: 'first',
   last: 'last'
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
-
-
-export const UserOrderByRelevanceFieldEnum = {
-  email: 'email',
-  name: 'name',
-  avatarUrl: 'avatarUrl'
-} as const
-
-export type UserOrderByRelevanceFieldEnum = (typeof UserOrderByRelevanceFieldEnum)[keyof typeof UserOrderByRelevanceFieldEnum]
-
-
-export const AuthAccountOrderByRelevanceFieldEnum = {
-  provider: 'provider',
-  providerAccountId: 'providerAccountId',
-  accessToken: 'accessToken',
-  refreshToken: 'refreshToken',
-  tokenType: 'tokenType',
-  scope: 'scope',
-  idToken: 'idToken'
-} as const
-
-export type AuthAccountOrderByRelevanceFieldEnum = (typeof AuthAccountOrderByRelevanceFieldEnum)[keyof typeof AuthAccountOrderByRelevanceFieldEnum]
-
-
-export const CharacterOrderByRelevanceFieldEnum = {
-  name: 'name',
-  description: 'description'
-} as const
-
-export type CharacterOrderByRelevanceFieldEnum = (typeof CharacterOrderByRelevanceFieldEnum)[keyof typeof CharacterOrderByRelevanceFieldEnum]
-
-
-export const UserCharacterOrderByRelevanceFieldEnum = {
-  nickName: 'nickName'
-} as const
-
-export type UserCharacterOrderByRelevanceFieldEnum = (typeof UserCharacterOrderByRelevanceFieldEnum)[keyof typeof UserCharacterOrderByRelevanceFieldEnum]
-
-
-export const MemoOrderByRelevanceFieldEnum = {
-  title: 'title',
-  body: 'body'
-} as const
-
-export type MemoOrderByRelevanceFieldEnum = (typeof MemoOrderByRelevanceFieldEnum)[keyof typeof MemoOrderByRelevanceFieldEnum]
 
 
 
@@ -919,9 +746,23 @@ export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'In
 
 
 /**
+ * Reference to a field of type 'Int[]'
+ */
+export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+/**
  * Reference to a field of type 'String'
  */
 export type StringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'String'>
+    
+
+
+/**
+ * Reference to a field of type 'String[]'
+ */
+export type ListStringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'String[]'>
     
 
 
@@ -933,16 +774,9 @@ export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel
 
 
 /**
- * Reference to a field of type 'CharacterCode'
+ * Reference to a field of type 'DateTime[]'
  */
-export type EnumCharacterCodeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CharacterCode'>
-    
-
-
-/**
- * Reference to a field of type 'Boolean'
- */
-export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime[]'>
     
 
 
@@ -950,6 +784,13 @@ export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
+    
+
+
+/**
+ * Reference to a field of type 'Float[]'
+ */
+export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
     
 
 /**
@@ -1049,8 +890,6 @@ export type PrismaClientOptions = ({
 export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
   authAccount?: Prisma.AuthAccountOmit
-  character?: Prisma.CharacterOmit
-  userCharacter?: Prisma.UserCharacterOmit
   memo?: Prisma.MemoOmit
 }
 

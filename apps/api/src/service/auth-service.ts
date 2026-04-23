@@ -3,7 +3,7 @@ import { logger } from "../log"
 import {
   AuthAccountRepository,
   UserRegistrationRepository,
-} from "../repository/mysql"
+} from "../repository/prisma"
 import { User } from "../types/domain"
 import { ok, Result } from "../types/result"
 

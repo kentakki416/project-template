@@ -1,7 +1,7 @@
 import request from "supertest"
 
 import { HealthReadinessController } from "../../../src/controller/health/readiness"
-import { PrismaDatabaseHealthRepository } from "../../../src/repository/mysql/healthcheck-repository"
+import { PrismaDatabaseHealthRepository } from "../../../src/repository/prisma/healthcheck-repository"
 import { IoRedisHealthRepository } from "../../../src/repository/redis/healthcheck-repository"
 import { healthRouter } from "../../../src/routes/health-router"
 import { attachErrorHandler, createTestApp } from "../helper"

@@ -1,26 +1,21 @@
 ## TODO: container_name と DB_NAME の "project-template" 部分をプロジェクト名に変更してください
 services:
-  # MySQL Database
-  mysql:
-    image: mysql:8.0
-    container_name: project-template-mysql # TODO: プロジェクト名に変更
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: project-template-postgres # TODO: プロジェクト名に変更
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: project-template_dev # TODO: プロジェクト名に変更（MySQL DB名はアンダースコア推奨）
-      MYSQL_USER: mysql
-      MYSQL_PASSWORD: password
+      POSTGRES_DB: project-template_dev # TODO: プロジェクト名に変更（DB名はアンダースコア推奨）
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
       TZ: Asia/Tokyo
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --default-authentication-plugin=mysql_native_password
     ports:
-      - '3306:3306'
+      - '5432:5432'
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-ppassword']
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -55,11 +50,7 @@ services:
     environment:
       NODE_ENV: local
       PORT: 8080
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: project-template_dev # TODO: MYSQL_DATABASE と同じ値に変更（MySQL DB名はアンダースコア推奨）
-      DB_USER: mysql
-      DB_PASSWORD: password
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/project-template_dev
       REDIS_HOST: redis
       REDIS_PORT: 6379
       CORS_ORIGIN: http://localhost:3000
@@ -71,7 +62,7 @@ services:
     ports:
       - '8080:8080'
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -79,7 +70,7 @@ services:
       - app-network
 
 volumes:
-  mysql_data:
+  postgres_data:
     driver: local
   redis_data:
     driver: local

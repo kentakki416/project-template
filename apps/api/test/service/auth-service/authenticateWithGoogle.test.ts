@@ -1,6 +1,6 @@
 import { type IGoogleOAuthClient, GoogleUserInfo } from "../../../src/client/google-oauth"
-import { UserRegistrationRepository } from "../../../src/repository/mysql/aggregate/user-registration-repository"
-import { AuthAccountRepository } from "../../../src/repository/mysql/auth-account-repository"
+import { UserRegistrationRepository } from "../../../src/repository/prisma/aggregate/user-registration-repository"
+import { AuthAccountRepository } from "../../../src/repository/prisma/auth-account-repository"
 import { authenticateWithGoogle } from "../../../src/service/auth-service"
 import { AuthAccountWithUser, User } from "../../../src/types/domain"
 

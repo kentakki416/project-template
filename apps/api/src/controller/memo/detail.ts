@@ -2,7 +2,7 @@ import { Request, Response } from "express"
 
 import { ErrorResponse, getMemoPathParamSchema, getMemoResponseSchema } from "@repo/api-schema"
 
-import { MemoRepository } from "../../repository/mysql"
+import { MemoRepository } from "../../repository/prisma"
 import * as service from "../../service"
 
 /**

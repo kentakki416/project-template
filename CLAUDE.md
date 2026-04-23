@@ -42,6 +42,8 @@ cd apps/api
 pnpm dev          # Start with hot reload on http://localhost:8080
 pnpm build        # Compile TypeScript to dist/
 pnpm start        # Run compiled version from dist/
+pnpm test         # ローカル用（dotenvx で .env.local を復号化して実行）
+pnpm test:ci      # CI用（dotenvx不要。環境変数は外部から渡す前提。generate + migrate + jest を一括実行）
 
 # Mobile app (apps/mobile)
 cd apps/mobile
@@ -136,7 +138,7 @@ trivy config aws/env/dev -c .trivy.yml
 ### API レイヤードアーキテクチャ（必ず既存ファイルを参考にして実装すること）
 新しい機能を追加する際は、必ず既存の実装（例: memo, health）のコードを読んでからパターンを合わせること。
 
-- **Repository**（`src/repository/mysql/`）: Interface + Class パターン
+- **Repository**（`src/repository/prisma/`）: Interface + Class パターン
   - `interface {Feature}Repository` でインターフェースを定義
   - `class Prisma{Feature}Repository implements {Feature}Repository` で実装
   - constructor で `PrismaClient` を受け取る
@@ -467,10 +469,28 @@ All apps use ESLint v9 with flat config format (`eslint.config.{js,mjs}`).
 
 - The schema package must be built before running apps that depend on it
 - When changing schemas, rebuild with `cd packages/schema && pnpm build`
-- API server uses `dotenv` to load `.env.local` files
+- API server uses `dotenvx` to load `.env.local` files（環境変数は暗号化されている。詳細は下記「環境変数の管理」セクションを参照）
 - Web app runs on port 3000, admin on 3030, API on 8080 (configurable via PORT env var)
 - Terraform state is stored in S3 with DynamoDB locking (configured in bootstrap)
 - All documentation is in Japanese in `docs/setup/` directory
+
+## 環境変数の管理（dotenvx）
+
+`.env.local` ファイルの環境変数は [dotenvx](https://dotenvx.com/) で暗号化されている。**手動で `.env.local` を編集してはならない**。必ず以下のコマンドを使うこと。
+
+```bash
+# 環境変数の追加・更新（apps/api ディレクトリで実行）
+npx dotenvx set KEY_NAME "value" -f .env.local
+
+# 環境変数の値を確認（復号化して表示）
+npx dotenvx get KEY_NAME -f .env.local
+
+# 全環境変数を復号化して表示
+npx dotenvx get -f .env.local
+```
+
+- 暗号化の鍵は `.env.keys` ファイルに格納されている（`.gitignore` 対象）
+- `package.json` のスクリプトは `dotenvx run -f .env.local --` で環境変数を注入して実行する
 
 ## Documentation Guidelines
 

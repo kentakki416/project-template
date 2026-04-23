@@ -15,6 +15,7 @@
     "lint:fix": "eslint 'src/**/*.ts' 'test/**/*.ts' --fix",
     "start": "dotenvx run -f .env.local -- node dist/index.js",
     "test": "DB_NAME=project-template_test dotenvx run -f .env.local -- prisma migrate deploy --config=src/prisma/prisma.config.ts && jest",
+    "test:ci": "prisma generate --config=src/prisma/prisma.config.ts && prisma migrate deploy --config=src/prisma/prisma.config.ts && jest",
     "test:coverage": "DB_NAME=project-template_test dotenvx run -f .env.local -- prisma migrate deploy --config=src/prisma/prisma.config.ts && jest --coverage",
     "test:watch": "jest --watch"
   },
@@ -22,7 +23,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@prisma/adapter-mariadb": "^7.2.0",
+    "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.2.0",
     "@repo/api-schema": "workspace:^",
     "cors": "^2.8.5",

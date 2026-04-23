@@ -1,28 +1,16 @@
-import { CharacterCode } from "./generated/client"
 import { prisma } from "./prisma.client"
 
 async function main() {
-  // トレちゃんのマスターデータを作成
-  await prisma.character.upsert({
-    create: {
-      characterCode: CharacterCode.TRAECHAN,
-      description: "目標達成をサポートするあなたの相棒",
-      name: "トレちゃん",
-    },
-    update: {},
-    where: { characterCode: CharacterCode.TRAECHAN },
-  })
-
-  // マスターのマスターデータを作成
-  await prisma.character.upsert({
-    create: {
-      characterCode: CharacterCode.MASTER,
-      description: "あなたの成長を見守る師匠",
-      name: "マスター",
-    },
-    update: {},
-    where: { characterCode: CharacterCode.MASTER },
-  })
+  /**
+   * シードデータをここに追加する
+   * 例:
+   * await prisma.memo.upsert({
+   *   create: { title: "サンプルメモ", body: "これはサンプルです" },
+   *   update: {},
+   *   where: { id: 1 },
+   * })
+   */
+  console.log("Seed completed (PostgreSQL)")
 }
 
 main()

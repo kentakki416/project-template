@@ -48,16 +48,6 @@ export type User = Prisma.UserModel
  */
 export type AuthAccount = Prisma.AuthAccountModel
 /**
- * Model Character
- * 
- */
-export type Character = Prisma.CharacterModel
-/**
- * Model UserCharacter
- * 
- */
-export type UserCharacter = Prisma.UserCharacterModel
-/**
  * Model Memo
  * 
  */

@@ -16,11 +16,3 @@ export const Provider = {
 } as const
 
 export type Provider = (typeof Provider)[keyof typeof Provider]
-
-
-export const CharacterCode = {
-  TRAECHAN: 'TRAECHAN',
-  MASTER: 'MASTER'
-} as const
-
-export type CharacterCode = (typeof CharacterCode)[keyof typeof CharacterCode]

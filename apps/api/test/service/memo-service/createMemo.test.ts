@@ -1,4 +1,4 @@
-import { CreateMemoInput, MemoRepository } from "../../../src/repository/mysql/memo-repository"
+import { CreateMemoInput, MemoRepository } from "../../../src/repository/prisma/memo-repository"
 import { createMemo } from "../../../src/service/memo-service"
 import { Memo } from "../../../src/types/domain"
 

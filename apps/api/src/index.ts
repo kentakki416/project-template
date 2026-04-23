@@ -24,7 +24,7 @@ import {
   PrismaMemoRepository,
   PrismaUserRepository,
   PrismaUserRegistrationRepository
-} from "./repository/mysql"
+} from "./repository/prisma"
 import { IoRedisHealthRepository } from "./repository/redis"
 import { authRouter } from "./routes/auth-router"
 import { healthRouter } from "./routes/health-router"

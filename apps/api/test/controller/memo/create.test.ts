@@ -1,7 +1,7 @@
 import request from "supertest"
 
 import { MemoCreateController } from "../../../src/controller/memo/create"
-import { PrismaMemoRepository } from "../../../src/repository/mysql/memo-repository"
+import { PrismaMemoRepository } from "../../../src/repository/prisma/memo-repository"
 import { memoRouter } from "../../../src/routes/memo-router"
 import { attachErrorHandler, createTestApp } from "../helper"
 import { cleanupTestData, disconnectTestDb, testPrisma } from "../setup"

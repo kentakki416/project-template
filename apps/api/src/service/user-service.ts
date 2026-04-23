@@ -1,5 +1,5 @@
 import { logger } from "../log"
-import { UserRepository } from "../repository/mysql"
+import { UserRepository } from "../repository/prisma"
 import { User } from "../types/domain"
 import { err, notFoundError, ok, Result } from "../types/result"
 

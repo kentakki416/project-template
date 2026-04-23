@@ -4,7 +4,7 @@ import { authMeResponseSchema, ErrorResponse } from "@repo/api-schema"
 
 import { logger } from "../../log"
 import { AuthRequest } from "../../middleware/auth"
-import { UserRepository } from "../../repository/mysql"
+import { UserRepository } from "../../repository/prisma"
 import * as service from "../../service"
 
 /**

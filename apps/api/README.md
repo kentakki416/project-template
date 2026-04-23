@@ -20,7 +20,7 @@ apps/api/
 │   ├── log/                             # ロギング設定
 │   ├── middleware/                      # 共通ミドルウェア
 │   ├── prisma/                          # Prisma設定、マイグレーション
-│   ├── repository/mysql/                # データアクセス層（Prisma）
+│   ├── repository/prisma/               # データアクセス層（Prisma）
 │   │   └── aggregate/                   # 複数テーブルを跨ぐ操作
 │   ├── routes/                          # ルーティング定義
 │   ├── service/                         # ビジネスロジック（関数型）
@@ -59,8 +59,8 @@ apps/api/
 
 ### Repository 層の役割分担
 
-- `repository/mysql/{feature}-repository.ts`: 単一テーブルに対する操作（CRUD、count、集計クエリ等）
-- `repository/mysql/aggregate/`: 複数テーブルをまたぐ集約操作（リレーションの include、トランザクション等）
+- `repository/prisma/{feature}-repository.ts`: 単一テーブルに対する操作（CRUD、count、集計クエリ等）
+- `repository/prisma/aggregate/`: 複数テーブルをまたぐ集約操作（リレーションの include、トランザクション等）
 - Service層は欲しいデータを取得するだけで、詳細なリレーションは把握しなくて良い。必要なデータのリポジトリの関数を呼ぶだけでドメインロジックに集中できる設計にする
 
 

@@ -2,7 +2,7 @@ import { Request, Response } from "express"
 
 import { healthReadinessResponseSchema } from "@repo/api-schema"
 
-import { DatabaseHealthRepository } from "../../repository/mysql"
+import { DatabaseHealthRepository } from "../../repository/prisma"
 import { RedisHealthRepository } from "../../repository/redis"
 import * as service from "../../service"
 

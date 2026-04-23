@@ -224,7 +224,6 @@ export type MemoOrderByWithRelationInput = {
   body?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
-  _relevance?: Prisma.MemoOrderByRelevanceInput
 }
 
 export type MemoWhereUniqueInput = Prisma.AtLeast<{
@@ -315,12 +314,6 @@ export type MemoUncheckedUpdateManyInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
-export type MemoOrderByRelevanceInput = {
-  fields: Prisma.MemoOrderByRelevanceFieldEnum | Prisma.MemoOrderByRelevanceFieldEnum[]
-  sort: Prisma.SortOrder
-  search: string
-}
-
 export type MemoCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
@@ -363,7 +356,21 @@ export type MemoSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   updatedAt?: boolean
 }, ExtArgs["result"]["memo"]>
 
+export type MemoSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  id?: boolean
+  title?: boolean
+  body?: boolean
+  createdAt?: boolean
+  updatedAt?: boolean
+}, ExtArgs["result"]["memo"]>
 
+export type MemoSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  id?: boolean
+  title?: boolean
+  body?: boolean
+  createdAt?: boolean
+  updatedAt?: boolean
+}, ExtArgs["result"]["memo"]>
 
 export type MemoSelectScalar = {
   id?: boolean
@@ -502,6 +509,30 @@ export interface MemoDelegate<ExtArgs extends runtime.Types.Extensions.InternalA
   createMany<T extends MemoCreateManyArgs>(args?: Prisma.SelectSubset<T, MemoCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<Prisma.BatchPayload>
 
   /**
+   * Create many Memos and returns the data saved in the database.
+   * @param {MemoCreateManyAndReturnArgs} args - Arguments to create many Memos.
+   * @example
+   * // Create many Memos
+   * const memo = await prisma.memo.createManyAndReturn({
+   *   data: [
+   *     // ... provide data here
+   *   ]
+   * })
+   * 
+   * // Create many Memos and only return the `id`
+   * const memoWithIdOnly = await prisma.memo.createManyAndReturn({
+   *   select: { id: true },
+   *   data: [
+   *     // ... provide data here
+   *   ]
+   * })
+   * Note, that providing `undefined` is treated as the value not being there.
+   * Read more here: https://pris.ly/d/null-undefined
+   * 
+   */
+  createManyAndReturn<T extends MemoCreateManyAndReturnArgs>(args?: Prisma.SelectSubset<T, MemoCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MemoPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+  /**
    * Delete a Memo.
    * @param {MemoDeleteArgs} args - Arguments to delete one Memo.
    * @example
@@ -564,6 +595,36 @@ export interface MemoDelegate<ExtArgs extends runtime.Types.Extensions.InternalA
    * 
    */
   updateMany<T extends MemoUpdateManyArgs>(args: Prisma.SelectSubset<T, MemoUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<Prisma.BatchPayload>
+
+  /**
+   * Update zero or more Memos and returns the data updated in the database.
+   * @param {MemoUpdateManyAndReturnArgs} args - Arguments to update many Memos.
+   * @example
+   * // Update many Memos
+   * const memo = await prisma.memo.updateManyAndReturn({
+   *   where: {
+   *     // ... provide filter here
+   *   },
+   *   data: [
+   *     // ... provide data here
+   *   ]
+   * })
+   * 
+   * // Update zero or more Memos and only return the `id`
+   * const memoWithIdOnly = await prisma.memo.updateManyAndReturn({
+   *   select: { id: true },
+   *   where: {
+   *     // ... provide filter here
+   *   },
+   *   data: [
+   *     // ... provide data here
+   *   ]
+   * })
+   * Note, that providing `undefined` is treated as the value not being there.
+   * Read more here: https://pris.ly/d/null-undefined
+   * 
+   */
+  updateManyAndReturn<T extends MemoUpdateManyAndReturnArgs>(args: Prisma.SelectSubset<T, MemoUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MemoPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
 
   /**
    * Create or update one Memo.
@@ -967,6 +1028,25 @@ export type MemoCreateManyArgs<ExtArgs extends runtime.Types.Extensions.Internal
 }
 
 /**
+ * Memo createManyAndReturn
+ */
+export type MemoCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Memo
+   */
+  select?: Prisma.MemoSelectCreateManyAndReturn<ExtArgs> | null
+  /**
+   * Omit specific fields from the Memo
+   */
+  omit?: Prisma.MemoOmit<ExtArgs> | null
+  /**
+   * The data used to create many Memos.
+   */
+  data: Prisma.MemoCreateManyInput | Prisma.MemoCreateManyInput[]
+  skipDuplicates?: boolean
+}
+
+/**
  * Memo update
  */
 export type MemoUpdateArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -992,6 +1072,32 @@ export type MemoUpdateArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs
  * Memo updateMany
  */
 export type MemoUpdateManyArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * The data used to update Memos.
+   */
+  data: Prisma.XOR<Prisma.MemoUpdateManyMutationInput, Prisma.MemoUncheckedUpdateManyInput>
+  /**
+   * Filter which Memos to update
+   */
+  where?: Prisma.MemoWhereInput
+  /**
+   * Limit how many Memos to update.
+   */
+  limit?: number
+}
+
+/**
+ * Memo updateManyAndReturn
+ */
+export type MemoUpdateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Memo
+   */
+  select?: Prisma.MemoSelectUpdateManyAndReturn<ExtArgs> | null
+  /**
+   * Omit specific fields from the Memo
+   */
+  omit?: Prisma.MemoOmit<ExtArgs> | null
   /**
    * The data used to update Memos.
    */

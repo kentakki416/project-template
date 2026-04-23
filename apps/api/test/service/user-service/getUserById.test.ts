@@ -1,4 +1,4 @@
-import { UserRepository } from "../../../src/repository/mysql/user-repository"
+import { UserRepository } from "../../../src/repository/prisma/user-repository"
 import { getUserById } from "../../../src/service/user-service"
 import { User } from "../../../src/types/domain"
 

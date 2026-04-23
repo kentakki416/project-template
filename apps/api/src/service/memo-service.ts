@@ -1,5 +1,5 @@
 import { logger } from "../log"
-import { CreateMemoInput, MemoRepository, UpdateMemoInput } from "../repository/mysql"
+import { CreateMemoInput, MemoRepository, UpdateMemoInput } from "../repository/prisma"
 import { Memo } from "../types/domain"
 import { err, notFoundError, ok, Result } from "../types/result"
 

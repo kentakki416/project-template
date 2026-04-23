@@ -8,7 +8,7 @@ import {
 import { IGoogleOAuthClient } from "../../client/google-oauth"
 import { generateToken } from "../../lib/jwt"
 import { logger } from "../../log"
-import { AuthAccountRepository, UserRegistrationRepository } from "../../repository/mysql"
+import { AuthAccountRepository, UserRegistrationRepository } from "../../repository/prisma"
 import * as service from "../../service"
 
 /**

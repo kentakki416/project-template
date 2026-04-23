@@ -1,5 +1,5 @@
 import { logger } from "../log"
-import { DatabaseHealthRepository } from "../repository/mysql"
+import { DatabaseHealthRepository } from "../repository/prisma"
 import { RedisHealthRepository } from "../repository/redis"
 import { ok, Result } from "../types/result"
 

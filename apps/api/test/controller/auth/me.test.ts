@@ -2,7 +2,7 @@ import request from "supertest"
 
 import { AuthMeController } from "../../../src/controller/auth/me"
 import { generateToken } from "../../../src/lib/jwt"
-import { PrismaUserRepository } from "../../../src/repository/mysql/user-repository"
+import { PrismaUserRepository } from "../../../src/repository/prisma/user-repository"
 import { authRouter } from "../../../src/routes/auth-router"
 import { attachErrorHandler, createTestApp } from "../helper"
 import { cleanupTestData, disconnectTestDb, testPrisma } from "../setup"

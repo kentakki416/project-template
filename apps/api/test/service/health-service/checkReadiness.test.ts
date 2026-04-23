@@ -1,4 +1,4 @@
-import { DatabaseHealthRepository } from "../../../src/repository/mysql/healthcheck-repository"
+import { DatabaseHealthRepository } from "../../../src/repository/prisma/healthcheck-repository"
 import { RedisHealthRepository } from "../../../src/repository/redis/healthcheck-repository"
 import { checkReadiness } from "../../../src/service/health-service"
 
