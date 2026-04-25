@@ -104,9 +104,6 @@ graph TB
 `scripts/copy-template.sh` を実行して、テンプレートを新しいプロジェクトとしてコピーします。
 
 ```bash
-# 例: 相対パスで指定
-./scripts/copy-template.sh ../my-new-app
-
 # 例: プロジェクト名を明示的に指定
 ./scripts/copy-template.sh ../my-new-app my-new-app
 
