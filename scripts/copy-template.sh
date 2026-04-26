@@ -88,7 +88,6 @@ rsync -av \
   --exclude='.idea' \
   --exclude='.claude' \
   --exclude='.serena' \
-  --exclude='.mcp.json' \
   "$TEMPLATE_DIR/" "$DEST/"
 
 # package.json のプロジェクト名を置換
