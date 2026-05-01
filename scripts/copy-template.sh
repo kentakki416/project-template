@@ -69,8 +69,6 @@ rsync -av \
   --exclude='*.tfstate.backup' \
   --exclude='.terraform.lock.hcl' \
   --exclude='*.tfvars' \
-  --exclude='.env.local' \
-  --exclude='.env*.local' \
   --exclude='.env.keys' \
   --exclude='secret' \
   --exclude='.secret' \
@@ -86,7 +84,6 @@ rsync -av \
   --exclude='.vercel' \
   --exclude='.vscode' \
   --exclude='.idea' \
-  --exclude='.claude' \
   --exclude='.serena' \
   "$TEMPLATE_DIR/" "$DEST/"
 
