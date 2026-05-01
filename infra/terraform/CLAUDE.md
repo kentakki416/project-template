@@ -1,4 +1,4 @@
-# packages/terraform
+# infra/terraform
 
 AWS デプロイ用の Infrastructure as Code (Terraform)。
 

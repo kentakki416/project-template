@@ -11,7 +11,7 @@ Turborepo + pnpm モノレポ。
 - **apps/mobile**: Expo/React Native mobile application
 - **apps/api**: Express.js API server (port 8080)
 - **packages/schema**: Shared Zod schemas (`@repo/api-schema`)
-- **packages/terraform**: AWS Infrastructure as Code
+- **infra/terraform**: AWS Infrastructure as Code
 
 各ディレクトリでの作業時は **対応する `CLAUDE.md` を参照してください**:
 - API → `apps/api/CLAUDE.md`（レイヤードアーキテクチャ / Result型 / テスト戦略 / dotenvx / Admin方針）
@@ -19,7 +19,7 @@ Turborepo + pnpm モノレポ。
 - Admin → `apps/admin/CLAUDE.md`
 - Mobile → `apps/mobile/CLAUDE.md`
 - スキーマ → `packages/schema/CLAUDE.md`（スキーマ命名規則）
-- Terraform → `packages/terraform/CLAUDE.md`
+- Terraform → `infra/terraform/CLAUDE.md`
 
 ## Common Commands (root)
 

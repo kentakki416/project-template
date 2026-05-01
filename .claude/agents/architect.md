@@ -23,7 +23,7 @@ model: opus
 - `apps/api/CLAUDE.md` — API のレイヤード構成・Result型・テスト戦略
 - `apps/web/CLAUDE.md` / `apps/admin/CLAUDE.md` / `apps/mobile/CLAUDE.md` — フロント方針
 - `packages/schema/CLAUDE.md` — スキーマ命名規則
-- `packages/terraform/CLAUDE.md` — インフラ規約
+- `infra/terraform/CLAUDE.md` — インフラ規約
 
 既存規約から逸脱する設計を提案する場合は、その理由を明示すること。
 

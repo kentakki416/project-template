@@ -64,7 +64,7 @@ git log -p | grep -iE "(password|api_key|secret)\s*[:=]\s*['\"]"
 
 - **`apps/api/CLAUDE.md`** — Zod による全リクエスト検証、Result型、エラーハンドラの方針
 - **`packages/schema/CLAUDE.md`** — スキーマの型強制（`z.coerce.number()` 等）
-- **`packages/terraform/CLAUDE.md`** — IAM、S3 公開設定、暗号化、tflint/trivy
+- **`infra/terraform/CLAUDE.md`** — IAM、S3 公開設定、暗号化、tflint/trivy
 
 ## 検出パターン（汎用）
 
