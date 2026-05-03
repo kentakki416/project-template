@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { prisma } from "./prisma.client"
 
 async function main() {
