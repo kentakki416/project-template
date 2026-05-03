@@ -36,8 +36,12 @@ export default function Home() {
     }
   }
 
-  // コンポーネントマウント時にAPIを呼び出す（例: userId='123'）
+  /**
+   * コンポーネントマウント時にAPIを呼び出す（例: userId='123'）
+   * 初期表示の自動フェッチ用途のため、effect 内 setState を意図的に許容する
+   */
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUser("123")
   }, [])
 
