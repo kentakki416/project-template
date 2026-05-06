@@ -4,8 +4,9 @@ import express from "express"
 import { GoogleOAuthClient } from "./client/google-oauth"
 import { redis } from "./client/redis"
 import { AuthGoogleController } from "./controller/auth/google"
-import { AuthGoogleCallbackController } from "./controller/auth/google-callback"
+import { AuthLogoutController } from "./controller/auth/logout"
 import { AuthMeController } from "./controller/auth/me"
+import { AuthRefreshController } from "./controller/auth/refresh"
 import { HealthLivenessController } from "./controller/health/liveness"
 import { HealthReadinessController } from "./controller/health/readiness"
 import { MemoCreateController } from "./controller/memo/create"
@@ -25,7 +26,7 @@ import {
   PrismaUserRepository,
   PrismaUserRegistrationRepository
 } from "./repository/prisma"
-import { IoRedisHealthRepository } from "./repository/redis"
+import { IoRedisHealthRepository, IoRedisRefreshTokenRepository } from "./repository/redis"
 import { authRouter } from "./routes/auth-router"
 import { healthRouter } from "./routes/health-router"
 import { memoRouter } from "./routes/memo-router"
@@ -37,7 +38,6 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000"
 // 環境変数（未設定の場合はダミー値で起動する。認証機能は動作しないがヘルスチェック等は応答可能）
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "dummy"
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "dummy"
-const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || "http://localhost:8080/api/auth/google/callback"
 
 // Repository のインスタンス化
 const userRepository = new PrismaUserRepository(prisma)
@@ -46,26 +46,25 @@ const userRegistrationRepository = new PrismaUserRegistrationRepository(prisma)
 const memoRepository = new PrismaMemoRepository(prisma)
 const databaseHealthRepository = new PrismaDatabaseHealthRepository(prisma)
 const redisHealthRepository = new IoRedisHealthRepository(redis)
+const refreshTokenRepository = new IoRedisRefreshTokenRepository(redis)
 
 // Client のインスタンス化
-const googleOAuthClient = new GoogleOAuthClient(
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  GOOGLE_CALLBACK_URL
-)
+const googleOAuthClient = new GoogleOAuthClient(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)
 
 // Health Controller のインスタンス化
 const healthLivenessController = new HealthLivenessController()
 const healthReadinessController = new HealthReadinessController(databaseHealthRepository, redisHealthRepository)
 
 // Auth Controller のインスタンス化
-const authGoogleController = new AuthGoogleController(googleOAuthClient)
-const authGoogleCallbackController = new AuthGoogleCallbackController(
+const authGoogleController = new AuthGoogleController(
   authAccountRepository,
   userRegistrationRepository,
+  refreshTokenRepository,
   googleOAuthClient,
 )
 const authMeController = new AuthMeController(userRepository)
+const authRefreshController = new AuthRefreshController(refreshTokenRepository)
+const authLogoutController = new AuthLogoutController(refreshTokenRepository)
 
 // Memo Controller のインスタンス化
 const memoListController = new MemoListController(memoRepository)
@@ -102,9 +101,10 @@ app.use(
 app.use(
   "/api/auth",
   authRouter({
-    callback: authGoogleCallbackController,
     google: authGoogleController,
+    logout: authLogoutController,
     me: authMeController,
+    refresh: authRefreshController,
   })
 )
 app.use(

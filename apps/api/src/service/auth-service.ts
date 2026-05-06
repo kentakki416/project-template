@@ -4,56 +4,64 @@ import {
   AuthAccountRepository,
   UserRegistrationRepository,
 } from "../repository/prisma"
+import { RefreshTokenRepository } from "../repository/redis"
 import { User } from "../types/domain"
-import { ok, Result } from "../types/result"
+import { err, ok, Result, unauthorizedError } from "../types/result"
 
 export type AuthenticateWithGoogleSuccess = {
+    accessToken: string
     isNewUser: boolean
-    jwtToken: string
+    refreshToken: string
     user: User
 }
 
+type Repositories = {
+    authAccountRepository: AuthAccountRepository
+    refreshTokenRepository: RefreshTokenRepository
+    userRegistrationRepository: UserRegistrationRepository
+}
+
+type TokenGenerators = {
+    generateAccessToken: (userId: number) => string
+    generateRefreshToken: (userId: number) => { jti: string; token: string }
+}
+
+const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 7
+
 /**
- * Googleアカウントでの認証
- * 業務エラー（現状なし）は Result.err として返し、外部サービス障害などの予期しないエラーは throw する
+ * Google アカウントでの認証
+ *
+ * Next.js 側で取得した Authorization Code を Google で検証し、UserInfo を取得する。
+ * 既存ユーザーが居なければ User + AuthAccount を作成し、Access/Refresh Token を発行する。
+ *
+ * 業務エラー（現状なし）は Result.err として返し、外部サービス障害などの予期しないエラーは throw する。
  */
 export const authenticateWithGoogle = async (
-  code: string,
-  repo: {
-        authAccountRepository: AuthAccountRepository
-        userRegistrationRepository: UserRegistrationRepository
-    },
+  input: { code: string; redirectUri: string },
+  repo: Repositories,
   googleAuthClient: IGoogleOAuthClient,
-  tokenGenerator: (userId: number) => string
+  tokenGenerators: TokenGenerators
 ): Promise<Result<AuthenticateWithGoogleSuccess>> => {
-  const { authAccountRepository, userRegistrationRepository } = repo
-
   logger.info("AuthService: Starting Google authentication")
 
-  // Googleからユーザー情報を取得
-  const googleUser: GoogleUserInfo = await googleAuthClient.getUserInfo(code)
+  const googleUser: GoogleUserInfo = await googleAuthClient.getUserInfo(input.code, input.redirectUri)
   logger.debug("AuthService: Retrieved Google user info", {
     email: googleUser.email,
     googleId: googleUser.id,
   })
 
-  // 既存アカウントを取得
-  const existingAccount = await authAccountRepository.findByProvider("google", googleUser.id)
+  const existingAccount = await repo.authAccountRepository.findByProvider("google", googleUser.id)
 
   let user: User
   let isNewUser = false
 
   if (existingAccount) {
-    logger.info("AuthService: Existing user found", {
-      userId: existingAccount.user.id,
-    })
+    logger.info("AuthService: Existing user found", { userId: existingAccount.user.id })
     user = existingAccount.user
   } else {
     isNewUser = true
     logger.info("AuthService: Creating new user")
-
-    // 新規ユーザーとアカウントを作成
-    user = await userRegistrationRepository.createUserWithAuthAccountTx({
+    user = await repo.userRegistrationRepository.createUserWithAuthAccountTx({
       authAccount: {
         provider: "google",
         providerAccountId: googleUser.id,
@@ -64,20 +72,86 @@ export const authenticateWithGoogle = async (
         name: googleUser.name,
       },
     })
-    logger.info("AuthService: New user created", {
-      userId: user.id,
-    })
+    logger.info("AuthService: New user created", { userId: user.id })
   }
 
-  // JWTトークンの生成
-  const jwtToken = tokenGenerator(user.id)
-  logger.debug("AuthService: JWT token generated", {
-    userId: user.id,
-  })
+  const accessToken = tokenGenerators.generateAccessToken(user.id)
+  const { jti, token: refreshToken } = tokenGenerators.generateRefreshToken(user.id)
+  await repo.refreshTokenRepository.save(jti, user.id, REFRESH_TTL_SECONDS)
+
+  logger.debug("AuthService: Tokens issued", { userId: user.id })
 
   return ok({
+    accessToken,
     isNewUser,
-    jwtToken,
+    refreshToken,
     user,
   })
+}
+
+export type RefreshTokensSuccess = {
+    accessToken: string
+    refreshToken: string
+}
+
+type RefreshVerifier = (token: string) => { jti: string; userId: number } | null
+
+/**
+ * Refresh Token のローテーション
+ *
+ * 受け取った Refresh Token を検証し、Redis 上の jti と一致する場合は旧 jti を破棄して
+ * 新しい Access Token + Refresh Token を発行する（1 回使用で無効化）。
+ *
+ * 検証失敗・既に無効化済み・userId 不一致はすべて 401 で返す。
+ */
+export const refreshTokens = async (
+  input: { refreshToken: string },
+  repo: { refreshTokenRepository: RefreshTokenRepository },
+  verifier: RefreshVerifier,
+  generators: TokenGenerators
+): Promise<Result<RefreshTokensSuccess>> => {
+  logger.info("AuthService: Starting refresh token rotation")
+
+  const payload = verifier(input.refreshToken)
+  if (!payload) {
+    return err(unauthorizedError("Invalid refresh token"))
+  }
+
+  const userId = await repo.refreshTokenRepository.findUserId(payload.jti)
+  if (userId === null || userId !== payload.userId) {
+    return err(unauthorizedError("Refresh token has been revoked"))
+  }
+
+  /** ローテーション: 旧 jti を破棄して新しい jti を発行 */
+  await repo.refreshTokenRepository.delete(payload.jti)
+
+  const accessToken = generators.generateAccessToken(userId)
+  const { jti, token: refreshToken } = generators.generateRefreshToken(userId)
+  await repo.refreshTokenRepository.save(jti, userId, REFRESH_TTL_SECONDS)
+
+  logger.debug("AuthService: Tokens rotated", { userId })
+
+  return ok({ accessToken, refreshToken })
+}
+
+/**
+ * ログアウト
+ *
+ * Refresh Token を検証して Redis から jti を削除する。冪等性を保つため、
+ * 検証失敗時もエラーにせず 200 を返す（呼び出し元の Result.ok = true）。
+ */
+export const logout = async (
+  input: { refreshToken: string },
+  repo: { refreshTokenRepository: RefreshTokenRepository },
+  verifier: RefreshVerifier
+): Promise<Result<{ ok: true }>> => {
+  logger.info("AuthService: Logout")
+
+  const payload = verifier(input.refreshToken)
+  if (!payload) {
+    /** 無効なトークンでも成功扱いにして冪等性を保つ */
+    return ok({ ok: true })
+  }
+  await repo.refreshTokenRepository.delete(payload.jti)
+  return ok({ ok: true })
 }

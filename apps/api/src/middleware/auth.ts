@@ -3,14 +3,16 @@ import { NextFunction, Request, Response } from "express"
 import { ErrorResponse } from "@repo/api-schema"
 
 import { PUBLIC_PATHS } from "../const"
-import { verifyToken } from "../lib/jwt"
+import { verifyAccessToken } from "../lib/jwt"
 
 export interface AuthRequest extends Request {
   userId?: number
 }
 
 export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
-  // 公開パスは認証不要
+  /**
+   * 公開パスは認証不要
+   */
   if (PUBLIC_PATHS.some(path => req.path.startsWith(path))) {
     return next()
   }
@@ -27,7 +29,7 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
     }
 
     const token = authHeader.substring(7)
-    const payload = verifyToken(token)
+    const payload = verifyAccessToken(token)
 
     if (!payload) {
       const errorResponse: ErrorResponse = {
