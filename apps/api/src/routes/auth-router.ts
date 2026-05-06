@@ -1,13 +1,15 @@
 import { Router } from "express"
 
 import { AuthGoogleController } from "../controller/auth/google"
-import { AuthGoogleCallbackController } from "../controller/auth/google-callback"
+import { AuthLogoutController } from "../controller/auth/logout"
 import { AuthMeController } from "../controller/auth/me"
+import { AuthRefreshController } from "../controller/auth/refresh"
 
 type AuthRouterControllers = {
-  callback?: AuthGoogleCallbackController
   google?: AuthGoogleController
+  logout?: AuthLogoutController
   me?: AuthMeController
+  refresh?: AuthRefreshController
 }
 
 /**
@@ -17,19 +19,25 @@ type AuthRouterControllers = {
 export const authRouter = (controllers: AuthRouterControllers): Router => {
   const router = Router()
 
-  // GET /api/auth/google
+  /** POST /api/auth/google */
   if (controllers.google) {
     const controller = controllers.google
-    router.get("/google", (req, res) => controller.execute(req, res))
+    router.post("/google", async (req, res) => controller.execute(req, res))
   }
 
-  // GET /api/auth/google/callback
-  if (controllers.callback) {
-    const controller = controllers.callback
-    router.get("/google/callback", async (req, res) => controller.execute(req, res))
+  /** POST /api/auth/refresh（PUBLIC_PATHS に含まれるため認証不要） */
+  if (controllers.refresh) {
+    const controller = controllers.refresh
+    router.post("/refresh", async (req, res) => controller.execute(req, res))
   }
 
-  // GET /api/auth/me (グローバルにauthMiddlewareが適用済み)
+  /** POST /api/auth/logout（authMiddleware で Access Token 必須） */
+  if (controllers.logout) {
+    const controller = controllers.logout
+    router.post("/logout", async (req, res) => controller.execute(req, res))
+  }
+
+  /** GET /api/auth/me（グローバルに authMiddleware が適用済み） */
   if (controllers.me) {
     const controller = controllers.me
     router.get("/me", async (req, res) => controller.execute(req, res))
