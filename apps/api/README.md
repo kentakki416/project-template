@@ -239,16 +239,42 @@ await expect(getMemoById(1, mockMemoRepository)).rejects.toThrow("Database conne
 
 #### アサーションの方針
 
-- **ステータスコード、主要なレスポンスフィールドの値は検証する**（`expect(res.status).toBe(404)`, `expect(res.body.id).toBe(user.id)` など）
-- **エラーメッセージの文字列は検証しない**。メッセージはユーザー向け表記の微調整で変わり得るため、`expect(res.body.error).toBeDefined()` のみで「エラーフィールドが返っていること」を確認する
+- **ステータスコードとレスポンスボディはオブジェクト一括（`toEqual` / `toMatchObject`）で検証する**。フィールドごとの個別 assertion は冗長でスキーマ変更の検出漏れを招く
+- **エラーメッセージの文字列は検証しない**。メッセージはユーザー向け表記の微調整で変わり得るため、`expect.any(String)` で型のみ確認する
+
+##### 推奨指針
+
+| 対象 | 推奨マッチャー | 理由 |
+|---|---|---|
+| API レスポンス（外部契約） | **`toEqual`** + `expect.any(...)` | スキーマ変更の検出が重要（フィールド増減で必ず落ちる方が望ましい） |
+| DB 行（内部状態） | **`toMatchObject`** | id / timestamp は内部詳細なので省略 OK |
+| Redis / 単一値 | `toBe` のまま | 1値なので一括にする意味がない |
 
 ```typescript
-// ❌ 悪い例: エラーメッセージの文字列に依存
-expect(res.body.error).toBe("Memo not found")
+// ❌ 悪い例: フィールドごとの個別 assertion
+expect(res.status).toBe(200)
+expect(res.body.id).toBe(user.id)
+expect(res.body.email).toBe("test@example.com")
 
-// ✅ 良い例: ステータスコードとエラーフィールドの存在のみ検証
+// ✅ 良い例: API レスポンスは toEqual で完全一致
+expect(res.status).toBe(200)
+expect(res.body).toEqual({
+  created_at: expect.any(String),
+  email: "test@example.com",
+  id: user.id,
+  name: "Test User",
+})
+
+// ✅ 良い例: DB 行は toMatchObject で内部詳細を省略
+const createdUser = await testPrisma.user.findUnique({ where: { email: "new@example.com" } })
+expect(createdUser).toMatchObject({
+  email: "new@example.com",
+  name: "New User",
+})
+
+// ✅ 良い例: エラーレスポンスも完全契約で検証（文言は any）
 expect(res.status).toBe(404)
-expect(res.body.error).toBeDefined()
+expect(res.body).toEqual({ error: expect.any(String), status_code: 404 })
 ```
 
 #### グローバルエラーハンドラの適用
