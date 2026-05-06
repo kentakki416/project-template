@@ -19,14 +19,14 @@ export type AuthenticateWithGoogleSuccess = {
  */
 export const authenticateWithGoogle = async (
   code: string,
-  repository: {
+  repo: {
         authAccountRepository: AuthAccountRepository
         userRegistrationRepository: UserRegistrationRepository
     },
   googleAuthClient: IGoogleOAuthClient,
   tokenGenerator: (userId: number) => string
 ): Promise<Result<AuthenticateWithGoogleSuccess>> => {
-  const { authAccountRepository, userRegistrationRepository } = repository
+  const { authAccountRepository, userRegistrationRepository } = repo
 
   logger.info("AuthService: Starting Google authentication")
 
