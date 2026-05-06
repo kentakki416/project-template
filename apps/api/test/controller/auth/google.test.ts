@@ -78,6 +78,13 @@ describe("POST /api/auth/google", () => {
     })
     expect(createdUser).not.toBeNull()
 
+    /** Postgres に AuthAccount が作成され、User と同じトランザクションで紐付いている */
+    const createdAuthAccount = await testPrisma.authAccount.findFirst({
+      where: { provider: "google", providerAccountId: "google-456" },
+    })
+    expect(createdAuthAccount).not.toBeNull()
+    expect(createdAuthAccount!.userId).toBe(createdUser!.id)
+
     /** Redis に Refresh Token が保存され、userId が紐付いている */
     const payload = verifyRefreshToken(res.body.refresh_token)
     expect(payload).not.toBeNull()
