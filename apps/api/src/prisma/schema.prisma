@@ -10,20 +10,6 @@ datasource db {
     provider = "postgresql"
 }
 
-// ユーザー（認証プロバイダー非依存）
-model User {
-    id        Int      @id @default(autoincrement())
-    email     String?  @unique
-    name      String?
-    avatarUrl String?  @map("avatar_url")
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
-
-    accounts AuthAccount[]
-
-    @@map("users")
-}
-
 // 認証プロバイダー
 enum Provider {
     GOOGLE
@@ -62,4 +48,18 @@ model Memo {
     updatedAt DateTime @updatedAt @map("updated_at")
 
     @@map("memos")
+}
+
+// ユーザー（認証プロバイダー非依存）
+model User {
+    id        Int      @id @default(autoincrement())
+    email     String?  @unique
+    name      String?
+    avatarUrl String?  @map("avatar_url")
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    accounts AuthAccount[]
+
+    @@map("users")
 }
