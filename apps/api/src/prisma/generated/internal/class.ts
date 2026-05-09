@@ -20,7 +20,7 @@ const config: runtime.GetPrismaClientConfig = {
   "clientVersion": "7.2.0",
   "engineVersion": "0c8ef2ce45c83248ab3df073180d5eda9e8be7a3",
   "activeProvider": "postgresql",
-  "inlineSchema": "// Generator\n// Prisma v7 はデフォルトで ESM 形式のコードを生成する。\n// ESM 形式だと generated/client.ts 内で import.meta.url が使われるが、\n// Jest は CJS (CommonJS) 環境で動作するため import.meta が使えず\n// 「SyntaxError: Cannot use 'import.meta' outside a module」エラーになる。\n// (既知の問題: https://github.com/prisma/prisma/issues/27876)\n//\n// moduleFormat = \"cjs\" を指定することで、生成コードを CJS 互換にし、\n// import.meta.url の代わりに Node.js の __dirname を使用するようになる。\n// これにより Jest 環境でも Prisma Client を直接インポートできる。\ngenerator client {\n  provider     = \"prisma-client\"\n  output       = \"./generated\"\n  moduleFormat = \"cjs\"\n}\n\n// Data source\ndatasource db {\n  provider = \"postgresql\"\n}\n\n// ユーザー（認証プロバイダー非依存）\nmodel User {\n  id        Int      @id @default(autoincrement())\n  email     String?  @unique\n  name      String?\n  avatarUrl String?  @map(\"avatar_url\")\n  createdAt DateTime @default(now()) @map(\"created_at\")\n  updatedAt DateTime @updatedAt @map(\"updated_at\")\n\n  accounts AuthAccount[]\n\n  @@map(\"users\")\n}\n\n// 認証プロバイダー\nenum Provider {\n  GOOGLE\n  GITHUB\n  CREDENTIALS\n}\n\n// 認証アカウント（複数プロバイダー対応）\nmodel AuthAccount {\n  id                Int      @id @default(autoincrement())\n  userId            Int      @map(\"user_id\")\n  provider          String // \"google\", \"github\", \"credentials\" など\n  providerAccountId String   @map(\"provider_account_id\") // プロバイダー側のユーザーID\n  accessToken       String?  @map(\"access_token\") @db.Text\n  refreshToken      String?  @map(\"refresh_token\") @db.Text\n  expiresAt         Int?     @map(\"expires_at\")\n  tokenType         String?  @map(\"token_type\")\n  scope             String?\n  idToken           String?  @map(\"id_token\") @db.Text\n  createdAt         DateTime @default(now()) @map(\"created_at\")\n  updatedAt         DateTime @updatedAt @map(\"updated_at\")\n\n  user User @relation(fields: [userId], references: [id], onDelete: Cascade)\n\n  @@unique([provider, providerAccountId])\n  @@index([userId])\n  @@map(\"auth_accounts\")\n}\n\n// メモ\nmodel Memo {\n  id        Int      @id @default(autoincrement())\n  title     String   @db.VarChar(255)\n  body      String   @db.Text\n  createdAt DateTime @default(now()) @map(\"created_at\")\n  updatedAt DateTime @updatedAt @map(\"updated_at\")\n\n  @@map(\"memos\")\n}\n",
+  "inlineSchema": "// Jest(CJS環境)で import.meta エラーを回避するため moduleFormat = \"cjs\" を指定\ngenerator client {\n  provider     = \"prisma-client\"\n  output       = \"./generated\"\n  moduleFormat = \"cjs\"\n}\n\n// Data source\ndatasource db {\n  provider = \"postgresql\"\n}\n\n// 認証プロバイダー\nenum Provider {\n  GOOGLE\n  GITHUB\n  CREDENTIALS\n}\n\n// 認証アカウント（複数プロバイダー対応）\nmodel AuthAccount {\n  id                Int      @id @default(autoincrement())\n  userId            Int      @map(\"user_id\")\n  provider          String // \"google\", \"github\", \"credentials\" など\n  providerAccountId String   @map(\"provider_account_id\") // プロバイダー側のユーザーID\n  accessToken       String?  @map(\"access_token\") @db.Text\n  refreshToken      String?  @map(\"refresh_token\") @db.Text\n  expiresAt         Int?     @map(\"expires_at\")\n  tokenType         String?  @map(\"token_type\")\n  scope             String?\n  idToken           String?  @map(\"id_token\") @db.Text\n  createdAt         DateTime @default(now()) @map(\"created_at\")\n  updatedAt         DateTime @updatedAt @map(\"updated_at\")\n\n  user User @relation(fields: [userId], references: [id], onDelete: Cascade)\n\n  @@unique([provider, providerAccountId])\n  @@index([userId])\n  @@map(\"auth_accounts\")\n}\n\n// メモ\nmodel Memo {\n  id        Int      @id @default(autoincrement())\n  title     String   @db.VarChar(255)\n  body      String   @db.Text\n  createdAt DateTime @default(now()) @map(\"created_at\")\n  updatedAt DateTime @updatedAt @map(\"updated_at\")\n\n  @@map(\"memos\")\n}\n\n// ユーザー（認証プロバイダー非依存）\nmodel User {\n  id        Int      @id @default(autoincrement())\n  email     String?  @unique\n  name      String?\n  avatarUrl String?  @map(\"avatar_url\")\n  createdAt DateTime @default(now()) @map(\"created_at\")\n  updatedAt DateTime @updatedAt @map(\"updated_at\")\n\n  accounts AuthAccount[]\n\n  @@map(\"users\")\n}\n",
   "runtimeDataModel": {
     "models": {},
     "enums": {},
@@ -28,7 +28,7 @@ const config: runtime.GetPrismaClientConfig = {
   }
 }
 
-config.runtimeDataModel = JSON.parse("{\"models\":{\"User\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"avatarUrl\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"avatar_url\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"updated_at\"},{\"name\":\"accounts\",\"kind\":\"object\",\"type\":\"AuthAccount\",\"relationName\":\"AuthAccountToUser\"}],\"dbName\":\"users\"},\"AuthAccount\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"Int\",\"dbName\":\"user_id\"},{\"name\":\"provider\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"providerAccountId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"provider_account_id\"},{\"name\":\"accessToken\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"access_token\"},{\"name\":\"refreshToken\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"refresh_token\"},{\"name\":\"expiresAt\",\"kind\":\"scalar\",\"type\":\"Int\",\"dbName\":\"expires_at\"},{\"name\":\"tokenType\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"token_type\"},{\"name\":\"scope\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"idToken\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"id_token\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"updated_at\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"AuthAccountToUser\"}],\"dbName\":\"auth_accounts\"},\"Memo\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"body\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"updated_at\"}],\"dbName\":\"memos\"}},\"enums\":{},\"types\":{}}")
+config.runtimeDataModel = JSON.parse("{\"models\":{\"AuthAccount\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"Int\",\"dbName\":\"user_id\"},{\"name\":\"provider\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"providerAccountId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"provider_account_id\"},{\"name\":\"accessToken\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"access_token\"},{\"name\":\"refreshToken\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"refresh_token\"},{\"name\":\"expiresAt\",\"kind\":\"scalar\",\"type\":\"Int\",\"dbName\":\"expires_at\"},{\"name\":\"tokenType\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"token_type\"},{\"name\":\"scope\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"idToken\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"id_token\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"updated_at\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"AuthAccountToUser\"}],\"dbName\":\"auth_accounts\"},\"Memo\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"body\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"updated_at\"}],\"dbName\":\"memos\"},\"User\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"avatarUrl\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"avatar_url\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"updated_at\"},{\"name\":\"accounts\",\"kind\":\"object\",\"type\":\"AuthAccount\",\"relationName\":\"AuthAccountToUser\"}],\"dbName\":\"users\"}},\"enums\":{},\"types\":{}}")
 
 async function decodeBase64AsWasm(wasmBase64: string): Promise<WebAssembly.Module> {
   const { Buffer } = await import('node:buffer')
@@ -58,8 +58,8 @@ export interface PrismaClientConstructor {
    * @example
    * ```
    * const prisma = new PrismaClient()
-   * // Fetch zero or more Users
-   * const users = await prisma.user.findMany()
+   * // Fetch zero or more AuthAccounts
+   * const authAccounts = await prisma.authAccount.findMany()
    * ```
    * 
    * Read more in our [docs](https://pris.ly/d/client).
@@ -80,8 +80,8 @@ export interface PrismaClientConstructor {
  * @example
  * ```
  * const prisma = new PrismaClient()
- * // Fetch zero or more Users
- * const users = await prisma.user.findMany()
+ * // Fetch zero or more AuthAccounts
+ * const authAccounts = await prisma.authAccount.findMany()
  * ```
  * 
  * Read more in our [docs](https://pris.ly/d/client).
@@ -175,16 +175,6 @@ export interface PrismaClient<
   }>>
 
       /**
-   * `prisma.user`: Exposes CRUD operations for the **User** model.
-    * Example usage:
-    * ```ts
-    * // Fetch zero or more Users
-    * const users = await prisma.user.findMany()
-    * ```
-    */
-  get user(): Prisma.UserDelegate<ExtArgs, { omit: OmitOpts }>;
-
-  /**
    * `prisma.authAccount`: Exposes CRUD operations for the **AuthAccount** model.
     * Example usage:
     * ```ts
@@ -203,6 +193,16 @@ export interface PrismaClient<
     * ```
     */
   get memo(): Prisma.MemoDelegate<ExtArgs, { omit: OmitOpts }>;
+
+  /**
+   * `prisma.user`: Exposes CRUD operations for the **User** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more Users
+    * const users = await prisma.user.findMany()
+    * ```
+    */
+  get user(): Prisma.UserDelegate<ExtArgs, { omit: OmitOpts }>;
 }
 
 export function getPrismaClientClass(): PrismaClientConstructor {
