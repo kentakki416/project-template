@@ -148,6 +148,6 @@ process.on("uncaughtException", (error) => {
 })
 
 process.on("unhandledRejection", (reason) => {
-  logger.error("Unhandled rejection",  reason as Error )
+  logger.error("Unhandled rejection", reason as Error )
   process.exit(1)
 })
