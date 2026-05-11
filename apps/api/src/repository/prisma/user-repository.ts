@@ -1,6 +1,8 @@
 import { Prisma as PrismaTypes, PrismaClient } from "../../prisma/generated/client"
 import { User } from "../../types/domain"
 
+import { TransactionContext } from "./transaction-runner"
+
 /**
  * ユーザー作成時の入力
  */
@@ -14,7 +16,7 @@ export type CreateUserInput = {
  * ユーザーリポジトリのインターフェース
  */
 export interface UserRepository {
-    create(data: CreateUserInput): Promise<User>
+    create(data: CreateUserInput, tx?: TransactionContext): Promise<User>
     findByEmail(email: string): Promise<User | null>
     findById(id: number): Promise<User | null>
 }
@@ -41,8 +43,9 @@ export class PrismaUserRepository implements UserRepository {
     return this._toDomainUser(prismaUser)
   }
 
-  async create(data: CreateUserInput): Promise<User> {
-    const prismaUser = await this._prisma.user.create({
+  async create(data: CreateUserInput, tx?: TransactionContext): Promise<User> {
+    const client = tx ?? this._prisma
+    const prismaUser = await client.user.create({
       data: {
         avatarUrl: data.avatarUrl,
         email: data.email,
