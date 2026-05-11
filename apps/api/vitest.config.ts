@@ -3,7 +3,7 @@ import { resolve } from "node:path"
 import { defineConfig } from "vitest/config"
 
 /**
- * Vitest 設定。POC 段階では service ユニットテストのみを対象にする。
+ * Vitest 設定（Jest からの全面移行版）。
  *
  * Jest 設定との主な差分:
  *   - .js 拡張子の moduleNameMapper ハックは Vite resolver が .ts へ
@@ -18,8 +18,8 @@ export default defineConfig({
   },
   test: {
     /**
-     * Jest 互換 globals（describe / it / expect / beforeEach 等）を有効化し、
-     * 既存テストの import 文を追加せずに動かす
+     * Jest 互換 globals（describe / it / expect / beforeEach / vi 等）を
+     * グローバルに展開し、既存テストの import 文を最小限に保つ
      */
     globals: true,
 
@@ -29,15 +29,13 @@ export default defineConfig({
     environment: "node",
 
     /**
-     * POC 段階は .vitest.test.ts サフィックスのファイルだけを対象にし、
-     * 既存の Jest テスト（jest.fn を使用）と併存できるようにする。
-     * 全面移行時に test/**\/*.test.ts へ広げる。
+     * service ユニットテスト + controller インテグレーションテストを全て対象にする
      */
-    include: ["test/**/*.vitest.test.ts"],
+    include: ["test/**/*.test.ts"],
 
     /**
-     * Jest の maxWorkers: 1 と同じく直列実行。実 DB を共有する
-     * controller テストを取り込む際の前提を揃えるため POC でも fileParallelism は無効化する
+     * 実 DB を共有する controller テストの競合を避けるため、
+     * 旧 Jest 設定の maxWorkers: 1 と同じく直列実行する
      */
     fileParallelism: false,
 
@@ -58,9 +56,8 @@ export default defineConfig({
     },
 
     /**
-     * Jest 設定の test/controller/setup.ts に相当する環境変数初期化を
-     * setupFiles で再現する（POC 段階では service テストのみ対象だが、
-     * 認証系 service が JWT_* を参照するため最低限ここで設定する）
+     * 環境変数の初期化はテストモジュールの import より前に行う必要があるため
+     * setupFiles で実行する（src/ 配下が読み込まれる前に DB_NAME 等を確定させる）
      */
     setupFiles: [resolve(__dirname, "test/vitest.setup.ts")],
   },

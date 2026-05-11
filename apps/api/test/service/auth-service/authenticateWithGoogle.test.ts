@@ -5,26 +5,26 @@ import { RefreshTokenRepository } from "../../../src/repository/redis/refresh-to
 import { authenticateWithGoogle } from "../../../src/service/auth-service"
 import { AuthAccountWithUser, User } from "../../../src/types/domain"
 
-const mockGetUserInfo = jest.fn<Promise<GoogleUserInfo>, [string, string]>()
+const mockGetUserInfo = vi.fn<(_0: string, _1: string) => Promise<GoogleUserInfo>>()
 const mockGoogleOAuthClient: IGoogleOAuthClient = {
   getUserInfo: mockGetUserInfo,
 }
 
-const mockFindByProvider = jest.fn<Promise<AuthAccountWithUser | null>, [string, string]>()
+const mockFindByProvider = vi.fn<(_0: string, _1: string) => Promise<AuthAccountWithUser | null>>()
 const mockAuthAccountRepository: AuthAccountRepository = {
-  create: jest.fn(),
+  create: vi.fn(),
   findByProvider: mockFindByProvider,
 }
 
-const mockCreateUserWithAuthAccountTx = jest.fn<Promise<User>, [Parameters<UserRegistrationRepository["createUserWithAuthAccountTx"]>[0]]>()
+const mockCreateUserWithAuthAccountTx = vi.fn<UserRegistrationRepository["createUserWithAuthAccountTx"]>()
 const mockUserRegistrationRepository: UserRegistrationRepository = {
   createUserWithAuthAccountTx: mockCreateUserWithAuthAccountTx,
 }
 
-const mockRefreshTokenSave = jest.fn<Promise<void>, [string, number, number]>()
+const mockRefreshTokenSave = vi.fn<(_0: string, _1: number, _2: number) => Promise<void>>()
 const mockRefreshTokenRepository: RefreshTokenRepository = {
-  delete: jest.fn(),
-  findUserId: jest.fn(),
+  delete: vi.fn(),
+  findUserId: vi.fn(),
   save: mockRefreshTokenSave,
 }
 
@@ -35,15 +35,15 @@ const mockRepository = {
 }
 
 const mockTokenGenerators = {
-  generateAccessToken: jest.fn((_userId: number) => "access.jwt"),
-  generateRefreshToken: jest.fn((_userId: number) => ({ jti: "uuid-1", token: "refresh.jwt" })),
+  generateAccessToken: vi.fn((_userId: number) => "access.jwt"),
+  generateRefreshToken: vi.fn((_userId: number) => ({ jti: "uuid-1", token: "refresh.jwt" })),
 }
 
 const REDIRECT_URI = "http://localhost:3000/api/auth/callback/google"
 
 describe("authenticateWithGoogle", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it("既存ユーザーの場合、isNewUser=false で Access/Refresh Token を発行する", async () => {

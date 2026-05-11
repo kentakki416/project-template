@@ -28,8 +28,8 @@
     "declaration": true,
     // デバッグ用のソースマップを生成
     "sourceMap": true,
-    // Jest のグローバル型を認識させる
-    "types": ["node", "jest"]
+    // Vitest のグローバル型（describe / it / expect / vi 等）を認識させる
+    "types": ["node", "vitest/globals"]
   },
   // コンパイル対象のファイル（ESLintとIDEがsrcとtestの両方を認識）
   "include": ["src/**/*", "test/**/*"],

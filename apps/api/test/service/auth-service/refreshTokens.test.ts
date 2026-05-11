@@ -1,9 +1,9 @@
 import { RefreshTokenRepository } from "../../../src/repository/redis/refresh-token-repository"
 import { refreshTokens } from "../../../src/service/auth-service"
 
-const mockDelete = jest.fn<Promise<void>, [string]>()
-const mockFindUserId = jest.fn<Promise<number | null>, [string]>()
-const mockSave = jest.fn<Promise<void>, [string, number, number]>()
+const mockDelete = vi.fn<(_0: string) => Promise<void>>()
+const mockFindUserId = vi.fn<(_0: string) => Promise<number | null>>()
+const mockSave = vi.fn<(_0: string, _1: number, _2: number) => Promise<void>>()
 const mockRefreshTokenRepository: RefreshTokenRepository = {
   delete: mockDelete,
   findUserId: mockFindUserId,
@@ -11,13 +11,13 @@ const mockRefreshTokenRepository: RefreshTokenRepository = {
 }
 
 const mockGenerators = {
-  generateAccessToken: jest.fn((_userId: number) => "new.access"),
-  generateRefreshToken: jest.fn((_userId: number) => ({ jti: "new-jti", token: "new.refresh" })),
+  generateAccessToken: vi.fn((_userId: number) => "new.access"),
+  generateRefreshToken: vi.fn((_userId: number) => ({ jti: "new-jti", token: "new.refresh" })),
 }
 
 describe("refreshTokens", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it("正常系: 旧 jti を破棄し、新しい Access/Refresh Token を発行する", async () => {

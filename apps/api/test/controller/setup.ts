@@ -1,9 +1,10 @@
-// テスト用の接続先を指定（import 前にセットする必要がある）
-process.env.DB_NAME = "project-template_test"
-process.env.REDIS_DB = "1"
-
 import { redis } from "../../src/client/redis"
 import { prisma } from "../../src/prisma/prisma.client"
+
+/**
+ * DB_NAME / REDIS_DB / JWT 系の環境変数は test/vitest.setup.ts で
+ * setupFiles 経由で先に設定されているため、ここで再設定する必要はない。
+ */
 
 export { prisma as testPrisma }
 export { redis as testRedis }

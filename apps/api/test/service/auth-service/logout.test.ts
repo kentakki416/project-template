@@ -1,16 +1,16 @@
 import { RefreshTokenRepository } from "../../../src/repository/redis/refresh-token-repository"
 import { logout } from "../../../src/service/auth-service"
 
-const mockDelete = jest.fn<Promise<void>, [string]>()
+const mockDelete = vi.fn<(_0: string) => Promise<void>>()
 const mockRefreshTokenRepository: RefreshTokenRepository = {
   delete: mockDelete,
-  findUserId: jest.fn(),
-  save: jest.fn(),
+  findUserId: vi.fn(),
+  save: vi.fn(),
 }
 
 describe("logout", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it("正常系: Refresh Token の jti を Redis から削除する", async () => {

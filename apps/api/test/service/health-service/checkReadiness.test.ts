@@ -3,8 +3,8 @@ import { RedisHealthRepository } from "../../../src/repository/redis/healthcheck
 import { checkReadiness } from "../../../src/service/health-service"
 
 // モック
-const mockDatabasePing = jest.fn<Promise<void>, []>()
-const mockRedisPing = jest.fn<Promise<void>, []>()
+const mockDatabasePing = vi.fn<() => Promise<void>>()
+const mockRedisPing = vi.fn<() => Promise<void>>()
 
 const mockRepository: {
   databaseHealthRepository: DatabaseHealthRepository
@@ -20,7 +20,7 @@ const mockRepository: {
 
 describe("checkReadiness", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it("全サービスが正常な場合、ok: true で全てokを返す", async () => {
