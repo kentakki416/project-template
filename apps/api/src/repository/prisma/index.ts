@@ -1,5 +1,5 @@
 export * from "./auth-account-repository"
 export * from "./healthcheck-repository"
 export * from "./memo-repository"
+export * from "./transaction-runner"
 export * from "./user-repository"
-export * from "./aggregate/user-registration-repository"

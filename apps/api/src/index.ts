@@ -23,8 +23,8 @@ import {
   PrismaAuthAccountRepository,
   PrismaDatabaseHealthRepository,
   PrismaMemoRepository,
+  PrismaTransactionRunner,
   PrismaUserRepository,
-  PrismaUserRegistrationRepository
 } from "./repository/prisma"
 import { IoRedisHealthRepository, IoRedisRefreshTokenRepository } from "./repository/redis"
 import { authRouter } from "./routes/auth-router"
@@ -42,7 +42,7 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "dummy"
 // Repository のインスタンス化
 const userRepository = new PrismaUserRepository(prisma)
 const authAccountRepository = new PrismaAuthAccountRepository(prisma)
-const userRegistrationRepository = new PrismaUserRegistrationRepository(prisma)
+const transactionRunner = new PrismaTransactionRunner(prisma)
 const memoRepository = new PrismaMemoRepository(prisma)
 const databaseHealthRepository = new PrismaDatabaseHealthRepository(prisma)
 const redisHealthRepository = new IoRedisHealthRepository(redis)
@@ -58,8 +58,9 @@ const healthReadinessController = new HealthReadinessController(databaseHealthRe
 // Auth Controller のインスタンス化
 const authGoogleController = new AuthGoogleController(
   authAccountRepository,
-  userRegistrationRepository,
+  userRepository,
   refreshTokenRepository,
+  transactionRunner,
   googleOAuthClient,
 )
 const authMeController = new AuthMeController(userRepository)
