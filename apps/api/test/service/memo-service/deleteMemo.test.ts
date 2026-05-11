@@ -3,20 +3,20 @@ import { deleteMemo } from "../../../src/service/memo-service"
 import { Memo } from "../../../src/types/domain"
 
 // モック
-const mockFindById = jest.fn<Promise<Memo | null>, [number]>()
-const mockDeleteById = jest.fn<Promise<void>, [number]>()
+const mockFindById = vi.fn<(_0: number) => Promise<Memo | null>>()
+const mockDeleteById = vi.fn<(_0: number) => Promise<void>>()
 
 const mockMemoRepository: MemoRepository = {
-  create: jest.fn(),
+  create: vi.fn(),
   deleteById: mockDeleteById,
-  findAll: jest.fn(),
+  findAll: vi.fn(),
   findById: mockFindById,
-  update: jest.fn(),
+  update: vi.fn(),
 }
 
 describe("deleteMemo", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it("メモが存在する場合、削除して ok: true を返す", async () => {

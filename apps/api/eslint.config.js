@@ -2,7 +2,7 @@ const { defineConfig } = require('eslint/config')
 const typescriptEslint = require('@typescript-eslint/eslint-plugin')
 const typescriptParser = require('@typescript-eslint/parser')
 const importPlugin = require('eslint-plugin-import')
-const jestPlugin = require('eslint-plugin-jest')
+const vitestPlugin = require('@vitest/eslint-plugin')
 
 module.exports = defineConfig([
   {
@@ -117,13 +117,13 @@ module.exports = defineConfig([
   {
     files: ['test/**/*.ts'],
     plugins: {
-      jest: jestPlugin,
+      vitest: vitestPlugin,
     },
     rules: {
-      'jest/expect-expect': 'error',
-      'jest/no-disabled-tests': 'warn',
-      'jest/no-focused-tests': 'error',
-      'jest/valid-expect': 'error',
+      'vitest/expect-expect': 'error',
+      'vitest/no-disabled-tests': 'warn',
+      'vitest/no-focused-tests': 'error',
+      'vitest/valid-expect': 'error',
     },
   },
 ])

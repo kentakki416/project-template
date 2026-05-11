@@ -15,10 +15,10 @@
     "lint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
     "lint:fix": "eslint 'src/**/*.ts' 'test/**/*.ts' --fix",
     "start": "dotenvx run -f .env.local -- node dist/index.js",
-    "test": "DB_NAME=project-template_test dotenvx run -f .env.local -- prisma migrate deploy --config=src/prisma/prisma.config.ts && jest",
-    "test:ci": "prisma generate --config=src/prisma/prisma.config.ts && prisma migrate deploy --config=src/prisma/prisma.config.ts && jest",
-    "test:coverage": "DB_NAME=project-template_test dotenvx run -f .env.local -- prisma migrate deploy --config=src/prisma/prisma.config.ts && jest --coverage",
-    "test:watch": "jest --watch"
+    "test": "DB_NAME=project-template_test dotenvx run -f .env.local -- prisma migrate deploy --config=src/prisma/prisma.config.ts && vitest run",
+    "test:ci": "prisma generate --config=src/prisma/prisma.config.ts && prisma migrate deploy --config=src/prisma/prisma.config.ts && vitest run",
+    "test:coverage": "DB_NAME=project-template_test dotenvx run -f .env.local -- prisma migrate deploy --config=src/prisma/prisma.config.ts && vitest run --coverage",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -40,24 +40,23 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
-    "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.10.1",
     "@types/supertest": "^6.0.3",
     "@types/uuid": "^11.0.0",
     "@typescript-eslint/eslint-plugin": "^8.46.4",
     "@typescript-eslint/parser": "^8.46.4",
+    "@vitest/coverage-v8": "^4.1.5",
+    "@vitest/eslint-plugin": "^1.4.0",
     "eslint": "^9.39.1",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-jest": "^29.5.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
-    "jest": "^30.2.0",
     "prisma": "^7.2.0",
     "supertest": "^7.1.4",
-    "ts-jest": "^29.4.6",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.5"
   }
 }

@@ -3,17 +3,17 @@ import { getUserById } from "../../../src/service/user-service"
 import { User } from "../../../src/types/domain"
 
 // モック
-const mockFindById = jest.fn<Promise<User | null>, [number]>()
+const mockFindById = vi.fn<(_0: number) => Promise<User | null>>()
 
 const mockUserRepository: UserRepository = {
-  create: jest.fn(),
-  findByEmail: jest.fn(),
+  create: vi.fn(),
+  findByEmail: vi.fn(),
   findById: mockFindById,
 }
 
 describe("getUserById", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it("ユーザーが存在する場合、ok: true とユーザー情報を返す", async () => {

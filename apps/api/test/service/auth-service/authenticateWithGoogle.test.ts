@@ -9,35 +9,35 @@ import { RefreshTokenRepository } from "../../../src/repository/redis/refresh-to
 import { authenticateWithGoogle } from "../../../src/service/auth-service"
 import { AuthAccountWithUser, User } from "../../../src/types/domain"
 
-const mockGetUserInfo = jest.fn<Promise<GoogleUserInfo>, [string, string]>()
+const mockGetUserInfo = vi.fn<(_0: string, _1: string) => Promise<GoogleUserInfo>>()
 const mockGoogleOAuthClient: IGoogleOAuthClient = {
   getUserInfo: mockGetUserInfo,
 }
 
-const mockFindByProvider = jest.fn<Promise<AuthAccountWithUser | null>, [string, string]>()
-const mockAuthAccountCreate = jest.fn<
-  Promise<unknown>,
-  [Parameters<AuthAccountRepository["create"]>[0], TransactionContext?]
->()
+const mockFindByProvider = vi.fn<(_0: string, _1: string) => Promise<AuthAccountWithUser | null>>()
+const mockAuthAccountCreate = vi.fn<(
+  _0: Parameters<AuthAccountRepository["create"]>[0],
+  _1?: TransactionContext,
+) => Promise<unknown>>()
 const mockAuthAccountRepository: AuthAccountRepository = {
   create: mockAuthAccountCreate as never,
   findByProvider: mockFindByProvider,
 }
 
-const mockUserCreate = jest.fn<
-  Promise<User>,
-  [Parameters<UserRepository["create"]>[0], TransactionContext?]
->()
+const mockUserCreate = vi.fn<(
+  _0: Parameters<UserRepository["create"]>[0],
+  _1?: TransactionContext,
+) => Promise<User>>()
 const mockUserRepository: UserRepository = {
   create: mockUserCreate,
-  findByEmail: jest.fn(),
-  findById: jest.fn(),
+  findByEmail: vi.fn(),
+  findById: vi.fn(),
 }
 
-const mockRefreshTokenSave = jest.fn<Promise<void>, [string, number, number]>()
+const mockRefreshTokenSave = vi.fn<(_0: string, _1: number, _2: number) => Promise<void>>()
 const mockRefreshTokenRepository: RefreshTokenRepository = {
-  delete: jest.fn(),
-  findUserId: jest.fn(),
+  delete: vi.fn(),
+  findUserId: vi.fn(),
   save: mockRefreshTokenSave,
 }
 
@@ -47,7 +47,7 @@ const mockRefreshTokenRepository: RefreshTokenRepository = {
  * undefined を渡し、Repository が tx 無し経路で動作することを確認する。
  */
 const mockTransactionRunner: TransactionRunner = {
-  run: jest.fn(async (fn) => fn(undefined as unknown as TransactionContext)),
+  run: vi.fn(async (fn) => fn(undefined as unknown as TransactionContext)),
 }
 
 const mockRepository = {
@@ -58,15 +58,15 @@ const mockRepository = {
 }
 
 const mockTokenGenerators = {
-  generateAccessToken: jest.fn((_userId: number) => "access.jwt"),
-  generateRefreshToken: jest.fn((_userId: number) => ({ jti: "uuid-1", token: "refresh.jwt" })),
+  generateAccessToken: vi.fn((_userId: number) => "access.jwt"),
+  generateRefreshToken: vi.fn((_userId: number) => ({ jti: "uuid-1", token: "refresh.jwt" })),
 }
 
 const REDIRECT_URI = "http://localhost:3000/api/auth/callback/google"
 
 describe("authenticateWithGoogle", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it("既存ユーザーの場合、isNewUser=false で Access/Refresh Token を発行する", async () => {

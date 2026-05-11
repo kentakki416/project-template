@@ -3,19 +3,19 @@ import { getAllMemos } from "../../../src/service/memo-service"
 import { Memo } from "../../../src/types/domain"
 
 // モック
-const mockFindAll = jest.fn<Promise<Memo[]>, []>()
+const mockFindAll = vi.fn<() => Promise<Memo[]>>()
 
 const mockMemoRepository: MemoRepository = {
-  create: jest.fn(),
-  deleteById: jest.fn(),
+  create: vi.fn(),
+  deleteById: vi.fn(),
   findAll: mockFindAll,
-  findById: jest.fn(),
-  update: jest.fn(),
+  findById: vi.fn(),
+  update: vi.fn(),
 }
 
 describe("getAllMemos", () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it("成功時は ok: true とメモ一覧を返す", async () => {

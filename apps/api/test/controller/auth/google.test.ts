@@ -18,7 +18,7 @@ import {
   testRedis,
 } from "../setup"
 
-const mockGetUserInfo = jest.fn<Promise<GoogleUserInfo>, [string, string]>()
+const mockGetUserInfo = vi.fn<(_0: string, _1: string) => Promise<GoogleUserInfo>>()
 const mockGoogleOAuthClient: IGoogleOAuthClient = {
   getUserInfo: mockGetUserInfo,
 }
@@ -46,7 +46,7 @@ const REDIRECT_URI = "http://localhost:3000/api/auth/callback/google"
 beforeEach(async () => {
   await cleanupTestData()
   await cleanupTestRedis()
-  jest.clearAllMocks()
+  vi.clearAllMocks()
 })
 
 afterAll(async () => {
