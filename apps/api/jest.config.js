@@ -31,6 +31,13 @@ module.exports = {
   // テストファイルとして認識するファイルパターン。
   testMatch: ["<rootDir>/test/**/*.test.ts"],
 
+  /**
+   * Vitest 移行 POC 用に追加した `*.vitest.test.ts` ファイルは
+   * `vitest` パッケージから import するため Jest（CommonJS）では実行できない。
+   * testMatch のパターンに含まれてしまうので、明示的に除外する。
+   */
+  testPathIgnorePatterns: ["/node_modules/", "\\.vitest\\.test\\.ts$"],
+
   // モジュール解決時に認識する拡張子の優先順位。
   // import 文で拡張子を省略した場合、この順序でファイルを探す。
   moduleFileExtensions: ["ts", "js", "json"],
