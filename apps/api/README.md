@@ -158,6 +158,15 @@ async execute(req: Request, res: Response) {
 - **Service層 → ユニットテスト**: DB不要、高速、並列実行可能
 - **Controller層 → インテグレーションテスト**（`apps/api/test/controller/`）: 自前インフラ（Postgres・Redis）は本物を使い必ず実データを検証する。`supertest` で HTTP レイヤーから検証
 
+### テストランナー（Vitest）
+
+本プロジェクトのテストは [Vitest](https://vitest.dev/)（Jest からの全面移行済み）で実行する。
+
+- 設定ファイル: `apps/api/vitest.config.ts`
+- セットアップ: `apps/api/test/vitest.setup.ts`（環境変数の初期化）
+- `globals: true` を有効化しているため、`describe` / `it` / `expect` / `beforeEach` / `vi` などは import 不要でグローバル参照できる
+- 実 DB を共有する Controller テストの競合を避けるため、`fileParallelism: false` で直列実行（旧 Jest 設定の `maxWorkers: 1` と同等）
+
 ### ユニットテスト（Service）
 
 Service のユニットテストは以下の3原則を守る。
@@ -168,32 +177,32 @@ Service のユニットテストは以下の3原則を守る。
 
 #### mockの方針
 
-- **デフォルトは `jest.fn()` を使用する**。interface に基づいたオブジェクトを `jest.fn()` で作成し、引数として渡す
+- **デフォルトは `vi.fn()` を使用する**。interface に基づいたオブジェクトを `vi.fn()` で作成し、引数として渡す
 - **自作 Fake（例: `InMemoryXxxRepository`）は、テスト内で状態の読み書きが複数回絡む場合のみ検討する**。通常のserviceテストでは不要
 
 ```typescript
-// 基本パターン: jest.fn() でmockを作成し、引数で渡す
-const mockFindById = jest.fn()
+// 基本パターン: vi.fn() でmockを作成し、引数で渡す
+const mockFindById = vi.fn<(_0: number) => Promise<User | null>>()
 const mockUserRepository = {
   findById: mockFindById,
 }
 
 mockFindById.mockResolvedValue(mockUser)
-const result = await getUserById(1, mockUserRepository as any)
+const result = await getUserById(1, { userRepository: mockUserRepository })
 ```
 
-#### `jest.fn()` と `jest.mock()` の使い分け
+#### `vi.fn()` と `vi.mock()` の使い分け
 
 | 方法 | 対象 | テストへの影響 | 本プロジェクトでの方針 |
 |---|---|---|---|
-| `jest.fn()` | 単一の関数。変数に代入して引数経由で渡す | import パスに依存しない。リファクタリング耐性が高い | **推奨** |
-| `jest.mock()` | モジュール全体。`import`/`require` の解決自体を差し替える | テストがモジュールのファイルパスに結合する。リファクタリング耐性が低い | **非推奨** |
+| `vi.fn()` | 単一の関数。変数に代入して引数経由で渡す | import パスに依存しない。リファクタリング耐性が高い | **推奨** |
+| `vi.mock()` | モジュール全体。`import` の解決自体を差し替える | テストがモジュールのファイルパスに結合する。リファクタリング耐性が低い | **非推奨** |
 
-**本プロジェクトでは Service 層の全ての外部依存を引数（DI）で受け取る設計のため、`jest.mock()` は原則使用しない。**
+**本プロジェクトでは Service 層の全ての外部依存を引数（DI）で受け取る設計のため、`vi.mock()` は原則使用しない。**
 
-`jest.mock()` はテスト対象が直接 `import` している内部モジュールを差し替える仕組みであり、テストがファイルパスという実装の詳細に依存する。依存を引数で渡す設計にすれば `jest.fn()` だけでテストが完結し、ファイル移動やリネーム時にテストが壊れない。
+`vi.mock()` はテスト対象が直接 `import` している内部モジュールを差し替える仕組みであり、テストがファイルパスという実装の詳細に依存する。依存を引数で渡す設計にすれば `vi.fn()` だけでテストが完結し、ファイル移動やリネーム時にテストが壊れない。
 
-参考: [Jest公式 - Mock Functions](https://jestjs.io/docs/mock-functions)
+参考: [Vitest公式 - Mock Functions](https://vitest.dev/api/mock.html)
 
 #### テストケースの観点
 
@@ -201,6 +210,41 @@ const result = await getUserById(1, mockUserRepository as any)
 - 異常系（業務エラー → `ok: false` で `type` / `statusCode` / `message` を検証）
 - 予期しないエラー（DB 障害等の throw → `rejects.toThrow(...)`）
 - 依存の呼び出し検証（正しい引数で呼ばれたか）
+
+#### テストケースの分類（必須）
+
+`describe` を入れ子にして **「正常系」「異常系」で必ず分類する**。トップレベルの `describe` はテスト対象（関数名 / エンドポイント）にし、その直下に `describe("正常系", ...)` と `describe("異常系", ...)` を置く。
+
+| 分類 | 対象 |
+|---|---|
+| **正常系** | 入力が正しく、期待通りに処理が成功するケース。Service なら `ok: true`、Controller なら 2xx を返すケース全般 |
+| **異常系** | 業務エラー（4xx 系）、バリデーションエラー、想定外の例外（DB 障害等）、境界値で除外されるケースなど、正常系以外すべて |
+
+```typescript
+describe("getMemoById", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe("正常系", () => {
+    it("メモが存在する場合、ok: true とメモを返す", async () => {
+      /** ... */
+    })
+  })
+
+  describe("異常系", () => {
+    it("メモが存在しない場合、ok: false と NOT_FOUND エラーを返す", async () => {
+      /** ... */
+    })
+
+    it("DB 障害時にエラーをスローする", async () => {
+      /** ... */
+    })
+  })
+})
+```
+
+詳細なルールと Controller インテグレーションテストの例は `CLAUDE.md` の「テストケースの分類ルール」を参照。
 
 #### Result 型のアサーション
 
@@ -304,6 +348,12 @@ pnpm test test/controller
 
 # 全テスト
 pnpm test
+
+# watch モード（変更ファイルだけ再実行）
+pnpm test:watch
+
+# カバレッジ計測（V8 ベース、coverage/ に出力）
+pnpm test:coverage
 ```
 
 ## 開発コマンド
