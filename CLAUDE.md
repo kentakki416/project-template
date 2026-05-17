@@ -97,6 +97,7 @@ ESLint v9 flat config (`eslint.config.{js,mjs}`)。**全アプリ共通ルール
 - README.md には **目次（Table of Contents）必須**: GitHub Markdown アンカーリンク形式、`##` / `###` 見出しを全て含める
 - step ファイル: 実装手順に番号を振らない、各ファイルは「対応内容」「動作確認」セクションを含める
 - テンプレート: `docs/spec/template/README.md` および `docs/spec/template/step1-template.md`
+- **図は Mermaid で記載する**: フロー図 / シーケンス図 / ER 図 / 状態遷移図はすべて ` ```mermaid ` コードフェンスを使う。ASCII アートは使わない（GitHub・VSCode 等でネイティブレンダリングされる）
 
 **新機能を実装する前に必ず `design-feature` skill で設計書を作成する**。デザインのモックが必要なときは `design-mock` skill を使う（テーマヒアリング → admin 参照 → モック作成 → 承認後に仕様書追記）。
 

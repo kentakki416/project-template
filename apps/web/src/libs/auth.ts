@@ -9,20 +9,26 @@ const isProduction = process.env.NODE_ENV === "production"
 const ACCESS_TOKEN_MAX_AGE = 60 * 15
 const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 7
 
+/**
+ * sameSite="lax" を使う理由:
+ * OAuth コールバック（google.com → /api/auth/callback/google → /）は cross-site 起点の
+ * 連鎖ナビゲーションになるため、strict だと最終遷移先で cookie が送信されず
+ * middleware が認証無しと判定してしまう。CSRF は state パラメータで対策済み。
+ */
 export const setAuthCookies = async (accessToken: string, refreshToken: string) => {
   const store = await cookies()
   store.set(ACCESS_TOKEN_COOKIE, accessToken, {
     httpOnly: true,
     maxAge: ACCESS_TOKEN_MAX_AGE,
     path: "/",
-    sameSite: "strict",
+    sameSite: "lax",
     secure: isProduction,
   })
   store.set(REFRESH_TOKEN_COOKIE, refreshToken, {
     httpOnly: true,
     maxAge: REFRESH_TOKEN_MAX_AGE,
     path: "/",
-    sameSite: "strict",
+    sameSite: "lax",
     secure: isProduction,
   })
 }
