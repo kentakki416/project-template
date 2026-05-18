@@ -140,9 +140,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [fmt, validate, tflint, trivy]
-    if: github.event_name == 'pull_request'
+    # PR: 自動 plan + PR コメント投稿。workflow_dispatch: 手動 plan-only（apply 前の事前確認用）。
+    # main / develop への push では plan を走らせない（コメント先が無く、apply は terraform-apply.yml で別管理）
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     # TODO: prd環境が増えたら、matrix strategy に従い、${{ matrix.environment }} に変更すること
     environment: dev # GitHub Environments で AWS_ROLE_ARN を環境ごとに分離
+    permissions:
+      id-token: write       # OIDC
+      contents: read
+      pull-requests: write  # plan 結果を PR コメントに投稿するため
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -162,6 +168,124 @@ jobs:
         run: terraform init -input=false -lockfile=readonly -lock-timeout=60s
         working-directory: ${{ env.WORKING_DIR }}
 
+      # -detailed-exitcode: 0=変更なし / 1=エラー / 2=変更あり
+      # continue-on-error で後続のコメント投稿まで必ず到達させ、最後のステップで失敗を再現する。
+      # Pattern A 採用のため tfplan バイナリは保存せず、出力テキストのみ tee で tfplan.txt に保管する。
+      # apply は terraform-apply.yml 側で plan を再生成してから適用するため、ここでは plan を保持しない。
       - name: Terraform Plan
-        run: terraform plan -no-color -input=false -lock-timeout=60s
+        id: plan
+        continue-on-error: true
+        run: |
+          set +e
+          set -o pipefail
+          terraform plan -no-color -input=false -lock-timeout=60s -detailed-exitcode 2>&1 | tee tfplan.txt
+          echo "exitcode=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
         working-directory: ${{ env.WORKING_DIR }}
+
+      # 「Plan: X to add, Y to change, Z to destroy.」の行だけ抽出してサマリ化
+      - name: Extract plan summary
+        id: summary
+        if: steps.plan.outputs.exitcode != '1'
+        run: |
+          summary=$(grep -E "^Plan: |^No changes\." tfplan.txt | tail -1 || echo "(summary unavailable)")
+          {
+            echo "summary<<EOF"
+            echo "$summary"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+        working-directory: ${{ env.WORKING_DIR }}
+
+      # PR に plan 結果をコメント投稿（既存コメントがあれば更新）。
+      # workflow_dispatch では PR コンテキストが無いため skip。結果は Actions ログで確認する。
+      - name: Post plan to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          EXITCODE: ${{ steps.plan.outputs.exitcode }}
+          SUMMARY: ${{ steps.summary.outputs.summary }}
+          PLAN_PATH: ${{ env.WORKING_DIR }}/tfplan.txt
+          ENVIRONMENT_NAME: dev
+        with:
+          script: |
+            const fs = require('fs')
+
+            const marker = '<!-- terraform-plan-comment -->'
+            const exitcode = process.env.EXITCODE
+            const summary = process.env.SUMMARY || '(summary unavailable)'
+            const planPath = process.env.PLAN_PATH
+            const envName = process.env.ENVIRONMENT_NAME
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+
+            let body
+            if (exitcode === '1') {
+              body = [
+                marker,
+                `## ❌ Terraform Plan failed (\`${envName}\`)`,
+                '',
+                `Plan returned an error. See the [Actions log](${runUrl}) for details.`,
+              ].join('\n')
+            } else {
+              let plan = ''
+              try {
+                plan = fs.readFileSync(planPath, 'utf8')
+              } catch (e) {
+                plan = `(could not read plan output: ${e.message})`
+              }
+
+              /** GitHub comment size limit is 65,536 chars. Keep some headroom for wrapping. */
+              const MAX = 60000
+              const truncated = plan.length > MAX
+                ? plan.substring(0, MAX) + `\n\n_...truncated. See the [Actions log](${runUrl}) for the full plan._`
+                : plan
+
+              const icon = exitcode === '0' ? '✅' : '⚠️'
+              const status = exitcode === '0' ? 'No changes' : 'Changes detected'
+
+              body = [
+                marker,
+                `## ${icon} Terraform Plan: ${status} (\`${envName}\`)`,
+                '',
+                `**Summary:** \`${summary}\``,
+                '',
+                '<details><summary>Show plan</summary>',
+                '',
+                '```hcl',
+                truncated,
+                '```',
+                '',
+                '</details>',
+                '',
+                `_Full log: [Actions run](${runUrl})_`,
+              ].join('\n')
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            })
+
+            const existing = comments.find(c => c.body && c.body.includes(marker))
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              })
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              })
+            }
+
+      # plan が失敗していたらジョブ自体も失敗させる（PR check を red にする）
+      - name: Fail on plan error
+        if: steps.plan.outputs.exitcode == '1'
+        run: |
+          echo "Terraform plan failed. See PR comment for details."
+          exit 1
