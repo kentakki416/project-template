@@ -65,7 +65,10 @@ next-env.d.ts
 *.tfstate
 *.tfstate.backup
 .terraform/
+# .terraform.lock.hcl はコミット推奨（プロバイダの再現性確保 / CI の -lockfile=readonly が前提とする）
 *.tfvars
+# archive_file data source が plan 時に生成する Lambda zip (source の .mjs は別途追跡)
+infra/terraform/aws/modules/**/lambda/*.zip
 
 # IDE
 .vscode/
