@@ -10,16 +10,12 @@
 ```
 terraform/
 ├── aws/
-│   ├── bootstrap/        # S3バックエンド・DynamoDBステートロック
+│   ├── bootstrap/        # S3バックエンド・DynamoDBステートロック（初回のみ apply、local state）
+│   ├── account/          # OIDC provider・GitHub Actions IAM role・ECR（AWS アカウント単位で共有）
 │   ├── env/
 │   │   └── dev/          # 開発環境の設定
-│   └── modules/
-│       ├── alb/          # Application Load Balancer
-│       ├── ecr/          # Elastic Container Registry
-│       ├── ecs/          # ECS Fargate クラスター・サービス
-│       └── vpc/          # VPC・サブネット・セキュリティグループ
+│   └── modules/          # 再利用可能なモジュール群（alb / ecs-cluster / ecs-workload / vpc 等）
 ├── .tflint.hcl           # TFLint設定
-├── .trivy.yml            # Trivy設定
 └── README.md
 ```
 
@@ -71,7 +67,24 @@ cd aws/env/dev
 terraform init
 ```
 
-#### 3. リソースのデプロイ
+#### 3. Account（初回はローカル apply 必須）
+
+`account/` は GitHub Actions が assume する IAM role 自身を管理しているため、**初回および role を rename/replace する変更はローカルから apply** する。CI から流すと自分自身の role を書き換えて assume できなくなる。
+
+```bash
+cd aws/account
+terraform init
+terraform plan
+terraform apply
+
+# apply 後、新しい dev role の ARN を取得して
+# GitHub Settings → Environments → dev → Secrets の AWS_ROLE_ARN を再登録する
+terraform output -raw github_actions_dev_role_arn
+```
+
+secret 更新後は次回以降の account 変更を `terraform-aws-account-apply.yml`（workflow_dispatch）から普通に実行できる。
+
+#### 4. リソースのデプロイ
 リソースをデプロイします。詳細は以下のインフラ図を参照してください。
 - [AWS インフラ構成図](./aws-infrastructure.drawio)
 
@@ -79,8 +92,7 @@ terraform init
 cd aws/env/dev
 
 terraform plan
-
-terrafomr apply
+terraform apply
 ```
 
 ## コマンド集

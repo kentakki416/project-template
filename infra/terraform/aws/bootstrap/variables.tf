@@ -25,13 +25,3 @@ variable "dynamodb_table_name" {
   type        = string
   default     = "project-template-terraform-state-lock" # TODO: 一意のテーブル名に変更してください
 }
-
-# =============================================================================
-# CI/CD設定
-# =============================================================================
-
-variable "github_repository" {
-  description = "GitHubリポジトリ（例: owner/repo-name）"
-  type        = string
-  default     = "kentakki416/project-template" # TODO: 実際のリポジトリに変更してください
-}

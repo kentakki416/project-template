@@ -1,18 +1,26 @@
 # =============================================================================
-# Terraform Configuration　for required module
+# Terraform & Provider Configuration
 # =============================================================================
 
 terraform {
   required_version = ">= 1.0"
 
   required_providers {
-    archive = {
-      source  = "hashicorp/archive"
-      version = "~> 2.0"
-    }
     aws = {
       source  = "hashicorp/aws"
       version = "~> 6.4"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      ManagedBy   = "Terraform"
+      Environment = "shared"
     }
   }
 }

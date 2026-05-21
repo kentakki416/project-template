@@ -1,15 +1,16 @@
-name: Terraform Apply
+name: Terraform AWS Env Apply
 
 # =============================================================================
-# Terraform Apply（手動起動専用）
+# infra/terraform/aws/env/* の手動 apply 専用ワークフロー。
+# account 層は別ワークフロー (terraform-aws-account-apply.yml) で扱う。
 #
 # 運用ルール:
 # - dev: workflow_dispatch から実行。承認ゲートなし
 # - prd: workflow_dispatch から実行。`prd` Environment の Required reviewers で承認ゲート（将来）
 #
 # 使い方:
-# 1. PR で terraform-ci.yml の plan を必ず確認してからマージ
-# 2. main にマージ後、Actions → Terraform Apply → Run workflow
+# 1. PR で terraform-aws-env-ci.yml の plan を必ず確認してからマージ
+# 2. main にマージ後、Actions → Terraform AWS Env Apply → Run workflow
 # 3. environment を選択して実行
 # 4. prd の場合は GitHub UI で reviewer の承認待ちになる
 # =============================================================================

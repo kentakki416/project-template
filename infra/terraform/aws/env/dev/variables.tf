@@ -88,3 +88,12 @@ variable "additional_tags" {
   type        = map(string)
   default     = {}
 }
+
+# =============================================================================
+# Secrets (アプリケーション機密)
+# =============================================================================
+# 方針: Terraform は「箱」(Secrets Manager secret) と「初回 JWT 自動生成」までを管理し、
+# 残りの値 (DATABASE_URL / REDIS_HOST / GOOGLE_* / LIVEKIT_* / FRONTEND_URL) は
+# Console / CLI で手動登録する。secret_version は ignore_changes でガード済み。
+#
+# dev/prd で運用差を作らないため変数化はしない。
