@@ -13,9 +13,9 @@ const PUBLIC_PATHS = [
  *
  * hasRefresh だけでも入場を許可する理由:
  * Server Component 側で apiClient が 401 → refresh → 再試行する設計のため、
- * access が切れている状態で middleware で蹴ると refresh の機会が失われる。
+ * access が切れている状態で proxy で蹴ると refresh の機会が失われる。
  */
-export const middleware = (req: NextRequest) => {
+export const proxy = (req: NextRequest) => {
   const { pathname } = req.nextUrl
 
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
