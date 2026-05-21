@@ -22,8 +22,8 @@ export const LOG_LEVEL = {
  * Nodeの環境
  */
 export const NODE_ENV = {
-  DEV: "dev",
-  PRD: "prd"
+  DEV: "development",
+  PRD: "production"
 } as const
 
 /**
