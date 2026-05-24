@@ -7,7 +7,7 @@ import {
 } from "../repository/prisma"
 import { RefreshTokenRepository } from "../repository/redis"
 import { User } from "../types/domain"
-import { err, ok, Result, unauthorizedError } from "../types/result"
+import { err, notFoundError, ok, Result, unauthorizedError } from "../types/result"
 
 export type AuthenticateWithGoogleSuccess = {
     accessToken: string
@@ -100,6 +100,43 @@ export const authenticateWithGoogle = async (
     refreshToken,
     user,
   })
+}
+
+export type LoginAsDevUserSuccess = {
+    accessToken: string
+    refreshToken: string
+    user: User
+}
+
+/**
+ * 開発環境専用ログイン
+ *
+ * email で seed 済みの dev ユーザーを引き当てて Access/Refresh Token を発行する。
+ * production での誤実行を防ぐためのガードは呼び出し側（controller / index.ts / PUBLIC_PATHS）で行う。
+ * このサービス関数自体は環境非依存。
+ */
+export const loginAsDevUser = async (
+  input: { email: string },
+  repo: {
+    refreshTokenRepository: RefreshTokenRepository
+    userRepository: UserRepository
+  },
+  tokenGenerators: TokenGenerators
+): Promise<Result<LoginAsDevUserSuccess>> => {
+  logger.info("AuthService: dev-login attempt", { email: input.email })
+
+  const user = await repo.userRepository.findByEmail(input.email)
+  if (!user) {
+    return err(notFoundError("Dev user not found"))
+  }
+
+  const accessToken = tokenGenerators.generateAccessToken(user.id)
+  const { jti, token: refreshToken } = tokenGenerators.generateRefreshToken(user.id)
+  await repo.refreshTokenRepository.save(jti, user.id, REFRESH_TTL_SECONDS)
+
+  logger.info("AuthService: dev-login success", { userId: user.id })
+
+  return ok({ accessToken, refreshToken, user })
 }
 
 export type RefreshTokensSuccess = {

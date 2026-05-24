@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "@/libs/auth"
 
+/**
+ * production 以外でのみ公開する dev 専用パス
+ * `/dev/login?as=alice` を踏むだけでログイン状態にできる開発支援機能
+ */
+const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
+  ? ["/dev/login"]
+  : []
+
 const PUBLIC_PATHS = [
   "/sign-in",
   "/api/auth/callback/google",
+  ...DEV_ONLY_PUBLIC_PATHS,
 ]
 
 /**

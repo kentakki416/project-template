@@ -1,10 +1,19 @@
 import type { Metadata } from "next"
+import Link from "next/link"
 
 import { startGoogleOAuth } from "./actions"
 
 export const metadata: Metadata = {
   title: "サインイン",
 }
+
+const isProduction = process.env.NODE_ENV === "production"
+
+/**
+ * dev-login で使えるショートネーム
+ * apps/api/src/prisma/seed.ts と apps/web/src/app/dev/login/route.ts と一致させる
+ */
+const DEV_LOGIN_USERS = ["alice", "bob"] as const
 
 const ERROR_MESSAGES: Record<string, string> = {
   auth_failed: "認証に失敗しました。もう一度お試しください。",
@@ -43,6 +52,25 @@ export default async function SignInPage({ searchParams }: Props) {
             Google でサインイン
           </button>
         </form>
+
+        {!isProduction && (
+          <div className="space-y-2 border-t border-dashed border-gray-200 pt-4">
+            <p className="text-center text-xs font-medium text-gray-500">
+              Dev Login (NODE_ENV !== &quot;production&quot;)
+            </p>
+            <div className="flex gap-2">
+              {DEV_LOGIN_USERS.map((user) => (
+                <Link
+                  className="flex-1 rounded border border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-900 hover:bg-amber-100"
+                  href={`/dev/login?as=${user}`}
+                  key={user}
+                >
+                  Login as {user}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )

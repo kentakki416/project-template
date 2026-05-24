@@ -3,6 +3,7 @@ import express from "express"
 
 import { GoogleOAuthClient } from "./client/google-oauth"
 import { redis } from "./client/redis"
+import { AuthDevLoginController } from "./controller/auth/dev-login"
 import { AuthGoogleController } from "./controller/auth/google"
 import { AuthLogoutController } from "./controller/auth/logout"
 import { AuthMeController } from "./controller/auth/me"
@@ -67,6 +68,14 @@ const authMeController = new AuthMeController(userRepository)
 const authRefreshController = new AuthRefreshController(refreshTokenRepository)
 const authLogoutController = new AuthLogoutController(refreshTokenRepository)
 
+/**
+ * dev-login Controller は production 以外でのみ生成する
+ * （本番では auth-router でルート自体が登録されない）
+ */
+const authDevLoginController = process.env.NODE_ENV !== "production"
+  ? new AuthDevLoginController(userRepository, refreshTokenRepository)
+  : undefined
+
 // Memo Controller のインスタンス化
 const memoListController = new MemoListController(memoRepository)
 const memoDetailController = new MemoDetailController(memoRepository)
@@ -102,6 +111,7 @@ app.use(
 app.use(
   "/api/auth",
   authRouter({
+    devLogin: authDevLoginController,
     google: authGoogleController,
     logout: authLogoutController,
     me: authMeController,
