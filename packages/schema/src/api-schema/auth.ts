@@ -75,6 +75,42 @@ export const authRefreshResponseSchema = z.object({
 export type AuthRefreshResponse = z.infer<typeof authRefreshResponseSchema>
 
 // ========================================================
+// POST /api/auth/dev-login - 開発環境専用ログイン
+// ========================================================
+
+/**
+ * dev-login リクエストのスキーマ
+ *
+ * production 環境では受け付けない（API 側で 404 を返す）。
+ * email は seed で投入済みの dev ユーザー (例: alice@dev.local) を想定。
+ */
+export const authDevLoginRequestSchema = z.object({
+  email: z.string().email(),
+})
+
+export type AuthDevLoginRequest = z.infer<typeof authDevLoginRequestSchema>
+
+/**
+ * dev-login レスポンスのスキーマ
+ *
+ * authGoogleResponseSchema と互換にして Web 側で同じ setAuthCookies に渡せるようにする
+ * （is_new_user は dev-login では常に false なので含めない）
+ */
+export const authDevLoginResponseSchema = z.object({
+  access_token: z.string(),
+  refresh_token: z.string(),
+  user: z.object({
+    avatar_url: z.string().nullable(),
+    email: z.string().nullable(),
+    id: z.number(),
+    name: z.string().nullable(),
+    created_at: z.string(),
+  }),
+})
+
+export type AuthDevLoginResponse = z.infer<typeof authDevLoginResponseSchema>
+
+// ========================================================
 // POST /api/auth/logout - Refresh Token を無効化
 // ========================================================
 
