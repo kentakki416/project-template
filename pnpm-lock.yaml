@@ -129,6 +129,9 @@ importers:
       '@repo/api-schema':
         specifier: workspace:^
         version: link:../../packages/schema
+      '@repo/config':
+        specifier: workspace:^
+        version: link:../../packages/config
       '@repo/db':
         specifier: workspace:^
         version: link:../../packages/db
@@ -156,6 +159,9 @@ importers:
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@types/cors':
         specifier: ^2.8.19
@@ -402,6 +408,34 @@ importers:
       tailwindcss:
         specifier: ^4.1.17
         version: 4.1.17
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/config:
+    dependencies:
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.12.0
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.46.4
+        version: 8.47.0(@typescript-eslint/parser@8.47.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.46.4
+        version: 8.47.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.1(jiti@2.6.1)
+      eslint-import-resolver-typescript:
+        specifier: ^4.4.4
+        version: 4.4.4(eslint-plugin-import@2.32.0)(eslint@9.39.1(jiti@2.6.1))
+      eslint-plugin-import:
+        specifier: ^2.32.0
+        version: 2.32.0(@typescript-eslint/parser@8.47.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@4.4.4)(eslint@9.39.1(jiti@2.6.1))
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

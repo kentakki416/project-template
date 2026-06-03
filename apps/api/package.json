@@ -25,6 +25,7 @@
   "license": "ISC",
   "dependencies": {
     "@repo/api-schema": "workspace:^",
+    "@repo/config": "workspace:^",
     "@repo/db": "workspace:^",
     "@repo/errors": "workspace:^",
     "@repo/logger": "workspace:^",
@@ -33,7 +34,8 @@
     "google-auth-library": "^10.5.0",
     "ioredis": "^5.10.0",
     "jsonwebtoken": "^9.0.3",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

@@ -1,6 +1,11 @@
 import cors from "cors"
 import express from "express"
 
+/**
+ * env.ts は副作用として loadEnv() を実行する。最上位で import することで、
+ * 起動時に環境変数のスキーマ検証 (Zod) を走らせ、不正な env なら process.exit(1) する。
+ */
+import "./env"
 import { GoogleOAuthClient } from "./client/google-oauth"
 import { redis } from "./client/redis"
 import { AuthDevLoginController } from "./controller/auth/dev-login"
