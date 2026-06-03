@@ -1,9 +1,4 @@
 /**
- * Logger / 環境関連の定数は @repo/logger に集約されているため re-export する
- */
-export { LOG_LEVEL, LOGGER_TYPE, NODE_ENV } from "@repo/logger"
-
-/**
  * production 以外でのみ公開する dev 専用パス
  *
  * /api/auth/dev-login は seed で投入した dev ユーザーで token を発行する API。

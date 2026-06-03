@@ -9,7 +9,7 @@
 | 機能名 | ステータス | 概要 | リンク |
 |---|---|---|---|
 | dev-login | 完了 | 開発環境専用ログイン。Google OAuth を介さず seed 済み dev ユーザー（alice/bob）として 1 クリックでログインできる | [./dev-login/README.md](./dev-login/README.md) |
-| shared-packages | 設計中 | api/cron/worker など複数 server-side app で共通利用するため、db/logger/errors/config/redis を `packages/` に切り出す（テンプレート整備） | [./shared-packages/README.md](./shared-packages/README.md) |
+| shared-packages | 完了 | api/cron/worker など複数 server-side app で共通利用するため、db/logger/errors/config/redis を `packages/` に切り出す（テンプレート整備） | [./shared-packages/README.md](./shared-packages/README.md) |
 
 ## ステータスの定義
 
