@@ -29,6 +29,7 @@
     "@repo/db": "workspace:^",
     "@repo/errors": "workspace:^",
     "@repo/logger": "workspace:^",
+    "@repo/redis": "workspace:^",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "google-auth-library": "^10.5.0",
