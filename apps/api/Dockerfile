@@ -6,59 +6,72 @@ FROM node:20-slim AS base
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
 # ==============================================================================
-# Stage 2: builder - 依存インストール & ビルド
+# Stage 2: pruner - turbo prune で api に必要な workspace だけを抽出
+#
+# turbo prune --docker は以下を生成する:
+#   out/json/  package.json と pnpm-lock.yaml のみ (install caching 用)
+#   out/full/  ソース全部 (build 用)
+#   out/pnpm-lock.yaml
+#
+# これにより新規 package を追加しても Dockerfile を更新する必要が無い。
+# turbo が依存グラフを解析して必要なものだけを抽出してくれる。
 # ==============================================================================
-FROM base AS builder
+FROM base AS pruner
 
 WORKDIR /app
 
-# モノレポ設定ファイルをコピー
+# 依存解析に必要な最小ファイルだけコピー
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY apps ./apps
+COPY packages ./packages
 
-# 各パッケージの package.json をコピー
-COPY apps/api/package.json ./apps/api/
-COPY packages/schema/package.json ./packages/schema/
+# turbo を実行するために devDependencies をインストール
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# 依存インストール
+# api が必要とする workspace だけを out/ に抽出
+RUN pnpm turbo prune api --docker
+
+# ==============================================================================
+# Stage 3: installer - 抽出された workspace で依存インストール & ビルド
+# ==============================================================================
+FROM base AS installer
+
+WORKDIR /app
+
+# Step 1: package.json + lock だけ先にコピーして install (キャッシュ効率化)
+COPY --from=pruner /app/out/json/ ./
 RUN pnpm install --frozen-lockfile
 
-# 各パッケージのtsconfig.jsonをコピー
-COPY packages/schema/tsconfig.json ./packages/schema/
-COPY apps/api/tsconfig.json apps/api/tsconfig.build.json ./apps/api/
+# Step 2: ソース全部をコピー
+COPY --from=pruner /app/out/full/ ./
 
-# ソースコードをコピー
-COPY packages/schema/src/ ./packages/schema/src/
-COPY apps/api/src/ ./apps/api/src/
+# Step 3: Prisma Client を生成 (packages/db で実行)
+RUN pnpm --filter @repo/db db:generate
 
-# 共有スキーマパッケージをビルド → API をビルド
-RUN pnpm --filter @repo/api-schema build
-
-# Prisma Client を生成
-RUN cd apps/api && pnpm exec prisma generate --schema=src/prisma/schema.prisma
-
-# API をビルド
+# Step 4: API をビルド (turbo の dependsOn で packages/* も先にビルドされる)
 RUN pnpm --filter api build
 
-# 本番用依存のみを抽出
+# Step 5: 本番用依存のみを抽出
 RUN pnpm deploy --filter api --prod /app/deploy
 
 # ==============================================================================
-# Stage 3: runner - 本番実行用の軽量イメージ
+# Stage 4: runner - 本番実行用の軽量イメージ
 # ==============================================================================
 FROM node:20-slim AS runner
 
-# tini: Node.js を PID 1 で直接実行すると SIGTERM 等のシグナルを正しく処理できず、SIGKILLによる強制削除が起きてしまうため
-# 軽量 init プロセスとして tini を使用。ECS Fargate では docker --init が使えないため必須。
+# tini: Node.js を PID 1 で直接実行すると SIGTERM 等のシグナルを正しく処理できず、
+# SIGKILL による強制削除が起きてしまうため軽量 init プロセスとして tini を使用。
+# ECS Fargate では docker --init が使えないため必須。
 RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# deploy ステージから本番依存をコピー
-COPY --chown=node:node --from=builder /app/deploy/node_modules ./node_modules
-COPY --chown=node:node --from=builder /app/deploy/package.json ./package.json
+# installer ステージから本番依存をコピー
+COPY --chown=node:node --from=installer /app/deploy/node_modules ./node_modules
+COPY --chown=node:node --from=installer /app/deploy/package.json ./package.json
 
 # ビルド済みコードをコピー
-COPY --chown=node:node --from=builder /app/apps/api/dist ./dist
+COPY --chown=node:node --from=installer /app/apps/api/dist ./dist
 
 EXPOSE 8080
 
