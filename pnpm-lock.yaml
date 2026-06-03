@@ -126,15 +126,12 @@ importers:
 
   apps/api:
     dependencies:
-      '@prisma/adapter-pg':
-        specifier: ^7.7.0
-        version: 7.7.0
-      '@prisma/client':
-        specifier: ^7.2.0
-        version: 7.2.0(prisma@7.2.0(@types/react@19.2.14)(magicast@0.5.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
       '@repo/api-schema':
         specifier: workspace:^
         version: link:../../packages/schema
+      '@repo/db':
+        specifier: workspace:^
+        version: link:../../packages/db
       cors:
         specifier: ^2.8.5
         version: 2.8.5
@@ -205,9 +202,6 @@ importers:
       eslint-plugin-simple-import-sort:
         specifier: ^12.1.1
         version: 12.1.1(eslint@9.39.1(jiti@2.6.1))
-      prisma:
-        specifier: ^7.2.0
-        version: 7.2.0(@types/react@19.2.14)(magicast@0.5.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       supertest:
         specifier: ^7.1.4
         version: 7.1.4
@@ -411,6 +405,46 @@ importers:
       tailwindcss:
         specifier: ^4.1.17
         version: 4.1.17
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/db:
+    dependencies:
+      '@prisma/adapter-pg':
+        specifier: ^7.7.0
+        version: 7.7.0
+      '@prisma/client':
+        specifier: ^7.2.0
+        version: 7.2.0(prisma@7.2.0(@types/react@19.2.14)(magicast@0.5.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
+      '@prisma/extension-read-replicas':
+        specifier: ^0.5.0
+        version: 0.5.0(@prisma/client@7.2.0(prisma@7.2.0(@types/react@19.2.14)(magicast@0.5.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3))
+    devDependencies:
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.12.0
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.46.4
+        version: 8.47.0(@typescript-eslint/parser@8.47.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.46.4
+        version: 8.47.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.1(jiti@2.6.1)
+      eslint-import-resolver-typescript:
+        specifier: ^4.4.4
+        version: 4.4.4(eslint-plugin-import@2.32.0)(eslint@9.39.1(jiti@2.6.1))
+      eslint-plugin-import:
+        specifier: ^2.32.0
+        version: 2.32.0(@typescript-eslint/parser@8.47.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@4.4.4)(eslint@9.39.1(jiti@2.6.1))
+      prisma:
+        specifier: ^7.2.0
+        version: 7.2.0(@types/react@19.2.14)(magicast@0.5.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1986,6 +2020,11 @@ packages:
 
   '@prisma/engines@7.2.0':
     resolution: {integrity: sha512-HUeOI/SvCDsHrR9QZn24cxxZcujOjcS3w1oW/XVhnSATAli5SRMOfp/WkG3TtT5rCxDA4xOnlJkW7xkho4nURA==}
+
+  '@prisma/extension-read-replicas@0.5.0':
+    resolution: {integrity: sha512-t0kLjqFMte4wwGrZFhya4iFoyoOY4kjlyyE60WXZL66PqP6PcBpW/35eKb/3UcxgjJxcDlaJKfmGokFLOyafiQ==}
+    peerDependencies:
+      '@prisma/client': ^7.0.0
 
   '@prisma/fetch-engine@7.2.0':
     resolution: {integrity: sha512-Z5XZztJ8Ap+wovpjPD2lQKnB8nWFGNouCrglaNFjxIWAGWz0oeHXwUJRiclIoSSXN/ptcs9/behptSk8d0Yy6w==}
@@ -8592,11 +8631,6 @@ snapshots:
   '@esbuild/win32-x64@0.27.7':
     optional: true
 
-  '@eslint-community/eslint-utils@4.9.0(eslint@9.39.1(jiti@1.21.7))':
-    dependencies:
-      eslint: 9.39.1(jiti@1.21.7)
-      eslint-visitor-keys: 3.4.3
-
   '@eslint-community/eslint-utils@4.9.0(eslint@9.39.1(jiti@2.6.1))':
     dependencies:
       eslint: 9.39.1(jiti@2.6.1)
@@ -9364,6 +9398,10 @@ snapshots:
       '@prisma/engines-version': 7.2.0-4.0c8ef2ce45c83248ab3df073180d5eda9e8be7a3
       '@prisma/fetch-engine': 7.2.0
       '@prisma/get-platform': 7.2.0
+
+  '@prisma/extension-read-replicas@0.5.0(@prisma/client@7.2.0(prisma@7.2.0(@types/react@19.2.14)(magicast@0.5.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3))':
+    dependencies:
+      '@prisma/client': 7.2.0(prisma@7.2.0(@types/react@19.2.14)(magicast@0.5.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
 
   '@prisma/fetch-engine@7.2.0':
     dependencies:
@@ -10257,7 +10295,7 @@ snapshots:
       graphemer: 1.4.0
       ignore: 7.0.5
       natural-compare: 1.4.0
-      ts-api-utils: 2.1.0(typescript@5.9.3)
+      ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
@@ -10346,7 +10384,7 @@ snapshots:
       '@typescript-eslint/utils': 8.47.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       debug: 4.4.3
       eslint: 9.39.1(jiti@1.21.7)
-      ts-api-utils: 2.1.0(typescript@5.9.3)
+      ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
@@ -10358,7 +10396,7 @@ snapshots:
       '@typescript-eslint/utils': 8.47.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
       debug: 4.4.3
       eslint: 9.39.1(jiti@2.6.1)
-      ts-api-utils: 2.1.0(typescript@5.9.3)
+      ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
@@ -10378,7 +10416,7 @@ snapshots:
       is-glob: 4.0.3
       minimatch: 9.0.5
       semver: 7.7.3
-      ts-api-utils: 2.1.0(typescript@5.9.3)
+      ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
@@ -10416,6 +10454,17 @@ snapshots:
       '@typescript-eslint/types': 8.47.0
       '@typescript-eslint/typescript-estree': 8.47.0(typescript@5.9.3)
       eslint: 9.39.1(jiti@2.6.1)
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@typescript-eslint/utils@8.59.2(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)':
+    dependencies:
+      '@eslint-community/eslint-utils': 4.9.1(eslint@9.39.1(jiti@1.21.7))
+      '@typescript-eslint/scope-manager': 8.59.2
+      '@typescript-eslint/types': 8.59.2
+      '@typescript-eslint/typescript-estree': 8.59.2(typescript@5.9.3)
+      eslint: 9.39.1(jiti@1.21.7)
       typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
@@ -11743,7 +11792,7 @@ snapshots:
       get-tsconfig: 4.13.0
       is-bun-module: 2.0.0
       stable-hash-x: 0.2.0
-      tinyglobby: 0.2.15
+      tinyglobby: 0.2.16
       unrs-resolver: 1.11.1
     optionalDependencies:
       eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.47.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-typescript@4.4.4)(eslint@9.39.1(jiti@1.21.7))
@@ -11811,8 +11860,8 @@ snapshots:
 
   eslint-plugin-expo@1.0.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3):
     dependencies:
-      '@typescript-eslint/types': 8.47.0
-      '@typescript-eslint/utils': 8.47.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
+      '@typescript-eslint/types': 8.59.2
+      '@typescript-eslint/utils': 8.59.2(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       eslint: 9.39.1(jiti@1.21.7)
     transitivePeerDependencies:
       - supports-color
@@ -12047,7 +12096,7 @@ snapshots:
 
   eslint@9.39.1(jiti@1.21.7):
     dependencies:
-      '@eslint-community/eslint-utils': 4.9.0(eslint@9.39.1(jiti@1.21.7))
+      '@eslint-community/eslint-utils': 4.9.1(eslint@9.39.1(jiti@1.21.7))
       '@eslint-community/regexpp': 4.12.2
       '@eslint/config-array': 0.21.1
       '@eslint/config-helpers': 0.4.2
@@ -15098,7 +15147,7 @@ snapshots:
       lines-and-columns: 1.2.4
       mz: 2.7.0
       pirates: 4.0.7
-      tinyglobby: 0.2.15
+      tinyglobby: 0.2.16
       ts-interface-checker: 0.1.13
 
   superagent@10.2.3:
