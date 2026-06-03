@@ -1,30 +1,7 @@
 /**
- * Logger の種類
+ * Logger / 環境関連の定数は @repo/logger に集約されているため re-export する
  */
-export const LOGGER_TYPE = {
-  CONSOLE: "console",
-  PINO: "pino",
-  SILENT: "silent",
-  WINSTON: "winston",
-} as const
-
-/**
- * LOGレベル
- */
-export const LOG_LEVEL = {
-  DEBUG: "debug",
-  INFO: "info",
-  WARN: "warn",
-  ERROR: "error"
-} as const
-
-/**
- * Nodeの環境
- */
-export const NODE_ENV = {
-  DEV: "development",
-  PRD: "production"
-} as const
+export { LOG_LEVEL, LOGGER_TYPE, NODE_ENV } from "@repo/logger"
 
 /**
  * production 以外でのみ公開する dev 専用パス

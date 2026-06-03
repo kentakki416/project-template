@@ -1,12 +1,9 @@
-import { LOGGER_TYPE } from "../const"
-
 import { ConsoleLogger } from "./console-logger"
+import { LOGGER_TYPE, type LoggerType } from "./const"
 import type { ILogger } from "./interface"
 import { PinoLogger } from "./pino-logger"
 import { SilentLogger } from "./silent-logger"
 import { WinstonLogger } from "./winston-logger"
-
-type LoggerType = typeof LOGGER_TYPE[keyof typeof LOGGER_TYPE]
 
 /**
  * Logger Factory
