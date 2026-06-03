@@ -26,6 +26,7 @@
   "dependencies": {
     "@repo/api-schema": "workspace:^",
     "@repo/db": "workspace:^",
+    "@repo/errors": "workspace:^",
     "@repo/logger": "workspace:^",
     "cors": "^2.8.5",
     "express": "^5.1.0",
