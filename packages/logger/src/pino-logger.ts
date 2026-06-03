@@ -1,7 +1,6 @@
 import pino from "pino"
 
-import { NODE_ENV, LOG_LEVEL } from "../const"
-
+import { LOG_LEVEL, NODE_ENV } from "./const"
 import { logContext } from "./context"
 import type { ILogger, LogMetadata } from "./interface"
 

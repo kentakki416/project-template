@@ -1,10 +1,4 @@
 /**
- * Logger モジュールのエントリーポイント
+ * @deprecated step6 で削除予定。新規コードは "@repo/logger" から直接 import すること
  */
-export { ConsoleLogger } from "./console-logger"
-export { logContext } from "./context"
-export type { LogContext } from "./context"
-export type { ILogger, LogMetadata } from "./interface"
-export { logger, LoggerFactory } from "./logger-factory"
-export { PinoLogger } from "./pino-logger"
-export { WinstonLogger } from "./winston-logger"
+export * from "@repo/logger"
