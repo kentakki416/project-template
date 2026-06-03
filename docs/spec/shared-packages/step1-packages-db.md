@@ -18,10 +18,9 @@ packages/db/
 │   ├── seed.ts                  # apps/api/src/prisma/seed.ts を移動（dev users 含む全 seed）
 │   └── migrations/              # apps/api/src/prisma/migrations/ を全移動
 ├── src/
-│   ├── client.ts
-│   ├── connection-string.ts
+│   ├── client.ts                # createPrismaClient factory + 接続文字列ヘルパ
 │   └── index.ts
-└── generated/                   # gitignore（postinstall で生成）
+└── generated/                   # prisma generate の出力先 (tracked)
 ```
 
 ### 2. `packages/db/package.json`
@@ -188,26 +187,9 @@ main()
 - 新しい dev データ（サンプル Memo / カテゴリ等）を追加したくなったら、この `seed.ts` 内に `seedSampleMemos()` のような関数を増やして `main()` から呼ぶだけ
 - `NODE_ENV === "production"` ガードを seed.ts 自身に持たせる（CLI から間違って本番 DB に向けて叩いても落ちる）
 
-### 6. `packages/db/src/connection-string.ts`
+### 6. `packages/db/src/client.ts`
 
-```typescript
-const DEFAULT_URL = "postgresql://postgres:password@localhost:5432/project-template_dev"
-
-/**
- * DATABASE_URL を取得しつつ、DB_NAME が指定されていれば DB 名部分を上書きする
- * テスト実行時の DB 切り替え（DB_NAME=project-template_test）に対応
- */
-export const buildConnectionString = (): string => {
-  const baseUrl = process.env.DATABASE_URL ?? DEFAULT_URL
-  const dbName = process.env.DB_NAME
-  if (!dbName) return baseUrl
-  return baseUrl.replace(/\/[^/?]+(\?|$)/, `/${dbName}$1`)
-}
-```
-
-### 7. `packages/db/src/client.ts`
-
-**factory のみを提供** する。`packages/db` 側に singleton を持たない。各 app の `src/index.ts` で 1 回呼んで Repository に DI で渡す。
+**factory のみを提供** する。`packages/db` 側に singleton を持たない。各 app の `src/index.ts` で 1 回呼んで Repository に DI で渡す。接続文字列ヘルパ (DB_NAME 上書きロジック) もこのファイル内にまとめる（別ファイルに切る程の規模ではないため）。
 
 ```typescript
 import { PrismaPg } from "@prisma/adapter-pg"
@@ -215,7 +197,18 @@ import { readReplicas } from "@prisma/extension-read-replicas"
 
 import { PrismaClient } from "../generated/client"
 
-import { buildConnectionString } from "./connection-string"
+const DEFAULT_URL = "postgresql://postgres:password@localhost:5432/project-template_dev"
+
+/**
+ * DATABASE_URL を取得しつつ、DB_NAME が指定されていれば DB 名部分を上書きする
+ * テスト実行時の DB 切り替え（DB_NAME=project-template_test）に対応
+ */
+const buildConnectionString = (): string => {
+  const baseUrl = process.env.DATABASE_URL ?? DEFAULT_URL
+  const dbName = process.env.DB_NAME
+  if (!dbName) return baseUrl
+  return baseUrl.replace(/\/[^/?]+(\?|$)/, `/${dbName}$1`)
+}
 
 export type CreatePrismaClientOptions = {
   /**
@@ -236,22 +229,27 @@ export type CreatePrismaClientOptions = {
  * read replica が設定されている場合は @prisma/extension-read-replicas で自動振り分け：
  *   - findMany / findUnique / count / aggregate などの read → replica
  *   - create / update / delete / $transaction / $executeRaw → primary
- * 強整合性が必要な read は prisma.$primary().user.findUnique(...) で primary 強制可能
+ * 強整合性が必要な read は (prisma as any).$primary().user.findUnique(...) で primary 強制可能
+ *
+ * 戻り値は PrismaClient 型に揃えている（extension の戻り値は別型になるため、
+ * Repository コンストラクタの互換性確保のためにキャストしている）。
  */
-export const createPrismaClient = (options: CreatePrismaClientOptions = {}) => {
+export const createPrismaClient = (options: CreatePrismaClientOptions = {}): PrismaClient => {
   const adapter = new PrismaPg(options.url ?? buildConnectionString())
   const base = new PrismaClient({ adapter })
   const replicaUrl = options.replicaUrl ?? process.env.DATABASE_REPLICA_URL
-  return replicaUrl ? base.$extends(readReplicas({ url: replicaUrl })) : base
+  if (!replicaUrl) return base
+  const replicaAdapter = new PrismaPg(replicaUrl)
+  const replica = new PrismaClient({ adapter: replicaAdapter })
+  return base.$extends(readReplicas({ replicas: [replica] })) as unknown as PrismaClient
 }
 ```
 
-### 8. `packages/db/src/index.ts`
+### 7. `packages/db/src/index.ts`
 
 ```typescript
 export { createPrismaClient } from "./client"
 export type { CreatePrismaClientOptions } from "./client"
-export { buildConnectionString } from "./connection-string"
 
 /**
  * Prisma が生成するドメイン型を re-export
@@ -262,7 +260,7 @@ export * from "../generated/client"
 
 `prisma` singleton は **export しない**。各 app 側で `createPrismaClient()` を呼ぶ。
 
-### 9. `packages/db/tsconfig.json`
+### 8. `packages/db/tsconfig.json`
 
 ```json
 {
@@ -282,7 +280,7 @@ export * from "../generated/client"
 
 `generated/` を `include` に入れることで、re-export した Prisma の型が `dist` にも出力される。
 
-### 10. `packages/db/.gitignore`
+### 9. `packages/db/.gitignore`
 
 ```
 dist/
@@ -290,7 +288,7 @@ generated/
 node_modules/
 ```
 
-### 11. `packages/db/eslint.config.js`
+### 10. `packages/db/eslint.config.js`
 
 `packages/schema/eslint.config.js` をコピーし、`generated/` を ignore に追加。
 
@@ -305,7 +303,7 @@ export default [
 ]
 ```
 
-### 12. `apps/api` 側の互換 wrapper
+### 11. `apps/api` 側の互換 wrapper
 
 `apps/api/src/prisma/prisma.client.ts` を以下に差し替える。`@repo/db` は factory のみ提供なので、apps/api 内部で **暫定的に singleton を保持する** wrapper にして既存 import を壊さない。step6 でこの wrapper 自体を削除し、`src/index.ts` での DI assembly に置き換える。
 
@@ -322,7 +320,7 @@ export const prisma = createPrismaClient()
 
 `apps/api/src/prisma/schema.prisma` / `migrations/` / `prisma.config.ts` / `seed.ts` / `generated/` は **物理的に packages/db へ移動**。`apps/api/src/prisma/` は `prisma.client.ts` のみ残る wrapper ディレクトリになる。
 
-### 13. `apps/api/package.json` の修正
+### 12. `apps/api/package.json` の修正
 
 ```diff
  {
@@ -360,7 +358,7 @@ apps/api は **dotenvx で .env.local を復号化して `pnpm --filter @repo/db
 
 `@prisma/*` / `prisma` 本体の依存は `@repo/db` 側に集約され、apps/api からは消える。
 
-### 14. `turbo.json` への追記
+### 13. `turbo.json` への追記
 
 ```jsonc
 {

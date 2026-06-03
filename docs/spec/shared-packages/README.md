@@ -207,8 +207,7 @@ packages/db/
 │   ├── prisma.config.ts       # apps/api/src/prisma/prisma.config.ts を移設
 │   └── seed.ts                # apps/api/src/prisma/seed.ts を移設（dev users 含む全 seed）
 ├── src/
-│   ├── client.ts              # createPrismaClient + デフォルト singleton
-│   ├── connection-string.ts   # DB_NAME 上書きロジック
+│   ├── client.ts              # createPrismaClient factory + 接続文字列ヘルパ (DB_NAME 上書き含む)
 │   └── index.ts               # client + generated 型の re-export
 └── generated/                 # prisma generate の出力先（gitignore）
 ```

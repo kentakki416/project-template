@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
-import { prisma } from "./prisma.client"
+import { createPrismaClient } from "../src/client"
+
+const prisma = createPrismaClient()
 
 /**
  * dev-login で使う開発用ユーザー

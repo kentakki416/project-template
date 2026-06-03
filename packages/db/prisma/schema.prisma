@@ -1,7 +1,7 @@
 // Jest(CJS環境)で import.meta エラーを回避するため moduleFormat = "cjs" を指定
 generator client {
     provider     = "prisma-client"
-    output       = "./generated"
+    output       = "../generated"
     moduleFormat = "cjs"
 }
 
