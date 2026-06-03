@@ -16,13 +16,13 @@ Turborepo + pnpm モノレポ。
 ### Packages
 
 - **packages/schema**: Shared Zod schemas (`@repo/api-schema`)
-- **packages/db** *(設計中)*: Prisma schema / migrations / generated client + `createPrismaClient` factory (`@repo/db`)
-- **packages/logger** *(設計中)*: `ILogger` + pino/winston/console/silent + AsyncLocalStorage context (`@repo/logger`)
-- **packages/errors** *(設計中)*: `Result<T>` + `ApiError` + 業務エラー生成ヘルパ (`@repo/errors`)
-- **packages/config** *(設計中)*: Zod ベース env スキーマ検証 + `loadEnv` (`@repo/config`)
-- **packages/redis** *(設計中)*: `createRedisClient` factory（BullMQ / Pub/Sub 対応）(`@repo/redis`)
+- **packages/db**: Prisma schema / migrations / generated client + `createPrismaClient` factory (`@repo/db`)
+- **packages/logger**: `ILogger` + pino/winston/console/silent + AsyncLocalStorage context (`@repo/logger`)
+- **packages/errors**: `Result<T>` + `ApiError` + 業務エラー生成ヘルパ (`@repo/errors`)
+- **packages/config**: Zod ベース env スキーマ検証 + `loadEnv` (`@repo/config`)
+- **packages/redis**: `createRedisClient` factory（BullMQ / Pub/Sub 対応）(`@repo/redis`)
 
-「設計中」の 5 パッケージは [`docs/spec/shared-packages/`](docs/spec/shared-packages/README.md) で設計フェーズ。実装は step1〜6 の PR を順次マージしていく形で進行する。実装完了までは apps/api 内部に旧パス（`apps/api/src/prisma/` / `apps/api/src/log/` / `apps/api/src/types/result.ts` / `apps/api/src/client/redis.ts`）が残る。
+共通パッケージの設計詳細は [`docs/spec/shared-packages/`](docs/spec/shared-packages/README.md) を参照。新規 server-side app (cron / worker / batch) を追加する場合は同設計書に沿って `@repo/db` / `@repo/logger` / `@repo/errors` / `@repo/config` / `@repo/redis` を依存に追加し、各 app の `src/index.ts` で client を生成して Repository に DI する。
 
 ### Infra
 
@@ -125,4 +125,4 @@ ESLint v9 flat config (`eslint.config.{js,mjs}`)。**全アプリ共通ルール
 - スキーマパッケージは依存アプリより先にビルドする必要がある
 - スキーマ変更時は `cd packages/schema && pnpm build`
 - Terraform state は S3 + DynamoDB ロック（bootstrap で構成済み）
-- **共通パッケージ切り出し（設計中）**: `packages/db` / `logger` / `errors` / `config` / `redis` への移行は段階的に進行中。新規コードを書く際の方針は [`docs/spec/shared-packages/README.md`](docs/spec/shared-packages/README.md) を参照。Prisma / Redis は **factory のみを export** し、各 app の `src/index.ts` で 1 回呼んで Repository に DI する設計
+- **共通パッケージの設計方針**: `packages/db` / `logger` / `errors` / `config` / `redis` は server-side app 横断で利用される共通基盤。Prisma / Redis は **factory のみを export** し、各 app の `src/index.ts` で 1 回呼んで Repository に DI する。詳細は [`docs/spec/shared-packages/README.md`](docs/spec/shared-packages/README.md) を参照
