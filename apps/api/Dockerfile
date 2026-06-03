@@ -11,10 +11,15 @@ RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 # turbo prune --docker は以下を生成する:
 #   out/json/  package.json と pnpm-lock.yaml のみ (install caching 用)
 #   out/full/  ソース全部 (build 用)
-#   out/pnpm-lock.yaml
 #
-# これにより新規 package を追加しても Dockerfile を更新する必要が無い。
-# turbo が依存グラフを解析して必要なものだけを抽出してくれる。
+# キャッシュ戦略:
+#   このステージは apps/* または packages/* に変更があると invalidate されるが、
+#   turbo prune の出力 (out/json) は api の依存グラフが変わらない限り byte-identical。
+#   よって BuildKit の content-addressable cache により、次の installer ステージの
+#   install と build は (api 自身が変わらなければ) ヒットする。
+#
+# pnpm install は不要 (npx で turbo を直接実行する。全 workspace の install は
+# このステージでは無駄)。
 # ==============================================================================
 FROM base AS pruner
 
@@ -25,11 +30,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps ./apps
 COPY packages ./packages
 
-# turbo を実行するために devDependencies をインストール
-RUN pnpm install --frozen-lockfile --ignore-scripts
-
 # api が必要とする workspace だけを out/ に抽出
-RUN pnpm turbo prune api --docker
+# npx で turbo を取得 (pnpm install を回避してビルド時間短縮)
+RUN npx -y turbo@2.6.1 prune api --docker
 
 # ==============================================================================
 # Stage 3: installer - 抽出された workspace で依存インストール & ビルド
