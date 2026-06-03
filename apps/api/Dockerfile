@@ -11,7 +11,6 @@ RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 # turbo prune --docker は以下を生成する:
 #   out/json/  該当ワークスペースの package.json と pnpm-lock.yaml のみ
 #   out/full/  該当ワークスペースのソース全部 (build 用)
-#
 # ==============================================================================
 FROM base AS pruner
 
@@ -27,13 +26,6 @@ RUN npx -y turbo@2.6.1 prune api --docker
 
 # ==============================================================================
 # Stage 3: installer-builder - 依存インストール + ビルド + 本番依存抽出
-#
-# pnpm deploy は build 済み dist/ と install 済み node_modules の両方が必要
-# なので、install / build / deploy を 1 stage にまとめている。
-#
-# キャッシュ戦略:
-#   COPY out/json → install は package.json が変わらない限り cache hit
-#   COPY out/full → build は API ソースが変わらない限り cache hit
 # ==============================================================================
 FROM base AS installer-builder
 
