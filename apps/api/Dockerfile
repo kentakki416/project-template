@@ -33,6 +33,9 @@ WORKDIR /app
 
 # Step 1: package.json + lock だけ先にコピーして install (キャッシュ効率化)
 COPY --from=pruner /app/out/json/ ./
+# .pnpmfile.cjs は turbo prune の出力に含まれないので別途コピー
+# (pnpm install --frozen-lockfile が pnpmfileChecksum を検証するため必須)
+COPY .pnpmfile.cjs ./
 RUN pnpm install --frozen-lockfile
 
 # Step 2: ソース全部をコピー
