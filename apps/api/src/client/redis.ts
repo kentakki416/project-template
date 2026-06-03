@@ -1,8 +1,8 @@
-import Redis from "ioredis"
+import { createRedisClient } from "@repo/redis"
 
-export const redis = new Redis({
-  db: Number(process.env.REDIS_DB) || 0,
-  host: process.env.REDIS_HOST || "localhost",
-  password: process.env.REDIS_PASSWORD || undefined,
-  port: Number(process.env.REDIS_PORT) || 6379,
-})
+/**
+ * @deprecated step6 で削除予定。
+ * 新規コードは src/index.ts で createRedisClient() を呼び、
+ * Repository に DI で渡すこと。
+ */
+export const redis = createRedisClient()

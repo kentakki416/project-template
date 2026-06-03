@@ -28,6 +28,11 @@ export const baseEnvSchema = z.object({
   DATABASE_REPLICA_URL: z.string().url().optional(),
 
   /**
+   * Redis 接続 URL（省略時は @repo/redis が REDIS_HOST/PORT/PASSWORD/DB から組み立てる）
+   */
+  REDIS_URL: z.string().url().optional(),
+
+  /**
    * ログレベル
    */
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
