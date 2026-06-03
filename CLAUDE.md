@@ -6,20 +6,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Turborepo + pnpm モノレポ。
 
+### Apps
+
 - **apps/web**: Next.js 16 web application (port 3000)
 - **apps/admin**: Next.js 16 admin dashboard (port 3030)
 - **apps/mobile**: Expo/React Native mobile application
 - **apps/api**: Express.js API server (port 8080)
+
+### Packages
+
 - **packages/schema**: Shared Zod schemas (`@repo/api-schema`)
+- **packages/db** *(設計中)*: Prisma schema / migrations / generated client + `createPrismaClient` factory (`@repo/db`)
+- **packages/logger** *(設計中)*: `ILogger` + pino/winston/console/silent + AsyncLocalStorage context (`@repo/logger`)
+- **packages/errors** *(設計中)*: `Result<T>` + `ApiError` + 業務エラー生成ヘルパ (`@repo/errors`)
+- **packages/config** *(設計中)*: Zod ベース env スキーマ検証 + `loadEnv` (`@repo/config`)
+- **packages/redis** *(設計中)*: `createRedisClient` factory（BullMQ / Pub/Sub 対応）(`@repo/redis`)
+
+「設計中」の 5 パッケージは [`docs/spec/shared-packages/`](docs/spec/shared-packages/README.md) で設計フェーズ。実装は step1〜6 の PR を順次マージしていく形で進行する。実装完了までは apps/api 内部に旧パス（`apps/api/src/prisma/` / `apps/api/src/log/` / `apps/api/src/types/result.ts` / `apps/api/src/client/redis.ts`）が残る。
+
+### Infra
+
 - **infra/terraform**: AWS Infrastructure as Code
 
+### CLAUDE.md の参照
+
 各ディレクトリでの作業時は **対応する `CLAUDE.md` を参照してください**:
-- API → `apps/api/CLAUDE.md`（レイヤードアーキテクチャ / Result型 / テスト戦略 / dotenvx / Admin方針）
+
+- API → `apps/api/CLAUDE.md`（レイヤードアーキテクチャ / Result型 / テスト戦略 / dotenvx / Admin方針 / DI assembly）
 - Web → `apps/web/CLAUDE.md`
 - Admin → `apps/admin/CLAUDE.md`
 - Mobile → `apps/mobile/CLAUDE.md`
 - スキーマ → `packages/schema/CLAUDE.md`（スキーマ命名規則）
 - Terraform → `infra/terraform/CLAUDE.md`
+- 共通パッケージ設計 → [`docs/spec/shared-packages/README.md`](docs/spec/shared-packages/README.md)（`@repo/db` / `@repo/logger` / `@repo/errors` / `@repo/config` / `@repo/redis` の仕様・設計・移行手順）
 
 ## Common Commands (root)
 
@@ -106,3 +125,4 @@ ESLint v9 flat config (`eslint.config.{js,mjs}`)。**全アプリ共通ルール
 - スキーマパッケージは依存アプリより先にビルドする必要がある
 - スキーマ変更時は `cd packages/schema && pnpm build`
 - Terraform state は S3 + DynamoDB ロック（bootstrap で構成済み）
+- **共通パッケージ切り出し（設計中）**: `packages/db` / `logger` / `errors` / `config` / `redis` への移行は段階的に進行中。新規コードを書く際の方針は [`docs/spec/shared-packages/README.md`](docs/spec/shared-packages/README.md) を参照。Prisma / Redis は **factory のみを export** し、各 app の `src/index.ts` で 1 回呼んで Repository に DI する設計

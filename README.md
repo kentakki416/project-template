@@ -22,6 +22,8 @@ Turborepo + pnpm monorepo を使用したフルスタックアプリケーショ
 
 ## プロジェクト構成図
 
+> 🚧 packages/db / logger / errors / config / redis は [docs/spec/shared-packages/](docs/spec/shared-packages/README.md) で設計中。実装完了までは apps/api 内部に旧パス（`apps/api/src/prisma/` / `apps/api/src/log/` 等）が残ります。
+
 ```mermaid
 graph TB
     subgraph Apps
@@ -33,6 +35,11 @@ graph TB
 
     subgraph Packages
         Schema["packages/schema<br/>Zod スキーマ / 型定義"]
+        DB["packages/db<br/>Prisma schema + client<br/>(設計中)"]
+        Logger["packages/logger<br/>ILogger + pino/winston<br/>(設計中)"]
+        Errors["packages/errors<br/>Result&lt;T&gt; + ApiError<br/>(設計中)"]
+        Config["packages/config<br/>env スキーマ (Zod)<br/>(設計中)"]
+        RedisPkg["packages/redis<br/>ioredis client<br/>(設計中)"]
     end
 
     subgraph Infra
@@ -53,6 +60,11 @@ graph TB
     Schema --> Admin
     Schema --> Mobile
     Schema --> API
+    DB -.-> API
+    Logger -.-> API
+    Errors -.-> API
+    Config -.-> API
+    RedisPkg -.-> API
 ```
 
 ## 技術スタック
@@ -102,6 +114,8 @@ graph TB
 
 | ドキュメント | 内容 |
 |---|---|
+| [docs/spec/README.md](docs/spec/README.md) | 機能仕様クイックリファレンス（dev-login / shared-packages 等） |
+| [docs/spec/shared-packages/README.md](docs/spec/shared-packages/README.md) | packages/db, logger, errors, config, redis 切り出しの設計書 |
 | [docs/mcp.md](docs/mcp.md) | MCP サーバーの一覧・使い方・追加方法 |
 | [.claude/README.md](.claude/README.md) | Claude Code の設定（Agents・Commands・Skills） |
 
