@@ -1,6 +1,5 @@
 export { createPrismaClient } from "./client"
 export type { CreatePrismaClientOptions } from "./client"
-export { buildConnectionString } from "./connection-string"
 
 /**
  * Prisma が生成するドメイン型を re-export
