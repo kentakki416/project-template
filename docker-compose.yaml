@@ -40,39 +40,6 @@ services:
     networks:
       - app-network
 
-  # API Server
-  api:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-    container_name: project-template-api # TODO: プロジェクト名に変更
-    restart: unless-stopped
-    environment:
-      # apps/api/src/env.ts の apiEnvSchema で検証される env
-      NODE_ENV: development
-      PORT: 8080
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/project-template_dev
-      REDIS_URL: redis://redis:6379
-      FRONTEND_URL: http://localhost:3000
-      LOGGER_TYPE: pino
-      # JWT secrets はローカル動作確認用。本番では 32 文字以上の十分にランダムな値に置換すること
-      JWT_ACCESS_SECRET: local-jwt-access-secret-at-least-32-chars
-      JWT_REFRESH_SECRET: local-jwt-refresh-secret-at-least-32-chars
-      JWT_ACCESS_EXPIRATION: 15m
-      JWT_REFRESH_EXPIRATION: 7d
-      # Google OAuth はローカルでは dummy 値で起動可能 (認証は動作しないがヘルスチェック等は応答可能)
-      GOOGLE_CLIENT_ID: dummy
-      GOOGLE_CLIENT_SECRET: dummy
-    ports:
-      - '8080:8080'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - app-network
-
 volumes:
   postgres_data:
     driver: local
