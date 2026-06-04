@@ -10,25 +10,16 @@ datasource db {
     provider = "postgresql"
 }
 
-// 認証プロバイダー
-enum Provider {
-    GOOGLE
-    GITHUB
-    CREDENTIALS
-}
-
-// 認証アカウント（複数プロバイダー対応）
+// 認証アカウント（複数プロバイダー対応、 (provider, providerAccountId) で一意）
+// OAuth プロバイダの access_token / refresh_token 等は本アプリでは保持しない
+// （プロバイダ側で発行・管理し、アプリは取得した user info を DB に保存後は内部 JWT で完結する）
 model AuthAccount {
     id                Int      @id @default(autoincrement())
     userId            Int      @map("user_id")
-    provider          String   // "google", "github", "credentials" など
-    providerAccountId String   @map("provider_account_id") // プロバイダー側のユーザーID
-    accessToken       String?  @map("access_token") @db.Text
-    refreshToken      String?  @map("refresh_token") @db.Text
-    expiresAt         Int?     @map("expires_at")
-    tokenType         String?  @map("token_type")
-    scope             String?
-    idToken           String?  @map("id_token") @db.Text
+    /// "google" | "github" | "credentials" など
+    provider          String
+    /// プロバイダー側のユーザー ID
+    providerAccountId String   @map("provider_account_id")
     createdAt         DateTime @default(now()) @map("created_at")
     updatedAt         DateTime @updatedAt @map("updated_at")
 

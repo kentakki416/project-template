@@ -77,12 +77,6 @@ export const AuthAccountScalarFieldEnum = {
   userId: 'userId',
   provider: 'provider',
   providerAccountId: 'providerAccountId',
-  accessToken: 'accessToken',
-  refreshToken: 'refreshToken',
-  expiresAt: 'expiresAt',
-  tokenType: 'tokenType',
-  scope: 'scope',
-  idToken: 'idToken',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
