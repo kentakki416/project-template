@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { authDevLoginResponseSchema } from "@repo/api-schema"
 
+import { env } from "@/env"
 import { setAuthCookies } from "@/libs/auth"
 
-const API_BASE_URL = process.env.API_URL || "http://localhost:8080"
+const API_BASE_URL = env.API_URL
 
 /**
  * dev-login で使えるショートネーム → email のマッピング
@@ -31,7 +32,7 @@ const DEV_USERS: Record<string, string> = {
  * 3. API 側でも production では dev-login 自体が存在しない
  */
 export const GET = async (req: NextRequest) => {
-  if (process.env.NODE_ENV === "production") {
+  if (env.NODE_ENV === "production") {
     return new NextResponse("Not Found", { status: 404 })
   }
 
