@@ -64,8 +64,8 @@ app/ → components/ → features/(ロジック)
 
 ```typescript
 // OK: @repo/api-schema から型をインポート
-import { AuthMeResponse } from "@repo/api-schema"
-type User = AuthMeResponse
+import { GetUserResponse } from "@repo/api-schema"
+type User = GetUserResponse
 
 // NG: ローカルで独自に型を定義
 type User = {

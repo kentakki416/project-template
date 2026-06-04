@@ -1,26 +1,18 @@
 import { z } from "zod"
 
-// ===========================
-// GET /api/user/:id
-// ===========================
+// ========================================================
+// GET /api/user - 認証中ユーザーの取得
+// ========================================================
 
 /**
- * ユーザー取得APIのリクエストスキーマ
- * GETリクエストのパスパラメータとして受け取る
- */
-export const getUserRequestSchema = z.object({
-  id: z.string().min(1, "IDは必須です"),
-})
-
-/**
- * ユーザー取得APIのレスポンススキーマ
+ * 認証中ユーザー取得のレスポンススキーマ
  */
 export const getUserResponseSchema = z.object({
-  id: z.string(),
-  message: z.string(),
-  timestamp: z.string(),
+  avatar_url: z.string().nullable(),
+  created_at: z.string(),
+  email: z.string().nullable(),
+  id: z.number(),
+  name: z.string().nullable(),
 })
 
-// TypeScript型を推論
-export type GetUserRequest = z.infer<typeof getUserRequestSchema>
 export type GetUserResponse = z.infer<typeof getUserResponseSchema>

@@ -35,23 +35,6 @@ export const authGoogleResponseSchema = z.object({
 export type AuthGoogleResponse = z.infer<typeof authGoogleResponseSchema>
 
 // ========================================================
-// GET /api/auth/me
-// ========================================================
-
-/**
- * ユーザー情報取得のレスポンススキーマ
- */
-export const authMeResponseSchema = z.object({
-  avatar_url: z.string().nullable(),
-  email: z.string().nullable(),
-  id: z.number(),
-  name: z.string().nullable(),
-  created_at: z.string(),
-})
-
-export type AuthMeResponse = z.infer<typeof authMeResponseSchema>
-
-// ========================================================
 // POST /api/auth/refresh - Access/Refresh Token のローテーション
 // ========================================================
 
