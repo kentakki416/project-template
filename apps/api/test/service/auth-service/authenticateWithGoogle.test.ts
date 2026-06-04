@@ -87,16 +87,10 @@ describe("authenticateWithGoogle", () => {
     }
 
     const mockExistingAccount: AuthAccountWithUser = {
-      accessToken: null,
       createdAt: new Date(),
-      expiresAt: null,
       id: 1,
-      idToken: null,
       provider: "google",
       providerAccountId: "google-123",
-      refreshToken: null,
-      scope: null,
-      tokenType: null,
       updatedAt: new Date(),
       user: mockExistingUser,
       userId: 1,
