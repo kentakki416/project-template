@@ -1,6 +1,6 @@
 import { Response } from "express"
 
-import { authMeResponseSchema, ErrorResponse } from "@repo/api-schema"
+import { getUserResponseSchema, ErrorResponse } from "@repo/api-schema"
 import { logger } from "@repo/logger"
 
 import { AuthRequest } from "../../middleware/auth"
@@ -8,13 +8,15 @@ import { UserRepository } from "../../repository/prisma"
 import * as service from "../../service"
 
 /**
- * 現在ログイン中のユーザー情報を取得するAPI
+ * GET /api/user
+ *
+ * 認証中ユーザー自身の情報を返す。req.userId は authMiddleware が確定済みの前提。
  */
-export class AuthMeController {
+export class UserGetController {
   constructor(private userRepository: UserRepository) {}
 
   async execute(req: AuthRequest, res: Response) {
-    logger.info("AuthMeController: Fetching user information", {
+    logger.info("UserGetController: Fetching authenticated user", {
       requestedUserId: req.userId,
     })
 
@@ -28,12 +30,7 @@ export class AuthMeController {
       return res.status(result.error.statusCode).json(errorResponse)
     }
 
-    logger.info("AuthMeController: User information retrieved successfully", {
-      userId: result.value.id,
-    })
-
-    // レスポンススキーマのバリデーション
-    const response = authMeResponseSchema.parse({
+    const response = getUserResponseSchema.parse({
       avatar_url: result.value.avatarUrl,
       created_at: result.value.createdAt.toISOString(),
       email: result.value.email,
