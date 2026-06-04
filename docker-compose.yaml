@@ -48,7 +48,7 @@ services:
     container_name: project-template-api # TODO: プロジェクト名に変更
     restart: unless-stopped
     environment:
-      # @repo/config の apiEnvSchema で検証される env
+      # apps/api/src/env.ts の apiEnvSchema で検証される env
       NODE_ENV: development
       PORT: 8080
       DATABASE_URL: postgresql://postgres:password@postgres:5432/project-template_dev

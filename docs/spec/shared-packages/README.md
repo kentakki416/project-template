@@ -2,13 +2,14 @@
 
 このテンプレートが想定するユースケース（api / cron / worker / batch などの複数 server-side アプリ）で共通利用される基盤コードを `packages/` 配下に切り出し、新規 server-side app をテンプレートからスピンアップした時にゼロから書き直さずに済む状態にする。
 
-対象は以下の 5 パッケージ:
+対象は以下の 4 パッケージ:
 
 - `@repo/db` — Prisma schema / generated client / 接続クライアント
 - `@repo/logger` — Logger インターフェース + Pino/Winston/Console/Silent 実装 + リクエストコンテキスト
 - `@repo/errors` — `Result<T>` 型と業務エラーのヘルパ
-- `@repo/config` — 環境変数の Zod スキーマ検証
 - `@repo/redis` — ioredis 接続クライアント（singleton + factory）
+
+> **環境変数の検証は共通パッケージ化しない**。Zod スキーマと `safeParse → process.exit(1)` は各 app の `src/env.ts` にインラインで定義する。詳細は[「環境変数の管理」](#環境変数の管理)節を参照。
 
 このドキュメントは **仕様（What）** と **設計（How）** を分けて記述する：
 
@@ -26,15 +27,14 @@
   - [`@repo/db` の仕様](#repodb-の仕様)
   - [`@repo/logger` の仕様](#repologger-の仕様)
   - [`@repo/errors` の仕様](#repoerrors-の仕様)
-  - [`@repo/config` の仕様](#repoconfig-の仕様)
   - [`@repo/redis` の仕様](#reporedis-の仕様)
+  - [環境変数の管理](#環境変数の管理)
   - [テンプレート利用フロー](#テンプレート利用フロー)
 - [設計](#設計)
   - [パッケージ境界の原則](#パッケージ境界の原則)
   - [`@repo/db` の設計](#repodb-の設計)
   - [`@repo/logger` の設計](#repologger-の設計)
   - [`@repo/errors` の設計](#repoerrors-の設計)
-  - [`@repo/config` の設計](#repoconfig-の設計)
   - [`@repo/redis` の設計](#reporedis-の設計)
   - [ビルド順序と Turborepo タスク](#ビルド順序と-turborepo-タスク)
   - [段階移行戦略](#段階移行戦略)
@@ -56,7 +56,6 @@ flowchart LR
         DB["@repo/db<br/>Prisma schema + client"]
         LOG["@repo/logger<br/>ILogger + factory"]
         ERR["@repo/errors<br/>Result&lt;T&gt; + ApiError"]
-        CFG["@repo/config<br/>env schema (Zod)"]
         RDS["@repo/redis<br/>ioredis client"]
         SCH["@repo/api-schema<br/>(既存)"]
     end
@@ -70,24 +69,23 @@ flowchart LR
     API --> DB
     API --> LOG
     API --> ERR
-    API --> CFG
     API --> RDS
     API --> SCH
 
     CRON -.-> DB
     CRON -.-> LOG
     CRON -.-> ERR
-    CRON -.-> CFG
     CRON -.-> RDS
 
     WORKER -.-> DB
     WORKER -.-> LOG
     WORKER -.-> ERR
-    WORKER -.-> CFG
     WORKER -.-> RDS
 ```
 
-`@repo/db` / `@repo/logger` / `@repo/errors` / `@repo/config` / `@repo/redis` はすべて **Node 専用** パッケージ。`apps/web` / `apps/admin` / `apps/mobile` などのクライアント側からは原則 import しない（フロント用の logger / error は別途必要になった時点で `@repo/logger-client` 等として切り出す方針）。
+`@repo/db` / `@repo/logger` / `@repo/errors` / `@repo/redis` はすべて **Node 専用** パッケージ。`apps/web` / `apps/admin` / `apps/mobile` などのクライアント側からは原則 import しない（フロント用の logger / error は別途必要になった時点で `@repo/logger-client` 等として切り出す方針）。
+
+環境変数の検証ロジック（Zod スキーマ + `safeParse → process.exit(1)`）は **共通パッケージ化せず各 app の `src/env.ts` にインラインで定義する**。詳細は[「環境変数の管理」](#環境変数の管理)節を参照。
 
 ### `@repo/db` の仕様
 
@@ -122,13 +120,6 @@ flowchart LR
 - DB 障害などの想定外エラーは **throw** が原則で、`Result` には乗せない（既存ルールを維持）
 - cron / worker でも同じ `Result<T>` を使うことで、Service 層のコードを app 横断で再利用しやすくする
 
-### `@repo/config` の仕様
-
-- 各 app が起動時に `loadEnv(schema)` を呼ぶことで、`process.env` を Zod スキーマで検証し型付きオブジェクトとして取得できる
-- 共通環境変数（`NODE_ENV` / `DATABASE_URL` / `DATABASE_REPLICA_URL`（任意）/ `LOG_LEVEL` / `LOGGER_TYPE`）のスキーマ片を `@repo/config` から提供し、各 app は app 固有の env と合成してスキーマを定義する
-- 検証失敗時はプロセス起動時点で例外を投げて停止する（実行時の `undefined` 参照を防ぐ）
-- `dotenvx` による暗号化 `.env.local` の読み込みは各 app の `package.json` に残す（このパッケージは「読み込み済みの `process.env` を検証する」責務だけを持つ）
-
 ### `@repo/redis` の仕様
 
 - ioredis の **factory `createRedisClient({ url?, options? })` のみを提供** する。`packages/redis` 側に singleton を持たない（`@repo/db` と同じ方針）
@@ -141,6 +132,68 @@ flowchart LR
   - BullMQ Queue / Worker 用：`createRedisClient({ options: { maxRetriesPerRequest: null } })`（BullMQ の要件）
   - Pub/Sub subscriber 用：`createRedisClient()`（subscribe するとそのコネクションは通常コマンド不可になるため別接続が必須）
 
+### 環境変数の管理
+
+env 検証は **共通パッケージ化せず、各 app の `src/env.ts` に Zod スキーマと `safeParse → process.exit(1)` をインラインで定義する**。
+
+#### 方針
+
+- **app ごとに自己完結**：`apps/{app}/src/env.ts` 単体を読めば、その app が必要とする env 仕様が全て分かる
+- **fail-fast**：起動時に env が壊れていれば `process.exit(1)` で即停止し、実行時の `undefined` 参照を防ぐ
+- **shared package が読む env も各 app が直接宣言する**：`@repo/db` は `DATABASE_URL` / `DB_NAME`、`@repo/logger` は `LOGGER_TYPE` / `LOG_LEVEL`、`@repo/redis` は `REDIS_URL` / `REDIS_HOST` 等を `process.env` から読む。各 app の `env.ts` でそれらも宣言し、Zod 検証を通すことで「shared package が想定する env が揃っているか」を起動時に保証する
+- **Next.js（apps/web / apps/admin）は `server-only` でガード**：`env.ts` の先頭で `import "server-only"` を書き、client component から誤って import された場合にビルドエラーになるようにする
+
+#### apps/api の例
+
+```typescript
+import { z } from "zod"
+
+const apiEnvSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  PORT: z.coerce.number().int().positive().default(8080),
+  DATABASE_URL: z.string().url().optional(),    // @repo/db が読む
+  REDIS_URL: z.string().url().optional(),       // @repo/redis が読む
+  LOGGER_TYPE: z.enum(["pino", "winston", "console", "silent"]).default("pino"),  // @repo/logger が読む
+  JWT_ACCESS_SECRET: z.string().min(32),
+  /** ... */
+})
+
+const result = apiEnvSchema.safeParse(process.env)
+if (!result.success) {
+  console.error("❌ Invalid environment variables:")
+  console.error(JSON.stringify(result.error.format(), null, 2))
+  process.exit(1)
+}
+
+export const env = result.data
+export type ApiEnv = typeof env
+```
+
+#### apps/web の例（server-only ガード）
+
+```typescript
+import "server-only"
+import { z } from "zod"
+
+const webEnvSchema = z.object({
+  NEXT_PUBLIC_APP_URL: z.string().url(),
+  API_URL: z.string().url().default("http://localhost:8080"),
+  GOOGLE_CLIENT_ID: z.string().default("dummy"),
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+})
+
+const result = webEnvSchema.safeParse(process.env)
+if (!result.success) { /** ... */ process.exit(1) }
+
+export const env = result.data
+```
+
+#### なぜパッケージ化しないか
+
+- env は app ごとに異なる（api は JWT 系、web は OAuth 系、cron はクローラ系）。共通化できる「base env」は実は `NODE_ENV` / `LOG_LEVEL` 程度しかなく、抽象化のコストの方が大きい
+- test 環境では JWT 系を `vitest.setup.ts` で個別上書きするなど、「全 app 共通の default」は実態と乖離しやすい
+- shared package 自身が `process.env` を直接読む設計（`@repo/db` / `@repo/redis` / `@repo/logger`）なので、各 app の `env.ts` は「shared package が必要とする env を Zod で宣言し、起動時に検証する」役割を担うだけで十分
+
 ### テンプレート利用フロー
 
 新規 server-side app（例：cron）をテンプレートから派生させる場合、以下のフローを想定：
@@ -152,19 +205,38 @@ flowchart LR
        "@repo/db": "workspace:^",
        "@repo/logger": "workspace:^",
        "@repo/errors": "workspace:^",
-       "@repo/config": "workspace:^",
-       "@repo/redis": "workspace:^"
+       "@repo/redis": "workspace:^",
+       "zod": "^3.25.76"
      }
    }
    ```
-2. `src/index.ts` で env を検証してインフラを起動（接続を持つ client は **factory で 1 回作って使い回す**）
+2. `apps/cron/src/env.ts` に Zod スキーマで env を宣言（`apps/api/src/env.ts` を参考に必要なフィールドだけ抜粋）
    ```typescript
-   import { loadEnv, baseEnvSchema } from "@repo/config"
+   import { z } from "zod"
+
+   const cronEnvSchema = z.object({
+     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+     DATABASE_URL: z.string().url().optional(),
+     REDIS_URL: z.string().url().optional(),
+     LOGGER_TYPE: z.enum(["pino", "winston", "console", "silent"]).default("pino"),
+   })
+
+   const result = cronEnvSchema.safeParse(process.env)
+   if (!result.success) {
+     console.error("❌ Invalid environment variables:")
+     console.error(JSON.stringify(result.error.format(), null, 2))
+     process.exit(1)
+   }
+   export const env = result.data
+   ```
+3. `src/index.ts` でインフラを起動（接続を持つ client は **factory で 1 回作って使い回す**）
+   ```typescript
    import { createPrismaClient } from "@repo/db"
    import { logger } from "@repo/logger"
    import { createRedisClient } from "@repo/redis"
 
-   const env = loadEnv(baseEnvSchema)
+   import { env } from "./env"
+
    const prisma = createPrismaClient()
    const redis = createRedisClient()
 
@@ -177,7 +249,7 @@ flowchart LR
    await prisma.$disconnect()
    await redis.quit()
    ```
-3. Repository / Service は既存パターン（`Result<T>` + `repo: { ... }`）を踏襲し、`prisma` / `redis` は Repository コンストラクタに DI で渡す
+4. Repository / Service は既存パターン（`Result<T>` + `repo: { ... }`）を踏襲し、`prisma` / `redis` は Repository コンストラクタに DI で渡す
 
 ---
 
@@ -190,8 +262,8 @@ flowchart LR
 | **責務最小化** | 各パッケージは「共通 1 機能」に絞る。Repository や Service は packages に置かない（app ごとにクエリ最適化が異なるため） |
 | **依存方向** | `@repo/errors` は他 packages に依存しない。`@repo/logger` は `@repo/errors` のみ任意依存可。`@repo/db` は `@repo/errors` / `@repo/logger` のいずれにも依存しない（型レベルで切り離す） |
 | **Node 専用** | すべて Node 専用。Next.js / Expo の client bundle に混入させない |
-| **環境変数の読み込み** | `process.env` を直接読むのは `@repo/config` だけ。他パッケージは引数で受け取る（テスタビリティ確保） |
-| **接続を持つものは factory のみ** | `@repo/db` / `@repo/redis` は **factory のみ** を export し、singleton を持たない。client の生成・破棄は app 側 (`src/index.ts`) の責務。logger / errors / config のように接続を持たないものは singleton / 純関数で OK |
+| **環境変数の読み込み** | shared package は `process.env` を直接読んで良い（`@repo/db` / `@repo/redis` / `@repo/logger`）。各 app の `src/env.ts` で必要な env を Zod で宣言・検証することで、起動時に「shared package が想定する env が揃っているか」を保証する |
+| **接続を持つものは factory のみ** | `@repo/db` / `@repo/redis` は **factory のみ** を export し、singleton を持たない。client の生成・破棄は app 側 (`src/index.ts`) の責務。logger / errors のように接続を持たないものは singleton / 純関数で OK |
 | **副作用** | `package.json` に `"sideEffects": false` を付ける。tree-shaking 可能にする |
 
 ### `@repo/db` の設計
@@ -311,7 +383,7 @@ export const buildConnectionString = (): string => {
 }
 ```
 
-`@repo/config` 経由ではなく `process.env` を直接読む（理由：Prisma CLI 起動時など、app の `loadEnv` を経由しない経路でも使われるため）。
+`process.env` を直接読む（理由：Prisma CLI 起動時など、app の `src/env.ts` を経由しない経路でも使われるため）。値の存在保証は各 app の `src/env.ts` の Zod 検証側で担保する。
 
 #### マイグレーション / generate / seed のコマンド
 
@@ -378,7 +450,7 @@ packages/logger/
 ファイル構成は既存 `apps/api/src/log/` をほぼそのまま移設する。差分は以下：
 
 - `LOGGER_TYPE` 定数は `apps/api/src/const` から `packages/logger/src/const.ts` に移設
-- `LoggerFactory.getLogger()` の `process.env.LOGGER_TYPE` 読み込みは `@repo/config` の `baseEnvSchema` で検証済みの値を渡す形に変更（将来オプション、移行直後は `process.env` 読みのまま）
+- `LoggerFactory.getLogger()` は `process.env.LOGGER_TYPE` を直接読む。値の存在は各 app の `src/env.ts` で `LOGGER_TYPE` を Zod で宣言しておくことで保証される
 - Express への依存は **元から無いはず** なので変更不要
 
 #### context.ts と AsyncLocalStorage
@@ -466,72 +538,6 @@ export const conflictError = (message: string): ApiError => ({
 ```
 
 利用側は `import { Result, ok, err, notFoundError } from "@repo/errors"` のみで完結。
-
-### `@repo/config` の設計
-
-```
-packages/config/
-├── package.json
-├── tsconfig.json
-├── eslint.config.js
-└── src/
-    ├── base-schema.ts          # 共通 env スキーマ片
-    ├── load-env.ts             # loadEnv 関数
-    └── index.ts
-```
-
-#### base-schema.ts
-
-すべての server-side app が共通で必要とする env 変数のスキーマ片を定義する。
-
-```typescript
-import { z } from "zod"
-
-export const baseEnvSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  DATABASE_URL: z.string().url(),
-  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
-  LOGGER_TYPE: z.enum(["pino", "winston", "console", "silent"]).default("pino"),
-})
-
-export type BaseEnv = z.infer<typeof baseEnvSchema>
-```
-
-各 app は base に app 固有の env を `.extend()` で重ねる。
-
-```typescript
-// apps/api/src/env.ts
-import { baseEnvSchema, loadEnv } from "@repo/config"
-import { z } from "zod"
-
-const apiEnvSchema = baseEnvSchema.extend({
-  PORT: z.coerce.number().default(8080),
-  JWT_SECRET: z.string().min(32),
-  GOOGLE_CLIENT_ID: z.string(),
-  GOOGLE_CLIENT_SECRET: z.string(),
-  REDIS_URL: z.string().url(),
-})
-
-export const env = loadEnv(apiEnvSchema)
-```
-
-#### load-env.ts
-
-```typescript
-import type { ZodSchema, z as zType } from "zod"
-
-export const loadEnv = <T extends ZodSchema>(schema: T): zType.infer<T> => {
-  const result = schema.safeParse(process.env)
-  if (!result.success) {
-    console.error("❌ Invalid environment variables:")
-    console.error(result.error.format())
-    process.exit(1)
-  }
-  return result.data
-}
-```
-
-検証失敗時は **`process.exit(1)` でプロセスを即落とす**。env が壊れた状態で server が起動して実行時エラーになるよりは、起動時点で落として CI / 開発者に明示的に通知する方が安全。
 
 ### `@repo/redis` の設計
 
@@ -622,7 +628,7 @@ subscriber.on("message", (channel, message) => { /* ... */ })
 1. `REDIS_URL` が設定されていればそれを最優先
 2. 無ければ既存の 4 つの個別 env から組み立て（後方互換）
 
-新規 app では `REDIS_URL` 一本に統一する方針を `@repo/config` の `baseEnvSchema` で示唆する。
+新規 app では `REDIS_URL` 一本に統一する方針を各 app の `src/env.ts` で示唆する（`REDIS_URL` を必須相当、個別 env は optional で宣言する形）。
 
 ### ビルド順序と Turborepo タスク
 
@@ -656,11 +662,10 @@ apps/api のコードと既存 spec / テストを壊さないよう、以下の
 | step1 | `packages/db` 新設 + Prisma schema/migrations/seed 移設。`packages/db` は **factory のみ export**。既存 `apps/api/src/prisma/prisma.client.ts` は **内部 singleton を持つ wrapper** に差し替えて互換維持 | api の既存 import (`import { prisma } from "../prisma/prisma.client"`) は wrapper 経由で動き続ける |
 | step2 | `packages/logger` 新設 + 既存 log/ 移設 | api からは `@repo/logger` の `logger` を import 可能。既存 `apps/api/src/log/` は wrapper で互換維持 |
 | step3 | `packages/errors` 新設 + Result 型移設 | api からは `@repo/errors` の `Result` を import 可能。既存 `apps/api/src/types/result.ts` は wrapper |
-| step4 | `packages/config` 新設 + env スキーマ定義 | apps/api/src/env.ts を新設し、起動時 `loadEnv()` 呼び出しを追加 |
-| step5 | `packages/redis` 新設 + 既存 client/redis.ts 移設。**factory のみ export**。`apps/api/src/client/redis.ts` は内部 singleton を持つ wrapper に差し替え | api の既存 import (`import { redis } from "./client/redis"`) は wrapper 経由で動き続ける |
-| step6 | `apps/api/src/index.ts` を **factory ベースの DI assembly** に書き換え + 全 import を `@repo/*` に置換 + 旧 wrapper / 旧ファイル削除 + テスト setup を factory ベースに更新 | apps/api 内部の singleton 完全消滅。client の生成・破棄が `src/index.ts` に集約される |
+| step4 | `packages/redis` 新設 + 既存 client/redis.ts 移設。**factory のみ export**。`apps/api/src/client/redis.ts` は内部 singleton を持つ wrapper に差し替え | api の既存 import (`import { redis } from "./client/redis"`) は wrapper 経由で動き続ける |
+| step5 | `apps/api/src/env.ts` を新設して起動時 env 検証を導入 + `apps/api/src/index.ts` を **factory ベースの DI assembly** に書き換え + 全 import を `@repo/*` に置換 + 旧 wrapper / 旧ファイル削除 + テスト setup を factory ベースに更新 | apps/api 内部の singleton 完全消滅。env 検証と client の生成・破棄が `src/index.ts` に集約される |
 
-各 step は **単独で test:ci が緑**になることを必須にする。step6 完了までは「packages は factory のみ、apps/api 内部に singleton wrapper」という二重構造で互換性を保つ。
+各 step は **単独で test:ci が緑**になることを必須にする。step5 完了までは「packages は factory のみ、apps/api 内部に singleton wrapper」という二重構造で互換性を保つ。
 
 ### MVP 対象外（将来検討）
 
@@ -725,16 +730,17 @@ erDiagram
 sequenceDiagram
     autonumber
     participant Boot as apps/api/src/index.ts
-    participant CFG as "@repo/config"
+    participant ENV as src/env.ts
     participant LOG as "@repo/logger"
     participant DB as "@repo/db"
     participant RDS as "@repo/redis"
     participant Repo as Repositories
     participant EXP as Express
 
-    Boot->>CFG: loadEnv(apiEnvSchema)
-    CFG->>CFG: zod parse(process.env)
-    CFG-->>Boot: env (型付き)
+    Boot->>ENV: import { env }
+    ENV->>ENV: apiEnvSchema.safeParse(process.env)
+    Note over ENV: 失敗時は process.exit(1)
+    ENV-->>Boot: env (型付き)
     Boot->>LOG: import { logger }
     LOG-->>Boot: logger (singleton)
     Boot->>DB: createPrismaClient()
@@ -755,15 +761,17 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant Cron as apps/cron/src/index.ts
-    participant CFG as "@repo/config"
+    participant ENV as src/env.ts
     participant LOG as "@repo/logger"
     participant DB as "@repo/db"
     participant RDS as "@repo/redis"
     participant PG as Postgres
     participant R as Redis
 
-    Cron->>CFG: loadEnv(cronEnvSchema)
-    CFG-->>Cron: env
+    Cron->>ENV: import { env }
+    ENV->>ENV: cronEnvSchema.safeParse(process.env)
+    Note over ENV: 失敗時は process.exit(1)
+    ENV-->>Cron: env (型付き)
     Cron->>DB: createPrismaClient()
     DB-->>Cron: prisma
     Cron->>RDS: createRedisClient()

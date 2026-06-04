@@ -36,7 +36,6 @@ graph TB
         DB["packages/db<br/>Prisma schema + createPrismaClient"]
         Logger["packages/logger<br/>ILogger + pino/winston/console/silent"]
         Errors["packages/errors<br/>Result&lt;T&gt; + ApiError"]
-        Config["packages/config<br/>env スキーマ (Zod) + loadEnv"]
         RedisPkg["packages/redis<br/>createRedisClient (ioredis)"]
     end
 
@@ -61,7 +60,6 @@ graph TB
     DB --> API
     Logger --> API
     Errors --> API
-    Config --> API
     RedisPkg --> API
 ```
 

@@ -1,6 +1,6 @@
-# step5-packages-redis.md
+# step4-packages-redis.md
 
-`@repo/redis` パッケージを新設し、`apps/api/src/client/redis.ts` の接続クライアントを移設する。`packages/redis` は **factory `createRedisClient` のみを export** し、singleton は持たない（`@repo/db` と同じ方針）。既存 `apps/api/src/client/redis.ts` は **内部に singleton を持つ wrapper** に差し替えて既存 import を壊さず、step6 で wrapper 自体を削除する。
+`@repo/redis` パッケージを新設し、`apps/api/src/client/redis.ts` の接続クライアントを移設する。`packages/redis` は **factory `createRedisClient` のみを export** し、singleton は持たない（`@repo/db` と同じ方針）。既存 `apps/api/src/client/redis.ts` は **内部に singleton を持つ wrapper** に差し替えて既存 import を壊さず、step5 で wrapper 自体を削除する。
 
 Repository 実装（`IoRedisRefreshTokenRepository` 等）は **app 固有のため packages には移さない**。`@repo/redis` は接続クライアントと型 re-export のみを責務とする。
 
@@ -101,7 +101,7 @@ export const createRedisClient = (params: CreateRedisClientOptions = {}): Redis 
 
 #### URL ベース接続を優先する理由
 
-既存 `apps/api/src/client/redis.ts` は `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` / `REDIS_DB` の 4 つの env を個別に読んでいるが、`@repo/config` の `baseEnvSchema` では `REDIS_URL` を 1 本で扱う設計を推奨する（cron/worker でも env を増やさず済むため）。後方互換として個別 env も読めるようにしておく。
+既存 `apps/api/src/client/redis.ts` は `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` / `REDIS_DB` の 4 つの env を個別に読んでいるが、新規 app では `REDIS_URL` を 1 本で扱う設計を推奨する（cron/worker でも env を増やさず済むため）。後方互換として個別 env も読めるようにしておく。
 
 ### 4. `packages/redis/src/index.ts`
 
@@ -139,17 +139,17 @@ export { default as IoRedis } from "ioredis"
 
 ### 6. `packages/redis/.gitignore` / `eslint.config.js`
 
-step1〜4 と同様の構成。
+step1〜3 と同様の構成。
 
 ### 7. `apps/api` 側の互換 wrapper
 
-`apps/api/src/client/redis.ts` を以下に差し替える。`@repo/redis` は factory のみ提供なので、apps/api 内部で **暫定的に singleton を保持する** wrapper にして既存 import を壊さない。step6 でこの wrapper 自体を削除し、`src/index.ts` での DI assembly に置き換える。
+`apps/api/src/client/redis.ts` を以下に差し替える。`@repo/redis` は factory のみ提供なので、apps/api 内部で **暫定的に singleton を保持する** wrapper にして既存 import を壊さない。step5 でこの wrapper 自体を削除し、`src/index.ts` での DI assembly に置き換える。
 
 ```typescript
 import { createRedisClient } from "@repo/redis"
 
 /**
- * @deprecated step6 で削除予定。
+ * @deprecated step5 で削除予定。
  * 新規コードは src/index.ts で createRedisClient() を呼び、
  * Repository に DI で渡すこと。
  */
@@ -158,12 +158,12 @@ export const redis = createRedisClient()
 
 ### 8. Repository 実装は触らない
 
-`apps/api/src/repository/redis/refresh-token-repository.ts` / `healthcheck-repository.ts` などの **ioredis 直接 import** は **この step では変更しない**（step6 で `@repo/redis` 経由の import に書き換える）。
+`apps/api/src/repository/redis/refresh-token-repository.ts` / `healthcheck-repository.ts` などの **ioredis 直接 import** は **この step では変更しない**（step5 で `@repo/redis` 経由の import に書き換える）。
 
 理由：
 
 - Repository 実装は app 固有のロジックなので packages に移さない
-- ただし `import type Redis from "ioredis"` のような type-only import は `import type { Redis } from "@repo/redis"` に揃えるとパッケージ境界が綺麗になる（step6 で実施）
+- ただし `import type Redis from "ioredis"` のような type-only import は `import type { Redis } from "@repo/redis"` に揃えるとパッケージ境界が綺麗になる（step5 で実施）
 
 ### 9. `apps/api/package.json` の修正
 
@@ -171,7 +171,6 @@ export const redis = createRedisClient()
    "dependencies": {
      "@repo/db": "workspace:^",
      "@repo/api-schema": "workspace:^",
-     "@repo/config": "workspace:^",
      "@repo/errors": "workspace:^",
      "@repo/logger": "workspace:^",
 +    "@repo/redis": "workspace:^",
@@ -182,28 +181,9 @@ export const redis = createRedisClient()
      "jsonwebtoken": "^9.0.3",
 ```
 
-`ioredis` の直接依存は `@repo/redis` 側に集約される。ただし step5 完了時点では Repository が `import Redis from "ioredis"` のままなので、**この step では `ioredis` を残しておき、step6 の最終クリーンアップで削除する**（step5 単独で test:ci が緑になる状態を維持するため）。
+`ioredis` の直接依存は `@repo/redis` 側に集約される。ただし step4 完了時点では Repository が `import Redis from "ioredis"` のままなので、**この step では `ioredis` を残しておき、step5 の最終クリーンアップで削除する**（step4 単独で test:ci が緑になる状態を維持するため）。
 
-→ つまり step5 では `@repo/redis` を追加するだけで `ioredis` は残す。最終削除は step6。
-
-### 10. `@repo/config` の baseEnvSchema 確認
-
-step4 で定義した `baseEnvSchema` に `REDIS_URL` を追加する（任意項目）：
-
-```diff
- export const baseEnvSchema = z.object({
-   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-   DATABASE_URL: z.string().url(),
-   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
-   LOGGER_TYPE: z.enum(["pino", "winston", "console", "silent"]).default("pino"),
-+  /**
-+   * Redis 接続 URL（省略時は @repo/redis が REDIS_HOST/PORT/PASSWORD/DB から組み立てる）
-+   */
-+  REDIS_URL: z.string().url().optional(),
- })
-```
-
-`apps/api/src/env.ts` の `apiEnvSchema` で `REDIS_URL: z.string().url()` を **必須化** していれば、API では Redis が常に必要であることを型レベルで担保できる（base では optional、api では required にする運用）。
+→ つまり step4 では `@repo/redis` を追加するだけで `ioredis` は残す。最終削除は step5。
 
 ## 動作確認
 
@@ -267,4 +247,4 @@ pnpm test:ci
 
 refresh token 関連のテスト（`IoRedisRefreshTokenRepository`）が緑であること。Repository 実装は触っていないので影響なし。
 
-**ゴール**: `apps/api/src/client/redis.ts` が **`createRedisClient()` を呼んで singleton 化する暫定 wrapper** になり、`@repo/redis` は factory のみを export する状態。step6 でこの wrapper も削除して `apps/api/src/index.ts` に DI assembly を集約する。
+**ゴール**: `apps/api/src/client/redis.ts` が **`createRedisClient()` を呼んで singleton 化する暫定 wrapper** になり、`@repo/redis` は factory のみを export する状態。step5 でこの wrapper も削除して `apps/api/src/index.ts` に DI assembly を集約する。

@@ -1,6 +1,8 @@
+import { env } from "@/env"
+
 import { clearAuthCookies, getAccessToken, getRefreshToken, setAuthCookies } from "./auth"
 
-const API_BASE_URL = process.env.API_URL || "http://localhost:8080"
+const API_BASE_URL = env.API_URL
 
 const buildHeaders = async (extra?: HeadersInit): Promise<HeadersInit> => {
   const token = await getAccessToken()
