@@ -3,6 +3,7 @@ import { Response } from "express"
 import { getUserResponseSchema, ErrorResponse } from "@repo/api-schema"
 import { logger } from "@repo/logger"
 
+import { parseResponse } from "../../lib/parse-schema"
 import { AuthRequest } from "../../middleware/auth"
 import { UserRepository } from "../../repository/prisma"
 import * as service from "../../service"
@@ -30,7 +31,7 @@ export class UserGetController {
       return res.status(result.error.statusCode).json(errorResponse)
     }
 
-    const response = getUserResponseSchema.parse({
+    const response = parseResponse(getUserResponseSchema, {
       avatar_url: result.value.avatarUrl,
       created_at: result.value.createdAt.toISOString(),
       email: result.value.email,
