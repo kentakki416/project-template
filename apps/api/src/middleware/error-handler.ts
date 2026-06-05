@@ -3,18 +3,15 @@ import { NextFunction, Request, Response } from "express"
 import { ErrorResponse } from "@repo/api-schema"
 import { logger } from "@repo/logger"
 
-/**
- * ZodError かどうかを判定する（zod パッケージを直接依存せずに判定するため name チェック）
- */
-const isZodError = (err: unknown): err is Error & { issues: unknown[] } =>
-  err instanceof Error && err.name === "ZodError" && Array.isArray((err as { issues?: unknown }).issues)
+import { RequestSchemaMismatchError, ResponseSchemaMismatchError } from "../lib/parse-schema"
 
 /**
  * ルート内で発生したがキャッチされなかった例外を適切な HTTP ステータスで返す最終ハンドラ
  * Service が業務エラーを Result として返却する運用と対になる:
- *   - Result.err(4xx) → Controller が sendResult で返却
- *   - ZodError（バリデーション失敗） → ここで捕捉して 400
- *   - 想定外の例外（DB 障害・ライブラリの throw 等） → ここで捕捉して 500
+ *   - Result.err(4xx) → Controller が透過で返却
+ *   - RequestSchemaMismatchError（リクエスト検証失敗） → 400 Bad Request
+ *   - ResponseSchemaMismatchError（レスポンス検証失敗 = サーバ起因の契約違反） → 500
+ *   - 想定外の例外（DB 障害・ライブラリの throw 等） → 500
  *
  * Express の「引数が4つのミドルウェア」はエラーハンドラとして扱われるため
  * シグネチャは (err, req, res, next) で固定。next は呼ばないが Express の規約で受け取る
@@ -29,10 +26,10 @@ export const errorHandler = (err: unknown, req: Request, res: Response, _next: N
   }
 
   /**
-   * Zod のバリデーション失敗は 400 Bad Request
+   * リクエスト検証失敗は 400 Bad Request
    */
-  if (isZodError(err)) {
-    logger.warn(`Validation error at ${req.method} ${req.path}`, { issues: err.issues })
+  if (err instanceof RequestSchemaMismatchError) {
+    logger.warn(`Request validation error at ${req.method} ${req.path}`, { issues: err.zodError.issues })
     const errorResponse: ErrorResponse = {
       error: "Invalid request",
       status_code: 400,
@@ -41,7 +38,24 @@ export const errorHandler = (err: unknown, req: Request, res: Response, _next: N
   }
 
   /**
+   * レスポンス検証失敗はサーバ起因の不整合 → 500
+   */
+  if (err instanceof ResponseSchemaMismatchError) {
+    logger.error(
+      `Response schema mismatch at ${req.method} ${req.path}`,
+      err,
+      { issues: err.zodError.issues }
+    )
+    const errorResponse: ErrorResponse = {
+      error: "Internal Server Error",
+      status_code: 500,
+    }
+    return res.status(500).json(errorResponse)
+  }
+
+  /**
    * 想定外の例外は 500 Internal Server Error
+   * （Service 層が外部 API のレスポンスを zod 検証した際の素の ZodError もここに落ちる）
    */
   logger.error(
     `Unhandled error at ${req.method} ${req.path}`,
