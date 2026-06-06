@@ -23,16 +23,16 @@ export class IoRedisRefreshTokenRepository implements RefreshTokenRepository {
     this._redis = redis
   }
 
-  async save(jti: string, userId: number, ttlSeconds: number): Promise<void> {
+  public async save(jti: string, userId: number, ttlSeconds: number): Promise<void> {
     await this._redis.set(keyOf(jti), String(userId), "EX", ttlSeconds)
   }
 
-  async findUserId(jti: string): Promise<number | null> {
+  public async findUserId(jti: string): Promise<number | null> {
     const raw = await this._redis.get(keyOf(jti))
     return raw === null ? null : Number(raw)
   }
 
-  async delete(jti: string): Promise<void> {
+  public async delete(jti: string): Promise<void> {
     await this._redis.del(keyOf(jti))
   }
 }

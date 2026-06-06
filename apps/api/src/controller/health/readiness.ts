@@ -19,7 +19,7 @@ export class HealthReadinessController {
     private _redisHealthRepository: RedisHealthRepository,
   ) {}
 
-  async execute(_req: Request, res: Response) {
+  public async execute(_req: Request, res: Response) {
     const result = await service.health.checkReadiness({
       databaseHealthRepository: this._databaseHealthRepository,
       redisHealthRepository: this._redisHealthRepository,

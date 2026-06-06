@@ -9,7 +9,7 @@ import { parseResponse } from "../../lib/parse-schema"
  * サーバープロセスが応答可能かを確認する
  */
 export class HealthLivenessController {
-  execute(_req: Request, res: Response) {
+  public execute(_req: Request, res: Response) {
     const response = parseResponse(healthLivenessResponseSchema, {
       status: "ok",
     })

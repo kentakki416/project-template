@@ -10,12 +10,12 @@ import * as service from "../../service"
  * メモ削除API
  */
 export class MemoDeleteController {
-  constructor(private memoRepository: MemoRepository) {}
+  constructor(private _memoRepository: MemoRepository) {}
 
-  async execute(req: Request, res: Response) {
+  public async execute(req: Request, res: Response) {
     const { id } = parseRequest(deleteMemoPathParamSchema, req.params)
 
-    const result = await service.memo.deleteMemo(id, { memoRepository: this.memoRepository })
+    const result = await service.memo.deleteMemo(id, { memoRepository: this._memoRepository })
 
     if (!result.ok) {
       const errorResponse: ErrorResponse = {

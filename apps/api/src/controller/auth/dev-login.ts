@@ -26,11 +26,11 @@ import * as service from "../../service"
  */
 export class AuthDevLoginController {
   constructor(
-    private userRepository: UserRepository,
-    private refreshTokenRepository: RefreshTokenRepository,
+    private _userRepository: UserRepository,
+    private _refreshTokenRepository: RefreshTokenRepository,
   ) {}
 
-  async execute(req: Request, res: Response) {
+  public async execute(req: Request, res: Response) {
     if (process.env.NODE_ENV === "production") {
       return res.status(404).json({ error: "Not Found", status_code: 404 })
     }
@@ -42,8 +42,8 @@ export class AuthDevLoginController {
     const result = await service.auth.loginAsDevUser(
       { email },
       {
-        refreshTokenRepository: this.refreshTokenRepository,
-        userRepository: this.userRepository,
+        refreshTokenRepository: this._refreshTokenRepository,
+        userRepository: this._userRepository,
       },
       { generateAccessToken, generateRefreshToken },
     )

@@ -12,7 +12,7 @@ const { combine, timestamp, errors, json, simple, colorize } = format
  * Winston Logger
  */
 export class WinstonLogger implements ILogger {
-  private logger: ReturnType<typeof createLogger>
+  private _logger: ReturnType<typeof createLogger>
 
   constructor() {
     const env = (process.env.NODE_ENV || NODE_ENV.DEV) as NodeEnv
@@ -27,7 +27,7 @@ export class WinstonLogger implements ILogger {
         ? combine(errors({ stack: true }), timestamp(), json())
         : combine(errors({ stack: true }), timestamp({ format: "YYYY-MM-DD HH:mm:ss" }), colorize(), simple())
 
-    this.logger = createLogger({
+    this._logger = createLogger({
       exitOnError: false,
       format: combine(errors({ stack: true }), timestamp()),
       level: logLevel,
@@ -46,35 +46,35 @@ export class WinstonLogger implements ILogger {
   /**
    * コンテキスト（requestId, userId）を含むchild loggerを取得
    */
-  private getLogger(): ReturnType<typeof createLogger> {
+  private _getLogger(): ReturnType<typeof createLogger> {
     const context = logContext.getStore()
     if (context) {
-      return this.logger.child(context)
+      return this._logger.child(context)
     }
-    return this.logger
+    return this._logger
   }
 
-  debug(message: string, metadata?: LogMetadata): void {
-    this.getLogger().debug(message, metadata)
+  public debug(message: string, metadata?: LogMetadata): void {
+    this._getLogger().debug(message, metadata)
   }
 
-  info(message: string, metadata?: LogMetadata): void {
-    this.getLogger().info(message, metadata)
+  public info(message: string, metadata?: LogMetadata): void {
+    this._getLogger().info(message, metadata)
   }
 
-  warn(message: string, metadata?: LogMetadata): void {
-    this.getLogger().warn(message, metadata)
+  public warn(message: string, metadata?: LogMetadata): void {
+    this._getLogger().warn(message, metadata)
   }
 
-  error(message: string, error?: Error, metadata?: LogMetadata): void {
+  public error(message: string, error?: Error, metadata?: LogMetadata): void {
     if (error) {
-      this.getLogger().error(message, {
+      this._getLogger().error(message, {
         error: error.message,
         stack: error.stack,
         ...metadata,
       })
     } else {
-      this.getLogger().error(message, metadata)
+      this._getLogger().error(message, metadata)
     }
   }
 }

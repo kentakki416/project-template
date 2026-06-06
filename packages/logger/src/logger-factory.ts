@@ -10,27 +10,27 @@ import { WinstonLogger } from "./winston-logger"
  * 環境変数に基づいて適切な Logger インスタンスを生成
  */
 export class LoggerFactory {
-  private static instance: ILogger | null = null
+  private static _instance: ILogger | null = null
 
   /**
    * Logger インスタンスを取得（シングルトン）
    */
-  static getLogger(): ILogger {
-    if (this.instance) {
-      return this.instance
+  public static getLogger(): ILogger {
+    if (this._instance) {
+      return this._instance
     }
 
     const loggerType = (process.env.LOGGER_TYPE || LOGGER_TYPE.PINO) as LoggerType
 
-    this.instance = this.createLogger(loggerType)
-    return this.instance
+    this._instance = this.createLogger(loggerType)
+    return this._instance
   }
 
   /**
    * Logger インスタンスを明示的に作成
    * テスト時などに使用
    */
-  static createLogger(type: LoggerType): ILogger {
+  public static createLogger(type: LoggerType): ILogger {
     switch (type) {
     case LOGGER_TYPE.CONSOLE:
       return new ConsoleLogger()
@@ -48,8 +48,8 @@ export class LoggerFactory {
   /**
    * シングルトンインスタンスをリセット
    */
-  static reset(): void {
-    this.instance = null
+  public static reset(): void {
+    this._instance = null
   }
 }
 

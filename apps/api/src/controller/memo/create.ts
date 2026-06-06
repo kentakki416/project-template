@@ -10,12 +10,12 @@ import * as service from "../../service"
  * メモ作成API
  */
 export class MemoCreateController {
-  constructor(private memoRepository: MemoRepository) {}
+  constructor(private _memoRepository: MemoRepository) {}
 
-  async execute(req: Request, res: Response) {
+  public async execute(req: Request, res: Response) {
     const data = parseRequest(createMemoRequestSchema, req.body)
 
-    const result = await service.memo.createMemo(data, { memoRepository: this.memoRepository })
+    const result = await service.memo.createMemo(data, { memoRepository: this._memoRepository })
 
     if (!result.ok) {
       const errorResponse: ErrorResponse = {

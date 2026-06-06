@@ -12,10 +12,10 @@ import * as service from "../../service"
  * 予期しない例外はグローバルエラーハンドラに委譲（throw を catch しない）
  */
 export class MemoListController {
-  constructor(private memoRepository: MemoRepository) {}
+  constructor(private _memoRepository: MemoRepository) {}
 
-  async execute(_req: Request, res: Response) {
-    const result = await service.memo.getAllMemos({ memoRepository: this.memoRepository })
+  public async execute(_req: Request, res: Response) {
+    const result = await service.memo.getAllMemos({ memoRepository: this._memoRepository })
 
     if (!result.ok) {
       const errorResponse: ErrorResponse = {

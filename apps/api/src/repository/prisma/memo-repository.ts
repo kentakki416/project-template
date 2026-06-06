@@ -39,20 +39,20 @@ export class PrismaMemoRepository implements MemoRepository {
     this._prisma = prisma
   }
 
-  async findAll(): Promise<Memo[]> {
+  public async findAll(): Promise<Memo[]> {
     const memos = await this._prisma.memo.findMany({
       orderBy: { createdAt: "desc" },
     })
     return memos.map((memo) => this._toDomainMemo(memo))
   }
 
-  async findById(id: number): Promise<Memo | null> {
+  public async findById(id: number): Promise<Memo | null> {
     const memo = await this._prisma.memo.findUnique({ where: { id } })
     if (!memo) return null
     return this._toDomainMemo(memo)
   }
 
-  async create(data: CreateMemoInput): Promise<Memo> {
+  public async create(data: CreateMemoInput): Promise<Memo> {
     const memo = await this._prisma.memo.create({
       data: {
         body: data.body,
@@ -62,7 +62,7 @@ export class PrismaMemoRepository implements MemoRepository {
     return this._toDomainMemo(memo)
   }
 
-  async update(id: number, data: UpdateMemoInput): Promise<Memo> {
+  public async update(id: number, data: UpdateMemoInput): Promise<Memo> {
     const memo = await this._prisma.memo.update({
       data: {
         body: data.body,
@@ -73,7 +73,7 @@ export class PrismaMemoRepository implements MemoRepository {
     return this._toDomainMemo(memo)
   }
 
-  async deleteById(id: number): Promise<void> {
+  public async deleteById(id: number): Promise<void> {
     await this._prisma.memo.delete({ where: { id } })
   }
 
