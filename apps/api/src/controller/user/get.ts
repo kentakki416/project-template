@@ -14,14 +14,14 @@ import * as service from "../../service"
  * 認証中ユーザー自身の情報を返す。req.userId は authMiddleware が確定済みの前提。
  */
 export class UserGetController {
-  constructor(private userRepository: UserRepository) {}
+  constructor(private _userRepository: UserRepository) {}
 
-  async execute(req: AuthRequest, res: Response) {
+  public async execute(req: AuthRequest, res: Response) {
     logger.info("UserGetController: Fetching authenticated user", {
       requestedUserId: req.userId,
     })
 
-    const result = await service.user.getUserById(req.userId!, { userRepository: this.userRepository })
+    const result = await service.user.getUserById(req.userId!, { userRepository: this._userRepository })
 
     if (!result.ok) {
       const errorResponse: ErrorResponse = {

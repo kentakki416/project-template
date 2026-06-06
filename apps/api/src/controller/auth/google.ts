@@ -19,14 +19,14 @@ import * as service from "../../service"
  */
 export class AuthGoogleController {
   constructor(
-    private authAccountRepository: AuthAccountRepository,
-    private userRepository: UserRepository,
-    private refreshTokenRepository: RefreshTokenRepository,
-    private transactionRunner: TransactionRunner,
-    private googleOAuthClient: IGoogleOAuthClient
+    private _authAccountRepository: AuthAccountRepository,
+    private _userRepository: UserRepository,
+    private _refreshTokenRepository: RefreshTokenRepository,
+    private _transactionRunner: TransactionRunner,
+    private _googleOAuthClient: IGoogleOAuthClient
   ) {}
 
-  async execute(req: Request, res: Response) {
+  public async execute(req: Request, res: Response) {
     logger.info("AuthGoogleController: Verifying Google authorization code")
 
     const { code, redirect_uri: redirectUri } = parseRequest(authGoogleRequestSchema, req.body)
@@ -34,12 +34,12 @@ export class AuthGoogleController {
     const result = await service.auth.authenticateWithGoogle(
       { code, redirectUri },
       {
-        authAccountRepository: this.authAccountRepository,
-        refreshTokenRepository: this.refreshTokenRepository,
-        transactionRunner: this.transactionRunner,
-        userRepository: this.userRepository,
+        authAccountRepository: this._authAccountRepository,
+        refreshTokenRepository: this._refreshTokenRepository,
+        transactionRunner: this._transactionRunner,
+        userRepository: this._userRepository,
       },
-      this.googleOAuthClient,
+      this._googleOAuthClient,
       { generateAccessToken, generateRefreshToken }
     )
 

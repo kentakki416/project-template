@@ -98,6 +98,17 @@ module.exports = defineConfig([
       "@typescript-eslint/no-unnecessary-type-assertion": "error",
       "@typescript-eslint/promise-function-async": "warn",
 
+      /** TypeScript: クラスメンバーのアクセス修飾子を明示（constructor は除外） */
+      "@typescript-eslint/explicit-member-accessibility": [
+        "error",
+        {
+          accessibility: "explicit",
+          overrides: {
+            constructors: "off",
+          },
+        },
+      ],
+
       /** TypeScript: 命名規則 */
       "@typescript-eslint/naming-convention": [
         "error",
@@ -112,6 +123,12 @@ module.exports = defineConfig([
         {
           format: ["PascalCase"],
           selector: "typeLike",
+        },
+        {
+          format: ["camelCase"],
+          leadingUnderscore: "require",
+          modifiers: ["private"],
+          selector: "memberLike",
         },
       ],
 

@@ -95,6 +95,37 @@ ESLint v9 flat config (`eslint.config.{js,mjs}`)。**全アプリ共通ルール
 - **API (`apps/api`)**: `function` 宣言は使わず、`const` + アロー関数で統一（例: `export const foo = async () => {}`）
 - **Web / Mobile / Admin**: コンポーネントは `function` に統一
 
+### Class member style (全 apps / packages 共通)
+- **constructor 以外のクラスメンバー（メソッド・プロパティ）は必ず `public` / `private` を明示する**（`@typescript-eslint/explicit-member-accessibility`）。修飾子を省略してデフォルトの `public` 扱いにしない。`protected` は継承を使う場合のみ。
+- **`private` なメンバー（メソッド・プロパティ・constructor parameter property を含む）は `_` プレフィックスを必須にする**（`@typescript-eslint/naming-convention` の `memberLike` + `private` modifier + `leadingUnderscore: "require"`）。
+- `constructor` は除外（修飾子を書かない）。
+- 例:
+  ```typescript
+  /** ✓ OK */
+  class PrismaUserRepository implements UserRepository {
+    constructor(private readonly _prisma: PrismaClient) {}
+
+    public async findById(id: number): Promise<User | null> {
+      const row = await this._prisma.user.findUnique({ where: { id } })
+      return row ? this._toDomain(row) : null
+    }
+
+    private _toDomain(row: PrismaUser): User {
+      return { id: row.id, name: row.name }
+    }
+  }
+
+  /** ✗ NG: public が無い */
+  class Foo {
+    doSomething() {}
+  }
+
+  /** ✗ NG: private に _ プレフィックスが無い */
+  class Foo {
+    private helper() {}
+  }
+  ```
+
 ### Comment style
 - ブロックコメントは `/** */` 形式で統一（`//` は使わない）
 - 1行でも複数行形式で書く:

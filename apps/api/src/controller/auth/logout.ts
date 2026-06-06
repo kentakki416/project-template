@@ -13,16 +13,16 @@ import * as service from "../../service"
  * 冪等性のため、無効なトークンでも 200 を返す
  */
 export class AuthLogoutController {
-  constructor(private refreshTokenRepository: RefreshTokenRepository) {}
+  constructor(private _refreshTokenRepository: RefreshTokenRepository) {}
 
-  async execute(req: Request, res: Response) {
+  public async execute(req: Request, res: Response) {
     logger.info("AuthLogoutController: Logging out")
 
     const { refresh_token: refreshToken } = parseRequest(authLogoutRequestSchema, req.body)
 
     const result = await service.auth.logout(
       { refreshToken },
-      { refreshTokenRepository: this.refreshTokenRepository },
+      { refreshTokenRepository: this._refreshTokenRepository },
       (token) => {
         const payload = verifyRefreshToken(token)
         return payload ? { jti: payload.jti, userId: payload.userId } : null

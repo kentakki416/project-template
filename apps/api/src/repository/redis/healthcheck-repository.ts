@@ -17,7 +17,7 @@ export class IoRedisHealthRepository implements RedisHealthRepository {
     this._redis = redis
   }
 
-  async ping(): Promise<void> {
+  public async ping(): Promise<void> {
     await this._redis.ping()
   }
 }

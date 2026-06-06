@@ -10,12 +10,12 @@ import * as service from "../../service"
  * メモ詳細取得API
  */
 export class MemoDetailController {
-  constructor(private memoRepository: MemoRepository) {}
+  constructor(private _memoRepository: MemoRepository) {}
 
-  async execute(req: Request, res: Response) {
+  public async execute(req: Request, res: Response) {
     const { id } = parseRequest(getMemoPathParamSchema, req.params)
 
-    const result = await service.memo.getMemoById(id, { memoRepository: this.memoRepository })
+    const result = await service.memo.getMemoById(id, { memoRepository: this._memoRepository })
 
     if (!result.ok) {
       const errorResponse: ErrorResponse = {

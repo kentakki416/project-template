@@ -10,13 +10,13 @@ import * as service from "../../service"
  * メモ更新API
  */
 export class MemoUpdateController {
-  constructor(private memoRepository: MemoRepository) {}
+  constructor(private _memoRepository: MemoRepository) {}
 
-  async execute(req: Request, res: Response) {
+  public async execute(req: Request, res: Response) {
     const { id } = parseRequest(updateMemoPathParamSchema, req.params)
     const data = parseRequest(updateMemoRequestSchema, req.body)
 
-    const result = await service.memo.updateMemo(id, data, { memoRepository: this.memoRepository })
+    const result = await service.memo.updateMemo(id, data, { memoRepository: this._memoRepository })
 
     if (!result.ok) {
       const errorResponse: ErrorResponse = {

@@ -17,7 +17,7 @@ export class PrismaDatabaseHealthRepository implements DatabaseHealthRepository 
     this._prisma = prisma
   }
 
-  async ping(): Promise<void> {
+  public async ping(): Promise<void> {
     await this._prisma.$queryRaw`SELECT 1`
   }
 }

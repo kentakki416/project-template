@@ -93,7 +93,18 @@ module.exports = defineConfig([
       '@typescript-eslint/no-empty-function': 'error',                 // 空の関数を禁止
       '@typescript-eslint/no-unnecessary-type-assertion': 'error',     // 不要な型アサーションを禁止
       '@typescript-eslint/promise-function-async': 'warn',             // Promiseを返す関数はasyncに
-      
+
+      // === TypeScript: クラスメンバーのアクセス修飾子を明示（constructor は除外） ===
+      '@typescript-eslint/explicit-member-accessibility': [
+        'error',
+        {
+          accessibility: 'explicit',
+          overrides: {
+            constructors: 'off',
+          },
+        },
+      ],
+
       // === TypeScript: 命名規則 ===
       '@typescript-eslint/naming-convention': [
         'error',
@@ -112,6 +123,12 @@ module.exports = defineConfig([
         {
           selector: 'typeLike',
           format: ['PascalCase'],                              // 型: PascalCase
+        },
+        {
+          selector: 'memberLike',
+          modifiers: ['private'],
+          format: ['camelCase'],                               // private メンバー: _ プレフィックス必須
+          leadingUnderscore: 'require',
         },
       ],
       

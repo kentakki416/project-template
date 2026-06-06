@@ -10,7 +10,7 @@ type NodeEnv = typeof NODE_ENV[keyof typeof NODE_ENV]
  * Pino Logger
  */
 export class PinoLogger implements ILogger {
-  private logger: pino.Logger
+  private _logger: pino.Logger
 
   constructor() {
     const env = (process.env.NODE_ENV || NODE_ENV.DEV) as NodeEnv
@@ -20,7 +20,7 @@ export class PinoLogger implements ILogger {
      * 開発環境: pino-pretty で可読性向上
      * 本番環境: JSON 形式で stdout に出力
      */
-    this.logger = pino(
+    this._logger = pino(
       {
         base: {
           env: env,
@@ -44,21 +44,21 @@ export class PinoLogger implements ILogger {
     )
   }
 
-  debug(message: string, metadata?: LogMetadata): void {
-    this.logger.debug(metadata || {}, message)
+  public debug(message: string, metadata?: LogMetadata): void {
+    this._logger.debug(metadata || {}, message)
   }
 
-  info(message: string, metadata?: LogMetadata): void {
-    this.logger.info(metadata || {}, message)
+  public info(message: string, metadata?: LogMetadata): void {
+    this._logger.info(metadata || {}, message)
   }
 
-  warn(message: string, metadata?: LogMetadata): void {
-    this.logger.warn(metadata || {}, message)
+  public warn(message: string, metadata?: LogMetadata): void {
+    this._logger.warn(metadata || {}, message)
   }
 
-  error(message: string, error?: Error, metadata?: LogMetadata): void {
+  public error(message: string, error?: Error, metadata?: LogMetadata): void {
     if (error) {
-      this.logger.error(
+      this._logger.error(
         {
           err: {
             message: error.message,
@@ -69,7 +69,7 @@ export class PinoLogger implements ILogger {
         message
       )
     } else {
-      this.logger.error(metadata || {}, message)
+      this._logger.error(metadata || {}, message)
     }
   }
 }

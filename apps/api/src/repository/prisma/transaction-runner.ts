@@ -26,7 +26,7 @@ export class PrismaTransactionRunner implements TransactionRunner {
     this._prisma = prisma
   }
 
-  async run<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T> {
+  public async run<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T> {
     return this._prisma.$transaction(fn)
   }
 }

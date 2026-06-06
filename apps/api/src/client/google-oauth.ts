@@ -29,12 +29,12 @@ export interface IGoogleOAuthClient {
 }
 
 export class GoogleOAuthClient implements IGoogleOAuthClient {
-  private clientId: string
-  private clientSecret: string
+  private _clientId: string
+  private _clientSecret: string
 
   constructor(clientId: string, clientSecret: string) {
-    this.clientId = clientId
-    this.clientSecret = clientSecret
+    this._clientId = clientId
+    this._clientSecret = clientSecret
   }
 
   public async getUserInfo(code: string, redirectUri: string): Promise<GoogleUserInfo> {
@@ -42,7 +42,7 @@ export class GoogleOAuthClient implements IGoogleOAuthClient {
      * リクエスト毎に OAuth2Client を生成する。
      * テスト容易性と、redirect_uri をリクエスト単位で切り替える要件のため。
      */
-    const oauth2Client = new OAuth2Client(this.clientId, this.clientSecret, redirectUri)
+    const oauth2Client = new OAuth2Client(this._clientId, this._clientSecret, redirectUri)
     const { tokens } = await oauth2Client.getToken(code)
     oauth2Client.setCredentials(tokens)
 
