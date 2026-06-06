@@ -1,6 +1,7 @@
 {
-  "name": "@repo/redis",
+  "name": "@repo/queue",
   "version": "1.0.0",
+  "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "sideEffects": false,
@@ -12,7 +13,9 @@
     "lint:fix": "eslint 'src/**/*.ts' --fix"
   },
   "dependencies": {
-    "ioredis": "^5.10.1"
+    "@repo/logger": "workspace:^",
+    "@repo/redis": "workspace:^",
+    "bullmq": "^5.69.1"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:^",

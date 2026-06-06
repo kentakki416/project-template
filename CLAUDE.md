@@ -13,6 +13,7 @@ Turborepo + pnpm モノレポ。
 - **apps/mobile**: Expo/React Native mobile application
 - **apps/api**: Express.js API server (port 8080)
 - **apps/cron**: 定期実行タスク（タスク 1 回実行で exit するモデル。本番は EventBridge / CronJob 等で起動）
+- **apps/worker**: 常駐型 worker（BullMQ ベース。Queue 実装は `@repo/queue` の抽象越しに DI されており、SQS / Cloud Tasks 等への差し替えが容易）
 
 ### Packages
 
@@ -21,6 +22,7 @@ Turborepo + pnpm モノレポ。
 - **packages/logger**: `ILogger` + pino/winston/console/silent + AsyncLocalStorage context (`@repo/logger`)
 - **packages/errors**: `Result<T>` + `ApiError` + 業務エラー生成ヘルパ (`@repo/errors`)
 - **packages/redis**: `createRedisClient` factory（BullMQ / Pub/Sub 対応）(`@repo/redis`)
+- **packages/queue**: Queue 抽象 (`JobQueue<T>` / `JobProcessor<T>` / `JobConsumer`) + BullMQ 実装 + Job 型 (`@repo/queue`)。ハンドラ側は実装を knows せず、別 queue 実装への切り替えが可能
 
 共通パッケージの設計詳細は [`docs/spec/shared-packages/`](docs/spec/shared-packages/README.md) を参照。新規 server-side app (cron / worker / batch) を追加する場合は同設計書に沿って `@repo/db` / `@repo/logger` / `@repo/errors` / `@repo/redis` を依存に追加し、各 app の `src/index.ts` で client を生成して Repository に DI する。
 
@@ -39,6 +41,7 @@ Turborepo + pnpm モノレポ。
 - Admin → `apps/admin/CLAUDE.md`
 - Mobile → `apps/mobile/CLAUDE.md`
 - Cron → `apps/cron/CLAUDE.md`（task / repository 構造 / env 検証 / graceful shutdown / Docker / 本番起動想定）
+- Worker → `apps/worker/CLAUDE.md`（Queue 抽象 / BullMQ → 他実装への切り替え方 / 新 Queue の追加手順 / 冪等性）
 - スキーマ → `packages/schema/CLAUDE.md`（スキーマ命名規則）
 - Terraform → `infra/terraform/CLAUDE.md`
 - 共通パッケージ設計 → [`docs/spec/shared-packages/README.md`](docs/spec/shared-packages/README.md)（`@repo/db` / `@repo/logger` / `@repo/errors` / `@repo/redis` の仕様・設計・移行手順）
