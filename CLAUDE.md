@@ -12,6 +12,7 @@ Turborepo + pnpm モノレポ。
 - **apps/admin**: Next.js 16 admin dashboard (port 3030)
 - **apps/mobile**: Expo/React Native mobile application
 - **apps/api**: Express.js API server (port 8080)
+- **apps/cron**: 定期実行タスク（タスク 1 回実行で exit するモデル。本番は EventBridge / CronJob 等で起動）
 
 ### Packages
 
@@ -37,6 +38,7 @@ Turborepo + pnpm モノレポ。
 - Web → `apps/web/CLAUDE.md`
 - Admin → `apps/admin/CLAUDE.md`
 - Mobile → `apps/mobile/CLAUDE.md`
+- Cron → `apps/cron/CLAUDE.md`（task / repository 構造 / env 検証 / graceful shutdown / Docker / 本番起動想定）
 - スキーマ → `packages/schema/CLAUDE.md`（スキーマ命名規則）
 - Terraform → `infra/terraform/CLAUDE.md`
 - 共通パッケージ設計 → [`docs/spec/shared-packages/README.md`](docs/spec/shared-packages/README.md)（`@repo/db` / `@repo/logger` / `@repo/errors` / `@repo/redis` の仕様・設計・移行手順）
