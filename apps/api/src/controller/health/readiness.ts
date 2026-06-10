@@ -1,6 +1,7 @@
 import { Request, Response } from "express"
 
 import { healthReadinessResponseSchema } from "@repo/api-schema"
+import { logger } from "@repo/logger"
 
 import { parseResponse } from "../../lib/parse-schema"
 import { DatabaseHealthRepository } from "../../repository/prisma"
@@ -35,6 +36,17 @@ export class HealthReadinessController {
 
     const { database, redis } = result.value
     const overallStatus = database.status === "ok" && redis.status === "ok" ? "ok" : "degraded"
+
+    /**
+     * degraded（依存サービスのいずれかが落ちている）時はアラートのため warn ログを残す
+     * sendError 経由ではなく独自に 503 を返すため、ログもこの場で出す
+     */
+    if (overallStatus !== "ok") {
+      logger.warn("Readiness degraded", {
+        database: database.status,
+        redis: redis.status,
+      })
+    }
 
     const response = parseResponse(healthReadinessResponseSchema, {
       services: { database, redis },
