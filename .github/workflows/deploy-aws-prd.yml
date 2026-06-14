@@ -1,24 +1,37 @@
-name: Deploy to AWS dev
+name: Deploy to AWS prd
 
 # =============================================================================
 # Job 構成
 # =============================================================================
-# build → migrate → ┬→ deploy-api    (rolling 完走)
+# build → migrate → ┬→ deploy-api → approve-api (★ GitHub UI でレビュー承認) → 完了
+#                   │                  ↘ reject-api (失敗 / キャンセル時の rollback)
 #                   └→ deploy-worker (rolling 完走)
 #
-# dev は rolling deploy (env/dev/main.tf の ecs_api / ecs_worker で enable_blue_green = false)
-# のため承認ゲートを持たず、deploy-* は wait-for-service-stability=true で完走を待つ。
-# Blue/Green + GitHub UI 承認が必要な本番デプロイは deploy-aws-prd.yml を参照。
+# prd は env/prd/main.tf で enable_blue_green = true、ALB に test listener が居り、
+# ecs-workload module 側で SSM Parameter (/{name}/deploy/approval) + Lambda hook
+# (POST_TEST_TRAFFIC_SHIFT) を作っている。本 workflow はその仕組みを GitHub UI
+# 承認と接続する。
+#
+# - deploy-api: Blue/Green を投入するだけで即抜ける (wait-for-service-stability=false)
+#
+# - approve-api: GitHub Environment `prd-api-approval` の Required reviewers で
+#   レビュアー承認を求める。承認されると SSM=approved を書いて ECS の bake/swap を進める
+#
+# - reject-api: approve-api が reject されたり失敗 / キャンセルされた時に
+#   SSM=rejected を書いて ECS Blue/Green を自動 rollback させる
+#
+# - deploy-worker: rolling deploy、approve-api には依存せず並列で完走する
 # =============================================================================
 
 on:
   workflow_dispatch:
 
-# 並列 deploy を禁止する。先発 run を完走させてから後発 run をキューから流す
-# (cancel-in-progress: false)。同一サービスに対する update-service が重なって
-# task definition の revision が前後するのを防ぐ目的。
+# 並列 deploy を禁止する。
+# - cancel-in-progress: false → 既存 run はキャンセルせず、後発 run はキュー待ち
+# - approve-api の承認待ちで止まっている間も「進行中」とカウントされるので、
+#   承認順 = deploy 順が強制され、SSM パラメータの race condition が発生しない
 concurrency:
-  group: deploy-aws-dev
+  group: deploy-aws-prd
   cancel-in-progress: false
 
 permissions:
@@ -29,11 +42,11 @@ env:
   AWS_REGION: ap-northeast-1
 
   # =============================================================================
-  # 環境ごとに変える値 — prd 作成時は deploy-aws-prd.yml を新設して下記を書き換える
+  # 環境ごとに変える値 — dev とは別ファイルで管理しているため、prd 固有の値のみ列挙
   # =============================================================================
   # AWS リソースタグ (Terraform default_tags の Project / Environment と一致させる)
   PROJECT_NAME: project-template
-  ENVIRONMENT: dev
+  ENVIRONMENT: prd
 
   # ECR (environment 非依存だが project_name は含む)
   ECR_API_REPO: project-template-api-server
@@ -41,22 +54,24 @@ env:
   ECR_MIGRATION_REPO: project-template-migration
 
   # ECS リソース (project_name-environment- プレフィックスを持つ)
-  ECS_CLUSTER: project-template-dev-cluster
-  ECS_API_SERVICE: project-template-dev-api
-  ECS_WORKER_SERVICE: project-template-dev-worker
-  ECS_MIGRATION_TASK_DEF: project-template-dev-migration
+  ECS_CLUSTER: project-template-prd-cluster
+  ECS_API_SERVICE: project-template-prd-api
+  ECS_WORKER_SERVICE: project-template-prd-worker
+  ECS_MIGRATION_TASK_DEF: project-template-prd-migration
+
+  # Blue/Green 承認用 SSM パラメータ (ecs-workload module が作成)
+  DEPLOY_APPROVAL_SSM_NAME: /project-template-prd-api/deploy/approval
 
   # VPC リソース解決用 (Terraform 側 modules/vpc の Name タグと一致)
-  ECS_SECURITY_GROUP_NAME: project-template-dev-ecs
-  PRIVATE_SUBNET_NAME_PREFIX: project-template-dev-private # `${prefix}*` で wildcard 検索する
+  ECS_SECURITY_GROUP_NAME: project-template-prd-ecs
+  PRIVATE_SUBNET_NAME_PREFIX: project-template-prd-private # `${prefix}*` で wildcard 検索する
 
 jobs:
   build:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
-    # GitHub Environments で AWS_ROLE_ARN / AWS_PRIVATE_SUBNET_IDS / AWS_ECS_SECURITY_GROUP_ID を env-scope から取得
-    # prd 用は別ファイル deploy-aws-prd.yml を作る前提（承認ゲートやトリガーが本質的に違うため matrix にしない）
-    environment: dev
+    # GitHub Environments で AWS_ROLE_ARN を env-scope から取得 (prd role は account/github_oidc.tf 側で作成)
+    environment: prd
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
       registry: ${{ steps.ecr.outputs.registry }}
@@ -116,7 +131,7 @@ jobs:
     name: Run Prisma Migration
     needs: build
     runs-on: ubuntu-latest
-    environment: dev
+    environment: prd
     steps:
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -235,15 +250,15 @@ jobs:
           fi
 
   # =========================================================================
-  # API service (rolling)
+  # API service (Blue/Green)
   # =========================================================================
-  # API は rolling deploy なので wait-for-service-stability=true で完走を待つ。
+  # API は Blue/Green デプロイで、SSM 承認待ちがあるため wait-for-service-stability=false
 
   deploy-api:
     name: Deploy API service
     needs: [build, migrate]
     runs-on: ubuntu-latest
-    environment: dev
+    environment: prd
     steps:
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -266,13 +281,65 @@ jobs:
           container-name: ${{ env.ECS_API_SERVICE }}
           image: ${{ needs.build.outputs.registry }}/${{ env.ECR_API_REPO }}:${{ needs.build.outputs.image_tag }}
 
-      - name: Deploy API service
+      - name: Deploy API service (submit only, no wait)
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.render-api.outputs.task-definition }}
           service: ${{ env.ECS_API_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+          # ★ false: green に新 task を起動する API call まで実行し、承認・bake は待たない
+          # 完了確認 / 承認は後続の approve-api job (GitHub Environment) で行う
+          wait-for-service-stability: false
+
+  # =========================================================================
+  # API service の承認 (GitHub Environment Required reviewers)
+  # =========================================================================
+  # deploy-api 完了後、Actions UI に "Review pending deployments" ボタンが出る。
+  # 承認者がボタンを押すと本 job が実行され、SSM パラメータを approved に更新する
+  # → ECS の deployment_hook Lambda が SUCCEEDED 返却 → production traffic shift。
+  approve-api:
+    name: Approve API deployment
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    environment: prd-api-approval # 承認を GitHub UI で行うために環境を用意
+    steps:
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set SSM approval to "approved"
+        run: |
+          aws ssm put-parameter \
+            --name "${DEPLOY_APPROVAL_SSM_NAME}" \
+            --value "approved" \
+            --overwrite
+          echo "Approval set → ECS が production traffic shift + 5 分 bake time に進む"
+
+  # GitHub Environment で reject された場合 (workflow が失敗扱いになる) や
+  # workflow がキャンセルされた場合に、SSM を rejected に書き換えて ECS の
+  # Blue/Green を自動 rollback させる。
+  reject-api:
+    name: Reject API deployment (cleanup on failure/cancel)
+    needs: [deploy-api, approve-api]
+    if: ${{ failure() || cancelled() }}
+    runs-on: ubuntu-latest
+    environment: prd
+    steps:
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set SSM approval to "rejected"
+        run: |
+          aws ssm put-parameter \
+            --name "${DEPLOY_APPROVAL_SSM_NAME}" \
+            --value "rejected" \
+            --overwrite
+          echo "Rejection set → ECS が Blue/Green を rollback"
 
   # =========================================================================
   # worker service (rolling)
@@ -282,7 +349,7 @@ jobs:
     name: Deploy worker service
     needs: [build, migrate]
     runs-on: ubuntu-latest
-    environment: dev
+    environment: prd
     steps:
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
