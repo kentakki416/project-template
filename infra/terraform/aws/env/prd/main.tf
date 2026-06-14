@@ -1,6 +1,9 @@
 # =============================================================================
-# Dev Environment - Main Configuration
+# Prd Environment - Main Configuration
 # =============================================================================
+# dev とほぼ同一構成。差分は以下:
+#   - environment = "prd" / vpc_cidr = 10.1.0.0/16 / state key = prd/terraform.tfstate
+#   - ALB と ecs_api で enable_blue_green = true (Blue/Green デプロイ)
 
 # 共通設定とローカル変数
 locals {
@@ -9,9 +12,9 @@ locals {
 
   /**
    * サブネット CIDR の計算
-   * - public:   10.0.1.0/24, 10.0.2.0/24  (ALB / NAT Gateway 配置)
-   * - private:  10.0.11.0/24, 10.0.12.0/24 (ECS task 配置、NAT 経由で outbound)
-   * - isolated: 10.0.21.0/24, 10.0.22.0/24 (RDS / ElastiCache 配置)
+   * - public:   10.1.1.0/24, 10.1.2.0/24  (ALB / NAT Gateway 配置)
+   * - private:  10.1.11.0/24, 10.1.12.0/24 (ECS task 配置、NAT 経由で outbound)
+   * - isolated: 10.1.21.0/24, 10.1.22.0/24 (RDS / ElastiCache 配置)
    *
    * modules/vpc は public/private しか subnet_type を持たないため isolated も "private" 扱いとし、
    * 結果的に NAT route table に紐付くが RDS/Redis は outbound を開始しないため問題なし。
@@ -45,7 +48,7 @@ locals {
 
 # VPCモジュール呼び出し
 # - public (ALB / NAT) / private (ECS) / isolated (RDS / Redis) の 3 階層
-# - NAT Gateway 1 個（dev コスト優先）
+# - NAT Gateway 1 個（dev と同等構成のためコスト優先）
 module "vpc" {
   source = "../../modules/vpc"
 
@@ -130,6 +133,17 @@ module "vpc" {
       protocol            = "tcp"
       cidr_blocks         = ["0.0.0.0/0"]
       description         = "HTTP from internet (placeholder for future redirect listener)"
+    },
+    # ALB Ingress - Blue/Greenテスト用リスナー（ポート9000）
+    # 本番では VPN / 社内 IP に絞り込むこと (test_listener_allowed_cidrs)
+    {
+      security_group_name = "alb"
+      type                = "ingress"
+      from_port           = 9000
+      to_port             = 9000
+      protocol            = "tcp"
+      cidr_blocks         = var.test_listener_allowed_cidrs
+      description         = "Test listener for Blue/Green deployment"
     },
     # ALB Egress
     {
@@ -222,8 +236,8 @@ resource "random_password" "jwt_refresh_secret" {
 # - JWT を rotate するときは `terraform taint random_password.jwt_xxx` 後、
 #   Secrets Manager Console で JWT_ACCESS_SECRET / JWT_REFRESH_SECRET を新値で上書き
 #
-# recovery_window_in_days = 0: dev は気軽に destroy/apply できるよう即時削除設定。
-# prd では 7 以上にして誤削除に備えること。
+# recovery_window_in_days = 0: dev と同等構成 (誤削除リスクは運用ルールでガード)。
+# 強化したい場合は 7 以上に変更すること。
 module "app_secrets" {
   source = "../../modules/secrets"
 
@@ -249,9 +263,9 @@ module "app_secrets" {
 # =============================================================================
 # RDS Postgres 16
 # =============================================================================
-# - isolated subnet に配置、SG は ECS のみから 5432 許可 (step1 で定義済み)
+# - isolated subnet に配置、SG は ECS のみから 5432 許可 (上で定義済み)
 # - master password は AWS が自動生成し Secrets Manager に保存 (Terraform tfstate に残らない)
-# - DATABASE_URL は apply 後に手動で /project-template-dev/app secret に追加する
+# - DATABASE_URL は apply 後に手動で /project-template-prd/app secret に追加する
 #   (modules/secrets の ignore_changes により Terraform からは触れないため)
 
 module "rds" {
@@ -276,8 +290,7 @@ module "rds" {
   backup_window      = "17:00-18:00"
   maintenance_window = "sun:18:00-sun:19:00"
 
-  # dev は気軽に terraform destroy できるよう削除保護を外し、final snapshot もスキップ
-  # prd では deletion_protection = true / skip_final_snapshot = false が必須
+  # dev と同等構成。強化する場合は deletion_protection = true / skip_final_snapshot = false に変更すること。
   deletion_protection = false
   skip_final_snapshot = true
 
@@ -288,7 +301,7 @@ module "rds" {
 # ElastiCache Redis 7
 # =============================================================================
 # - isolated subnet に配置、SG は ECS のみから 6379 許可
-# - dev は 1 ノード / Multi-AZ なし / snapshot なし / TLS なしで最小コスト
+# - dev と同等の最小構成 (1 ノード / Multi-AZ なし / snapshot なし / TLS なし)
 # - REDIS_HOST は apply 後に scripts/seed-secrets.sh で Secrets Manager に投入する
 
 module "elasticache" {
@@ -301,15 +314,15 @@ module "elasticache" {
   subnet_ids         = [for k in local.isolated_subnet_keys : module.vpc.subnets[k].id]
   security_group_ids = [module.vpc.security_groups["redis"].id]
 
-  # dev は最小構成
+  # dev と同等の最小構成
   num_cache_clusters         = 1
   automatic_failover_enabled = false
   multi_az_enabled           = false
 
-  # dev では snapshot 取らない
+  # snapshot 取らない
   snapshot_retention_limit = 0
 
-  # TLS in-transit はクライアント設定が必要になるので dev では OFF
+  # TLS in-transit はクライアント設定が必要になるので OFF
   transit_encryption_enabled = false
 
   # メンテ時間帯 (UTC)。AWS 仕様で snapshot_window と maintenance_window は overlap 不可。
@@ -339,28 +352,35 @@ data "aws_ecr_repository" "migration" {
 }
 
 # =============================================================================
-# Route53 hosted zone (prd 側で作成済みの zone を参照)
+# Route53 hosted zone (prd で primary zone を作成)
 # =============================================================================
-# - zone 本体は env/prd の aws_route53_zone "primary" で作成される
-# - dev は data source 経由で参照する (prd を必ず先に apply すること)
-# - ACM 検証用 CNAME と api.dev.<domain> の A レコードはこの zone に書かれる
+# - prd の tfstate に zone を所有させる。dev は data source で参照する。
+# - apply 後、出力された name_servers をドメイン登録元 (Route53 Registrar / 他社) で
+#   NS レコードとして設定すること。
 
-data "aws_route53_zone" "primary" {
-  name         = var.domain_name
-  private_zone = false
+resource "aws_route53_zone" "primary" {
+  name = var.domain_name
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = var.domain_name
+    }
+  )
 }
 
 # =============================================================================
-# ACM 証明書 (*.dev.project-template.com)
+# ACM 証明書 (*.project-template.com)
 # =============================================================================
-# - prd の zone (project-template.com) 内で DNS 検証する
+# - prd は apex 直下に配置するので subdomain は空文字を渡す
+# - 検証用 CNAME は primary zone に書き込まれる
 
 module "acm" {
   source = "../../modules/acm"
 
   domain_name = var.domain_name
-  subdomain   = var.subdomain
-  zone_id     = data.aws_route53_zone.primary.zone_id
+  subdomain   = ""
+  zone_id     = aws_route53_zone.primary.zone_id
 
   tags = local.common_tags
 }
@@ -371,6 +391,7 @@ module "acm" {
 
 # ALBモジュール呼び出し
 # - インターネットからの通信を受けてECSに振り分け
+# - prd は Blue/Green デプロイ用に test listener (port 9000) と TG-b を作成する
 module "alb" {
   source = "../../modules/alb"
 
@@ -386,7 +407,7 @@ module "alb" {
   listener_port            = "80"
 
   # === HTTPS 化 ===
-  # ACM ワイルドカード (*.dev.project-template.com) を HTTPS listener (443) にアタッチ
+  # ACM ワイルドカード (*.project-template.com) を HTTPS listener (443) にアタッチ
   enable_https    = true
   certificate_arn = module.acm.certificate_arn
 
@@ -395,8 +416,8 @@ module "alb" {
   idle_timeout = 3600
 
   # === Blue/Greenデプロイ設定 ===
-  # dev は通常 (rolling) デプロイで運用する。Blue/Green は prd のみ。
-  enable_blue_green = false
+  # prd は Blue/Green デプロイで運用する。dev は通常 (rolling) デプロイ。
+  enable_blue_green = true
 
   # === タグ設定 ===
   tags = merge(
@@ -409,14 +430,14 @@ module "alb" {
 }
 
 # =============================================================================
-# Route53 A レコード (api.dev.project-template.com → ALB)
+# Route53 A レコード (api.project-template.com → ALB)
 # =============================================================================
 
 module "route53_api" {
   source = "../../modules/route53"
 
-  zone_id      = data.aws_route53_zone.primary.zone_id
-  fqdn         = "${var.api_subdomain}.${var.subdomain}.${var.domain_name}"
+  zone_id      = aws_route53_zone.primary.zone_id
+  fqdn         = "${var.api_subdomain}.${var.domain_name}"
   alb_dns_name = module.alb.alb_dns_name
   alb_zone_id  = module.alb.alb_zone_id
 }
@@ -484,9 +505,13 @@ module "ecs_api" {
   secrets_arn = local.ecs_common.secrets_arn
   secret_keys = local.ecs_common.secret_keys
 
-  # ALB (通常 rolling デプロイ)
-  target_group_arn  = module.alb.target_group_a_arn
-  enable_blue_green = false
+  # ALB + Blue/Green
+  target_group_arn             = module.alb.target_group_a_arn
+  enable_blue_green            = true
+  alternate_target_group_arn   = module.alb.target_group_b_arn
+  production_listener_rule_arn = module.alb.listener_rule_arn
+  test_listener_rule_arn       = module.alb.test_listener_rule_arn
+  bake_time_in_minutes         = 5
 
   log_retention_in_days = var.log_retention_days
   tags                  = local.common_tags
@@ -513,7 +538,7 @@ module "ecs_worker" {
   secret_keys = local.ecs_common.secret_keys
 
   # 初回 image push 前は CannotPullContainerError 防止のため desired_count = 0。
-  # step8 で image push 後に 1 に上げる
+  # image push 後に 1 に上げる
   desired_count         = 0
   log_retention_in_days = var.log_retention_days
   tags                  = local.common_tags

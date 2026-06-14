@@ -1,11 +1,15 @@
 # =============================================================================
 # ACM ワイルドカード証明書 + DNS 検証
 # =============================================================================
-# *.<subdomain>.<domain> をカバー。<domain> 自体は SAN に含めず、
-# 環境別サブドメイン専用とする。
+# subdomain を指定すると *.<subdomain>.<domain> を、
+# 空文字 ("") を渡すと *.<domain> をカバー (本番ドメイン直配置用)。
+
+locals {
+  wildcard_domain = var.subdomain == "" ? "*.${var.domain_name}" : "*.${var.subdomain}.${var.domain_name}"
+}
 
 resource "aws_acm_certificate" "wildcard" {
-  domain_name       = "*.${var.subdomain}.${var.domain_name}"
+  domain_name       = local.wildcard_domain
   validation_method = "DNS"
 
   lifecycle {

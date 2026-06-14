@@ -41,13 +41,28 @@ output "redis_security_group_id" {
 }
 
 # Route53 / DNS
+output "route53_zone_id" {
+  description = "primary hosted zone ID (project-template.com)。dev はこの zone を data source で参照する"
+  value       = aws_route53_zone.primary.zone_id
+}
+
+output "route53_zone_name" {
+  description = "primary hosted zone name"
+  value       = aws_route53_zone.primary.name
+}
+
+output "route53_name_servers" {
+  description = "primary hosted zone の NS。ドメイン登録元 (Route53 Registrar / 他社) で NS レコードとして設定する"
+  value       = aws_route53_zone.primary.name_servers
+}
+
 output "api_url" {
   description = "API の HTTPS URL"
-  value       = "https://${var.api_subdomain}.${var.subdomain}.${var.domain_name}"
+  value       = "https://${var.api_subdomain}.${var.domain_name}"
 }
 
 output "acm_certificate_arn" {
-  description = "ACM 証明書 ARN (*.<subdomain>.<domain>)"
+  description = "ACM 証明書 ARN (*.<domain>)"
   value       = module.acm.certificate_arn
 }
 

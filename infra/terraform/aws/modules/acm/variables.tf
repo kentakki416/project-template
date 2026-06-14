@@ -4,8 +4,9 @@ variable "domain_name" {
 }
 
 variable "subdomain" {
-  description = "サブドメイン (例: dev)。証明書は *.<subdomain>.<domain> のワイルドカードを発行"
+  description = "サブドメイン (例: dev)。空文字 \"\" を渡すと *.<domain> のワイルドカードを発行 (prd など apex 直配置用)。指定すると *.<subdomain>.<domain> を発行"
   type        = string
+  default     = ""
 }
 
 variable "zone_id" {
