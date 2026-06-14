@@ -7,11 +7,12 @@ Turborepo + pnpm monorepo を使用したフルスタックアプリケーショ
 
 - [プロジェクト構成図](#プロジェクト構成図)
 - [技術スタック](#技術スタック)
-- [ドキュメント](#ドキュメント)
-- [使い方](#使い方)
+- [クイックリファレンス](#クイックリファレンス)
+  - [セットアップ手順 (まずここから)](#セットアップ手順-まずここから)
+  - [仕様 / 設計](#仕様--設計)
+- [テンプレートの使い方](#テンプレートの使い方)
   - [1. プロジェクトのコピー](#1-プロジェクトのコピー)
   - [2. 環境変数の設定](#2-環境変数の設定)
-  - [3. セットアップ](#3-セットアップ)
 - [Claude Code（MCP設定）](#claude-codemcp設定)
 - [開発ルール](#開発ルール)
   - [1. 命名規則](#1-命名規則)
@@ -124,6 +125,15 @@ graph TB
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
 ## クイックリファレンス
+
+### セットアップ手順 (まずここから)
+
+| ドキュメント | 内容 |
+|---|---|
+| [apps/api/README.md](apps/api/README.md) | API サーバーのローカル起動 (依存インストール / .env.keys / Postgres+Redis / Prisma / dev サーバー / テスト) |
+| [infra/README.md](infra/README.md) | AWS インフラ初回セットアップ (bootstrap → account → prd → dev → Route53 NS 登録 → seed-secrets) |
+
+### 仕様 / 設計
 
 | ドキュメント | 内容 |
 |---|---|

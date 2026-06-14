@@ -78,18 +78,31 @@ resource "aws_lb_listener" "main" {
   protocol          = var.listener_protocol
 
   /**
-   * default_action は priority=1 の `/*` ルールにマッチしなかった想定外パス向けの fallback。
-   * 通常は priority=1 が全リクエストを吸うので到達しないが、ルール消失時の事故を防ぐため
-   * 明示的に 503 を返す。
-   * ECS Native Blue/Green が書き換えるのは listener rule の forward action のみで、
-   * default_action は触らないため ignore_changes は不要。
+   * default_action は環境ごとに切り替える:
+   * - enable_blue_green = true  : priority=1 の `/*` ルールが全リクエストを吸う設計のため、
+   *   default は到達しない fallback として 503 を返す。ルール消失時の事故防止。
+   *   ECS Native Blue/Green が書き換えるのは listener rule の forward action のみで、
+   *   default_action は触らないため ignore_changes は不要。
+   * - enable_blue_green = false : listener rule を持たないので default が全リクエストを処理。
+   *   target group A に forward する。
    */
-  default_action {
-    type = "fixed-response"
-    fixed_response {
-      content_type = "text/plain"
-      message_body = "Service Unavailable"
-      status_code  = "503"
+  dynamic "default_action" {
+    for_each = var.enable_blue_green ? [1] : []
+    content {
+      type = "fixed-response"
+      fixed_response {
+        content_type = "text/plain"
+        message_body = "Service Unavailable"
+        status_code  = "503"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = var.enable_blue_green ? [] : [1]
+    content {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.a.arn
     }
   }
 }
@@ -141,16 +154,27 @@ resource "aws_lb_listener" "https" {
   certificate_arn   = var.certificate_arn
 
   /**
-   * default_action は priority=1 の `/*` ルールにマッチしなかった想定外パス向けの fallback。
-   * 通常は priority=1 が全リクエストを吸うので到達しないが、ルール消失時の事故を防ぐため
-   * 明示的に 503 を返す。
+   * default_action は環境ごとに切り替える (HTTP listener と同じ方針):
+   * - enable_blue_green = true  : 503 fallback (listener rule が全リクエストを吸う)
+   * - enable_blue_green = false : target group A に forward (listener rule なし)
    */
-  default_action {
-    type = "fixed-response"
-    fixed_response {
-      content_type = "text/plain"
-      message_body = "Service Unavailable"
-      status_code  = "503"
+  dynamic "default_action" {
+    for_each = var.enable_blue_green ? [1] : []
+    content {
+      type = "fixed-response"
+      fixed_response {
+        content_type = "text/plain"
+        message_body = "Service Unavailable"
+        status_code  = "503"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = var.enable_blue_green ? [] : [1]
+    content {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.a.arn
     }
   }
 

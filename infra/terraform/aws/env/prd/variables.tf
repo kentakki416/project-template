@@ -11,7 +11,7 @@ variable "project_name" {
 variable "environment" {
   description = "環境名（dev, stg, prd）"
   type        = string
-  default     = "dev"
+  default     = "prd"
 }
 
 variable "aws_region" {
@@ -24,23 +24,15 @@ variable "aws_region" {
 # =============================================================================
 # DNS 設定
 # =============================================================================
-# hosted zone は prd で作成 / 管理する。dev は data source で参照するため、
-# domain_name は prd と必ず同じ値にすること (テンプレ既定値は prd と同じ)。
 
 variable "domain_name" {
-  description = "Route53 hosted zone のベースドメイン (prd で作成済みの zone)。dev は data source で参照する"
+  description = "Route53 hosted zone のベースドメイン。prd でこの zone を作成し、dev は data source 経由で参照する"
   type        = string
-  default     = "project-template.com" # TODO: prd と揃えて実ドメインに変更してください
-}
-
-variable "subdomain" {
-  description = "dev 用サブドメイン。<api_subdomain>.<subdomain>.<domain_name> が API の FQDN になる (例: api.dev.project-template.com)"
-  type        = string
-  default     = "dev"
+  default     = "project-template.com" # TODO: 実ドメインに変更してください
 }
 
 variable "api_subdomain" {
-  description = "API の FQDN の左側ラベル"
+  description = "API の FQDN の左側ラベル。prd では <api_subdomain>.<domain_name> が API の URL になる"
   type        = string
   default     = "api"
 }
@@ -52,7 +44,7 @@ variable "api_subdomain" {
 variable "vpc_cidr" {
   description = "VPCのCIDRブロック"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "10.1.0.0/16"
 }
 
 variable "availability_zones" {
@@ -69,6 +61,16 @@ variable "app_port" {
   description = "アプリケーションのポート番号"
   type        = number
   default     = 8080
+}
+
+# =============================================================================
+# Blue/Greenデプロイ設定
+# =============================================================================
+
+variable "test_listener_allowed_cidrs" {
+  description = "テスト用リスナー（ポート9000）へのアクセスを許可するCIDRリスト（本番ではVPN/社内IPに制限推奨）"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
 }
 
 # =============================================================================
