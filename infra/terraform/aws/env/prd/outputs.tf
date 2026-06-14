@@ -41,20 +41,8 @@ output "redis_security_group_id" {
 }
 
 # Route53 / DNS
-output "route53_zone_id" {
-  description = "primary hosted zone ID (project-template.com)。dev はこの zone を data source で参照する"
-  value       = aws_route53_zone.primary.zone_id
-}
-
-output "route53_zone_name" {
-  description = "primary hosted zone name"
-  value       = aws_route53_zone.primary.name
-}
-
-output "route53_name_servers" {
-  description = "primary hosted zone の NS。ドメイン登録元 (Route53 Registrar / 他社) で NS レコードとして設定する"
-  value       = aws_route53_zone.primary.name_servers
-}
+# hosted zone は Route 53 Domains 購入時に AWS が自動作成するものを使う
+# (Terraform 管理外。env/* は data "aws_route53_zone" "primary" で参照するだけ)
 
 output "api_url" {
   description = "API の HTTPS URL"

@@ -339,10 +339,11 @@ data "aws_ecr_repository" "migration" {
 }
 
 # =============================================================================
-# Route53 hosted zone (prd 側で作成済みの zone を参照)
+# Route53 hosted zone（Route 53 Domains 購入時に自動作成される zone を参照）
 # =============================================================================
-# - zone 本体は env/prd の aws_route53_zone "primary" で作成される
-# - dev は data source 経由で参照する (prd を必ず先に apply すること)
+# - Route 53 Domains でドメインを登録すると AWS が同名の hosted zone を自動作成し、
+#   Registrar 側の NS もそこへ自動設定される（公式ドキュメント参照）
+# - Terraform 側では新たに zone を作らず、data source で既存 zone を引くだけにする
 # - ACM 検証用 CNAME と api.dev.<domain> の A レコードはこの zone に書かれる
 
 data "aws_route53_zone" "primary" {

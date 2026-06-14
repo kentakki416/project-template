@@ -352,21 +352,16 @@ data "aws_ecr_repository" "migration" {
 }
 
 # =============================================================================
-# Route53 hosted zone (prd で primary zone を作成)
+# Route53 hosted zone（Route 53 Domains 購入時に自動作成される zone を参照）
 # =============================================================================
-# - prd の tfstate に zone を所有させる。dev は data source で参照する。
-# - apply 後、出力された name_servers をドメイン登録元 (Route53 Registrar / 他社) で
-#   NS レコードとして設定すること。
+# - Route 53 Domains でドメインを登録すると AWS が同名の hosted zone を自動作成し、
+#   Registrar 側の NS もそこへ自動設定される（公式ドキュメント参照）
+# - Terraform 側では新たに zone を作らず、data source で既存 zone を引くだけにする
+# - dev / prd で同じ zone を参照するため env 同士に infra 依存は生まれない
 
-resource "aws_route53_zone" "primary" {
-  name = var.domain_name
-
-  tags = merge(
-    local.common_tags,
-    {
-      Name = var.domain_name
-    }
-  )
+data "aws_route53_zone" "primary" {
+  name         = var.domain_name
+  private_zone = false
 }
 
 # =============================================================================
@@ -380,7 +375,7 @@ module "acm" {
 
   domain_name = var.domain_name
   subdomain   = ""
-  zone_id     = aws_route53_zone.primary.zone_id
+  zone_id     = data.aws_route53_zone.primary.zone_id
 
   tags = local.common_tags
 }
@@ -436,7 +431,7 @@ module "alb" {
 module "route53_api" {
   source = "../../modules/route53"
 
-  zone_id      = aws_route53_zone.primary.zone_id
+  zone_id      = data.aws_route53_zone.primary.zone_id
   fqdn         = "${var.api_subdomain}.${var.domain_name}"
   alb_dns_name = module.alb.alb_dns_name
   alb_zone_id  = module.alb.alb_zone_id
