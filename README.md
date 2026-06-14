@@ -130,8 +130,15 @@ graph TB
 
 | ドキュメント | 内容 |
 |---|---|
-| [apps/api/README.md](apps/api/README.md) | API サーバーのローカル起動 (依存インストール / .env.keys / Postgres+Redis / Prisma / dev サーバー / テスト) |
-| [infra/README.md](infra/README.md) | AWS インフラ初回セットアップ (bootstrap → account → prd → dev → Route53 NS 登録 → seed-secrets) |
+| [docs/setup/api.md](docs/setup/api.md) | API サーバーのローカル起動 (依存インストール / .env.keys / Postgres+Redis / Prisma / dev サーバー / テスト) |
+| [docs/setup/infra.md](docs/setup/infra.md) | AWS インフラ初回セットアップ (bootstrap → account → GitHub Environments → env apply → DNS 委任 → seed-secrets → image push) |
+
+設計や運用方針は各 README:
+
+| ドキュメント | 内容 |
+|---|---|
+| [apps/api/README.md](apps/api/README.md) | API サーバーの設計思想 (レイヤード / Result 型 / DI / テスト戦略) |
+| [infra/README.md](infra/README.md) | インフラ構成 / dev・prd の差分 / デプロイフロー / 日常運用コマンド |
 
 ### 仕様 / 設計
 
