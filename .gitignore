@@ -95,6 +95,9 @@ app-example
 # Secret
 .secret
 
+# direnv (個人ローカルのオーバーライド)
+.envrc.local
+
 
 # playwright
 .playwright-mcp

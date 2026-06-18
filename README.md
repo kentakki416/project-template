@@ -132,6 +132,7 @@ graph TB
 |---|---|
 | [docs/setup/api.md](docs/setup/api.md) | API サーバーのローカル起動 (依存インストール / .env.keys / Postgres+Redis / Prisma / dev サーバー / テスト) |
 | [docs/setup/infra.md](docs/setup/infra.md) | AWS インフラ初回セットアップ (bootstrap → account → GitHub Environments → env apply → DNS 委任 → seed-secrets → image push) |
+| [docs/setup/multi-project-dev.md](docs/setup/multi-project-dev.md) | 複数プロジェクトをローカルで並行開発するための direnv セットアップ（ポート衝突回避） |
 
 設計や運用方針は各 README:
 
