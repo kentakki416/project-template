@@ -13,6 +13,7 @@ Turborepo + pnpm monorepo を使用したフルスタックアプリケーショ
 - [テンプレートの使い方](#テンプレートの使い方)
   - [1. プロジェクトのコピー](#1-プロジェクトのコピー)
   - [2. 環境変数の設定](#2-環境変数の設定)
+  - [3. direnv のセットアップ（ポート衝突回避）](#3-direnv-のセットアップポート衝突回避)
 - [Claude Code（MCP設定）](#claude-codemcp設定)
 - [開発ルール](#開発ルール)
   - [1. 命名規則](#1-命名規則)
@@ -132,6 +133,7 @@ graph TB
 |---|---|
 | [docs/setup/api.md](docs/setup/api.md) | API サーバーのローカル起動 (依存インストール / .env.keys / Postgres+Redis / Prisma / dev サーバー / テスト) |
 | [docs/setup/infra.md](docs/setup/infra.md) | AWS インフラ初回セットアップ (bootstrap → account → GitHub Environments → env apply → DNS 委任 → seed-secrets → image push) |
+| [docs/setup/multi-project-dev.md](docs/setup/multi-project-dev.md) | 複数プロジェクトをローカルで並行開発するための direnv セットアップ（ポート衝突回避） |
 
 設計や運用方針は各 README:
 
@@ -205,6 +207,29 @@ ln -s ../../.env.keys apps/worker/.env.keys
 以降は **必ずプロジェクトルートから** `npx dotenvx set KEY "value" -f apps/<app>/.env.local` を実行すること（各アプリで `cd` して直接叩くと、シンボリックリンクが実体ファイルで上書きされ、アプリごとに別の鍵ペアが生成されてしまう）。
 
 </details>
+
+### 3. direnv のセットアップ（ポート衝突回避）
+
+複数プロジェクトをローカルで並行開発するときに、Next.js / API / Postgres / Redis のポートが衝突しないよう、direnv で `cd` 時に自動でプロジェクト固有のポート帯（このプロジェクトは 3000 番台）に切り替えます。
+
+**初回のみ** 以下を実行してください:
+
+```bash
+# 1. direnv をインストール (macOS / Homebrew)
+brew install direnv
+
+# 2. シェルに hook を追加 (zsh の場合。bash なら ~/.bashrc)
+echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
+source ~/.zshrc
+
+# 3. このプロジェクトの .envrc を許可
+cd <project-root>
+direnv allow .
+```
+
+これで以降 `cd <project-root>` するたびに `PORT_WEB` / `PORT_ADMIN` / `PORT_API` / `POSTGRES_PORT` / `REDIS_PORT` が自動で export されます。`.envrc` の内容を変更した際は再度 `direnv allow .` が必要です。
+
+**別プロジェクトを並行起動したい場合** は、そちらの `.envrc` を 4000 / 5000 番台にずらします。詳細・FAQ は [docs/setup/multi-project-dev.md](docs/setup/multi-project-dev.md) を参照。
 
 ## Claude Code（MCP設定）
 
