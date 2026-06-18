@@ -229,7 +229,7 @@ direnv allow .
 
 これで以降 `cd <project-root>` するたびに `PORT_WEB` / `PORT_ADMIN` / `PORT_API` / `POSTGRES_PORT` / `REDIS_PORT` が自動で export されます。`.envrc` の内容を変更した際は再度 `direnv allow .` が必要です。
 
-**別プロジェクトを並行起動したい場合** は、そちらの `.envrc`（または `.envrc.local` で個人オーバーライド）を 4000 / 5000 番台にずらします。詳細・FAQ は [docs/setup/multi-project-dev.md](docs/setup/multi-project-dev.md) を参照。
+**別プロジェクトを並行起動したい場合** は、そちらの `.envrc` を 4000 / 5000 番台にずらします。詳細・FAQ は [docs/setup/multi-project-dev.md](docs/setup/multi-project-dev.md) を参照。
 
 ## Claude Code（MCP設定）
 

@@ -54,9 +54,7 @@ direnv allow
 
 ## 3. 別プロジェクトでポート帯をずらす
 
-このテンプレートを `scripts/copy-template.sh` でコピーした **2 つ目以降のプロジェクト** では、`.envrc` を編集してポートをずらす。
-
-`.envrc.example` に 4000 番台 / 5000 番台への寄せ方の雛形がコメントで入っているので、それを参考に **2 つ目以降のプロジェクトの `.envrc` を書き換える**:
+このテンプレートを `scripts/copy-template.sh` でコピーした **2 つ目以降のプロジェクト** では、`.envrc` をそのまま編集してポートをずらす（`.envrc` はコミット対象なので、リポジトリの作法として「このプロジェクトは何番台」を記録できる）。
 
 ```bash
 # project-A/.envrc
@@ -67,9 +65,18 @@ export POSTGRES_PORT=5433
 export REDIS_PORT=6380
 ```
 
+```bash
+# project-B/.envrc
+export PORT_WEB=5000
+export PORT_ADMIN=5030
+export PORT_API=8280
+export POSTGRES_PORT=5434
+export REDIS_PORT=6381
+```
+
 `.envrc` を書き換えたら `direnv allow` を再度実行する。
 
-> 💡 「このプロジェクト (project-template) を 3000 番台の基準として固定し、後続を 4000 / 5000 とずらしていく」運用が衝突を最小化する。
+> 💡 **運用方針**: 「project-template を 3000 番台の基準として固定し、後続プロジェクトを 4000 / 5000 とずらしていく」で衝突を最小化できる。各プロジェクトのポート帯は `.envrc` をコミットすることでチーム全員で共有される。
 
 ## 4. 動作確認
 
@@ -88,9 +95,7 @@ echo $PORT_WEB              # → 4000 (別プロジェクトの .envrc 値)
 
 ## 仕組み
 
-- **`.envrc`**: direnv が `cd` 時に自動 source するファイル。`PORT_WEB` / `PORT_ADMIN` / `PORT_API` / `POSTGRES_PORT` / `REDIS_PORT` を export する。**コミット対象**
-- **`.envrc.example`**: 別プロジェクトで 4000 / 5000 番台に寄せる際の雛形（コメントのみ）
-- **`.envrc.local`**: 個人ローカルのオーバーライド（gitignore 済み）
+- **`.envrc`**: direnv が `cd` 時に自動 source するファイル。`PORT_WEB` / `PORT_ADMIN` / `PORT_API` / `POSTGRES_PORT` / `REDIS_PORT` を export する。**コミット対象**（プロジェクトごとのポート帯をリポジトリで明示する）
 - **`docker-compose.yaml`**: ホスト側ポートが `${POSTGRES_PORT:-5432}` / `${REDIS_PORT:-6379}` の形で変数参照
 - **`apps/{web,admin,api}/package.json`**: `dev` / `start` スクリプトが `${PORT_WEB:-3000}` / `${PORT_ADMIN:-3030}` / `${PORT_API:-8080}` を参照
 
@@ -120,7 +125,6 @@ pnpm dev
 |---|---|---|
 | `.envrc` | direnv が export する **プロジェクト共通の env**（ポート等の「誰でも同じ値」）| コミット |
 | `apps/<app>/.env.local` | dotenvx で暗号化された **app ごとの秘密情報**（API キー / DB 接続文字列 等）| コミット（暗号化済み） |
-| `.envrc.local` | direnv の **個人オーバーライド** | gitignore |
 
 `.envrc` はあくまでポート等の「プロジェクトの作法」を入れる場所で、秘密情報は引き続き dotenvx の `.env.local` を使う。
 
