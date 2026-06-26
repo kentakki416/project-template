@@ -9,13 +9,18 @@ output "ecr_api_repository_url" {
 }
 
 output "ecr_worker_repository_url" {
-  description = "matching-worker の ECR リポジトリ URL"
+  description = "worker の ECR リポジトリ URL"
   value       = aws_ecr_repository.worker.repository_url
 }
 
 output "ecr_migration_repository_url" {
   description = "Prisma migration 用 ECR リポジトリ URL"
   value       = aws_ecr_repository.migration.repository_url
+}
+
+output "ecr_cron_repository_url" {
+  description = "cron (定期実行タスク) 用 ECR リポジトリ URL"
+  value       = aws_ecr_repository.cron.repository_url
 }
 
 # GitHub Actions OIDC

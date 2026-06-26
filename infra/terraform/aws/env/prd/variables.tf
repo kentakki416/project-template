@@ -96,6 +96,28 @@ variable "log_retention_days" {
 }
 
 # =============================================================================
+# cron スケジュール設定 (EventBridge Scheduler → ECS RunTask)
+# =============================================================================
+
+variable "cron_schedule_expression" {
+  description = "cron task の起動スケジュール (cron() または rate() 式)。デフォルトは毎日 04:00"
+  type        = string
+  default     = "cron(0 4 * * ? *)"
+}
+
+variable "cron_schedule_timezone" {
+  description = "cron_schedule_expression を解釈するタイムゾーン (IANA 名)"
+  type        = string
+  default     = "Asia/Tokyo"
+}
+
+variable "cron_schedule_state" {
+  description = "cron スケジュールの有効/無効 (ENABLED / DISABLED)"
+  type        = string
+  default     = "ENABLED"
+}
+
+# =============================================================================
 # タグ設定
 # =============================================================================
 

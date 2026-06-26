@@ -351,6 +351,10 @@ data "aws_ecr_repository" "migration" {
   name = "${var.project_name}-migration"
 }
 
+data "aws_ecr_repository" "cron" {
+  name = "${var.project_name}-cron"
+}
+
 # =============================================================================
 # Route53 hosted zone（Route 53 Domains 購入時に自動作成される zone を参照）
 # =============================================================================
@@ -405,10 +409,6 @@ module "alb" {
   # ACM ワイルドカード (*.project-template.com) を HTTPS listener (443) にアタッチ
   enable_https    = true
   certificate_arn = module.acm.certificate_arn
-
-  # === SSE 対応 ===
-  # /api/matching/events の SSE が 60 秒で切れないよう 3600 秒に延長
-  idle_timeout = 3600
 
   # === Blue/Greenデプロイ設定 ===
   # prd は Blue/Green デプロイで運用する。dev は通常 (rolling) デプロイ。
@@ -569,4 +569,53 @@ module "ecs_migration" {
   create_service        = false
   log_retention_in_days = var.log_retention_days
   tags                  = local.common_tags
+}
+
+# =============================================================================
+# ECS Workload: cron (定期実行タスク。one-shot task definition、Service なし)
+# =============================================================================
+# - task definition のみ作成し、起動は下の cron_schedule (EventBridge Scheduler) が行う
+# - Dockerfile の CMD (cleanup-old-memos) をそのまま使うので command override は不要
+# - deploy workflow が image を差し替えた新 revision を register し、schedule は最新を追従する
+
+module "ecs_cron" {
+  source = "../../modules/ecs-workload"
+
+  name   = "${local.name_prefix}-cron"
+  image  = "${data.aws_ecr_repository.cron.repository_url}:latest"
+  cpu    = 256
+  memory = 512
+
+  cluster_arn        = local.ecs_common.cluster_arn
+  execution_role_arn = local.ecs_common.execution_role_arn
+  subnets            = local.ecs_common.subnets
+  security_groups    = local.ecs_common.security_groups
+
+  secrets_arn = local.ecs_common.secrets_arn
+  secret_keys = local.ecs_common.secret_keys
+
+  create_service        = false
+  log_retention_in_days = var.log_retention_days
+  tags                  = local.common_tags
+}
+
+# =============================================================================
+# EventBridge Scheduler: cron task の定期起動
+# =============================================================================
+
+module "cron_schedule" {
+  source = "../../modules/ecs-schedule-task"
+
+  name                   = "${local.name_prefix}-cron"
+  cluster_arn            = local.ecs_common.cluster_arn
+  task_definition_family = module.ecs_cron.task_definition_family
+  execution_role_arn     = local.ecs_common.execution_role_arn
+  subnets                = local.ecs_common.subnets
+  security_groups        = local.ecs_common.security_groups
+
+  schedule_expression          = var.cron_schedule_expression
+  schedule_expression_timezone = var.cron_schedule_timezone
+  state                        = var.cron_schedule_state
+
+  tags = local.common_tags
 }

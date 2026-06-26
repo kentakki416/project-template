@@ -14,9 +14,6 @@ resource "aws_lb" "main" {
 
   drop_invalid_header_fields = true
 
-  # SSE / WebSocket 等の長時間接続を維持するため env 側で 3600 に伸ばす
-  idle_timeout = var.idle_timeout
-
   tags = var.tags
 }
 

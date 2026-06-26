@@ -5,7 +5,8 @@ name: Deploy to AWS prd
 # =============================================================================
 # build → migrate → ┬→ deploy-api → approve-api (★ GitHub UI でレビュー承認) → 完了
 #                   │                  ↘ reject-api (失敗 / キャンセル時の rollback)
-#                   └→ deploy-worker (rolling 完走)
+#                   ├→ deploy-worker (rolling 完走)
+#                   └→ deploy-cron   (task definition revision を register するのみ)
 #
 # prd は env/prd/main.tf で enable_blue_green = true、ALB に test listener が居り、
 # ecs-workload module 側で SSM Parameter (/{name}/deploy/approval) + Lambda hook
@@ -52,12 +53,14 @@ env:
   ECR_API_REPO: project-template-api-server
   ECR_WORKER_REPO: project-template-worker
   ECR_MIGRATION_REPO: project-template-migration
+  ECR_CRON_REPO: project-template-cron
 
   # ECS リソース (project_name-environment- プレフィックスを持つ)
   ECS_CLUSTER: project-template-prd-cluster
   ECS_API_SERVICE: project-template-prd-api
   ECS_WORKER_SERVICE: project-template-prd-worker
   ECS_MIGRATION_TASK_DEF: project-template-prd-migration
+  ECS_CRON_TASK_DEF: project-template-prd-cron
 
   # Blue/Green 承認用 SSM パラメータ (ecs-workload module が作成)
   DEPLOY_APPROVAL_SSM_NAME: /project-template-prd-api/deploy/approval
@@ -111,7 +114,7 @@ jobs:
           IMAGE="${{ steps.ecr.outputs.registry }}/${{ env.ECR_WORKER_REPO }}"
           docker buildx build \
             --platform linux/amd64 \
-            -f apps/matching-worker/Dockerfile \
+            -f apps/worker/Dockerfile \
             -t "${IMAGE}:${{ steps.meta.outputs.image_tag }}" \
             --push \
             .
@@ -123,6 +126,16 @@ jobs:
           docker buildx build \
             --platform linux/amd64 \
             -f apps/api/Dockerfile.migration \
+            -t "${IMAGE}:${{ steps.meta.outputs.image_tag }}" \
+            --push \
+            .
+
+      - name: Build & push cron image
+        run: |
+          IMAGE="${{ steps.ecr.outputs.registry }}/${{ env.ECR_CRON_REPO }}"
+          docker buildx build \
+            --platform linux/amd64 \
+            -f apps/cron/Dockerfile \
             -t "${IMAGE}:${{ steps.meta.outputs.image_tag }}" \
             --push \
             .
@@ -379,3 +392,40 @@ jobs:
           service: ${{ env.ECS_WORKER_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
+
+  # =========================================================================
+  # cron task definition (EventBridge Scheduler が最新 revision を起動)
+  # =========================================================================
+  # cron は Service を持たず EventBridge Scheduler から RunTask される one-shot task。
+  # traffic を捌かないため Blue/Green 承認は不要で、新 image の task definition revision を
+  # register するだけでよい。schedule 側は family 参照なので次回起動時に最新 revision が使われる。
+  deploy-cron:
+    name: Register cron task definition
+    needs: [build, migrate]
+    runs-on: ubuntu-latest
+    environment: prd
+    steps:
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Register cron task definition with new image
+        env:
+          IMAGE: ${{ needs.build.outputs.registry }}/${{ env.ECR_CRON_REPO }}:${{ needs.build.outputs.image_tag }}
+        run: |
+          TASK_DEF_FILE=$(mktemp)
+          aws ecs describe-task-definition \
+            --task-definition "${ECS_CRON_TASK_DEF}" \
+            --query taskDefinition \
+            | jq --arg IMAGE "${IMAGE}" '
+                .containerDefinitions[0].image = $IMAGE
+                | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+              ' > "${TASK_DEF_FILE}"
+
+          REVISION_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "file://${TASK_DEF_FILE}" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+
+          echo "Registered cron task definition: ${REVISION_ARN}"

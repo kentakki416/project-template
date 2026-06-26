@@ -107,12 +107,6 @@ variable "test_listener_port" {
   default     = 9000
 }
 
-variable "idle_timeout" {
-  description = "ALB の idle timeout (秒)。SSE 等の長時間接続を維持するため 3600 推奨。デフォルト 60"
-  type        = number
-  default     = 60
-}
-
 variable "enable_https" {
   description = "true で HTTPS listener (443) を作成する。plan 時に確定する bool で count を判定するため certificate_arn とは別フラグにしている"
   type        = bool

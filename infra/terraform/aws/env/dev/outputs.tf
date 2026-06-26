@@ -74,13 +74,23 @@ output "ecs_api_service_name" {
 }
 
 output "ecs_worker_service_name" {
-  description = "matching-worker ECS service 名"
+  description = "worker ECS service 名"
   value       = module.ecs_worker.service_name
 }
 
 output "ecs_migration_task_definition_family" {
   description = "Prisma migration task definition family (RunTask 引数で使用)"
   value       = module.ecs_migration.task_definition_family
+}
+
+output "ecs_cron_task_definition_family" {
+  description = "cron task definition family (deploy で新 revision を register する対象)"
+  value       = module.ecs_cron.task_definition_family
+}
+
+output "cron_schedule_name" {
+  description = "cron 起動用 EventBridge Scheduler スケジュール名"
+  value       = module.cron_schedule.schedule_name
 }
 
 # Secrets Manager
