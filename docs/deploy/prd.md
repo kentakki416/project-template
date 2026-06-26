@@ -223,11 +223,61 @@ green が 200 を返すのを確認 → Actions の「Review pending deployments
 
 ## Phase 9: Vercel（フロント）
 
-- `apps/web` を Vercel(Pro) にデプロイ
-- 環境変数に API ベース URL（`https://api.<your-domain>`）等を設定
-- カスタムドメイン **`<your-domain>`（apex）** を割当
-  - apex は CNAME 不可。Vercel が案内する **A レコード / ALIAS** を Route 53 hosted zone に追加
-- 本番 URL が確定したら `FRONTEND_URL=https://<your-domain>` で `seed-secrets.sh prd` を再実行 → 必要なら api を再デプロイ
+`apps/web`（Next.js）を Vercel(Pro) にデプロイし、apex `<your-domain>` に接続する。
+
+### 9-1. プロジェクト作成 & ビルド設定（モノレポ）
+
+Vercel → Add New → Project → リポジトリを import し、以下を設定:
+
+| 項目 | 値 |
+|---|---|
+| Root Directory | `apps/web` |
+| Framework Preset | Next.js（自動検出） |
+| Install Command | デフォルト（`pnpm install`） |
+| **Build Command（上書き）** | `cd ../.. && pnpm --filter @repo/api-schema build && pnpm --filter web exec next build` |
+
+> ⚠️ **dotenvx の罠**: web の `build` スクリプトが `dotenvx run -f .env.local -- next build` 形式の場合、`.env.local` は gitignore で Vercel に無いため**そのままだとビルドが落ちる**。さらに `next build` は依存パッケージ（`@repo/*`）を自前でビルドしない。
+> → Build Command を上書きして **dotenvx を回避しつつ依存パッケージを先にビルド**する（依存は web の `package.json` に合わせて調整）。
+
+### 9-2. 環境変数（Production スコープ）
+
+web の `src/env.ts`（Zod スキーマ）が要求する値を Vercel に設定する。典型例:
+
+| Key | Value | 備考 |
+|---|---|---|
+| `API_URL` | `https://api.<your-domain>` | サーバ側から API を叩く origin |
+| `GITHUB_CLIENT_ID` | 本番 OAuth App の Client ID | API に seed したものと同一 |
+| `NEXT_PUBLIC_APP_URL` | `https://<your-domain>` | **ビルド時に焼き込まれる**ので初回デプロイ前に必須 |
+
+> `NEXT_PUBLIC_*` はビルド時に焼き込まれる／それ以外はランタイム読み込み。`GITHUB_CLIENT_SECRET` は通常 web 側に不要（OAuth コード交換は API 側）。`NODE_ENV=production` は Vercel が自動付与。
+
+### 9-3. カスタムドメイン（apex）と DNS レコード
+
+Vercel → Settings → Domains に `<your-domain>`（+ 任意で `www.<your-domain>`）を追加。
+Vercel が「Set the following record」で要求する DNS を **Route53 hosted zone に追加**する:
+
+| 名前 | type | 値 |
+|---|---|---|
+| `<your-domain>`（apex） | **A** | `76.76.21.21` |
+| `www.<your-domain>` | **CNAME** | `cname.vercel-dns.com` |
+
+```bash
+ZID=$(aws route53 list-hosted-zones-by-name --dns-name <your-domain> \
+  --query 'HostedZones[0].Id' --output text | sed 's|/hostedzone/||')
+aws route53 change-resource-record-sets --hosted-zone-id "$ZID" --change-batch '{
+  "Changes": [
+    {"Action":"UPSERT","ResourceRecordSet":{"Name":"<your-domain>.","Type":"A","TTL":300,"ResourceRecords":[{"Value":"76.76.21.21"}]}},
+    {"Action":"UPSERT","ResourceRecordSet":{"Name":"www.<your-domain>.","Type":"CNAME","TTL":300,"ResourceRecords":[{"Value":"cname.vercel-dns.com"}]}}
+  ]
+}'
+```
+
+> ⚠️ **「Invalid Configuration」が出る**のは、この DNS レコードを **Route53 にまだ入れていない**だけ（ドメイン追加と DNS 設定は別作業）。上記を入れて伝播すると Vercel が自動で「Valid Configuration」になり、**apex の TLS は Vercel が自動発行**する（ACM の `*.<your-domain>` は apex を含まないが、apex は Vercel 側が担当）。
+> `api.<your-domain>`(ALB ALIAS) とは別レコードなので競合しない。Vercel 画面の表示値が上記と違う場合は表示値を優先。
+
+### 9-4. FRONTEND_URL の整合
+
+本番 URL が確定したら `FRONTEND_URL=https://<your-domain>` で `seed-secrets.sh prd` を再実行 → 必要なら api を再デプロイ。
 
 ---
 
