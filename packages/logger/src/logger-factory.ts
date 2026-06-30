@@ -54,7 +54,18 @@ export class LoggerFactory {
 }
 
 /**
- * デフォルトの Logger インスタンス
- * アプリケーション全体で使用
+ * デフォルトの Logger インスタンス（アプリケーション全体で使用）。
+ *
+ * `import { logger } from "@repo/logger"` した時点で PinoLogger を生成（dev では
+ * pino-pretty の worker thread 起動）してしまう eager な副作用を避けるため、
+ * 実際にメソッドが呼ばれるまでインスタンス生成を遅延する Proxy で包む。
+ * 型だけ欲しい / logger を使わない app（queue の producer 等）が無駄な
+ * オープンハンドルや初期化コストを負わずに済む。
  */
-export const logger = LoggerFactory.getLogger()
+export const logger: ILogger = new Proxy({} as ILogger, {
+  get(target, property, receiver) {
+    const instance = LoggerFactory.getLogger()
+    const value = Reflect.get(instance as object, property, receiver)
+    return typeof value === "function" ? value.bind(instance) : value
+  },
+})
