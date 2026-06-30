@@ -11,6 +11,16 @@ on:
       - 'package.json'
       - '.pnpmfile.cjs'
       - '.github/workflows/lint.yml'
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'turbo.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.pnpmfile.cjs'
+      - '.github/workflows/lint.yml'
   workflow_dispatch:
 
 permissions:
@@ -21,7 +31,7 @@ defaults:
     shell: bash
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true # 同一グループのワークフローが実行中ならキャンセル
 
 jobs:
