@@ -7,6 +7,7 @@
 | スクリプト | 用途 |
 |---|---|
 | [seed-secrets.sh](#seed-secretssh) | apply 後に AWS Secrets Manager へ外部 secret と RDS / Redis 接続情報を投入 |
+| [setup-labels.sh](#setup-labelssh) | `.github/labeler.yml` が付与する PR ラベルを GitHub リポジトリに作成 |
 
 ---
 
@@ -188,4 +189,58 @@ npx dotenvx run -f apps/api/.env.local -- ./scripts/seed-secrets.sh dev
 aws secretsmanager get-secret-value \
   --secret-id /project-template-dev/app \
   --query SecretString --output text | jq .
+```
+
+---
+
+## setup-labels.sh
+
+`.github/labeler.yml`（`actions/labeler@v5` のワークフロー `.github/workflows/labeler.yml` が参照）が付与する PR ラベルを、GitHub リポジトリ側にあらかじめ作成する。
+
+PR の変更パスに応じて以下のラベルが自動付与される:
+
+| 変更パス | ラベル | 色 |
+|---|---|---|
+| `apps/web/**` | `web` | `#1d76db` |
+| `apps/admin/**` | `admin` | `#5319e7` |
+| `apps/api/**` | `api` | `#0e8a16` |
+| `apps/mobile/**` | `mobile` | `#006b75` |
+| `apps/cron/**` | `cron` | `#d93f0b` |
+| `apps/worker/**` | `worker` | `#fbca04` |
+| `packages/**` | `packages` | `#0052cc` |
+| 上記いずれにも該当しない変更のみ | `chore` | `#cfd3d7` |
+
+特徴:
+- **idempotent**: `gh label create --force` を使うため、何度実行しても OK（既存ラベルは色/説明を更新）
+- **template 向け**: GitHub のラベルは template から生成した新リポジトリに引き継がれないため、派生リポジトリで 1 回実行して揃える
+
+> ラベル自体を事前作成しなくても `actions/labeler` がラベル付与時に自動生成するが、その場合は色がデフォルト（グレー）になる。本スクリプトで作成すると上表の色が付く。
+
+### 前提条件
+
+- `gh` (GitHub CLI) が install 済みで認証済み（`gh auth status` が通る）
+
+### 使い方
+
+```bash
+# カレントリポジトリに対して実行
+./scripts/setup-labels.sh
+
+# owner/repo を明示指定
+./scripts/setup-labels.sh foo/bar
+```
+
+実行イメージ:
+
+```
+==> Setting up labels on kentakki416/project-template
+  ✓ web (#1d76db)
+  ✓ admin (#5319e7)
+  ✓ api (#0e8a16)
+  ✓ mobile (#006b75)
+  ✓ cron (#d93f0b)
+  ✓ worker (#fbca04)
+  ✓ packages (#0052cc)
+  ✓ chore (#cfd3d7)
+==> Done. 8 labels are in sync on kentakki416/project-template
 ```
