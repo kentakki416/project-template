@@ -3,6 +3,7 @@ import { createLogger, format, transports } from "winston"
 import { LOG_LEVEL, NODE_ENV } from "./const"
 import { logContext } from "./context"
 import type { ILogger, LogMetadata } from "./interface"
+import { redactMetadata } from "./redact"
 
 type NodeEnv = typeof NODE_ENV[keyof typeof NODE_ENV]
 
@@ -55,26 +56,26 @@ export class WinstonLogger implements ILogger {
   }
 
   public debug(message: string, metadata?: LogMetadata): void {
-    this._getLogger().debug(message, metadata)
+    this._getLogger().debug(message, redactMetadata(metadata))
   }
 
   public info(message: string, metadata?: LogMetadata): void {
-    this._getLogger().info(message, metadata)
+    this._getLogger().info(message, redactMetadata(metadata))
   }
 
   public warn(message: string, metadata?: LogMetadata): void {
-    this._getLogger().warn(message, metadata)
+    this._getLogger().warn(message, redactMetadata(metadata))
   }
 
   public error(message: string, error?: Error, metadata?: LogMetadata): void {
     if (error) {
-      this._getLogger().error(message, {
+      this._getLogger().error(message, redactMetadata({
         error: error.message,
         stack: error.stack,
         ...metadata,
-      })
+      }))
     } else {
-      this._getLogger().error(message, metadata)
+      this._getLogger().error(message, redactMetadata(metadata))
     }
   }
 }

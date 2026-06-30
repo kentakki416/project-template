@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 import { logContext } from "./context"
 import type { ILogger, LogMetadata } from "./interface"
+import { redactMetadata } from "./redact"
 
 /**
  * Console Logger
@@ -17,8 +18,9 @@ export class ConsoleLogger implements ILogger {
       ...context, // requestId, userIdを含める
     }
 
-    if (metadata && Object.keys(metadata).length > 0) {
-      return JSON.stringify({ ...baseLog, ...metadata })
+    const safeMetadata = redactMetadata(metadata)
+    if (safeMetadata && Object.keys(safeMetadata).length > 0) {
+      return JSON.stringify({ ...baseLog, ...safeMetadata })
     }
 
     return JSON.stringify(baseLog)
