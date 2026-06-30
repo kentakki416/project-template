@@ -48,8 +48,10 @@ export const authenticateWithGoogle = async (
   logger.info("AuthService: Starting Google authentication")
 
   const googleUser: GoogleUserInfo = await googleAuthClient.getUserInfo(input.code, input.redirectUri)
+  /**
+   * email (PII) はログに残さず、突合に必要な googleId のみ出力する。
+   */
   logger.debug("AuthService: Retrieved Google user info", {
-    email: googleUser.email,
     googleId: googleUser.id,
   })
 
@@ -124,7 +126,11 @@ export const loginAsDevUser = async (
   },
   tokenGenerators: TokenGenerators
 ): Promise<Result<LoginAsDevUserSuccess>> => {
-  logger.info("AuthService: dev-login attempt", { email: input.email })
+  /**
+   * dev-login は dev 専用（seed 済みテストユーザー）だが、email を既定の info
+   * レベルには残さず debug に下げる。
+   */
+  logger.debug("AuthService: dev-login attempt", { email: input.email })
 
   const user = await repo.userRepository.findByEmail(input.email)
   if (!user) {
