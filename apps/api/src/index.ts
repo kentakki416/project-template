@@ -1,5 +1,6 @@
 import cors from "cors"
 import express from "express"
+import helmet from "helmet"
 
 import { createPrismaClient } from "@repo/db"
 import { logger } from "@repo/logger"
@@ -20,6 +21,7 @@ import { MemoUpdateController } from "./controller/memo/update"
 import { UserGetController } from "./controller/user/get"
 import { env } from "./env"
 import { authMiddleware } from "./middleware/auth"
+import { apiRateLimiter } from "./middleware/rate-limit"
 import { requestLogger } from "./middleware/request-logger"
 import { unhandledExceptionHandler } from "./middleware/unhandled-exception-handler"
 import {
@@ -103,6 +105,26 @@ const memoDeleteController = new MemoDeleteController(memoRepository)
 const app = express()
 
 /**
+ * ロードバランサ / リバースプロキシ（ALB 等）の裏で動くため、プロキシが付与する
+ * X-Forwarded-For ヘッダーから本当のクライアント IP を取得できるようにする。
+ *
+ * これを設定しないと、Express が見る IP は「直接の接続元 = プロキシの内部 IP」になり、
+ * 全ユーザーが同じ IP として扱われてしまう。その結果、IP 単位のレート制限が
+ * 「全ユーザーで 1 つの枠を共有」する状態になり、ほぼ機能しなくなる。
+ *
+ * 値 `1` は「自分の手前にある信頼できるプロキシ 1 段だけを信頼する」という意味。
+ * プロキシの段数に一致させる（プロキシが無い環境では false に戻す）。
+ */
+app.set("trust proxy", 1)
+
+/**
+ * セキュリティヘッダー（HSTS / X-Content-Type-Options: nosniff / X-Frame-Options 等）。
+ * 別オリジンのフロントから API のリソースを <img> 等で読み込む場合は
+ * `crossOriginResourcePolicy` を cross-origin に緩める。
+ */
+app.use(helmet())
+
+/**
  * cors設定のミドルウェア
  */
 app.use(
@@ -137,6 +159,12 @@ app.use(
     readiness: healthReadinessController,
   })
 )
+/**
+ * レート制限を API 全体に適用する。
+ * ヘルスチェック（/api/health）はロードバランサの死活監視で高頻度に叩かれるため、本ミドル
+ * ウェアより前に登録して対象外にしている（制限に巻き込むと target が unhealthy 判定される恐れ）。
+ */
+app.use(apiRateLimiter)
 app.use(
   "/api/auth",
   authRouter({
