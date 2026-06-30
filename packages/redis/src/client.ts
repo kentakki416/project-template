@@ -14,6 +14,14 @@ export type CreateRedisClientOptions = {
    *     { keyPrefix: "myapp:" } (キー名衝突回避)
    */
   options?: RedisOptions
+  /**
+   * `error` イベントのハンドラ。
+   * ioredis は接続失敗・再接続失敗時に `error` を emit するが、リスナが 1 つも
+   * 無いと Node の EventEmitter 規約で throw され、常駐プロセスが落ちる。
+   * 各 app の logger を注入してログに残すのが推奨（省略時は console.error で
+   * フォールバックし、最低限プロセスクラッシュだけは防ぐ）。
+   */
+  onError?: (error: Error) => void
 }
 
 /**
@@ -37,6 +45,22 @@ const buildOptionsFromEnv = (): RedisOptions | string => {
  * 用途ごとに複数回呼んで使い分ける。
  */
 export const createRedisClient = (params: CreateRedisClientOptions = {}): Redis => {
+  const client = instantiateRedisClient(params)
+  /**
+   * 未処理の `error` イベントによるプロセスクラッシュを防ぐ。利用側が onError を
+   * 渡さなかった場合でも、最低限 console.error でフォールバックする。
+   */
+  const onError = params.onError ?? ((error: Error): void => {
+    console.error("[redis] connection error:", error.message)
+  })
+  client.on("error", onError)
+  return client
+}
+
+/**
+ * url / 環境変数のいずれかから ioredis インスタンスを生成する内部ヘルパ。
+ */
+const instantiateRedisClient = (params: CreateRedisClientOptions): Redis => {
   if (params.url) {
     return new Redis(params.url, params.options ?? {})
   }

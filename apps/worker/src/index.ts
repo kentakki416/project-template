@@ -23,6 +23,9 @@ const main = (): void => {
    * BullMQ Worker は `maxRetriesPerRequest: null` の Redis 接続が必須 (BullMQ 5.x 要件)
    */
   const redis = createRedisClient({
+    onError: (error) => {
+      logger.error("redis connection error", error)
+    },
     options: { maxRetriesPerRequest: null },
     url: env.REDIS_URL,
   })

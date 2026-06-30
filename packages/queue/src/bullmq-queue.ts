@@ -31,6 +31,18 @@ export class BullMQJobQueue<T> implements JobQueue<T> {
         removeOnFail: { age: 86400 },
       },
     })
+    /**
+     * BullMQ の Queue は EventEmitter で、Redis 接続障害時に `error` を emit する。
+     * リスナが無いと Node の規約で throw され producer プロセスが落ちるため、
+     * ログ出力のリスナを必ず登録する。
+     */
+    this._queue.on("error", (error) => {
+      logger.error(
+        "[queue] producer error",
+        error instanceof Error ? error : new Error(String(error)),
+        { queueName },
+      )
+    })
   }
 
   public async enqueue(data: T, options?: EnqueueOptions): Promise<void> {
@@ -81,6 +93,19 @@ export const startBullMQWorker = <T>(
       connection: redis,
     },
   )
+
+  /**
+   * Worker も EventEmitter で、Redis 一時切断などで `error` を emit する。
+   * `error` リスナが無いと Node の規約で throw され、常駐 worker プロセスが
+   * クラッシュするため必ず登録する（日常的に起こる Redis 瞬断で落とさない）。
+   */
+  worker.on("error", (err) => {
+    logger.error(
+      "[queue] worker error",
+      err instanceof Error ? err : new Error(String(err)),
+      { queueName: options.queueName },
+    )
+  })
 
   worker.on("failed", (job, err) => {
     logger.error(
