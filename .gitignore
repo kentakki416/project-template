@@ -47,8 +47,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# dotenvx (root only symlink to git)
-/.env.keys
+# dotenvx: 復号鍵は絶対にコミットしない（root / apps/* の全階層）
+.env.keys
+**/.env.keys
 secret
 
 # Turbo
