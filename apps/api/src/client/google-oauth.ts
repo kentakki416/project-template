@@ -1,4 +1,5 @@
 import { OAuth2Client } from "google-auth-library"
+import { z } from "zod"
 
 export type GoogleUserInfo = {
     email: string
@@ -7,16 +8,18 @@ export type GoogleUserInfo = {
     picture?: string
 }
 
-type GoogleUserInfoResponse = {
-    email: string
-    family_name?: string
-    given_name?: string
-    id: string
-    locale?: string
-    name: string
-    picture?: string
-    verified_email?: boolean
-}
+/**
+ * Google userinfo エンドポイントのレスポンス検証スキーマ。
+ * 外部 API のレスポンスは無検証キャストせず Zod で検証し、想定外の形（id/email
+ * 欠落、エラー JSON 等）が後段の findByProvider / ユーザー作成へ流れるのを防ぐ。
+ * 利用しないフィールド（family_name 等）は検証対象に含めない（余剰は無視）。
+ */
+const googleUserInfoResponseSchema = z.object({
+  email: z.string().email(),
+  id: z.string().min(1),
+  name: z.string(),
+  picture: z.string().optional(),
+})
 
 /**
  * GoogleOAuthクライアントのインターフェース
@@ -52,7 +55,11 @@ export class GoogleOAuthClient implements IGoogleOAuthClient {
       }
     })
 
-    const data = await response.json() as GoogleUserInfoResponse
+    if (!response.ok) {
+      throw new Error(`Google userinfo request failed: ${response.status}`)
+    }
+
+    const data = googleUserInfoResponseSchema.parse(await response.json())
 
     return {
       email: data.email,

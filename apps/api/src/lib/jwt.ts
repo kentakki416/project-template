@@ -2,10 +2,17 @@ import { randomUUID } from "node:crypto"
 
 import jwt, { type Secret, type SignOptions } from "jsonwebtoken"
 
-const JWT_ACCESS_SECRET: Secret = process.env.JWT_ACCESS_SECRET as string
-const JWT_REFRESH_SECRET: Secret = process.env.JWT_REFRESH_SECRET as string
-const JWT_ACCESS_EXPIRATION = (process.env.JWT_ACCESS_EXPIRATION || "15m") as SignOptions["expiresIn"]
-const JWT_REFRESH_EXPIRATION = (process.env.JWT_REFRESH_EXPIRATION || "7d") as SignOptions["expiresIn"]
+import { env } from "../env"
+
+/**
+ * シークレット / 有効期限は検証済みの env を単一の出所として参照する。
+ * process.env を直接読むと env.ts の Zod 検証（secret は min(32) 等）を通らない
+ * 未検証値や undefined を `as string` で握り潰す恐れがあるため使わない。
+ */
+const JWT_ACCESS_SECRET: Secret = env.JWT_ACCESS_SECRET
+const JWT_REFRESH_SECRET: Secret = env.JWT_REFRESH_SECRET
+const JWT_ACCESS_EXPIRATION = env.JWT_ACCESS_EXPIRATION as SignOptions["expiresIn"]
+const JWT_REFRESH_EXPIRATION = env.JWT_REFRESH_EXPIRATION as SignOptions["expiresIn"]
 
 export type AccessTokenPayload = {
     exp?: number
