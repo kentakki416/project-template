@@ -2,6 +2,27 @@
 
 バイナリ（PNG / SVG 等）を保存して公開 URL を返す **汎用ストレージ抽象 + 実装 + factory** を提供する共有パッケージ。**全 app（api / worker / cron 等）で利用する**。
 
+## 目次
+
+- [設計の意図](#設計の意図)
+- [役割](#役割)
+- [公開 API](#公開-api)
+- [使い方](#使い方)
+- [環境変数](#環境変数)
+
+## 設計の意図
+
+**抽象（`Storage`）+ 実装（`LocalStorage` / `S3Storage`）+ factory（`createStorage` = strategy）。** 利用側は `Storage` interface だけに依存し、env から組み立てた config を factory に渡して実装を選ぶ。
+
+> 💡 **1 インスタンス = 1 保存先（bucket / baseDir）**
+> `Storage` インスタンスは生成時に保存先（S3 の bucket / local の baseDir）を束ねる。保存先が複数あるなら **保存先ごとに `createStorage` を呼んで別インスタンスを作る**（変数名 `avatarStorage` / `docStorage` 等でドメインを表す）。こうすることで interface は `save(key, body)` のまま **backend 非依存**に保て、bucket のような実装固有の概念を `save` 引数に漏らさずに済む。
+
+> 💡 **factory は `process.env` を読まない**
+> env の検証は各 app の `src/env.ts` に集約し、値（`StorageConfig`）として `createStorage` に渡す。バックエンド追加（GCS 等）は抽象を変えず union と `switch` の case を増やすだけ。
+
+> 💡 **将来、1 app で複数の保存先（avatars / documents 等）が必要になったら 2 段階 factory を検討**
+> 今は `createStorage(config)` を保存先ごとに呼ぶ（複数インスタンス）。ただし backend 選択（`type` / `region`、環境ごと）と場所（bucket / baseDir、保存先ごと）が同一 config に同居しているため、保存先が増えると `type` 分岐や S3Client 生成が重複する。複数 bucket が常態化したら、**backend を 1 回決めて保存先ごとにインスタンスを作る 2 段階 factory**（例: `createStorageFactory(env)` → `makeStorage({ name, publicUrlBase })`）へのリファクタを検討する。
+
 ## 役割
 
 - `Storage` インターフェース（`save` / `delete`）のみに責務を絞った generic な抽象
@@ -40,9 +61,24 @@ import { createStorage, LocalStorage, S3Storage, type Storage, type StorageConfi
 { type: "s3", bucket: string, publicUrlBase: string, region?: string }
 ```
 
+### `createStorage` の実装
+
+`config.type` で実装を選ぶだけの薄い factory。バックエンド追加時はこの `switch` に case を足す。
+
+```ts
+export const createStorage = (config: StorageConfig): Storage => {
+  switch (config.type) {
+  case "s3":
+    return new S3Storage(config.bucket, config.publicUrlBase, config.region)
+  case "local":
+    return new LocalStorage(config.baseDir, config.publicUrlPrefix)
+  }
+}
+```
+
 ## 使い方
 
-### factory 経由（推奨）
+### factory 経由
 
 各 app の `src/index.ts` で env から `StorageConfig` を組み立て、factory を 1 回呼んで Repository / Service に DI する。
 
@@ -67,15 +103,6 @@ const storage =
 const url = await storage.save("badges/123.png", pngBuffer)
 ```
 
-### 実装を直接 new する
-
-特定実装に固定したい箇所では `LocalStorage` / `S3Storage` を直接生成してもよい。
-
-```ts
-import { S3Storage } from "@repo/storage"
-
-const storage = new S3Storage("my-bucket", "https://cdn.example.com", "ap-northeast-1")
-```
 
 ## 環境変数
 
@@ -86,27 +113,3 @@ const storage = new S3Storage("my-bucket", "https://cdn.example.com", "ap-northe
 | `STORAGE_TYPE` | `local` / `s3` の切り替え |
 | `S3_BUCKET` / `S3_PUBLIC_URL_BASE` / `AWS_REGION` | `s3` 用 |
 | `STORAGE_LOCAL_DIR` / `STORAGE_LOCAL_URL_PREFIX` | `local` 用 |
-
-## 新しいバックエンドの追加（GCS 等）
-
-1. `Storage` を実装したクラスを追加（例: `gcs-storage.ts`）
-2. `StorageConfig` の union に `{ type: "gcs", ... }` を追加
-3. `createStorage` の `switch` に `case "gcs"` を追加
-
-抽象 (`Storage`) は変えずに union と factory を増やすだけで拡張できる。
-
-## ディレクトリ構成
-
-```
-packages/storage/
-└── src/
-    ├── storage.ts        # Storage 抽象（interface）
-    ├── local-storage.ts  # filesystem 実装
-    ├── s3-storage.ts     # S3 実装 + ContentType 推定
-    ├── create-storage.ts # StorageConfig + createStorage factory
-    └── index.ts          # 公開 API の barrel
-```
-
-## 設計詳細
-
-→ [`docs/spec/shared-packages/README.md`](../../docs/spec/shared-packages/README.md) を参照。

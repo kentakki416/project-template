@@ -1,13 +1,39 @@
 # @repo/db
 
-Prisma schema / migrations / generated client を一元管理する共有パッケージ。**全 server-side app (api / cron / worker / 将来の batch) は本パッケージ越しに DB へアクセスする**。
+Prisma schema / migrations / generated client を一元管理する共有パッケージ。**全 server-side app (api / cron / worker...) は本パッケージ越しに DB へアクセスする**。
 
-## 役割
+## 目次
 
-- `prisma/schema.prisma` を **唯一の正本** として保有
-- `createPrismaClient()` factory のみ export（パッケージ側では singleton を持たない）
-- マイグレーション / generate / seed のコマンドを 1 箇所に集約
-- Prisma が生成するドメイン型（`User` / `Memo` 等）を re-export
+- [設計の意図と役割](#設計の意図と役割)
+- [公開 API](#公開-api)
+- [リードレプリカの仕様](#リードレプリカの仕様)
+- [コマンド](#コマンド)
+## 設計の意図と役割
+
+- `prisma/schema.prisma` を **唯一の正本** として保有し、migration / generate / seed コマンドを 1 箇所に集約
+- **`createPrismaClient()` factory のみ export / singleton は持たない。** 接続は各 app の `src/index.ts` で 1 回だけ生成し、Repository に DI する
+- ドメイン型（`User` / `Memo` 等）は **型としてのみ** re-export する
+
+> 💡 **なぜ「型だけ」re-export しているか**
+> `export *` にすると `PrismaClient` クラス本体（runtime の値）まで公開され、app 側で `new PrismaClient()` と書けて factory を迂回できてしまう。値は factory だけ出し、型は `export type` で出すことで、**そもそも `@repo/db` から `PrismaClient` を `new` できない**ようにしている。
+
+```ts
+/** src/index.ts ── 値は factory だけ export、ドメイン型は export type で出す */
+export { createPrismaClient } from "./client"
+export type { Memo, Prisma, PrismaClient, User } from "../generated/client"
+```
+
+```ts
+/** 利用側 (apps/*/src/index.ts): factory で 1 回だけ生成し Repository に DI する */
+import { createPrismaClient, type PrismaClient } from "@repo/db"
+
+const prisma = createPrismaClient()                    // PrismaClient は型なので new 不可
+const memoRepository = new PrismaMemoRepository(prisma)
+
+process.on("SIGTERM", async () => {
+  await prisma.$disconnect()
+})
+```
 
 ## 公開 API
 
@@ -27,32 +53,29 @@ import { createPrismaClient, type PrismaClient, type User, type Memo } from "@re
 | `url` | `process.env.DATABASE_URL` (+ `DB_NAME` 上書き) | 接続文字列 |
 | `replicaUrl` | `process.env.DATABASE_REPLICA_URL` | read replica の接続文字列。指定時は `@prisma/extension-read-replicas` で read/write を自動振り分け |
 
-## 使い方
+## リードレプリカの仕様
 
-各 app の `src/index.ts` で **1 回だけ** 呼び、生成した client を Repository に DI する。
+`replicaUrl`（または `DATABASE_REPLICA_URL`）を指定すると、`@prisma/extension-read-replicas` が read / write を自動で振り分ける。**未指定なら replica は使わず、primary が read / write の両方を担う**。
 
-```ts
-// apps/api/src/index.ts
-import { createPrismaClient } from "@repo/db"
+### 自動振り分けルール
 
-const prisma = createPrismaClient()
+| 操作 | 振り分け先 |
+| --- | --- |
+| `findMany` / `findUnique` / `count` / `aggregate` などの read | replica |
+| `create` / `update` / `delete` / `$transaction` / `$executeRaw` | primary |
 
-const memoRepository = new PrismaMemoRepository(prisma)
+### 強整合性が必要な read（read-after-write）
 
-process.on("SIGTERM", async () => {
-  await prisma.$disconnect()
-})
-```
+replica は primary からの **レプリケーション遅延** があるため、直前に primary へ書き込んだ内容が replica にまだ反映されていないことがある（＝書いた直後に read すると古い値が返りうる）。
 
-> **NG**: `import { prisma } from "@repo/db"` のような singleton import はしない。**factory を経由しない接続は禁止**。
-
-### 強整合 read（replica 利用時）
+「書き込み直後に必ず最新を読みたい」ケースでは、`$primary()` で primary からの read を明示的に強制する。
 
 ```ts
+/** replica を経由せず primary から read（最新が保証される） */
 const fresh = await prisma.$primary().user.findUnique({ where: { id } })
 ```
 
-Repository 規約：強整合必須のメソッド名は末尾に `FromPrimary` を付ける（例: `findByIdFromPrimary`）。
+**Repository 規約**: 強整合が必須のメソッドは名前の末尾に `FromPrimary` を付け、`$primary()` 経由であることを呼び出し側に明示する（例: `findByIdFromPrimary`）。
 
 ## コマンド
 
@@ -67,26 +90,3 @@ pnpm --filter @repo/db db:studio           # Prisma Studio 起動
 ```
 
 `postinstall` で `prisma generate` が自動実行されるため、新規 clone / CI install 時に generated client が必ず揃う。
-
-## ディレクトリ構成
-
-```
-packages/db/
-├── prisma/
-│   ├── schema.prisma         # 唯一の DB スキーマ
-│   ├── migrations/           # マイグレーション履歴
-│   ├── prisma.config.ts      # Prisma CLI 設定
-│   └── seed.ts               # 全 app 共通のシード
-├── src/
-│   ├── client.ts             # createPrismaClient factory
-│   └── index.ts              # client + 生成型 re-export
-└── generated/                # prisma generate 出力（gitignore）
-```
-
-## 設計詳細
-
-- なぜ singleton を持たず factory のみか
-- read replica の振り分けルール
-- `seed.ts` を packages に集約する理由
-
-→ [`docs/spec/shared-packages/README.md`](../../docs/spec/shared-packages/README.md) の「@repo/db の設計」を参照。

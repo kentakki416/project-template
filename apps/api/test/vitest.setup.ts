@@ -35,4 +35,4 @@ process.env.DATABASE_URL =
  * ここに移し、controller / service のどちらの実行でも同じ初期化が走るようにする。
  */
 process.env.DB_NAME = process.env.DB_NAME || "project-template_test"
-process.env.REDIS_DB = process.env.REDIS_DB || "1"
+process.env.REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379/1"
