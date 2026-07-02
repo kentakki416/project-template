@@ -1,6 +1,31 @@
 # @repo/queue
 
-ジョブキューの **抽象 (`JobQueue<T>` / `JobProcessor<T>` / `JobConsumer`) + BullMQ 実装 + Job 型定義** を提供する共有パッケージ。
+ジョブキューの **型定義・キューへの追加（enqueue）・pickup（取り出し → ハンドラ起動）を抽象化** した共通パッケージ。キューに積むのは「何をするか」のデータ（ペイロード）だけで、実処理（`JobProcessor` の中身）はパッケージに持たず worker 側が実装・注入する。
+
+## 目次
+
+- [設計の意図](#設計の意図)
+- [役割](#役割)
+- [設計の核](#設計の核)
+- [公開 API](#公開-api)
+- [使い方](#使い方)
+- [関連](#関連)
+
+## 設計の意図
+
+**`JobQueue<T>` / `JobProcessor<T>` を interface で抽象化し、実装を差し替え可能にする。** デフォルトは BullMQ だが、producer もジョブハンドラも interface しか knows しないため、SQS / Cloud Tasks 等へ乗り換えても **ハンドラ無変更** で実装だけ入れ替えられる（Strategy / 依存性逆転）。
+
+> 💡 **なぜ Factory ではなく Strategy か**
+> producer（enqueue）と consumer（dequeue）で生成の仕方が異なり、必要なクライアントも実装ごとに redis / SQS / Cloud Tasks とバラバラ。これらを 1 つの生成関数にまとめる Factory は無理があるため、生成は各 app の composition root に任せ、利用側を interface に依存させる Strategy にしている。
+
+> 💡 **BullMQ 実装では `error` リスナが必須**
+> BullMQ の `Queue` / `Worker` は EventEmitter で、Redis 障害時に `error` を emit する。リスナが無いと Node 規約で throw → プロセスが落ちるため、本パッケージ内で必ず登録している（[@repo/redis](../redis/README.md) の `error` 対策と同根）。
+
+```ts
+/** bullmq-queue.ts ── Queue / Worker いずれにも error リスナを必ず登録する */
+this._queue.on("error", (err) => logger.error("[queue] producer error", err, { queueName }))
+worker.on("error", (err) => logger.error("[queue] worker error", err, { queueName }))
+```
 
 ## 役割
 
@@ -9,6 +34,7 @@
 - 将来 SQS / Cloud Tasks / pg-boss / Inngest 等に乗り換える際、**ハンドラ無変更** で実装だけ差し替え可能
 
 ## 設計の核
+### コンポーネント間の関係性
 
 ```
 ┌────────────────────┐        ┌──────────────────┐
@@ -23,7 +49,17 @@
                               └──────────────────┘
 ```
 
-ジョブハンドラ (`apps/worker/src/jobs/*.ts`) は **本パッケージの型しか import しない**。BullMQ の `Job` / `Worker` 型を import するのは本パッケージ内部と `apps/worker/src/index.ts` だけ。
+### 全体の流れ
+```
+[api / cron]                    [Redis]                 [worker プロセス]
+queue.enqueue({memoId:42}) ──▶  process-memo  ──pull──▶  new Worker のループ
+                                  キューに積む            │ job 受信
+                                                         ▼
+                                                  processor({ data:{memoId:42} })
+                                                         ▼
+                                                  processMemo ハンドラ
+                                                  = memoRepository.findById + ログ
+```
 
 ## 公開 API
 
@@ -56,6 +92,12 @@ import {
 | `JobProcessor<T>` | `(msg: JobMessage<T>) => Promise<void>` の純粋関数 |
 | `JobConsumer` | Worker のハンドル。`close()` で graceful shutdown |
 | `JobMessage<T>` | Worker が受け取る最小情報（`id` / `data` / `attemptsMade`） |
+
+### 含まれる Job
+
+| Queue 名 | ペイロード | 用途 |
+| --- | --- | --- |
+| `process-memo` | `{ memoId: number }` | memo を id で fetch してログ出力（メール送信 / 通知への差し替えの起点） |
 
 ## 使い方
 
@@ -97,6 +139,7 @@ export const processMemo = (deps: Deps): JobProcessor<ProcessMemoJobData> =>
 // apps/worker/src/workers/process-memo-worker.ts ─ 結線
 import { startBullMQWorker, PROCESS_MEMO_QUEUE_NAME } from "@repo/queue"
 
+/** 常駐リスナーを起動。index.ts で起動時に 1 回だけ呼ぶ（以降 enqueue ごとにハンドラが自動実行される） */
 export const startProcessMemoWorker = (args) =>
   startBullMQWorker(args.redis, {
     concurrency: args.concurrency,
@@ -105,53 +148,7 @@ export const startProcessMemoWorker = (args) =>
   })
 ```
 
-## 新しい Queue の追加手順
-
-1. `src/jobs/<name>.ts` に **Queue 名・ペイロード型・jobId ビルダ** を定義
-2. `src/jobs/index.ts` で re-export
-3. `apps/worker/src/jobs/<name>.ts` に **純粋ハンドラ**（`(deps) => JobProcessor<T>`）を実装
-4. `apps/worker/src/workers/<name>-worker.ts` で `startBullMQWorker` と結線
-5. `apps/worker/src/index.ts` の `consumers` 配列に追加
-
-詳細は [`apps/worker/CLAUDE.md`](../../apps/worker/CLAUDE.md) の「新 Queue の追加」を参照。
-
-## 別 Queue 実装への乗り換え
-
-例: BullMQ → SQS。
-
-1. 本パッケージに `SqsJobQueue<T>` (= `JobQueue<T>` 実装) と `startSqsWorker` を追加
-2. `apps/worker/src/workers/*.ts` の `startBullMQWorker` を `startSqsWorker` に差し替え
-3. Producer 側 (api / cron) の `new BullMQJobQueue(...)` を `new SqsJobQueue(...)` に差し替え
-
-**ジョブハンドラ自体 (`apps/worker/src/jobs/*.ts`) は無変更**。これが疎結合の意図。
-
-## 含まれる Job
-
-| Queue 名 | ペイロード | 用途 |
-| --- | --- | --- |
-| `process-memo` | `{ memoId: number }` | memo を id で fetch してログ出力（メール送信 / 通知への差し替えの起点） |
-
-## 冪等性は必須
-
-BullMQ の stalled 検出 / リトライ / ECS deploy 時の SIGKILL 等で **同じジョブが複数回実行されうる**。
-
-- read-only 処理は自然に冪等
-- write は upsert / 既処理フラグ / 決定的キーでの dedupe で冪等化
-- exactly-once が必要なら DB 側で transactional outbox を組む（worker 単体では実現不可）
-
-## ディレクトリ構成
-
-```
-packages/queue/
-└── src/
-    ├── types.ts            # JobQueue / JobProcessor / JobConsumer 等の抽象型
-    ├── bullmq-queue.ts     # BullMQJobQueue + startBullMQWorker
-    ├── jobs/               # Job 型 + Queue 名 + jobId ビルダ
-    │   ├── process-memo.ts
-    │   └── index.ts
-    └── index.ts
-```
-
 ## 関連
 
 - [apps/worker/README.md](../../apps/worker/README.md) / [apps/worker/CLAUDE.md](../../apps/worker/CLAUDE.md)
+- [docs/tool/bullMQ.md](../../docs/tool/bullMQ.md) — デフォルト Queue 実装 BullMQ の概要・特徴

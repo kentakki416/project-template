@@ -3,8 +3,7 @@ import Redis, { type RedisOptions } from "ioredis"
 export type CreateRedisClientOptions = {
   /**
    * 接続 URL を明示指定（例: redis://:password@host:6379/0）
-   * 省略時は process.env.REDIS_URL を優先し、無ければ個別の
-   * REDIS_HOST / REDIS_PORT / REDIS_PASSWORD / REDIS_DB から組み立てる
+   * 省略時は process.env.REDIS_URL を読み、未設定なら localhost デフォルトを使う
    */
   url?: string
   /**
@@ -24,19 +23,13 @@ export type CreateRedisClientOptions = {
   onError?: (error: Error) => void
 }
 
+const DEFAULT_URL = "redis://localhost:6379"
+
 /**
- * 環境変数から ioredis に渡すオプションを組み立てる
- * REDIS_URL が優先される。無ければ REDIS_HOST/PORT/PASSWORD/DB を個別に読む
+ * 環境変数から接続 URL を解決する。
+ * REDIS_URL を読み、未設定なら local 開発用の localhost デフォルトにフォールバックする。
  */
-const buildOptionsFromEnv = (): RedisOptions | string => {
-  if (process.env.REDIS_URL) return process.env.REDIS_URL
-  return {
-    db: Number(process.env.REDIS_DB) || 0,
-    host: process.env.REDIS_HOST || "localhost",
-    password: process.env.REDIS_PASSWORD || undefined,
-    port: Number(process.env.REDIS_PORT) || 6379,
-  }
-}
+const resolveUrlFromEnv = (): string => process.env.REDIS_URL ?? DEFAULT_URL
 
 /**
  * ioredis クライアントのファクトリ
@@ -61,12 +54,6 @@ export const createRedisClient = (params: CreateRedisClientOptions = {}): Redis 
  * url / 環境変数のいずれかから ioredis インスタンスを生成する内部ヘルパ。
  */
 const instantiateRedisClient = (params: CreateRedisClientOptions): Redis => {
-  if (params.url) {
-    return new Redis(params.url, params.options ?? {})
-  }
-  const base = buildOptionsFromEnv()
-  if (typeof base === "string") {
-    return new Redis(base, params.options ?? {})
-  }
-  return new Redis({ ...base, ...params.options })
+  const url = params.url ?? resolveUrlFromEnv()
+  return new Redis(url, params.options ?? {})
 }

@@ -92,27 +92,7 @@ const apiEnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8080),
 
   /**
-   * Redis 番号（test では別 DB を使うことで分離）
-   */
-  REDIS_DB: z.coerce.number().int().min(0).optional(),
-
-  /**
-   * Redis ホスト（REDIS_URL を使う場合は不要）
-   */
-  REDIS_HOST: z.string().optional(),
-
-  /**
-   * Redis パスワード
-   */
-  REDIS_PASSWORD: z.string().optional(),
-
-  /**
-   * Redis ポート（REDIS_URL を使う場合は不要）
-   */
-  REDIS_PORT: z.coerce.number().int().positive().optional(),
-
-  /**
-   * Redis 接続 URL（個別指定がある場合は @repo/redis がそちらを優先）
+   * Redis 接続 URL（未設定時は @repo/redis が localhost デフォルトを使う）
    */
   REDIS_URL: z.string().url().optional(),
 })

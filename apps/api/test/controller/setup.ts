@@ -2,7 +2,7 @@ import { createPrismaClient } from "@repo/db"
 import { createRedisClient } from "@repo/redis"
 
 /**
- * DB_NAME / REDIS_DB / JWT 系の環境変数は test/vitest.setup.ts で
+ * DB_NAME / REDIS_URL / JWT 系の環境変数は test/vitest.setup.ts で
  * setupFiles 経由で先に設定されているため、ここで再設定する必要はない。
  * createPrismaClient / createRedisClient は process.env を読むので、
  * setupFiles で設定済みの値を拾ってテスト用 DB / Redis DB 1 に接続する。
