@@ -1,26 +1,14 @@
 name: Test
 
 on:
+  # main への push（マージ後）のみ。feature ブランチは pull_request 側で走らせ、
+  # push + pull_request が同一 concurrency group に入って相互キャンセルするのを防ぐ。
   push:
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'turbo.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'package.json'
-      - '.pnpmfile.cjs'
-      - '.github/workflows/test.yml'
+    branches: [main]
+  # paths フィルタは付けない。required status check にした場合、対象外の変更で
+  # skip されると「保留 / 失敗」表示のまま merge がブロックされるため、常に実行して
+  # 必ず結果を報告する。
   pull_request:
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'turbo.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'package.json'
-      - '.pnpmfile.cjs'
-      - '.github/workflows/test.yml'
   workflow_dispatch:
 
 permissions:
