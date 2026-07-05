@@ -88,29 +88,34 @@ add_kv "LIVEKIT_API_SECRET"     "${LIVEKIT_API_SECRET:-}"     "env"
 add_kv "FRONTEND_URL"           "${FRONTEND_URL:-}"           "env"
 
 # ============================================================================
-# 3. RDS: terraform output + master_user_secret から DATABASE_URL を構築
+# 3. RDS: terraform output + app secret の DB_PASSWORD から DATABASE_URL を構築
 # ============================================================================
 echo "==> Infrastructure-derived secrets (from terraform output)"
 
 if RDS_ADDRESS=$(terraform -chdir="$TF_DIR" output -raw rds_address 2>/dev/null); then
   RDS_DB_NAME=$(terraform -chdir="$TF_DIR" output -raw rds_db_name)
   RDS_USERNAME=$(terraform -chdir="$TF_DIR" output -raw rds_master_username)
-  RDS_SECRET_ARN=$(terraform -chdir="$TF_DIR" output -raw rds_master_user_secret_arn)
 
-  RDS_PASSWORD=$(aws secretsmanager get-secret-value \
-    --secret-id "$RDS_SECRET_ARN" \
-    --query SecretString --output text | jq -r .password)
+  # パスワードの唯一の情報源は app secret の DB_PASSWORD。
+  # (Terraform が random 初期値を投入し、module.rds が ephemeral 経由で password_wo に渡す。
+  #  以前の rds! managed secret は自動ローテーションが DATABASE_URL と乖離する事故を
+  #  起こしたため廃止した)
+  RDS_PASSWORD=$(echo "$CURRENT" | jq -r '.DB_PASSWORD // empty')
 
-  # パスワードに URL 不適合な文字が混じることがあるため percent-encode
-  ENCODED_PW=$(jq -rn --arg p "$RDS_PASSWORD" '$p|@uri')
-  # sslmode=no-verify: 暗号化はするが CA 検証はしない。
-  # Prisma 7 の pg ドライバアダプタ(@prisma/adapter-pg)は sslmode=require を verify-full 扱いに
-  # するため、RDS の CA(自己署名チェーン)を弾いて TlsConnectionError(P1011) になる。RDS は VPC
-  # 内通信なので no-verify で運用する（CA 同梱で verify-full にするのは将来の hardening）。
-  DATABASE_URL="postgresql://${RDS_USERNAME}:${ENCODED_PW}@${RDS_ADDRESS}:5432/${RDS_DB_NAME}?sslmode=no-verify"
+  if [ -z "$RDS_PASSWORD" ]; then
+    echo "  - DATABASE_URL (skipped, DB_PASSWORD not found in ${SECRET_NAME})"
+  else
+    # パスワードに URL 不適合な文字が混じることがあるため percent-encode
+    ENCODED_PW=$(jq -rn --arg p "$RDS_PASSWORD" '$p|@uri')
+    # sslmode=no-verify: 暗号化はするが CA 検証はしない。
+    # Prisma 7 の pg ドライバアダプタ(@prisma/adapter-pg)は sslmode=require を verify-full 扱いに
+    # するため、RDS の CA(自己署名チェーン)を弾いて TlsConnectionError(P1011) になる。RDS は VPC
+    # 内通信なので no-verify で運用する（CA 同梱で verify-full にするのは将来の hardening）。
+    DATABASE_URL="postgresql://${RDS_USERNAME}:${ENCODED_PW}@${RDS_ADDRESS}:5432/${RDS_DB_NAME}?sslmode=no-verify"
 
-  NEW_VALUES=$(echo "$NEW_VALUES" | jq --arg url "$DATABASE_URL" '. + { DATABASE_URL: $url }')
-  echo "  ✓ DATABASE_URL (constructed from RDS outputs)"
+    NEW_VALUES=$(echo "$NEW_VALUES" | jq --arg url "$DATABASE_URL" '. + { DATABASE_URL: $url }')
+    echo "  ✓ DATABASE_URL (constructed from RDS outputs + DB_PASSWORD)"
+  fi
 else
   echo "  - DATABASE_URL (skipped, RDS not deployed yet)"
 fi

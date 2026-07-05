@@ -43,6 +43,19 @@ variable "master_username" {
   type        = string
 }
 
+variable "master_password" {
+  description = "マスターパスワード。app secret の DB_PASSWORD を ephemeral resource で読んで渡す (password_wo 経由のため tfstate には残らない)"
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+}
+
+variable "master_password_version" {
+  description = "パスワード更新トリガー。app secret の DB_PASSWORD を変更したらこの値を +1 して apply する (write-only 引数は値の変化を自動検知できないため)"
+  type        = number
+  default     = 1
+}
+
 variable "subnet_ids" {
   description = "isolated subnet ID のリスト (最低 2 AZ)"
   type        = list(string)

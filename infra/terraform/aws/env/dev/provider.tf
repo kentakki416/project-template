@@ -3,7 +3,7 @@
 # =============================================================================
 
 terraform {
-  required_version = ">= 1.10"
+  required_version = ">= 1.11" # password_wo (write-only 引数) と ephemeral resource に必要
 
   required_providers {
     aws = {

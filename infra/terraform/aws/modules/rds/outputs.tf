@@ -22,8 +22,3 @@ output "master_username" {
   description = "マスターユーザー名"
   value       = aws_db_instance.this.username
 }
-
-output "master_user_secret_arn" {
-  description = "AWS 自動生成パスワードが保存されている Secrets Manager の ARN"
-  value       = aws_db_instance.this.master_user_secret[0].secret_arn
-}
