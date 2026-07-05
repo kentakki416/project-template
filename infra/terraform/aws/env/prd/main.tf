@@ -228,6 +228,20 @@ resource "random_password" "jwt_refresh_secret" {
   }
 }
 
+# DB マスターパスワードの初期値。新規環境の初回 apply でのみ実際に使われる。
+# 以降の実値は app secret 側が正 (modules/secrets の ignore_changes のため、
+# secret 側でローテーションしても Terraform は上書きしない)。
+# RDS の禁止文字 (スラッシュ / アットマーク / ダブルクォート / スペース) を避けた記号のみ使う。
+resource "random_password" "db_master" {
+  length           = 28
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+  special          = true
+
+  lifecycle {
+    ignore_changes = [length, special, override_special, min_lower, min_upper, min_numeric, min_special]
+  }
+}
+
 # Application secrets
 # 「箱だけ Terraform で管理 + JWT のみ初回投入」方針:
 # - 初回 apply で JWT (random_password) と基本定数のみ Secrets Manager に書く
@@ -250,6 +264,13 @@ module "app_secrets" {
     JWT_ACCESS_EXPIRATION  = "15m"
     JWT_REFRESH_EXPIRATION = "30d"
 
+    /**
+     * DB マスターパスワード。module.rds が ephemeral で読む唯一の情報源。
+     * 初回 apply でのみこの random 初期値が入り、以降の変更は secret 側で直接行う。
+     * DATABASE_URL は同じパスワードから scripts/seed-secrets.sh が構築する。
+     */
+    DB_PASSWORD = random_password.db_master.result
+
     REDIS_PORT = "6379"
     REDIS_DB   = "0"
 
@@ -264,9 +285,18 @@ module "app_secrets" {
 # RDS Postgres 16
 # =============================================================================
 # - isolated subnet に配置、SG は ECS のみから 5432 許可 (上で定義済み)
-# - master password は AWS が自動生成し Secrets Manager に保存 (Terraform tfstate に残らない)
-# - DATABASE_URL は apply 後に手動で /project-template-prd/app secret に追加する
+# - master password は app secret の DB_PASSWORD を唯一の情報源とし、ephemeral 経由で
+#   password_wo (write-only) に渡す。tfstate / plan に平文は残らない
+# - DATABASE_URL は apply 後に scripts/seed-secrets.sh で /project-template-prd/app に追加する
 #   (modules/secrets の ignore_changes により Terraform からは触れないため)
+
+# app secret から DB マスターパスワードを読む。ephemeral resource なので
+# 読んだ値は plan / state のどちらにも保存されない。
+# seeded_secret_id (secret_version 経由) を参照することで、新規環境の初回 apply でも
+# initial_values の投入後に読まれることが保証される。
+ephemeral "aws_secretsmanager_secret_version" "app" {
+  secret_id = module.app_secrets.seeded_secret_id
+}
 
 module "rds" {
   source = "../../modules/rds"
@@ -281,6 +311,10 @@ module "rds" {
   storage_type      = "gp3"
   db_name           = "project_template"
   master_username   = "projecttemplate"
+
+  master_password = jsondecode(ephemeral.aws_secretsmanager_secret_version.app.secret_string)["DB_PASSWORD"]
+  # app secret の DB_PASSWORD を変更したら +1 して apply する
+  master_password_version = 1
 
   subnet_ids         = [for k in local.isolated_subnet_keys : module.vpc.subnets[k].id]
   security_group_ids = [module.vpc.security_groups["rds"].id]

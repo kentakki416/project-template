@@ -128,11 +128,6 @@ output "rds_master_username" {
   value       = module.rds.master_username
 }
 
-output "rds_master_user_secret_arn" {
-  description = "AWS 自動生成パスワードが保存されている Secrets Manager の ARN"
-  value       = module.rds.master_user_secret_arn
-}
-
 # ElastiCache
 output "redis_address" {
   description = "Redis primary endpoint のホスト名"
