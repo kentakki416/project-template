@@ -35,6 +35,37 @@ tflint --chdir=aws/env/dev --config=$(pwd)/.tflint.hcl --recursive
 trivy config aws/env/dev -c .trivy.yml
 ```
 
+## IAM ポリシーの記述規約
+
+IAM の trust policy / permission policy は `jsonencode()` のインライン記述を使わず、必ず `data "aws_iam_policy_document"` に切り出して resource 名で識別できるようにする:
+
+- **trust policy**: `data "aws_iam_policy_document" "{role名}_trust"`（attach 先 `aws_iam_role` の resource 名 + `_trust` suffix）
+- **permission policy**: attach 先の `aws_iam_policy` / `aws_iam_role_policy` と同じ resource 名（suffix なし = permission と識別）
+- data source は参照する resource の**直前**に配置する
+- permission policy の statement には `sid` を付けて自己文書化する（単純な service trust は省略可）
+- attach 先 resource が `count` 付きで、policy document がその counted resource を参照する場合のみ、data source 側にも同じ `count` を付ける
+- ECR lifecycle policy など IAM policy document ではない JSON は対象外（`jsonencode` のまま）
+
+```hcl
+/** trust policy の例 */
+data "aws_iam_policy_document" "scheduler_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "scheduler" {
+  name               = "${var.name}-scheduler"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_trust.json
+}
+```
+
 ## CI/CD 運用
 
 GitHub Actions で apply を管理する:
