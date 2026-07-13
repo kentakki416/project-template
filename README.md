@@ -8,7 +8,8 @@ Turborepo + pnpm monorepo を使用したフルスタックアプリケーショ
 - [プロジェクト構成図](#プロジェクト構成図)
 - [技術スタック](#技術スタック)
 - [クイックリファレンス](#クイックリファレンス)
-  - [セットアップ手順 (まずここから)](#セットアップ手順-まずここから)
+  - [アーキテクチャ & コーディング規約のキャッチアップ (まずここから)](#アーキテクチャ--コーディング規約のキャッチアップ-まずここから)
+  - [セットアップ手順](#セットアップ手順)
   - [仕様 / 設計](#仕様--設計)
 - [テンプレートの使い方](#テンプレートの使い方)
   - [1. プロジェクトのコピー](#1-プロジェクトのコピー)
@@ -127,7 +128,22 @@ graph TB
 
 ## クイックリファレンス
 
-### セットアップ手順 (まずここから)
+### アーキテクチャ & コーディング規約のキャッチアップ (まずここから)
+
+初めて参加する人が **既存のアーキテクチャとコーディング規約を最短でキャッチアップする**ための、トピック別ドキュメントです。まずは [docs/onboarding/README.md](docs/onboarding/README.md) から。
+
+| ドキュメント | 内容 |
+|---|---|
+| [docs/onboarding/README.md](docs/onboarding/README.md) | 入口ハブ（読む順番 + 各トピックへの目次） |
+| [docs/onboarding/architecture.md](docs/onboarding/architecture.md) | **アーキテクチャ**: ディレクトリ構成（モノレポ全体 / API レイヤード / フロント features 分離） |
+| [docs/onboarding/infrastructure.md](docs/onboarding/infrastructure.md) | **アーキテクチャ**: インフラ構成（AWS / ECS / RDS / Terraform 3 層 / デプロイフロー） |
+| [docs/onboarding/naming.md](docs/onboarding/naming.md) | **規約**: ファイル名 / 変数名 / 関数名 |
+| [docs/onboarding/error-handling.md](docs/onboarding/error-handling.md) | **規約**: エラーハンドリング（`Result<T>` / 業務エラー vs 想定外） |
+| [docs/onboarding/imports.md](docs/onboarding/imports.md) | **規約**: import 順序 / バレルエクスポート / パッケージ間 import の方向 |
+| [docs/onboarding/testing.md](docs/onboarding/testing.md) | **規約**: テスト戦略 / 正常系・異常系分類 / モック方針 |
+| [docs/onboarding/auth.md](docs/onboarding/auth.md) | **規約**: 認証まわり（JWT / httpOnly cookie / middleware ガード） |
+
+### セットアップ手順
 
 | ドキュメント | 内容 |
 |---|---|
