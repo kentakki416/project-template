@@ -183,20 +183,23 @@ data "aws_iam_policy" "ecs_infrastructure_lb" {
   name  = "AmazonECSInfrastructureRolePolicyForLoadBalancers"
 }
 
+data "aws_iam_policy_document" "ecs_alb_service_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ecs.amazonaws.com"]
+    }
+  }
+}
+
 resource "aws_iam_role" "ecs_alb_service" {
   count = var.enable_blue_green ? 1 : 0
-  name  = "${var.name}-alb-service-role"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ecs.amazonaws.com"
-      }
-    }]
-  })
+  name               = "${var.name}-alb-service-role"
+  assume_role_policy = data.aws_iam_policy_document.ecs_alb_service_trust.json
 
   tags = var.tags
 }
@@ -243,20 +246,23 @@ data "aws_iam_policy" "lambda_basic_execution" {
   name  = "AWSLambdaBasicExecutionRole"
 }
 
+data "aws_iam_policy_document" "lambda_deployment_hook_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
 resource "aws_iam_role" "lambda_deployment_hook" {
   count = var.enable_blue_green ? 1 : 0
-  name  = "${var.name}-deployment-hook-lambda"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      }
-    }]
-  })
+  name               = "${var.name}-deployment-hook-lambda"
+  assume_role_policy = data.aws_iam_policy_document.lambda_deployment_hook_trust.json
 
   tags = var.tags
 }
@@ -267,19 +273,23 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   policy_arn = data.aws_iam_policy.lambda_basic_execution[0].arn
 }
 
+data "aws_iam_policy_document" "lambda_ssm" {
+  count = var.enable_blue_green ? 1 : 0
+
+  statement {
+    sid       = "ReadWriteDeployApprovalParameter"
+    effect    = "Allow"
+    actions   = ["ssm:GetParameter", "ssm:PutParameter"]
+    resources = [aws_ssm_parameter.deploy_approval[0].arn]
+  }
+}
+
 resource "aws_iam_role_policy" "lambda_ssm" {
   count = var.enable_blue_green ? 1 : 0
-  name  = "ssm-deploy-approval"
-  role  = aws_iam_role.lambda_deployment_hook[0].id
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["ssm:GetParameter", "ssm:PutParameter"]
-      Resource = aws_ssm_parameter.deploy_approval[0].arn
-    }]
-  })
+  name   = "ssm-deploy-approval"
+  role   = aws_iam_role.lambda_deployment_hook[0].id
+  policy = data.aws_iam_policy_document.lambda_ssm[0].json
 }
 
 resource "aws_lambda_function" "deployment_hook" {
@@ -307,35 +317,42 @@ resource "aws_lambda_function" "deployment_hook" {
 # Blue/Green: ECS lifecycle hook IAM role (ECS が Lambda を呼ぶため)
 # =============================================================================
 
+data "aws_iam_policy_document" "ecs_lifecycle_hook_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ecs.amazonaws.com"]
+    }
+  }
+}
+
 resource "aws_iam_role" "ecs_lifecycle_hook" {
   count = var.enable_blue_green ? 1 : 0
-  name  = "${var.name}-lifecycle-hook"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ecs.amazonaws.com"
-      }
-    }]
-  })
+  name               = "${var.name}-lifecycle-hook"
+  assume_role_policy = data.aws_iam_policy_document.ecs_lifecycle_hook_trust.json
 
   tags = var.tags
 }
 
+data "aws_iam_policy_document" "ecs_invoke_lambda" {
+  count = var.enable_blue_green ? 1 : 0
+
+  statement {
+    sid       = "InvokeDeploymentHookLambda"
+    effect    = "Allow"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.deployment_hook[0].arn]
+  }
+}
+
 resource "aws_iam_role_policy" "ecs_invoke_lambda" {
   count = var.enable_blue_green ? 1 : 0
-  name  = "invoke-deployment-hook-lambda"
-  role  = aws_iam_role.ecs_lifecycle_hook[0].id
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = "lambda:InvokeFunction"
-      Resource = aws_lambda_function.deployment_hook[0].arn
-    }]
-  })
+  name   = "invoke-deployment-hook-lambda"
+  role   = aws_iam_role.ecs_lifecycle_hook[0].id
+  policy = data.aws_iam_policy_document.ecs_invoke_lambda[0].json
 }

@@ -16,60 +16,63 @@ locals {
 # EventBridge Scheduler 実行ロール (scheduler が ECS RunTask を呼ぶため)
 # =============================================================================
 
-resource "aws_iam_role" "scheduler" {
-  name = "${var.name}-scheduler"
+data "aws_iam_policy_document" "scheduler_trust" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = "sts:AssumeRole"
-        Principal = {
-          Service = "scheduler.amazonaws.com"
-        }
-        /**
-         * confused deputy 対策: 自アカウントの scheduler からの assume のみ許可
-         */
-        Condition = {
-          StringEquals = {
-            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
-          }
-        }
-      }
-    ]
-  })
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+
+    /**
+     * confused deputy 対策: 自アカウントの scheduler からの assume のみ許可
+     */
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+}
+
+resource "aws_iam_role" "scheduler" {
+  name               = "${var.name}-scheduler"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_trust.json
 
   tags = var.tags
 }
 
-resource "aws_iam_role_policy" "scheduler" {
-  name = "run-task"
-  role = aws_iam_role.scheduler.id
+data "aws_iam_policy_document" "scheduler" {
+  statement {
+    sid       = "RunScheduledTask"
+    effect    = "Allow"
+    actions   = ["ecs:RunTask"]
+    resources = [local.task_definition_arn_wildcard]
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = "ecs:RunTask"
-        Resource = local.task_definition_arn_wildcard
-        Condition = {
-          ArnLike = {
-            "ecs:cluster" = var.cluster_arn
-          }
-        }
-      },
-      {
-        /**
-         * RunTask 時に task の execution role / task role を ECS へ渡すため
-         */
-        Effect   = "Allow"
-        Action   = "iam:PassRole"
-        Resource = distinct([var.execution_role_arn, local.task_role_arn])
-      },
-    ]
-  })
+    condition {
+      test     = "ArnLike"
+      variable = "ecs:cluster"
+      values   = [var.cluster_arn]
+    }
+  }
+
+  /**
+   * RunTask 時に task の execution role / task role を ECS へ渡すため
+   */
+  statement {
+    sid       = "PassTaskRoles"
+    effect    = "Allow"
+    actions   = ["iam:PassRole"]
+    resources = distinct([var.execution_role_arn, local.task_role_arn])
+  }
+}
+
+resource "aws_iam_role_policy" "scheduler" {
+  name   = "run-task"
+  role   = aws_iam_role.scheduler.id
+  policy = data.aws_iam_policy_document.scheduler.json
 }
 
 # =============================================================================

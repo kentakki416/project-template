@@ -21,30 +21,35 @@ resource "aws_iam_openid_connect_provider" "github" {
  * sub claim を `repo:<owner>/<repo>:environment:dev` に限定する。env/dev の apply と
  * account の apply の両方でこの role を使用する。
  */
-resource "aws_iam_role" "github_actions_dev" {
-  name = "${var.project_name}-github-actions-dev"
+data "aws_iam_policy_document" "github_actions_dev_trust" {
+  statement {
+    sid     = "GitHubOIDCDevEnvironment"
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
-        }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          }
-          # dev は rolling deploy 運用で承認ゲートを持たないため、dev Environment のみ許可。
-          StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repository}:environment:dev"
-          }
-        }
-      }
-    ]
-  })
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    # dev は rolling deploy 運用で承認ゲートを持たないため、dev Environment のみ許可。
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_repository}:environment:dev"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_actions_dev" {
+  name               = "${var.project_name}-github-actions-dev"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_dev_trust.json
 }
 
 /**
@@ -60,107 +65,114 @@ resource "aws_iam_role" "github_actions_dev" {
  * - prd: 通常の deploy / CI job 用
  * - prd-api-approval: deploy workflow の approve-api job (Required reviewers ゲート) 用
  */
-resource "aws_iam_role" "github_actions_prd" {
-  name = "${var.project_name}-github-actions-prd"
+data "aws_iam_policy_document" "github_actions_prd_trust" {
+  statement {
+    sid     = "GitHubOIDCPrdEnvironments"
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
-        }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          }
-          StringLike = {
-            "token.actions.githubusercontent.com:sub" = [
-              "repo:${var.github_repository}:environment:prd",
-              "repo:${var.github_repository}:environment:prd-api-approval",
-            ]
-          }
-        }
-      }
-    ]
-  })
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values = [
+        "repo:${var.github_repository}:environment:prd",
+        "repo:${var.github_repository}:environment:prd-api-approval",
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_actions_prd" {
+  name               = "${var.project_name}-github-actions-prd"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_prd_trust.json
 }
 
 # ECR プッシュポリシー
+data "aws_iam_policy_document" "ecr_push" {
+  statement {
+    sid       = "GetAuthorizationToken"
+    effect    = "Allow"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "PushToProjectRepositories"
+    effect = "Allow"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:BatchImportLayerPart",
+      "ecr:CompleteLayerUpload",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart",
+    ]
+    resources = [
+      aws_ecr_repository.api.arn,
+      aws_ecr_repository.worker.arn,
+      aws_ecr_repository.migration.arn,
+      aws_ecr_repository.cron.arn,
+    ]
+  }
+}
+
 resource "aws_iam_policy" "ecr_push" {
   name        = "${var.project_name}-ecr-push"
   description = "Policy for pushing images to ECR from GitHub Actions"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["ecr:GetAuthorizationToken"]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-          "ecr:BatchImportLayerPart",
-          "ecr:CompleteLayerUpload",
-          "ecr:InitiateLayerUpload",
-          "ecr:PutImage",
-          "ecr:UploadLayerPart"
-        ]
-        Resource = [
-          aws_ecr_repository.api.arn,
-          aws_ecr_repository.worker.arn,
-          aws_ecr_repository.migration.arn,
-          aws_ecr_repository.cron.arn,
-        ]
-      }
-    ]
-  })
+  policy      = data.aws_iam_policy_document.ecr_push.json
 }
 
 # ECS デプロイ用ポリシー
+data "aws_iam_policy_document" "ecs_deploy" {
+  statement {
+    sid    = "EcsDeploy"
+    effect = "Allow"
+    actions = [
+      "ecs:DescribeServices",
+      "ecs:DescribeTaskDefinition",
+      "ecs:DescribeTasks",
+      "ecs:RegisterTaskDefinition",
+      "ecs:RunTask",
+      "ecs:UpdateService",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "PassExecutionRoles"
+    effect    = "Allow"
+    actions   = ["iam:PassRole"]
+    resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project_name}-*-execution-role"]
+  }
+
+  /**
+   * migration RunTask 失敗時のログ取得用 (step8 deploy-aws-dev workflow)
+   */
+  statement {
+    sid       = "ReadMigrationTaskLogs"
+    effect    = "Allow"
+    actions   = ["logs:FilterLogEvents"]
+    resources = ["arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${var.project_name}-*"]
+  }
+}
+
 resource "aws_iam_policy" "ecs_deploy" {
   name        = "${var.project_name}-ecs-deploy"
   description = "Policy for deploying to ECS from GitHub Actions"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ecs:DescribeServices",
-          "ecs:DescribeTaskDefinition",
-          "ecs:DescribeTasks",
-          "ecs:RegisterTaskDefinition",
-          "ecs:RunTask",
-          "ecs:UpdateService",
-        ]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["iam:PassRole"]
-        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project_name}-*-execution-role"
-      },
-      {
-        /**
-         * migration RunTask 失敗時のログ取得用 (step8 deploy-aws-dev workflow)
-         */
-        Effect = "Allow"
-        Action = [
-          "logs:FilterLogEvents",
-        ]
-        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${var.project_name}-*"
-      },
-    ]
-  })
+  policy      = data.aws_iam_policy_document.ecs_deploy.json
 }
 
 # =============================================================================
@@ -197,20 +209,19 @@ resource "aws_iam_role_policy_attachment" "github_actions_admin_dev" {
 # deploy-aws-prd.yml の approve-api / reject-api job が
 # /${project_name}-prd-api/deploy/approval を approved / rejected に書き換えるために必要。
 # dev は rolling deploy で承認ゲートを持たないため、本ポリシーは prd role のみに attach する。
+data "aws_iam_policy_document" "ssm_deploy_approval_prd" {
+  statement {
+    sid       = "PutDeployApprovalParameter"
+    effect    = "Allow"
+    actions   = ["ssm:PutParameter"]
+    resources = ["arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}-prd-*/deploy/approval"]
+  }
+}
+
 resource "aws_iam_policy" "ssm_deploy_approval_prd" {
   name        = "${var.project_name}-ssm-deploy-approval-prd"
   description = "Policy for approving/rejecting Blue/Green deploy via SSM parameter (prd only)"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["ssm:PutParameter"]
-        Resource = "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}-prd-*/deploy/approval"
-      },
-    ]
-  })
+  policy      = data.aws_iam_policy_document.ssm_deploy_approval_prd.json
 }
 
 # =============================================================================
