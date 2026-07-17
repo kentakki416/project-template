@@ -23,7 +23,7 @@
 #   LIVEKIT_API_SECRET
 #   FRONTEND_URL
 #
-# direnv (.envrc) で上記を export しておくと毎回入力不要。
+# シェルで上記を export しておくと毎回入力不要。
 # =============================================================================
 
 set -euo pipefail
