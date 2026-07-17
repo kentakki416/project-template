@@ -11,7 +11,8 @@ services:
       POSTGRES_PASSWORD: password
       TZ: Asia/Tokyo
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      # 既定 5432 は他プロジェクトの Postgres と衝突するため 5433 をローカル既定にする
+      - '${POSTGRES_PORT:-5433}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -29,7 +30,8 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
-      - '${REDIS_PORT:-6379}:6379'
+      # 既定 6379 は他プロジェクトの Redis と衝突するため 6380 をローカル既定にする
+      - '${REDIS_PORT:-6380}:6379'
     volumes:
       - redis_data:/data
     healthcheck:

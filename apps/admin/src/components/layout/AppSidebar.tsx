@@ -69,6 +69,7 @@ const othersItems: NavItem[] = [
     subItems: [
       { name: "Line Chart", path: "/charts/line", pro: false },
       { name: "Bar Chart", path: "/charts/bar", pro: false },
+      { name: "Pie Chart", path: "/charts/pie", pro: false },
     ],
   },
   {
