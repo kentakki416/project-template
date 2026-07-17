@@ -187,6 +187,14 @@ graph TB
 
 各アプリ (`apps/api`, `apps/web`, `apps/admin`, `apps/mobile`, `apps/cron`, `apps/worker`) にはルートへのシンボリックリンクが git に含まれているため、ルートに置くだけで全アプリから参照されます。
 
+> **方針: env は全 app / package で dotenvx に統一する**
+>
+> env を必要とする app / package は、フロント系 (web / admin)・バックエンド (api)・バックグラウンド系 (cron / worker) を問わず **例外なく dotenvx で管理する**。値は `.env.local`（共有 `.env.keys` で暗号化してコミット）に置き、起動スクリプトは `dotenvx run -f .env.local -- <command>` 経由にする。
+>
+> - スクリプトに `DATABASE_URL=...` のように env を直書きしたり、独自の env ローダを持ち込まない
+> - 新しく env を必要とする app / package を追加したら、`.env.keys` の symlink を張り（上図と同様）、`.env.local` を作成して `dotenvx run` 経由で起動する
+> - 本番はコンテナ / CI 側が env を渡す。dotenvx は **既にセット済みの env を上書きしない**ため、`dotenvx run` を噛ませたままでも本番の値が優先される
+
 ```
 <project-root>/
 ├── .env.keys                        ← ここに配置
