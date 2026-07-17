@@ -79,14 +79,22 @@ const fresh = await prisma.$primary().user.findUnique({ where: { id } })
 
 ## コマンド
 
-すべて `pnpm --filter @repo/db <cmd>` で実行（各 app からは `dotenvx` ラッパー経由で叩く）。
+`db:migrate` / `db:migrate:deploy` / `db:seed` / `db:studio` / `db:push` は DB に接続するため `DATABASE_URL` が必要で、**env を注入する app 経由の `dotenvx` ラッパーで叩く**のが基本。現状 db 系スクリプト（`dotenvx run -f .env.local -- pnpm --filter @repo/db <cmd>`）を持つのは `apps/api` のみ。worker / cron も同じ DB を共有するが、migration / seed は **api に一本化**している（スキーマの正本も migration の実行入口も 1 箇所に集約する方針）。
 
 ```bash
-pnpm --filter @repo/db db:generate         # Prisma Client を生成
-pnpm --filter @repo/db db:migrate          # マイグレーション作成（開発）
-pnpm --filter @repo/db db:migrate:deploy   # マイグレーション適用（本番）
-pnpm --filter @repo/db db:seed             # シード投入
-pnpm --filter @repo/db db:studio           # Prisma Studio 起動
+# apps/api 経由: .env.local を復号 → DATABASE_URL を注入 → @repo/db の該当コマンドを実行
+cd apps/api
+pnpm db:migrate          # マイグレーション作成（開発）
+pnpm db:migrate:deploy   # マイグレーション適用（本番 / CI）
+pnpm db:seed             # シード投入
+pnpm db:studio           # Prisma Studio 起動
+pnpm db:push             # スキーマを DB へ直接反映（開発用）
 ```
 
-`postinstall` で `prisma generate` が自動実行されるため、新規 clone / CI install 時に generated client が必ず揃う。
+> `packages/db` を直接 `pnpm --filter @repo/db db:migrate` で叩くと `DATABASE_URL` が注入されず、`prisma.config.ts` の `DEFAULT_URL`（`localhost:5432` 平文）にフォールバックするため通常は使わない。
+
+**`db:generate` だけは例外**で、DB 接続せずスキーマから client を生成するだけなので env なしで叩ける（`pnpm build` 時に turbo が `@repo/db#db:generate` を流すため、通常は明示実行も不要）。
+
+```bash
+pnpm --filter @repo/db db:generate   # env 不要。build 時にも自動で走る
+```
