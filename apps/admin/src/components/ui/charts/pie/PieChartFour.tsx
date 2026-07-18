@@ -4,6 +4,8 @@ import { ApexOptions } from "apexcharts"
 import dynamic from "next/dynamic"
 import React from "react"
 
+import { useTheme } from "@/features/theme/theme.context"
+
 /**
  * Dynamically import the ReactApexChart component
  */
@@ -12,6 +14,9 @@ const ReactApexChart = dynamic(async () => import("react-apexcharts"), {
 })
 
 export default function PieChartFour() {
+  const { theme } = useTheme()
+  const isDark = theme === "dark"
+
   const options: ApexOptions = {
     colors: ["#c2d6ff", "#7592ff", "#465fff", "#1e2a5a"],
     labels: ["Image", "Video", "Audio", "Documents"],
@@ -21,8 +26,7 @@ export default function PieChartFour() {
       height: 300,
     },
     stroke: {
-      colors: ["#fff"],
-      width: 2,
+      show: false,
     },
     dataLabels: {
       enabled: false,
@@ -31,6 +35,9 @@ export default function PieChartFour() {
       show: true,
       position: "bottom",
       fontFamily: "Outfit",
+      labels: {
+        colors: isDark ? "#98a2b3" : "#667085",
+      },
     },
   }
   const series = [30, 25, 20, 25]

@@ -70,6 +70,7 @@ const othersItems: NavItem[] = [
       { name: "Line Chart", path: "/charts/line", pro: false },
       { name: "Bar Chart", path: "/charts/bar", pro: false },
       { name: "Pie Chart", path: "/charts/pie", pro: false },
+      { name: "Radar Chart", path: "/charts/radar", pro: false },
     ],
   },
   {

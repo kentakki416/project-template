@@ -1,0 +1,2247 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Next.js 実践教科書 — memo 機能で学ぶ App Router ベストプラクティス</title>
+<style>
+:root{
+  --bg:#ffffff; --bg-soft:#f6f7f9; --bg-code:#f4f5f7; --fg:#1f2328; --fg-soft:#57606a;
+  --border:#e3e6ea; --accent:#2563eb; --accent-soft:#dbeafe;
+  --why:#7c3aed; --why-bg:#f3ecff; --handson:#0d9488; --handson-bg:#e5f6f3;
+  --warn:#b45309; --warn-bg:#fef3d8; --quiz:#0f766e; --quiz-bg:#eef7f6;
+  --tok-c:#8a919b; --tok-s:#0a7d3f; --tok-k:#b1266f; --tok-n:#b45309; --tok-t:#1e63c9;
+  --sbw:300px;
+}
+html[data-theme="dark"]{
+  --bg:#0d1117; --bg-soft:#161b22; --bg-code:#161b22; --fg:#e6edf3; --fg-soft:#9aa4af;
+  --border:#2a313a; --accent:#5b9bff; --accent-soft:#16324f;
+  --why:#c39bff; --why-bg:#241a3a; --handson:#4fd1bf; --handson-bg:#0e2a29;
+  --warn:#e0a53a; --warn-bg:#332711; --quiz:#4fd1bf; --quiz-bg:#0e2626;
+  --tok-c:#7d8792; --tok-s:#6ad08a; --tok-k:#ff7cc2; --tok-n:#e0a53a; --tok-t:#79b8ff;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Noto Sans JP",Meiryo,sans-serif;
+  line-height:1.85; font-size:16px; -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; font-size:.86em;
+  background:var(--bg-code); padding:.12em .38em; border-radius:5px; border:1px solid var(--border)}
+
+/* layout */
+.topbar{position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:12px;
+  height:56px; padding:0 18px; background:color-mix(in srgb,var(--bg) 88%, transparent);
+  backdrop-filter:blur(8px); border-bottom:1px solid var(--border)}
+.topbar b{font-size:15px; letter-spacing:.02em}
+.topbar .sp{flex:1}
+.btn{cursor:pointer; border:1px solid var(--border); background:var(--bg-soft); color:var(--fg);
+  border-radius:8px; padding:6px 12px; font-size:13px; font-family:inherit}
+.btn:hover{border-color:var(--accent)}
+#menuBtn{display:none}
+.wrap{display:grid; grid-template-columns:var(--sbw) minmax(0,1fr); align-items:start}
+aside{position:sticky; top:56px; height:calc(100vh - 56px); overflow:auto; padding:20px 14px 60px;
+  border-right:1px solid var(--border); background:var(--bg-soft); font-size:13.5px}
+aside .toc-h{font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--fg-soft);
+  margin:16px 8px 6px}
+aside a{display:block; color:var(--fg-soft); padding:5px 10px; border-radius:7px; line-height:1.4}
+aside a:hover{background:var(--bg); color:var(--fg); text-decoration:none}
+aside a.active{background:var(--accent-soft); color:var(--accent); font-weight:600}
+aside a.sub{padding-left:22px; font-size:12.8px}
+main{padding:34px clamp(18px,4vw,64px) 120px; max-width:900px}
+
+/* typography */
+h1{font-size:30px; line-height:1.35; margin:6px 0 4px}
+.lead{color:var(--fg-soft); font-size:16px; margin:0 0 8px}
+h2{font-size:24px; margin:52px 0 6px; padding-top:14px; border-top:1px solid var(--border)}
+section.chapter:first-of-type h2{border-top:none}
+h3{font-size:18.5px; margin:34px 0 8px}
+h4{font-size:15.5px; margin:22px 0 6px; color:var(--fg)}
+p{margin:12px 0}
+ul,ol{padding-left:22px; margin:12px 0}
+li{margin:5px 0}
+.chip{display:inline-block; font-size:11.5px; font-weight:700; color:var(--accent);
+  background:var(--accent-soft); border-radius:999px; padding:2px 11px; margin-bottom:8px}
+hr{border:none; border-top:1px solid var(--border); margin:40px 0}
+
+/* tables */
+table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px; display:block; overflow-x:auto}
+th,td{border:1px solid var(--border); padding:8px 11px; text-align:left; vertical-align:top}
+th{background:var(--bg-soft); font-weight:600}
+
+/* code blocks */
+figure.code{margin:18px 0; border:1px solid var(--border); border-radius:11px; overflow:hidden;
+  background:var(--bg-code)}
+figure.code figcaption{display:flex; align-items:center; gap:8px; font-family:"SFMono-Regular",Consolas,monospace;
+  font-size:12.5px; color:var(--fg-soft); background:var(--bg-soft); padding:8px 14px;
+  border-bottom:1px solid var(--border)}
+figure.code figcaption .dot{color:var(--accent); font-weight:700}
+figure.code figcaption .copy{margin-left:auto; cursor:pointer; border:1px solid var(--border);
+  background:var(--bg); border-radius:6px; padding:3px 9px; font-size:11.5px; color:var(--fg-soft)}
+figure.code figcaption .copy:hover{color:var(--accent); border-color:var(--accent)}
+figure.code pre{margin:0; padding:14px 16px; overflow-x:auto; font-size:13px; line-height:1.7}
+figure.code code{background:none; border:none; padding:0; font-size:13px; white-space:pre}
+.tok-c{color:var(--tok-c); font-style:italic}
+.tok-s{color:var(--tok-s)}
+.tok-k{color:var(--tok-k)}
+.tok-n{color:var(--tok-n)}
+.tok-t{color:var(--tok-t)}
+
+/* callouts */
+.box{border:1px solid var(--border); border-left-width:4px; border-radius:8px; padding:12px 16px; margin:18px 0}
+.box .bh{font-weight:700; font-size:14px; margin:0 0 4px; display:flex; align-items:center; gap:7px}
+.box p:last-child{margin-bottom:0}
+.box.goal{border-left-color:var(--accent); background:var(--accent-soft)}
+.box.why{border-left-color:var(--why); background:var(--why-bg)}
+.box.why .bh{color:var(--why)}
+.box.warn{border-left-color:var(--warn); background:var(--warn-bg)}
+.box.warn .bh{color:var(--warn)}
+.box.note{border-left-color:var(--fg-soft); background:var(--bg-soft)}
+.box.handson{border-left-color:var(--handson); background:var(--handson-bg)}
+.box.handson .bh{color:var(--handson)}
+.box.handson ol{margin:8px 0}
+.box.compat{border-left-color:var(--warn); background:var(--warn-bg); font-size:14px}
+
+/* quiz */
+details.quiz{border:1px solid var(--border); border-left:4px solid var(--quiz); background:var(--quiz-bg);
+  border-radius:8px; padding:10px 16px; margin:14px 0}
+details.quiz summary{cursor:pointer; font-weight:700; color:var(--quiz); list-style:none}
+details.quiz summary::-webkit-details-marker{display:none}
+details.quiz summary::before{content:"Q  "; font-weight:800}
+details.quiz[open] summary{margin-bottom:8px}
+details.quiz .ans{border-top:1px dashed var(--border); padding-top:10px; margin-top:6px}
+details.quiz .ans::before{content:"A. "; font-weight:800; color:var(--quiz)}
+
+/* diagrams */
+figure.diagram{margin:22px 0; text-align:center}
+figure.diagram svg{max-width:100%; height:auto}
+figure.diagram figcaption{color:var(--fg-soft); font-size:13px; margin-top:8px}
+svg .d-box{fill:var(--bg-soft); stroke:var(--border); stroke-width:1.5}
+svg .d-box-a{fill:var(--accent-soft); stroke:var(--accent); stroke-width:1.5}
+svg .d-box-h{fill:var(--handson-bg); stroke:var(--handson); stroke-width:1.5}
+svg .d-t{fill:var(--fg); font-size:13px; font-family:-apple-system,"Noto Sans JP",sans-serif}
+svg .d-tm{fill:var(--fg); font-size:12px; font-family:"SFMono-Regular",monospace}
+svg .d-ts{fill:var(--fg-soft); font-size:11px}
+svg .d-arrow{stroke:var(--fg-soft); stroke-width:1.6; fill:none}
+svg .d-arrow-a{stroke:var(--accent); stroke-width:1.8; fill:none}
+svg .d-lbl{fill:var(--fg-soft); font-size:11px; font-family:"SFMono-Regular",monospace}
+
+.kbd{font-size:12px; border:1px solid var(--border); border-bottom-width:2px; border-radius:5px;
+  padding:1px 6px; background:var(--bg-soft); font-family:monospace}
+.filetree{font-family:"SFMono-Regular",monospace; font-size:13px; line-height:1.6; white-space:pre;
+  background:var(--bg-code); border:1px solid var(--border); border-radius:10px; padding:14px 16px;
+  overflow-x:auto; margin:16px 0}
+.filetree .new{color:var(--handson); font-weight:700}
+.filetree .cm{color:var(--tok-c)}
+
+@media (max-width:880px){
+  .wrap{grid-template-columns:1fr}
+  aside{position:fixed; top:56px; left:0; width:min(86vw,320px); z-index:39;
+    transform:translateX(-102%); transition:transform .22s ease; box-shadow:0 10px 40px rgba(0,0,0,.2)}
+  body.nav-open aside{transform:translateX(0)}
+  #menuBtn{display:inline-block}
+  main{padding:24px 18px 100px}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <button class="btn" id="menuBtn" aria-label="目次">☰</button>
+  <b>Next.js 実践教科書</b>
+  <span class="sp"></span>
+  <button class="btn" id="themeBtn" title="テーマ切替">◐ テーマ</button>
+</header>
+
+<div class="wrap">
+<aside id="sidebar">
+  <div class="toc-h">はじめに</div>
+  <a href="#top">概要とこの本の使い方</a>
+  <div class="toc-h">基礎編 — memo 機能を組み立てる</div>
+  <a href="#ch0">0. 全体像と土台</a>
+  <a href="#ch1">1. App Router のファイル規約</a>
+  <a href="#ch2">2. データ取得（Server Component）</a>
+  <a href="#ch3">3. コンポーネント設計</a>
+  <a href="#ch4">4. 動的ルートと詳細ページ</a>
+  <a href="#ch5">5. Server Actions と作成フォーム</a>
+  <a href="#ch6">6. 編集・削除と楽観的更新</a>
+  <div class="toc-h">応用編</div>
+  <a href="#ch7">7. 状態管理（Zustand）</a>
+  <a href="#ch8">8. ミドルウェアと認証</a>
+  <a href="#ch9">9. エラーハンドリングと堅牢化</a>
+  <a href="#ch10">10. 発展：パフォーマンスとテスト</a>
+  <div class="toc-h">付録</div>
+  <a href="#ap-glossary">用語集</a>
+  <a href="#ap-cheat">ファイル規約チートシート</a>
+  <a href="#ap-decide">Server / Client 判断フロー</a>
+  <a href="#ap-next">次に読むもの</a>
+</aside>
+
+<main>
+<section class="chapter" id="top">
+  <span class="chip">Next.js 16 / React 19 / App Router</span>
+  <h1>Next.js 実践教科書</h1>
+  <p class="lead">既存の <code>apps/web</code> を土台に、<b>web 版「メモ機能」を新しいページとして章ごとに積み上げながら</b> App Router のベストプラクティスを体得する build-along 教材。</p>
+
+  <div class="box goal">
+    <div class="bh">この本のねらい</div>
+    <p>参考書で一度読んだ知識を、<b>実際に動くコードを自分の手で足していく</b>ことで「使える」レベルに引き上げます。各章は「概念 → 作るコード → 逐行解説 → 図解 → なぜこう書くか → ハンズオン＆クイズ」で構成しています。</p>
+  </div>
+
+  <h3>前提と進め方</h3>
+  <ul>
+    <li><b>対象</b>: Next.js を書籍レベルで一度学んだ人。React の基本（JSX / props / hooks）は既知とします。</li>
+    <li><b>教材の題材</b>: この monorepo には <code>memo</code> の API（CRUD 完備）・スキーマ・mobile 実装が既にありますが、<b>web にはまだメモ機能がありません</b>。これを一から作ります。</li>
+    <li><b>この本の約束ごと</b>: 既存 web のコードは<b>改修しません</b>。あなたが <code>apps/web/src</code> に<b>新しいファイルを足していく</b>のが学習の本体です。この HTML はその手引きです。</li>
+    <li><b>動かし方</b>: <code>pnpm dev</code> で web を起動し、ログインは <code>/dev/login?as=alice</code>（開発専用）を使います。詳しくは第0章。</li>
+  </ul>
+
+  <div class="box note">
+    <div class="bh">📌 バージョンについて</div>
+    <p>本書は <code>next@16</code> / <code>react@19</code> を前提にしています。Next.js はキャッシュや API のデフォルトがメジャーバージョンで変わるため、細部は必ず公式ドキュメントの当該バージョンで確認してください。本文でも版依存の箇所には「互換メモ」を添えています。</p>
+  </div>
+</section>
+
+<!-- ================= Chapter 0 ================= -->
+<section class="chapter" id="ch0">
+  <h2>0. 全体像と土台を知る</h2>
+  <p>コードを足す前に、<b>すでに用意されている土台</b>を把握します。ここを理解しておくと、以降の章で「なぜ自分でゼロから認証や fetch ラッパを書かないのか」が腑に落ちます。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li><code>apps/web</code> の現在の構成と、これから作る memo 機能の位置づけを理解する</li>
+      <li>ディレクトリ規約（<code>app → components → features</code> の依存方向）を頭に入れる</li>
+      <li>開発サーバの起動と dev ログインができる</li>
+    </ul>
+  </div>
+
+  <h3>0.1 いま web にあるもの</h3>
+  <p>現状の <code>apps/web</code> はユーザー情報を表示するサンプル1枚と、認証まわりの土台だけがあります。</p>
+  <div class="filetree">apps/web/src/
+├─ app/
+│  ├─ layout.tsx          <span class="cm"># ルートレイアウト（フォント・metadata）</span>
+│  ├─ page.tsx            <span class="cm"># トップ：ユーザー情報サンプル（Server Component）</span>
+│  ├─ error.tsx           <span class="cm"># エラー境界</span>
+│  ├─ global-error.tsx    <span class="cm"># ルートレイアウトごと落ちた時の砦</span>
+│  ├─ not-found.tsx       <span class="cm"># 404</span>
+│  ├─ sign-in/            <span class="cm"># サインイン画面 + Server Action</span>
+│  ├─ dev/login/route.ts  <span class="cm"># 開発専用ログイン（Route Handler）</span>
+│  └─ api/auth/callback/google/route.ts
+├─ components/user/       <span class="cm"># RefreshButton / Lottie（Client Component）</span>
+├─ features/user/get-user.ts  <span class="cm"># server-only なデータ取得</span>
+├─ libs/
+│  ├─ api-client.ts       <span class="cm"># ★ 認証付き fetch ラッパ（401→refresh 付き）</span>
+│  ├─ auth.ts             <span class="cm"># cookie 読み書き</span>
+│  └─ auth-actions.ts     <span class="cm"># logout の Server Action</span>
+├─ env.ts                 <span class="cm"># Zod で環境変数を検証（server-only）</span>
+└─ proxy.ts               <span class="cm"># middleware（Next.js 16 の新名称）</span></div>
+
+  <p>この章以降で <span style="color:var(--handson);font-weight:700">緑色</span>の新規ファイルを足していき、最終的にこうなります。</p>
+  <div class="filetree">apps/web/src/
+├─ app/memos/
+│  <span class="new">├─ page.tsx</span>              <span class="cm"># 一覧（第1〜3章）</span>
+│  <span class="new">├─ loading.tsx</span>           <span class="cm"># ローディングUI（第1章）</span>
+│  <span class="new">├─ error.tsx</span>             <span class="cm"># セグメントのエラー境界（第9章）</span>
+│  <span class="new">├─ actions.ts</span>            <span class="cm"># 作成/更新/削除の Server Action（第5〜6章）</span>
+│  <span class="new">├─ new/page.tsx</span>          <span class="cm"># 作成フォーム（第5章）</span>
+│  <span class="new">└─ [id]/</span>                 <span class="cm"># 詳細・編集（第4・6章）</span>
+├─ components/features/memo/  <span class="new"># メモUIコンポーネント群（第3章〜）</span>
+├─ features/memo/
+│  <span class="new">├─ memo.api.ts</span>           <span class="cm"># サーバ経由のAPI通信＋Zod検証（第2章）</span>
+│  <span class="new">└─ memo.state.ts</span>         <span class="cm"># Zustand（第7章）</span>
+└─ app/api/memos/route.ts     <span class="new"># クライアント動的取得用（第7章）</span></div>
+
+  <h3>0.2 土台①：認証付き API クライアント</h3>
+  <p>web の鉄則は「<b>ブラウザから Express API を直接叩かない</b>」。必ずサーバー側（Server Component / Server Action / Route Handler）を経由します。その心臓が <code>libs/api-client.ts</code> です。</p>
+
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/libs/api-client.ts（抜粋・既存）">
+const fetchWithAuth = async (input: string, init: RequestInit, retry = true): Promise<Response> => {
+  const headers = await buildHeaders(init.headers)          // cookie の access token を Authorization に載せる
+  const res = await fetch(`${API_BASE_URL}${input}`, { ...init, headers })
+  if (res.status === 401 && retry) {                        // 期限切れなら
+    const refreshed = await tryRefresh()                    // refresh token で更新を試み
+    if (refreshed) return fetchWithAuth(input, init, false) // 一度だけ再試行
+  }
+  return res
+}
+
+export const apiClient = {
+  get:  async <T>(path: string): Promise<T> => { /* ... */ },
+  post: async <T>(path: string, body: unknown): Promise<T> => { /* ... */ },
+  put:  async <T>(path: string, body: unknown): Promise<T> => { /* ... */ },
+  delete: async <T = unknown>(path: string): Promise<T> => { /* ... */ },
+}
+  </script>
+
+  <div class="box why">
+    <div class="bh">なぜブラウザから直接 API を叩かないのか</div>
+    <p>①<b>認証トークンを HttpOnly cookie に隠せる</b> — JS から読めない cookie に置くことで XSS でトークンを盗まれにくくします。ブラウザ fetch では <code>Authorization</code> ヘッダを JS が組み立てる必要があり、トークンが JS に露出します。<br>
+    ②<b>401→refresh の自動リトライを1か所に集約</b>できる。<br>
+    ③ API の <b>origin をサーバー側だけで解決</b>でき、CORS も不要。<br>
+    あなたが memo 機能で書く <code>memo.api.ts</code> も、この <code>apiClient</code> を呼ぶだけにします。</p>
+  </div>
+
+  <h3>0.3 土台②：型はすべて <code>@repo/api-schema</code> から</h3>
+  <p>リクエスト/レスポンスの型は <b>web で独自定義しません</b>。共有パッケージ <code>@repo/api-schema</code> の Zod スキーマと <code>z.infer</code> 型を import します。memo の型はすでに定義済みです。</p>
+
+  <script type="text/plain" class="src" data-lang="ts" data-file="packages/schema/src/api-schema/memo.ts（抜粋・既存）">
+const memoSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  body: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export const getMemoListResponseSchema = z.object({ memos: z.array(memoSchema) })
+export type GetMemoListResponse = z.infer<typeof getMemoListResponseSchema>
+
+export const createMemoRequestSchema = z.object({
+  body: z.string().min(1, "本文は必須です"),
+  title: z.string().min(1, "タイトルは必須です").max(255, "タイトルは255文字以内です"),
+})
+export type CreateMemoRequest = z.infer<typeof createMemoRequestSchema>
+  </script>
+
+  <div class="box warn">
+    <div class="bh">⚠ mobile 実装をそのまま真似しない</div>
+    <p><code>apps/mobile/src/features/memo/memo.api.ts</code> は <code>axios</code> でブラウザから直接 API を叩き、コメントにも「<code>型安全ではない</code>」と書かれています。これは<b>アンチパターンの実例</b>として残っているものです。web ではこの章で学ぶベストプラクティス版（サーバ経由 + スキーマ検証）を作ります。「既存コードだから正しい」とは限らない、という視点も持ってください。</p>
+  </div>
+
+  <h3>0.4 依存の方向：<code>app → components → features</code></h3>
+  <p>このプロジェクトはフロント3アプリ（web / admin / mobile）で<b>ディレクトリ規約を統一</b>しています。技術単位（hooks/ や utils/）ではなく<b>機能単位</b>で分け、依存の向きを一方向に保ちます。</p>
+
+  <figure class="diagram">
+  <svg viewBox="0 0 640 150" role="img" aria-label="依存方向の図">
+    <rect class="d-box-a" x="20" y="45" width="150" height="58" rx="10"/>
+    <text class="d-t" x="95" y="70" text-anchor="middle">app/</text>
+    <text class="d-ts" x="95" y="90" text-anchor="middle">ルーティング・薄いページ</text>
+    <rect class="d-box" x="245" y="45" width="150" height="58" rx="10"/>
+    <text class="d-t" x="320" y="70" text-anchor="middle">components/</text>
+    <text class="d-ts" x="320" y="90" text-anchor="middle">UI（見た目）</text>
+    <rect class="d-box-h" x="470" y="45" width="150" height="58" rx="10"/>
+    <text class="d-t" x="545" y="70" text-anchor="middle">features/</text>
+    <text class="d-ts" x="545" y="90" text-anchor="middle">ロジック（UI非依存）</text>
+    <path class="d-arrow-a" d="M170 74 L242 74" marker-end="url(#ah)"/>
+    <path class="d-arrow-a" d="M395 74 L467 74" marker-end="url(#ah)"/>
+    <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker></defs>
+  </svg>
+  <figcaption>依存は左から右への一方向。<code>features/</code> は UI を知らないので、web/admin/mobile 間でロジックを共有しやすい。</figcaption>
+  </figure>
+
+  <table>
+    <tr><th>ディレクトリ</th><th>役割</th><th>memo での例</th></tr>
+    <tr><td><code>app/memos/</code></td><td>ルーティング＋ページ。<b>薄く保つ</b>（コンポーネントを組み合わせるだけ）</td><td><code>page.tsx</code>, <code>[id]/page.tsx</code>, <code>actions.ts</code></td></tr>
+    <tr><td><code>components/features/memo/</code></td><td>memo 固有の UI コンポーネント</td><td><code>MemoList.tsx</code>, <code>MemoForm.tsx</code></td></tr>
+    <tr><td><code>components/ui/</code></td><td>汎用 UI（Button, Input …）</td><td><code>Button.tsx</code></td></tr>
+    <tr><td><code>features/memo/</code></td><td><b>ロジックのみ</b>（レンダリングなし）。API 通信・状態管理</td><td><code>memo.api.ts</code>, <code>memo.state.ts</code></td></tr>
+  </table>
+
+  <h3>0.5 開発サーバを起動してログインする</h3>
+  <script type="text/plain" class="src" data-lang="bash" data-file="ターミナル">
+# ルートで依存インストール（未実施なら）
+pnpm install
+
+# スキーマは依存アプリより先にビルドが必要
+pnpm --filter @repo/api-schema build
+
+# web を起動（http://localhost:3000）
+pnpm --filter web dev
+
+# ブラウザで開発用ログイン（開発環境のみ有効）
+# → http://localhost:3000/dev/login?as=alice を踏むと alice でログイン状態になる
+  </script>
+
+  <div class="box note">
+    <div class="bh">なぜ dev ログインがあるのか</div>
+    <p>本番の Google OAuth を毎回踏むのは開発上つらいので、<code>NODE_ENV !== "production"</code> のときだけ有効な近道が用意されています。<code>proxy.ts</code>・Route Handler・API の3か所でガードされ、本番では 404 になります（第8章で詳解）。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 0</div>
+    <ol>
+      <li><code>pnpm --filter web dev</code> で web を起動する。</li>
+      <li><code>http://localhost:3000</code> を開く → 未ログインなら <code>/sign-in</code> にリダイレクトされることを確認。</li>
+      <li><code>http://localhost:3000/dev/login?as=alice</code> を踏み、トップでユーザー情報が表示されることを確認。</li>
+      <li><code>apps/web/src/libs/api-client.ts</code> を実際に開き、<code>get/post/put/delete</code> がどんな型を返すか眺めておく（第2章で使います）。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary>web では「ブラウザから Express API を直接 fetch する」のはなぜ禁止？ 主な理由を1つ挙げよ。</summary>
+    <div class="ans">認証トークンを <b>HttpOnly cookie</b> に隠したまま、サーバー側でのみ <code>Authorization</code> ヘッダに載せられるから（XSS 対策）。加えて 401→refresh の集約、origin のサーバー解決、CORS 不要といった利点もある。トークンをブラウザ JS が扱うと露出リスクが上がる。</div>
+  </details>
+</section>
+
+<!-- ================= Chapter 1 ================= -->
+<section class="chapter" id="ch1">
+  <h2>1. App Router のファイル規約</h2>
+  <p>App Router では<b>ファイル名そのものが役割</b>を持ちます。<code>page.tsx</code> を置けばルートになり、<code>loading.tsx</code> を隣に置くだけでローディング UI が有効になる。まずは空の <code>/memos</code> ページを作りながら、この「規約」を体で覚えます。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li><code>app/</code> 配下の特殊ファイル（<code>page / layout / loading / error / not-found</code>）の役割を説明できる</li>
+      <li>ルートセグメントとルートグループ <code>(...)</code> の違いを理解する</li>
+      <li>動く <code>/memos</code> ページ（静的な仮表示）と <code>loading.tsx</code> を作る</li>
+    </ul>
+  </div>
+
+  <h3>1.1 特殊ファイルの地図</h3>
+  <p>App Router で意味を持つ主なファイルは次の通り。<b>1つのフォルダ＝1つの URL セグメント</b>で、その中に役割別のファイルを置きます。</p>
+  <table>
+    <tr><th>ファイル</th><th>役割</th><th>境界(Server/Client)</th></tr>
+    <tr><td><code>page.tsx</code></td><td>その URL の本体。これがある階層だけが公開ルートになる</td><td>既定 Server</td></tr>
+    <tr><td><code>layout.tsx</code></td><td>配下で共有される枠。再ナビゲーションでも<b>再マウントされない</b></td><td>既定 Server</td></tr>
+    <tr><td><code>loading.tsx</code></td><td>配下の読み込み中に自動表示（内部的に <code>&lt;Suspense&gt;</code>）</td><td>Server/Client 可</td></tr>
+    <tr><td><code>error.tsx</code></td><td>配下で throw された実行時エラーを捕捉する境界</td><td><b>Client 必須</b></td></tr>
+    <tr><td><code>not-found.tsx</code></td><td><code>notFound()</code> 呼び出し・未定義 URL の表示</td><td>Server 可</td></tr>
+    <tr><td><code>route.ts</code></td><td>ページではなく HTTP エンドポイント（<code>GET/POST…</code>）。<code>page.tsx</code> と同居不可</td><td>Server</td></tr>
+    <tr><td><code>template.tsx</code></td><td>layout に似るが、遷移ごとに<b>再マウント</b>する枠</td><td>Server/Client 可</td></tr>
+  </table>
+
+  <div class="box why">
+    <div class="bh">なぜ「ファイル名が規約」なのが嬉しいのか</div>
+    <p>ルーティング設定やローディング/エラーの配線を<b>コードで書かなくてよい</b>。フォルダを見れば URL 構造と、どこにローディング・エラー処理があるかが一目で分かります。「設定より規約(convention over configuration)」の思想です。</p>
+  </div>
+
+  <h3>1.2 まず動く空ページを置く</h3>
+  <p><code>app/memos/page.tsx</code> を作れば、それだけで <code>/memos</code> が生えます。まずはデータ取得なしの静的な仮表示から。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/page.tsx（新規）">
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "メモ一覧",
+}
+
+/**
+ * /memos の本体。まずは静的な仮表示。
+ * 既定で Server Component（"use client" を書かない限りサーバーで実行される）。
+ */
+export default function MemosPage() {
+  return (
+    <main className="mx-auto max-w-2xl p-6">
+      <h1 className="text-2xl font-semibold">メモ一覧</h1>
+      <p className="mt-2 text-zinc-500">ここに一覧を表示していきます。</p>
+    </main>
+  )
+}
+  </script>
+
+  <h4>逐行のポイント</h4>
+  <ul>
+    <li><code>export default</code> したコンポーネントがそのままページになる。<b>関数名は自由</b>（URL には無関係）。</li>
+    <li><code>"use client"</code> を書いていないので<b>Server Component</b>。サーバーでレンダリングされ、JS バンドルに載らない。</li>
+    <li><code>export const metadata</code> で <code>&lt;title&gt;</code> などを宣言（詳細は第4章の Metadata API）。</li>
+    <li>web / admin の規約では<b>コンポーネントは <code>function</code> 宣言</b>で書きます（API 側はアロー関数）。<code>page.tsx</code> は薄く保つのが原則。</li>
+  </ul>
+
+  <h3>1.3 <code>loading.tsx</code> を隣に置く</h3>
+  <p>同じ階層に <code>loading.tsx</code> を置くと、この配下が「まだ準備中」の間 Next.js が<b>自動で</b>それを表示します（次章でデータ取得を入れると効いてきます）。裏側では Next.js がページを <code>&lt;Suspense fallback={&lt;Loading/&gt;}&gt;</code> で包んでくれています。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/loading.tsx（新規）">
+/**
+ * /memos 配下の読み込み中に自動で表示される。
+ * ルート遷移時やサーバーでのデータ取得待ちの間に出る。
+ */
+export default function Loading() {
+  return (
+    <main className="mx-auto max-w-2xl p-6">
+      <div className="h-8 w-40 animate-pulse rounded bg-zinc-200" />
+      <div className="mt-4 space-y-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-16 animate-pulse rounded-lg bg-zinc-100" />
+        ))}
+      </div>
+    </main>
+  )
+}
+  </script>
+
+  <figure class="diagram">
+  <svg viewBox="0 0 660 120" role="img" aria-label="loading.tsx が Suspense に対応する図">
+    <rect class="d-box" x="20" y="35" width="180" height="50" rx="9"/>
+    <text class="d-tm" x="110" y="58" text-anchor="middle">/memos に遷移</text>
+    <text class="d-ts" x="110" y="74" text-anchor="middle">サーバーで取得開始</text>
+    <rect class="d-box-h" x="250" y="35" width="170" height="50" rx="9"/>
+    <text class="d-t" x="335" y="58" text-anchor="middle">loading.tsx</text>
+    <text class="d-ts" x="335" y="74" text-anchor="middle">取得完了までを表示</text>
+    <rect class="d-box-a" x="470" y="35" width="170" height="50" rx="9"/>
+    <text class="d-t" x="555" y="58" text-anchor="middle">page.tsx</text>
+    <text class="d-ts" x="555" y="74" text-anchor="middle">完成した中身に差替</text>
+    <path class="d-arrow" d="M200 60 L247 60" marker-end="url(#ah1)"/>
+    <path class="d-arrow" d="M420 60 L467 60" marker-end="url(#ah1)"/>
+    <defs><marker id="ah1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="var(--fg-soft)"/></marker></defs>
+  </svg>
+  <figcaption><code>loading.tsx</code> を置くだけで自動的にこの流れになる。手動で <code>&lt;Suspense&gt;</code> を書く必要はない。</figcaption>
+  </figure>
+
+  <h3>1.4 ルートグループ <code>(...)</code> — URL を増やさずに整理する</h3>
+  <p>フォルダ名を <code>( )</code> で囲むと、その階層は<b>URL に現れません</b>。共通レイアウトを与えたいページ群をまとめるのに使います。例えばログイン後の画面をまとめた <code>(dashboard)</code> グループ。</p>
+  <div class="filetree">app/
+├─ (dashboard)/          <span class="cm"># ← URL には出ない。ダッシュボード共通レイアウト用</span>
+│  ├─ layout.tsx         <span class="cm"># サイドバー等の共通枠</span>
+│  ├─ memos/page.tsx     <span class="cm"># → /memos</span>
+│  └─ settings/page.tsx  <span class="cm"># → /settings</span>
+└─ sign-in/page.tsx      <span class="cm"># → /sign-in（レイアウトを共有しない）</span></div>
+
+  <div class="box note">
+    <div class="bh">本書での扱い</div>
+    <p>本書では話を単純にするため <code>app/memos/</code> 直下に作ります。実務でヘッダ付きの共通レイアウトを与えたくなったら <code>app/(dashboard)/memos/</code> に移し、<code>(dashboard)/layout.tsx</code> を足す、という発展を第3章のコラムで触れます。CLAUDE.md でも Server Action の配置例として <code>app/(dashboard)/categories/actions.ts</code> が示されています。</p>
+  </div>
+
+  <div class="box compat">
+    <div class="bh">🔧 互換メモ：<code>params</code> / <code>searchParams</code> は Promise</div>
+    <p>Next.js 15 以降、<code>page.tsx</code> が受け取る <code>params</code> と <code>searchParams</code> は <b>Promise</b> になりました（<code>await</code> が必要）。既存の <code>sign-in/page.tsx</code> でも <code>const { error } = await searchParams</code> と書かれています。第4・5章で実際に使います。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 1</div>
+    <ol>
+      <li><code>apps/web/src/app/memos/page.tsx</code> を上記の内容で新規作成する。</li>
+      <li><code>/memos</code> にアクセスし、見出しが表示されることを確認（未ログインなら先に <code>/dev/login?as=alice</code>）。</li>
+      <li><code>loading.tsx</code> も作成する。今はまだデータ取得が無いので一瞬しか出ないが、第2章で効いてくる。</li>
+      <li>試しに <code>page.tsx</code> の関数名を <code>Foo</code> に変えても <code>/memos</code> が動くことを確認 → <b>関数名は URL に無関係</b>だと体感する。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary><code>layout.tsx</code> と <code>template.tsx</code> の一番の違いは？</summary>
+    <div class="ans"><b>再マウントされるか否か</b>。<code>layout</code> はページ間遷移でも状態を保持したまま再マウントされない（共有の枠として残る）。<code>template</code> は遷移ごとに新しいインスタンスとして再マウントされるので、遷移のたびに入場アニメを走らせたい／<code>useEffect</code> を毎回動かしたい、といった時に使う。</div>
+  </details>
+
+  <details class="quiz">
+    <summary><code>error.tsx</code> だけが <code>"use client"</code> 必須なのはなぜ？</summary>
+    <div class="ans">エラー境界は React の <b>Error Boundary</b> の仕組みを使い、<code>reset()</code> で再試行するために<b>クライアント側の状態</b>とイベントを扱う必要があるから。Server Component は状態やイベントを持てないため、境界はクライアントで動く必要がある。</div>
+  </details>
+</section>
+
+<!-- ================= Chapter 2 ================= -->
+<section class="chapter" id="ch2">
+  <h2>2. データ取得 — Server Component で一覧を出す</h2>
+  <p>いよいよメモ一覧を API から取ってきます。ここが App Router の一番おいしいところ：<b>Server Component の中で直接 <code>await</code> して fetch できる</b>。<code>useEffect</code> + <code>useState</code> のローディング地獄が消えます。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li>Server Component で <code>async/await</code> データ取得ができる</li>
+      <li><code>server-only</code> と <code>@repo/api-schema</code> による検証で「型安全なデータ取得層」を作る</li>
+      <li>キャッシュと動的レンダリングの判断基準（<code>cookies()</code> を使うと動的になる 等）を理解する</li>
+    </ul>
+  </div>
+
+  <h3>2.1 データ取得層 <code>memo.api.ts</code> を作る</h3>
+  <p>規約どおり、API 通信ロジックは <code>features/memo/memo.api.ts</code>（<b>ロジックのみ・UI 非依存</b>）に置きます。土台の <code>apiClient</code> を呼び、返り値を<b>スキーマで検証</b>してから返すのがポイント。</p>
+
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/features/memo/memo.api.ts（新規）">
+import "server-only"
+
+import { getMemoListResponseSchema, type GetMemoListResponse } from "@repo/api-schema"
+
+import { apiClient } from "@/libs/api-client"
+
+/**
+ * メモの API 通信層（サーバー専用）。
+ * apiClient がブラウザ非経由でトークンを付け、401 時は refresh する。
+ * 受け取った JSON は「信用せず」スキーマで parse してから返す。
+ */
+export const memoApi = {
+  getList: async (): Promise<GetMemoListResponse> => {
+    const raw = await apiClient.get<unknown>("/api/memo")
+    return getMemoListResponseSchema.parse(raw)
+  },
+}
+  </script>
+
+  <h4>逐行のポイント</h4>
+  <ul>
+    <li><code>import "server-only"</code>：この関数が<b>誤ってクライアントに混入したらビルドで落とす</b>お守り。トークンやサーバ処理が漏れない。</li>
+    <li><code>apiClient.get&lt;unknown&gt;</code>：<code>apiClient</code> の <code>&lt;T&gt;</code> はただの型キャストで<b>実行時検証はしない</b>。だから <code>unknown</code> で受けて…</li>
+    <li>…<code>getMemoListResponseSchema.parse(raw)</code> で<b>実行時に形を保証</b>する。API が予期せぬ形を返したらここで例外になり、壊れたデータが画面まで到達しない。</li>
+  </ul>
+
+  <div class="box why">
+    <div class="bh">なぜ <code>as</code> ではなく <code>.parse()</code> なのか</div>
+    <p>mobile の <code>memo.api.ts</code> は <code>new Memo(result.data)</code> と<b>キャストするだけ</b>で、コメントに「型安全ではない」と正直に書かれています。TypeScript のキャストは「コンパイラを黙らせる」だけで、実行時には何も守りません。API のバージョン差やバグで <code>title</code> が欠けていても、キャストは素通りして UI で <code>undefined</code> が表示される。<code>@repo/api-schema</code> の <code>.parse()</code> を通せば、<b>契約と実データのズレを境界で検出</b>できます。これが「スキーマをスタック横断で共有する」設計の狙いです。</p>
+  </div>
+
+  <h3>2.2 ページから呼ぶ</h3>
+  <p><code>page.tsx</code> を Server Component のまま <code>async</code> にして、<code>memoApi.getList()</code> を <code>await</code> します。第1章の静的ページを置き換えます。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/page.tsx（更新）">
+import type { Metadata } from "next"
+
+import { memoApi } from "@/features/memo/memo.api"
+
+export const metadata: Metadata = { title: "メモ一覧" }
+
+/**
+ * 一覧ページ。Server Component なので直接 await できる。
+ * データ取得の失敗は上位の error.tsx（第9章）に投げる方針にし、
+ * ここでは正常系だけを素直に書く。
+ */
+export default async function MemosPage() {
+  const { memos } = await memoApi.getList()
+
+  return (
+    <main className="mx-auto max-w-2xl p-6">
+      <h1 className="text-2xl font-semibold">メモ一覧</h1>
+
+      {memos.length === 0 ? (
+        <p className="mt-4 text-zinc-500">まだメモがありません。</p>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {memos.map((memo) => (
+            <li key={memo.id} className="rounded-lg border border-zinc-200 p-4">
+              <h2 className="font-medium">{memo.title}</h2>
+              <p className="mt-1 line-clamp-2 text-sm text-zinc-600">{memo.body}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
+  )
+}
+  </script>
+
+  <figure class="diagram">
+  <svg viewBox="0 0 700 170" role="img" aria-label="Server Component のデータ取得フロー">
+    <rect class="d-box" x="14" y="60" width="120" height="52" rx="9"/>
+    <text class="d-t" x="74" y="82" text-anchor="middle">ブラウザ</text>
+    <text class="d-ts" x="74" y="99" text-anchor="middle">GET /memos</text>
+
+    <rect class="d-box-a" x="185" y="45" width="180" height="82" rx="9"/>
+    <text class="d-t" x="275" y="70" text-anchor="middle">Next.js サーバー</text>
+    <text class="d-tm" x="275" y="90" text-anchor="middle">page.tsx (RSC)</text>
+    <text class="d-tm" x="275" y="108" text-anchor="middle">memoApi.getList()</text>
+
+    <rect class="d-box-h" x="420" y="45" width="150" height="52" rx="9"/>
+    <text class="d-tm" x="495" y="67" text-anchor="middle">apiClient</text>
+    <text class="d-ts" x="495" y="84" text-anchor="middle">+ cookie / refresh</text>
+
+    <rect class="d-box" x="600" y="45" width="90" height="52" rx="9"/>
+    <text class="d-t" x="645" y="70" text-anchor="middle">Express</text>
+    <text class="d-ts" x="645" y="86" text-anchor="middle">/api/memo</text>
+
+    <path class="d-arrow" d="M134 86 L182 86" marker-end="url(#ah2)"/>
+    <path class="d-arrow-a" d="M365 86 L417 86" marker-end="url(#ah2a)"/>
+    <path class="d-arrow-a" d="M570 71 L597 71" marker-end="url(#ah2a)"/>
+    <path class="d-arrow" d="M275 127 L275 150 L74 150 L74 114" marker-end="url(#ah2)"/>
+    <text class="d-lbl" x="180" y="145" text-anchor="middle">HTML を返す</text>
+    <defs>
+      <marker id="ah2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--fg-soft)"/></marker>
+      <marker id="ah2a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker>
+    </defs>
+  </svg>
+  <figcaption>取得もレンダリングもサーバーで完結。ブラウザには JS ではなく完成した HTML が届く（＝トークンも API の存在もクライアントに漏れない）。</figcaption>
+  </figure>
+
+  <h3>2.3 キャッシュと動的レンダリング</h3>
+  <p>「このページ、いつのデータが出るの？」を決めるのが<b>キャッシュ／レンダリング戦略</b>です。Next.js 15 以降のデフォルトを押さえましょう。</p>
+  <table>
+    <tr><th>やりたいこと</th><th>書き方</th><th>結果</th></tr>
+    <tr><td>毎回最新（動的）</td><td>既定。<code>cookies()</code>/<code>headers()</code> を使うと自動でこうなる</td><td>リクエストごとにサーバー実行</td></tr>
+    <tr><td>N 秒キャッシュ</td><td><code>export const revalidate = 60</code></td><td>60秒ごとに裏で再生成（ISR）</td></tr>
+    <tr><td>常に動的を明示</td><td><code>export const dynamic = "force-dynamic"</code></td><td>キャッシュ無効</td></tr>
+    <tr><td>fetch 単位で制御</td><td><code>fetch(url, { next: { revalidate: 60 } })</code></td><td>その取得だけキャッシュ</td></tr>
+  </table>
+
+  <div class="box compat">
+    <div class="bh">🔧 互換メモ：本書のメモ一覧は「動的」</div>
+    <p>本書の <code>apiClient</code> は内部で <code>cookies()</code>（<code>next/headers</code>）を読んでトークンを付けます。<b><code>cookies()</code> を使った時点でそのルートは動的レンダリングになる</b>ため、メモ一覧は常にリクエスト時取得です。ログイン中ユーザー固有のデータなのでこれで正しい。逆に「全員同じ・更新が稀」なデータ（公開記事一覧など）は <code>revalidate</code> でキャッシュした方が速くなります。<br>なお Next.js 15 以降、<code>fetch</code> は<b>デフォルトでキャッシュされません</b>（14 までとは逆）。キャッシュしたい時だけ明示的にオプトインします。</p>
+  </div>
+
+  <div class="box note">
+    <div class="bh">エラーはどこで拾う？</div>
+    <p><code>page.tsx</code> では <code>try/catch</code> せず、失敗時は例外を投げっぱなしにしています。これは第9章で作る <code>app/memos/error.tsx</code>（セグメントのエラー境界）に自動で捕捉させる方針だからです。「正常系はページ、異常系は境界」と役割を分けると、ページ本体が読みやすく保てます。トップの <code>page.tsx</code> が <code>try/catch</code> しているのは、あえて「その場でエラー表示する」別方針の例です。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 2</div>
+    <ol>
+      <li><code>features/memo/memo.api.ts</code> を作成する。</li>
+      <li><code>app/memos/page.tsx</code> を上記の取得版に更新する。</li>
+      <li>API とスキーマを起動：<code>pnpm --filter @repo/api-schema build</code> → API も <code>pnpm --filter api dev</code>（別ターミナル）。</li>
+      <li><code>/memos</code> を開き、一覧が出ることを確認（データが無ければ「まだメモがありません」）。</li>
+      <li><b>実験</b>：<code>memo.api.ts</code> の <code>.parse(raw)</code> を一時的に <code>raw as GetMemoListResponse</code> に変え、API を止めて壊れたレスポンスを返すと何が起きるか観察 → <code>.parse</code> に戻す。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary>Server Component でのデータ取得が、Client Component の <code>useEffect</code>+<code>fetch</code> より優れている点を2つ。</summary>
+    <div class="ans">① <b>ウォーターフォールとローディング状態が消える</b>：サーバーで <code>await</code> して完成 HTML を返すので、クライアントで「読み込み中→データ」の二段階レンダリングが不要。② <b>秘密を隠せる</b>：API トークンや API の URL、重いロジックがクライアント JS に載らない。加えて DB/API に物理的に近いサーバーで叩ける、バンドルが軽くなる、等。</div>
+  </details>
+
+  <details class="quiz">
+    <summary>このメモ一覧ページが「動的レンダリング」になる決め手は？</summary>
+    <div class="ans"><code>apiClient</code> が内部で <code>cookies()</code> を呼んでいること。リクエスト固有の情報（cookie）に依存するルートは、Next.js が自動的に動的（リクエストごとに実行）と判定する。ビルド時に固定 HTML を作れないため。</div>
+  </details>
+</section>
+
+<!-- ================= Chapter 3 ================= -->
+<section class="chapter" id="ch3">
+  <h2>3. コンポーネント設計 — UI を正しく分割する</h2>
+  <p>第2章の <code>page.tsx</code> は取得もマークアップも全部入りでした。実務ではすぐ肥大化します。ここで規約どおり <b>UI を <code>components/</code> に切り出し、<code>page.tsx</code> を薄く</b>します。「どこに置くか」「Server と Client のどちらにするか」を判断できるようになるのがゴール。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li><code>app → components → features</code> の依存方向に沿って UI を分割できる</li>
+      <li>コンポーネント単位で Server / Client を判断できる（<b>デフォルトは Server、必要な島だけ Client</b>）</li>
+      <li>「Server Component を Client Component の <code>children</code> に渡す」合成パターンを使える</li>
+    </ul>
+  </div>
+
+  <h3>3.1 分割方針</h3>
+  <p>一覧画面を3つに割ります。<b>ロジックは <code>features/</code>、見た目は <code>components/</code>、束ねるのは <code>app/</code></b>。</p>
+  <div class="filetree">app/memos/page.tsx                         <span class="cm"># 取得して components に渡すだけ（薄い）</span>
+components/features/memo/
+  <span class="new">├─ MemoList.tsx</span>       <span class="cm"># memos[] を受け取り並べる（Server）</span>
+  <span class="new">├─ MemoListItem.tsx</span>   <span class="cm"># 1件の見た目（Server）</span>
+  <span class="new">└─ MemoEmptyState.tsx</span> <span class="cm"># 0件時の表示（Server）</span></div>
+
+  <h4>MemoListItem — 1件分の見た目</h4>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/components/features/memo/MemoListItem.tsx（新規）">
+import Link from "next/link"
+
+import type { GetMemoListResponse } from "@repo/api-schema"
+
+/** 一覧の1件。型は配列要素型を取り出して使う（独自定義しない） */
+type Props = {
+  memo: GetMemoListResponse["memos"][number]
+}
+
+export function MemoListItem({ memo }: Props) {
+  return (
+    <li className="rounded-lg border border-zinc-200 p-4 transition hover:border-zinc-400">
+      <Link href={`/memos/${memo.id}`} className="block">
+        <h2 className="font-medium">{memo.title}</h2>
+        <p className="mt-1 line-clamp-2 text-sm text-zinc-600">{memo.body}</p>
+      </Link>
+    </li>
+  )
+}
+  </script>
+
+  <h4>MemoList / MemoEmptyState</h4>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/components/features/memo/MemoList.tsx（新規）">
+import type { GetMemoListResponse } from "@repo/api-schema"
+
+import { MemoEmptyState } from "./MemoEmptyState"
+import { MemoListItem } from "./MemoListItem"
+
+type Props = { memos: GetMemoListResponse["memos"] }
+
+export function MemoList({ memos }: Props) {
+  if (memos.length === 0) return <MemoEmptyState />
+
+  return (
+    <ul className="space-y-3">
+      {memos.map((memo) => (
+        <MemoListItem key={memo.id} memo={memo} />
+      ))}
+    </ul>
+  )
+}
+  </script>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/components/features/memo/MemoEmptyState.tsx（新規）">
+import Link from "next/link"
+
+export function MemoEmptyState() {
+  return (
+    <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center">
+      <p className="text-zinc-500">まだメモがありません。</p>
+      <Link href="/memos/new" className="mt-3 inline-block text-blue-600 hover:underline">
+        最初のメモを作成する
+      </Link>
+    </div>
+  )
+}
+  </script>
+
+  <h4>page.tsx は薄くなる</h4>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/page.tsx（更新）">
+import type { Metadata } from "next"
+import Link from "next/link"
+
+import { MemoList } from "@/components/features/memo/MemoList"
+import { memoApi } from "@/features/memo/memo.api"
+
+export const metadata: Metadata = { title: "メモ一覧" }
+
+export default async function MemosPage() {
+  const { memos } = await memoApi.getList()
+
+  return (
+    <main className="mx-auto max-w-2xl p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">メモ一覧</h1>
+        <Link href="/memos/new" className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white">
+          新規作成
+        </Link>
+      </div>
+      <div className="mt-6">
+        <MemoList memos={memos} />
+      </div>
+    </main>
+  )
+}
+  </script>
+
+  <div class="box why">
+    <div class="bh">なぜ <code>page.tsx</code> を薄く保つのか</div>
+    <p><code>page.tsx</code> は「このURLで<b>何を取得し、どの部品を組むか</b>」だけを語る司令塔にします。見た目の詳細（クラス名やマークアップ）はコンポーネント側へ。こうすると ①ページを読むだけで画面構成が分かる、②同じ <code>MemoList</code> を検索結果やダッシュボードで<b>再利用</b>できる、③見た目の変更が <code>page.tsx</code> に波及しない、という利点が出ます。規約の「<code>app/</code> は薄く」はこの狙いです。</p>
+  </div>
+
+  <h3>3.2 Server か Client か — 島（island）で考える</h3>
+  <p>App Router では<b>すべてデフォルト Server Component</b>。<code>"use client"</code> を書いたファイルとそこから import される先だけがクライアントに送られます。だから設計の合言葉は「<b>できるだけ Server、インタラクションが要る所だけ Client の小島にする</b>」。</p>
+  <p>上の <code>MemoList / MemoListItem / MemoEmptyState</code> は表示だけなので<b>全部 Server</b>。<code>onClick</code> や <code>useState</code> が要る部品（例：削除ボタン、検索ボックス）だけを <code>"use client"</code> の小島に切り出します。既存の <code>refresh-button.tsx</code> や Lottie の <code>user-bot-animation.tsx</code> がまさにその実例です。</p>
+
+  <table>
+    <tr><th>Client Component が要るサイン</th><th>例</th></tr>
+    <tr><td><code>onClick</code> / <code>onChange</code> などのイベント</td><td>削除ボタン、フォーム操作</td></tr>
+    <tr><td><code>useState</code> / <code>useEffect</code> / <code>useRef</code></td><td>開閉トグル、入力状態</td></tr>
+    <tr><td>ブラウザ API（<code>window</code>, <code>localStorage</code>）</td><td>テーマ切替</td></tr>
+    <tr><td>状態管理ライブラリ（Zustand 等）</td><td>クライアント状態（第7章）</td></tr>
+    <tr><td>DOM 依存ライブラリ</td><td>Lottie（<code>dynamic(ssr:false)</code>）</td></tr>
+  </table>
+
+  <div class="box warn">
+    <div class="bh">⚠ よくある誤解：<code>"use client"</code> は「ページ全体」に付けない</div>
+    <p>「フォームがあるからページ全部 Client」は最悪手。ページを Client にすると<b>配下の Server の利点（サーバー取得・軽いバンドル）を全部失います</b>。正解は「ページは Server のまま、ボタン1個だけ Client の小島」。境界は<b>できるだけ葉（末端）に押し下げる</b>。</p>
+  </div>
+
+  <h3>3.3 合成パターン：Server を Client の <code>children</code> に渡す</h3>
+  <p>「Client Component の中で Server Component を使いたい」ことがあります（例：開閉できるパネルの中にサーバー取得の中身を入れる）。Client の中で Server を <code>import</code> することは<b>できません</b>が、<b><code>children</code> として渡す</b>のは OK です。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="合成パターンの例（概念）">
+// Collapsible.tsx （Client の島：開閉状態だけ持つ）
+"use client"
+import { useState, type ReactNode } from "react"
+
+export function Collapsible({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div>
+      <button onClick={() => setOpen((v) => !v)}>{open ? "閉じる" : "開く"}</button>
+      {open && <div>{children}</div>}
+    </div>
+  )
+}
+
+// page.tsx （Server）— Server で取得した中身を children として流し込む
+export default async function Page() {
+  const { memos } = await memoApi.getList()
+  return (
+    <Collapsible>
+      <MemoList memos={memos} />   {/* ← これは Server Component のまま！ */}
+    </Collapsible>
+  )
+}
+  </script>
+
+  <figure class="diagram">
+  <svg viewBox="0 0 560 150" role="img" aria-label="children で Server を Client に渡す図">
+    <rect x="30" y="30" width="230" height="95" rx="10" fill="none" stroke="var(--handson)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text class="d-t" x="145" y="50" text-anchor="middle" style="fill:var(--handson)">Client の島（Collapsible）</text>
+    <rect class="d-box-a" x="60" y="66" width="170" height="44" rx="8"/>
+    <text class="d-tm" x="145" y="86" text-anchor="middle">{children}</text>
+    <text class="d-ts" x="145" y="102" text-anchor="middle">＝ 差し込まれた枠</text>
+
+    <rect class="d-box-h" x="330" y="60" width="200" height="56" rx="10"/>
+    <text class="d-t" x="430" y="83" text-anchor="middle">MemoList</text>
+    <text class="d-ts" x="430" y="100" text-anchor="middle">Server のまま渡される</text>
+    <path class="d-arrow-a" d="M330 88 L232 88" marker-end="url(#ah3)"/>
+    <text class="d-lbl" x="285" y="78" text-anchor="middle">children</text>
+    <defs><marker id="ah3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker></defs>
+  </svg>
+  <figcaption>Client は「穴（children）」だけ用意する。中身が Server か Client かを Client 側は知らなくてよい。だから Server のまま渡せる。</figcaption>
+  </figure>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 3</div>
+    <ol>
+      <li><code>components/features/memo/</code> に <code>MemoListItem</code> / <code>MemoList</code> / <code>MemoEmptyState</code> を作成する。</li>
+      <li><code>page.tsx</code> を薄い版に更新し、見た目が変わらず動くことを確認。</li>
+      <li>各コンポーネントに <code>"use client"</code> が<b>無い</b>ことを確認（全部 Server）。<code>onClick</code> を持たないので不要。</li>
+      <li><b>考察</b>：この3つのうち、将来 Client 化が必要になりそうなのはどれ？（ヒント：削除ボタンを <code>MemoListItem</code> に足したくなったら？）</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary>「Client Component の中では Server Component を import できない」のに、<code>children</code> で渡せるのはなぜ？</summary>
+    <div class="ans">Server Component のレンダリング（サーバーでの実行）は<b>親（Server）側で先に済んで</b>、その結果が「描画済みの子」として Client に渡るから。Client が <code>import</code> して自分でレンダリングしようとすると、サーバー専用処理をクライアントで走らせることになり成立しない。<code>children</code> なら Client は「出来上がった中身をどこに置くか」を決めるだけで、中身を実行しない。</div>
+  </details>
+
+  <details class="quiz">
+    <summary>Server/Client の境界は「根（ページ）」と「葉（末端）」どちらに寄せるべき？なぜ？</summary>
+    <div class="ans"><b>葉に寄せる</b>。<code>"use client"</code> は付けたファイルとその配下すべてをクライアントに送る。根に付けると木全体が Client 化してサーバーの恩恵を失う。インタラクションが必要な最小の部品にだけ付けるのがベストプラクティス。</div>
+  </details>
+</section>
+
+<!-- ================= Chapter 4 ================= -->
+<section class="chapter" id="ch4">
+  <h2>4. 動的ルートと詳細ページ</h2>
+  <p>一覧の各項目は <code>/memos/1</code>, <code>/memos/2</code> … と ID で開けるようにします。URL の一部を変数として受け取る<b>動的ルート</b> <code>[id]</code> を作りながら、<code>await params</code>・<code>notFound()</code>・<code>generateMetadata</code> を学びます。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li><code>[id]</code> 動的セグメントと <code>await params</code> を使える</li>
+      <li>存在しない ID で <code>notFound()</code> → <code>not-found.tsx</code> に繋げられる</li>
+      <li><code>generateMetadata</code> でページごとの <code>&lt;title&gt;</code> を動的生成できる</li>
+      <li>ルートパラメータも Zod で検証する（プロジェクト規約）</li>
+    </ul>
+  </div>
+
+  <h3>4.1 取得層に <code>getDetail</code> を足す</h3>
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/features/memo/memo.api.ts（追記）">
+import "server-only"
+
+import {
+  getMemoListResponseSchema,
+  getMemoResponseSchema,
+  type GetMemoListResponse,
+  type GetMemoResponse,
+} from "@repo/api-schema"
+
+import { apiClient } from "@/libs/api-client"
+
+export const memoApi = {
+  getList: async (): Promise<GetMemoListResponse> => {
+    const raw = await apiClient.get<unknown>("/api/memo")
+    return getMemoListResponseSchema.parse(raw)
+  },
+
+  getDetail: async (id: number): Promise<GetMemoResponse> => {
+    const raw = await apiClient.get<unknown>(`/api/memo/${id}`)
+    return getMemoResponseSchema.parse(raw)
+  },
+}
+  </script>
+
+  <h3>4.2 <code>[id]</code> ページを作る</h3>
+  <p>フォルダ名を <code>[id]</code> にすると、その部分の URL が <code>params.id</code> として渡ります。<b>Next.js 15 以降、<code>params</code> は Promise</b> なので <code>await</code> します。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/[id]/page.tsx（新規）">
+import type { Metadata } from "next"
+import { notFound } from "next/navigation"
+
+import { getMemoPathParamSchema } from "@repo/api-schema"
+
+import { memoApi } from "@/features/memo/memo.api"
+import { ApiClientError } from "@/libs/api-client"
+
+type Props = {
+  params: Promise<{ id: string }>
+}
+
+/** URL の :id を検証し、無ければ notFound() に流す共通処理 */
+async function loadMemo(params: Props["params"]) {
+  const parsed = getMemoPathParamSchema.safeParse(await params)
+  if (!parsed.success) notFound()            // /memos/abc のような不正 ID
+
+  try {
+    return await memoApi.getDetail(parsed.data.id)
+  } catch (error) {
+    if (error instanceof ApiClientError && error.status === 404) notFound()
+    throw error                              // それ以外は error.tsx へ
+  }
+}
+
+/** タブや検索結果に出る title を、メモの内容から動的に作る */
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const parsed = getMemoPathParamSchema.safeParse(await params)
+  if (!parsed.success) return { title: "メモが見つかりません" }
+  const memo = await memoApi.getDetail(parsed.data.id).catch(() => null)
+  return { title: memo ? memo.title : "メモが見つかりません" }
+}
+
+export default async function MemoDetailPage({ params }: Props) {
+  const memo = await loadMemo(params)
+
+  return (
+    <main className="mx-auto max-w-2xl p-6">
+      <h1 className="text-2xl font-semibold">{memo.title}</h1>
+      <p className="mt-2 whitespace-pre-wrap text-zinc-700">{memo.body}</p>
+      <p className="mt-6 text-xs text-zinc-400">更新: {memo.updated_at}</p>
+    </main>
+  )
+}
+  </script>
+
+  <h4>逐行のポイント</h4>
+  <ul>
+    <li><code>getMemoPathParamSchema</code> は <code>z.coerce.number().int().positive()</code>。<b>文字列→数値変換と検証を Zod に任せる</b>（<code>Number()</code> や <code>parseInt</code> を手書きしない、が規約）。</li>
+    <li>不正 ID（<code>/memos/abc</code>）は <code>safeParse</code> 失敗 → <code>notFound()</code>。存在しない ID は API が 404 → <code>ApiClientError.status === 404</code> を見て <code>notFound()</code>。</li>
+    <li><code>notFound()</code> は<b>最寄りの <code>not-found.tsx</code> を表示</b>する。既存の <code>app/not-found.tsx</code> がそのまま使われる（第9章でメモ専用に上書きも可）。</li>
+    <li>404 以外の失敗（500 等）は <code>throw</code> して <code>error.tsx</code> に任せる。「無い」と「壊れた」を区別するのが <code>ApiClientError</code> が <code>status</code> を保持している狙い（第9章）。</li>
+  </ul>
+
+  <div class="box why">
+    <div class="bh">なぜ <code>generateMetadata</code> をわざわざ書くのか</div>
+    <p>静的な <code>export const metadata</code> ではページ内容に応じた <code>&lt;title&gt;</code> を作れません。<code>generateMetadata</code> は <code>params</code> を受け取れる<b>非同期関数</b>なので、「メモのタイトルをそのままページタイトルに」といった動的な SEO / タブ表示ができます。Next.js は本文レンダリングと <code>generateMetadata</code> の <code>getDetail</code> を<b>重複取得しないよう自動でメモ化（dedupe）</b>してくれるので、2回書いても API は1回で済みます。</p>
+  </div>
+
+  <h3>4.3 SSG / ISR はこのページに使う？</h3>
+  <p><code>generateStaticParams</code> を書くと、ビルド時に <code>[id]</code> の一覧を先に生成して<b>静的化（SSG）</b>できます。ブログ記事のような「全員に同じ・更新が稀」なコンテンツでは強力です。</p>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="generateStaticParams の例（※このメモ機能では使わない）">
+// 公開ブログなら：ビルド時に全記事を静的生成し、60秒ごとに再検証
+export const revalidate = 60
+export async function generateStaticParams() {
+  const posts = await getPublicPosts()
+  return posts.map((p) => ({ id: String(p.id) }))
+}
+  </script>
+  <div class="box note">
+    <div class="bh">メモは動的でよい</div>
+    <p>メモは<b>ログインユーザー固有・頻繁に増減</b>し、<code>apiClient</code> が <code>cookies()</code> を使う（＝動的）ため、SSG/ISR は不向きです。<b>「認証が要る・ユーザーごとに違う・すぐ変わる」データは動的レンダリングが正解</b>。逆に公開・共通・低頻度更新なら ISR を検討する、という判断軸を持っておきましょう。</p>
+  </div>
+
+  <div class="box compat">
+    <div class="bh">🔧 互換メモ：動的 API はすべて Promise</div>
+    <p>Next.js 15/16 では <code>params</code> / <code>searchParams</code> / <code>cookies()</code> / <code>headers()</code> がすべて非同期（Promise）です。同期的に <code>params.id</code> と書くと型エラー・実行時警告になります。必ず <code>await</code> しましょう。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 4</div>
+    <ol>
+      <li><code>memo.api.ts</code> に <code>getDetail</code> を追記する。</li>
+      <li><code>app/memos/[id]/page.tsx</code> を作成する。</li>
+      <li>一覧の項目（<code>MemoListItem</code> の <code>Link</code>）から詳細に飛べることを確認。</li>
+      <li><code>/memos/999999</code>（存在しない）と <code>/memos/abc</code>（不正）でどちらも 404 ページになることを確認。</li>
+      <li>ブラウザのタブに<b>メモのタイトルが出る</b>ことを確認（<code>generateMetadata</code> の効果）。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary>「不正な ID（<code>abc</code>）」と「存在しない ID（<code>999999</code>）」を、コードではどう区別して両方 404 にしている？</summary>
+    <div class="ans">不正 ID は <code>getMemoPathParamSchema.safeParse</code> が<b>失敗</b>する（数値でない/正の整数でない）ので、その場で <code>notFound()</code>。存在しない ID は形式は正しいので API まで行き、API が返す <b>404 を <code>ApiClientError.status</code> で判定</b>して <code>notFound()</code>。500 など他の失敗は <code>throw</code> して <code>error.tsx</code> に回す。</div>
+  </details>
+</section>
+
+<!-- ================= Chapter 5 ================= -->
+<section class="chapter" id="ch5">
+  <h2>5. Server Actions — 作成フォーム</h2>
+  <p>ここからは<b>データ変更（mutation）</b>。App Router では、フォーム送信を <b>Server Action</b>（<code>"use server"</code> 関数）で受けます。API ルートを別途作らなくても、関数を <code>form</code> の <code>action</code> に渡すだけでサーバー処理が呼べます。既存の <code>startGoogleOAuth</code> / <code>logoutAction</code> と同じ仕組みです。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li>Server Action を書き、<code>form action</code> から呼べる</li>
+      <li><code>useActionState</code> でバリデーションエラーを画面に戻せる</li>
+      <li><code>useFormStatus</code> で送信中の UI を出せる</li>
+      <li><code>revalidatePath</code> + <code>redirect</code> で「作成→一覧へ・最新表示」を実現できる</li>
+    </ul>
+  </div>
+
+  <h3>5.1 取得層に <code>create</code> を足す</h3>
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/features/memo/memo.api.ts（追記）">
+import {
+  createMemoResponseSchema,
+  type CreateMemoRequest,
+  type CreateMemoResponse,
+  // ...既存の import
+} from "@repo/api-schema"
+
+export const memoApi = {
+  // ...getList, getDetail
+
+  create: async (input: CreateMemoRequest): Promise<CreateMemoResponse> => {
+    const raw = await apiClient.post<unknown>("/api/memo", input)
+    return createMemoResponseSchema.parse(raw)
+  },
+}
+  </script>
+
+  <h3>5.2 Server Action を書く（<code>actions.ts</code>）</h3>
+  <p>規約では Server Action は<b>対応するページと同じディレクトリに <code>actions.ts</code></b> として置きます（<code>app/actions/</code> のような共通置き場は作らない）。</p>
+
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/app/memos/actions.ts（新規）">
+"use server"
+
+import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
+
+import { createMemoRequestSchema } from "@repo/api-schema"
+
+import { memoApi } from "@/features/memo/memo.api"
+
+/** useActionState に返す「フォームの状態」。エラーを画面に戻すための器 */
+export type CreateMemoState = {
+  errors?: { title?: string[]; body?: string[] }
+  message?: string
+}
+
+/**
+ * メモ作成の Server Action。
+ * 第1引数は前回の state、第2引数がフォーム入力（useActionState の規約）。
+ */
+export const createMemoAction = async (
+  _prev: CreateMemoState,
+  formData: FormData,
+): Promise<CreateMemoState> => {
+  // 入力を「信用せず」サーバー側で Zod 検証する
+  const parsed = createMemoRequestSchema.safeParse({
+    body: formData.get("body"),
+    title: formData.get("title"),
+  })
+  if (!parsed.success) {
+    return { errors: parsed.error.flatten().fieldErrors }
+  }
+
+  try {
+    await memoApi.create(parsed.data)
+  } catch {
+    return { message: "作成に失敗しました。時間をおいて再度お試しください。" }
+  }
+
+  revalidatePath("/memos")   // 一覧のキャッシュを無効化し、次アクセスで最新に
+  redirect("/memos")         // 一覧へ遷移（redirect は例外を投げるので try の外に置く）
+}
+  </script>
+
+  <div class="box warn">
+    <div class="bh">⚠ <code>redirect()</code> は <code>try/catch</code> の外へ</div>
+    <p><code>redirect()</code> は内部的に特別な例外（<code>NEXT_REDIRECT</code>）を throw して遷移を実現します。<code>try/catch</code> の<b>中</b>に置くと、その catch が遷移用の例外を握りつぶしてリダイレクトが効きません。必ず <code>try</code> ブロックの<b>外</b>で呼びます。<code>revalidatePath</code> も同様に成功後に。</p>
+  </div>
+
+  <h3>5.3 フォーム UI（Client の島）</h3>
+  <p>入力とエラー表示はインタラクティブなので Client Component にします。<code>useActionState</code> が <code>[state, formAction, isPending]</code> を返し、<code>state</code> にはさっきの <code>CreateMemoState</code>（＝エラー）が入ります。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/components/features/memo/MemoForm.tsx（新規）">
+"use client"
+
+import { useActionState } from "react"
+import { useFormStatus } from "react-dom"
+
+import { createMemoAction, type CreateMemoState } from "@/app/memos/actions"
+
+const initialState: CreateMemoState = {}
+
+/** 送信ボタン。useFormStatus は form の子でのみ pending を取れる */
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+    >
+      {pending ? "作成中…" : "作成する"}
+    </button>
+  )
+}
+
+export function MemoForm() {
+  const [state, formAction] = useActionState(createMemoAction, initialState)
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium">タイトル</label>
+        <input name="title" className="mt-1 w-full rounded border border-zinc-300 p-2" />
+        {state.errors?.title && (
+          <p className="mt-1 text-sm text-red-600">{state.errors.title[0]}</p>
+        )}
+      </div>
+      <div>
+        <label className="block text-sm font-medium">本文</label>
+        <textarea name="body" rows={6} className="mt-1 w-full rounded border border-zinc-300 p-2" />
+        {state.errors?.body && (
+          <p className="mt-1 text-sm text-red-600">{state.errors.body[0]}</p>
+        )}
+      </div>
+      {state.message && <p className="text-sm text-red-600">{state.message}</p>}
+      <SubmitButton />
+    </form>
+  )
+}
+  </script>
+
+  <h4>作成ページ（Server）</h4>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/new/page.tsx（新規）">
+import type { Metadata } from "next"
+
+import { MemoForm } from "@/components/features/memo/MemoForm"
+
+export const metadata: Metadata = { title: "メモを作成" }
+
+export default function NewMemoPage() {
+  return (
+    <main className="mx-auto max-w-2xl p-6">
+      <h1 className="text-2xl font-semibold">メモを作成</h1>
+      <div className="mt-6">
+        <MemoForm />
+      </div>
+    </main>
+  )
+}
+  </script>
+
+  <figure class="diagram">
+  <svg viewBox="0 0 700 190" role="img" aria-label="Server Action の流れ">
+    <rect class="d-box" x="14" y="70" width="130" height="54" rx="9"/>
+    <text class="d-t" x="79" y="92" text-anchor="middle">フォーム送信</text>
+    <text class="d-ts" x="79" y="109" text-anchor="middle">action={formAction}</text>
+
+    <rect class="d-box-a" x="190" y="55" width="200" height="86" rx="9"/>
+    <text class="d-t" x="290" y="79" text-anchor="middle">createMemoAction</text>
+    <text class="d-tm" x="290" y="99" text-anchor="middle">"use server"</text>
+    <text class="d-ts" x="290" y="116" text-anchor="middle">Zod 検証 → memoApi.create</text>
+
+    <rect class="d-box-h" x="440" y="55" width="120" height="40" rx="8"/>
+    <text class="d-tm" x="500" y="79" text-anchor="middle">revalidatePath</text>
+    <rect class="d-box-h" x="440" y="103" width="120" height="40" rx="8"/>
+    <text class="d-tm" x="500" y="127" text-anchor="middle">redirect(/memos)</text>
+
+    <rect class="d-box" x="600" y="70" width="90" height="54" rx="9"/>
+    <text class="d-t" x="645" y="92" text-anchor="middle">一覧</text>
+    <text class="d-ts" x="645" y="109" text-anchor="middle">最新表示</text>
+
+    <path class="d-arrow" d="M144 97 L187 97" marker-end="url(#ah5)"/>
+    <path class="d-arrow-a" d="M390 90 L437 78" marker-end="url(#ah5a)"/>
+    <path class="d-arrow-a" d="M390 108 L437 121" marker-end="url(#ah5a)"/>
+    <path class="d-arrow" d="M560 123 L597 110" marker-end="url(#ah5)"/>
+    <path class="d-arrow" d="M290 141 L290 165 L79 165 L79 126" marker-end="url(#ah5)"/>
+    <text class="d-lbl" x="200" y="160" text-anchor="middle">検証エラーは state で画面に戻す</text>
+    <defs>
+      <marker id="ah5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--fg-soft)"/></marker>
+      <marker id="ah5a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker>
+    </defs>
+  </svg>
+  <figcaption>成功なら revalidate+redirect で最新の一覧へ。検証エラーなら state（errors）としてフォームに戻す。</figcaption>
+  </figure>
+
+  <div class="box why">
+    <div class="bh">なぜ検証を「サーバー側でも」やるのか</div>
+    <p>フォームの入力チェックは HTML の <code>required</code> やクライアント JS でもできますが、それらは<b>簡単に回避</b>されます（開発者ツール、直接 POST）。<b>サーバーに届いた入力は必ずサーバーで検証</b>するのが鉄則。しかも <code>createMemoRequestSchema</code> は API 側と<b>同じスキーマ</b>なので、フロントと API で検証ルールがズレません。これが「スキーマをスタック横断で共有」する実利です。</p>
+  </div>
+
+  <div class="box why">
+    <div class="bh">Server Action と Route Handler、どちらを使う？</div>
+    <p>プロジェクト規約：<b>データ変更（POST/PUT/DELETE）は基本 Server Action</b>、<b>データ取得（GET）は Server Component か Route Handler</b>。「Server Action を GET 相当に使ってはいけない（mutation 専用）」。ファイルアップロードや外部公開 API など Server Action が苦手なケースだけ Route Handler にします（作成フォームは Server Action が最適）。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 5</div>
+    <ol>
+      <li><code>memo.api.ts</code> に <code>create</code> を追記。</li>
+      <li><code>app/memos/actions.ts</code> と <code>components/features/memo/MemoForm.tsx</code>、<code>app/memos/new/page.tsx</code> を作成。</li>
+      <li><code>/memos/new</code> で空のまま送信 → <b>Zod のエラーメッセージ</b>（「タイトルは必須です」等）がフィールド下に出ることを確認。</li>
+      <li>正しく入力して送信 → 一覧に戻り、<b>作ったメモが増えている</b>ことを確認（<code>revalidatePath</code> の効果）。</li>
+      <li>送信中にボタンが「作成中…」になり disabled になることを確認（<code>useFormStatus</code>）。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary><code>useActionState</code> に渡す action の引数はなぜ <code>(prevState, formData)</code> の2つ？</summary>
+    <div class="ans"><code>useActionState</code> は「前回の結果（state）を次の呼び出しに引き継ぐ」ためのフックだから。第1引数に前回 state、第2引数にフォーム入力が来て、戻り値が新しい state になる。これによりバリデーションエラーや前回入力値を保持したまま再表示できる。</div>
+  </details>
+
+  <details class="quiz">
+    <summary>作成成功後、なぜ <code>redirect</code> だけでなく <code>revalidatePath("/memos")</code> も必要？</summary>
+    <div class="ans">一覧ページはキャッシュされ得るため、<code>revalidatePath</code> でそのパスのキャッシュを無効化しないと<b>古い一覧（新規メモが無い状態）</b>が表示されることがある。「サーバー側のデータを変更したら、それを表示するパスを revalidate する」がmutation 後の定石。</div>
+  </details>
+</section>
+
+<!-- ================= Chapter 6 ================= -->
+<section class="chapter" id="ch6">
+  <h2>6. 編集・削除と楽観的更新</h2>
+  <p>作成ができたら、更新（PUT）と削除（DELETE）を足します。ここで <b>フォームを再利用</b>する設計、<b>引数付き Server Action</b>（<code>.bind</code>）、そして<b>楽観的更新（<code>useOptimistic</code>）</b>で「押した瞬間に反映」する UX を学びます。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li>作成フォームを汎用化して編集で再利用できる</li>
+      <li><code>.bind()</code> で ID 付きの Server Action を作れる</li>
+      <li><code>useOptimistic</code> で削除を即時反映（見かけ上）できる</li>
+    </ul>
+  </div>
+
+  <h3>6.1 取得層に <code>update</code> / <code>remove</code> を足す</h3>
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/features/memo/memo.api.ts（追記）">
+import {
+  updateMemoResponseSchema,
+  type UpdateMemoRequest,
+  type UpdateMemoResponse,
+  // ...既存の import
+} from "@repo/api-schema"
+
+export const memoApi = {
+  // ...getList, getDetail, create
+
+  update: async (id: number, input: UpdateMemoRequest): Promise<UpdateMemoResponse> => {
+    const raw = await apiClient.put<unknown>(`/api/memo/${id}`, input)
+    return updateMemoResponseSchema.parse(raw)
+  },
+
+  remove: async (id: number): Promise<void> => {
+    await apiClient.delete(`/api/memo/${id}`)
+  },
+}
+  </script>
+
+  <h3>6.2 フォームを再利用できるようにする</h3>
+  <p>第5章の <code>MemoForm</code> は <code>createMemoAction</code> に直結していました。作成と編集で<b>見た目は同じ</b>なので、<b>action と初期値を props で受け取る</b>汎用フォームにリファクタします。まず状態型を共通化します。</p>
+
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/app/memos/actions.ts（更新・共通化）">
+"use server"
+
+import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
+
+import { createMemoRequestSchema, updateMemoRequestSchema } from "@repo/api-schema"
+
+import { memoApi } from "@/features/memo/memo.api"
+
+/** 作成・編集で共通のフォーム状態 */
+export type MemoFormState = {
+  errors?: { title?: string[]; body?: string[] }
+  message?: string
+}
+
+export const createMemoAction = async (
+  _prev: MemoFormState,
+  formData: FormData,
+): Promise<MemoFormState> => {
+  const parsed = createMemoRequestSchema.safeParse({
+    body: formData.get("body"),
+    title: formData.get("title"),
+  })
+  if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors }
+
+  try {
+    await memoApi.create(parsed.data)
+  } catch {
+    return { message: "作成に失敗しました。" }
+  }
+  revalidatePath("/memos")
+  redirect("/memos")
+}
+
+/** 更新。先頭に id を「bind」して呼ぶ（後述） */
+export const updateMemoAction = async (
+  id: number,
+  _prev: MemoFormState,
+  formData: FormData,
+): Promise<MemoFormState> => {
+  const parsed = updateMemoRequestSchema.safeParse({
+    body: formData.get("body"),
+    title: formData.get("title"),
+  })
+  if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors }
+
+  try {
+    await memoApi.update(id, parsed.data)
+  } catch {
+    return { message: "更新に失敗しました。" }
+  }
+  revalidatePath("/memos")
+  revalidatePath(`/memos/${id}`)
+  redirect(`/memos/${id}`)
+}
+
+/** 削除。id を bind して form action にする */
+export const deleteMemoAction = async (id: number): Promise<void> => {
+  await memoApi.remove(id)
+  revalidatePath("/memos")
+  redirect("/memos")
+}
+  </script>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/components/features/memo/MemoForm.tsx（更新・汎用化）">
+"use client"
+
+import { useActionState } from "react"
+import { useFormStatus } from "react-dom"
+
+import type { MemoFormState } from "@/app/memos/actions"
+
+type MemoAction = (prev: MemoFormState, formData: FormData) => Promise<MemoFormState>
+
+type Props = {
+  action: MemoAction
+  defaultValues?: { title?: string; body?: string }
+  submitLabel?: string
+}
+
+function SubmitButton({ label }: { label: string }) {
+  const { pending } = useFormStatus()
+  return (
+    <button type="submit" disabled={pending}
+      className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50">
+      {pending ? "送信中…" : label}
+    </button>
+  )
+}
+
+export function MemoForm({ action, defaultValues, submitLabel = "保存する" }: Props) {
+  const [state, formAction] = useActionState(action, {})
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium">タイトル</label>
+        <input name="title" defaultValue={defaultValues?.title}
+          className="mt-1 w-full rounded border border-zinc-300 p-2" />
+        {state.errors?.title && <p className="mt-1 text-sm text-red-600">{state.errors.title[0]}</p>}
+      </div>
+      <div>
+        <label className="block text-sm font-medium">本文</label>
+        <textarea name="body" rows={6} defaultValue={defaultValues?.body}
+          className="mt-1 w-full rounded border border-zinc-300 p-2" />
+        {state.errors?.body && <p className="mt-1 text-sm text-red-600">{state.errors.body[0]}</p>}
+      </div>
+      {state.message && <p className="text-sm text-red-600">{state.message}</p>}
+      <SubmitButton label={submitLabel} />
+    </form>
+  )
+}
+  </script>
+
+  <div class="box note">
+    <div class="bh"><code>new/page.tsx</code> の呼び出しも更新</div>
+    <p>汎用化に伴い、作成ページは <code>&lt;MemoForm action={createMemoAction} submitLabel="作成する" /&gt;</code> のように action を渡す形に変わります（<code>createMemoAction</code> を <code>import</code> して渡す）。<b>Server Action を Client Component に props で渡せる</b>のが便利なところ。</p>
+  </div>
+
+  <h3>6.3 編集ページと <code>.bind()</code></h3>
+  <p>更新には「どのメモか」の <code>id</code> が要ります。<code>updateMemoAction</code> は第1引数が <code>id</code> なので、<code>.bind(null, memo.id)</code> で <b>id を固定した新しい関数</b>を作り、それを <code>MemoForm</code> に渡します。すると <code>MemoForm</code> 側は <code>(prev, formData)</code> の普通の action として扱えます。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/[id]/edit/page.tsx（新規）">
+import type { Metadata } from "next"
+import { notFound } from "next/navigation"
+
+import { getMemoPathParamSchema } from "@repo/api-schema"
+
+import { MemoForm } from "@/components/features/memo/MemoForm"
+import { updateMemoAction } from "@/app/memos/actions"
+import { memoApi } from "@/features/memo/memo.api"
+import { ApiClientError } from "@/libs/api-client"
+
+type Props = { params: Promise<{ id: string }> }
+
+export const metadata: Metadata = { title: "メモを編集" }
+
+export default async function EditMemoPage({ params }: Props) {
+  const parsed = getMemoPathParamSchema.safeParse(await params)
+  if (!parsed.success) notFound()
+
+  let memo
+  try {
+    memo = await memoApi.getDetail(parsed.data.id)
+  } catch (error) {
+    if (error instanceof ApiClientError && error.status === 404) notFound()
+    throw error
+  }
+
+  return (
+    <main className="mx-auto max-w-2xl p-6">
+      <h1 className="text-2xl font-semibold">メモを編集</h1>
+      <div className="mt-6">
+        <MemoForm
+          action={updateMemoAction.bind(null, memo.id)}
+          defaultValues={{ body: memo.body, title: memo.title }}
+          submitLabel="更新する"
+        />
+      </div>
+    </main>
+  )
+}
+  </script>
+
+  <h3>6.4 削除ボタン</h3>
+  <p>削除はフォームの <code>action</code> に <code>deleteMemoAction.bind(null, memo.id)</code> を渡すだけ。詳細ページに置きます。確認ダイアログはクライアント挙動なので小さな Client 島にします。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/components/features/memo/DeleteMemoButton.tsx（新規）">
+"use client"
+
+import { useFormStatus } from "react-dom"
+
+function ConfirmButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button type="submit" disabled={pending}
+      onClick={(e) => { if (!confirm("このメモを削除しますか？")) e.preventDefault() }}
+      className="rounded-lg border border-red-300 px-4 py-2 text-sm text-red-600 disabled:opacity-50">
+      {pending ? "削除中…" : "削除"}
+    </button>
+  )
+}
+
+/** action は Server Action（id を bind 済み）を親から受け取る */
+export function DeleteMemoButton({ action }: { action: () => Promise<void> }) {
+  return <form action={action}><ConfirmButton /></form>
+}
+  </script>
+
+  <p>詳細ページ（第4章）にボタンを差し込みます。</p>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/[id]/page.tsx（抜粋・追記）">
+import Link from "next/link"
+import { deleteMemoAction } from "@/app/memos/actions"
+import { DeleteMemoButton } from "@/components/features/memo/DeleteMemoButton"
+
+// ...MemoDetailPage の return 内、本文の下あたりに：
+<div className="mt-6 flex gap-3">
+  <Link href={`/memos/${memo.id}/edit`}
+    className="rounded-lg border border-zinc-300 px-4 py-2 text-sm">編集</Link>
+  <DeleteMemoButton action={deleteMemoAction.bind(null, memo.id)} />
+</div>
+  </script>
+
+  <h3>6.5 発展：<code>useOptimistic</code> で「押した瞬間」に消す</h3>
+  <p>上の削除は「サーバー処理 → revalidate → 再描画」なので、一覧から消えるまで一瞬待ちます。<b>楽観的更新</b>は「成功する前提で先に UI を更新」し、体感を速くします。一覧をクライアント側でラップして <code>useOptimistic</code> を使う例です（発展・任意）。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="楽観的更新の考え方（発展・概念）">
+"use client"
+import { useOptimistic } from "react"
+
+export function OptimisticMemoList({ memos }: { memos: Memo[] }) {
+  // 「削除された id」を先に反映した楽観的リストを作る
+  const [optimistic, removeOptimistic] = useOptimistic(
+    memos,
+    (current, removedId: number) => current.filter((m) => m.id !== removedId),
+  )
+
+  return (
+    <ul>
+      {optimistic.map((memo) => (
+        <li key={memo.id}>
+          {memo.title}
+          <form action={async () => {
+            removeOptimistic(memo.id)          // ← 先に画面から消す
+            await deleteMemoAction(memo.id)    // ← 実際の削除（失敗なら自動で元に戻る）
+          }}>
+            <button type="submit">削除</button>
+          </form>
+        </li>
+      ))}
+    </ul>
+  )
+}
+  </script>
+
+  <div class="box why">
+    <div class="bh">楽観的更新はいつ使う？</div>
+    <p>「ほぼ確実に成功し、失敗してもリカバリが軽い」操作（いいね、削除、並べ替え）に向きます。<code>useOptimistic</code> の良い点は、<b>Server Action が失敗したら自動で楽観状態が破棄され、本物のサーバー状態に戻る</b>こと。逆に「失敗が致命的・整合性が命」の操作（決済など）は、確定を待ってから反映する方が安全です。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 6</div>
+    <ol>
+      <li><code>memo.api.ts</code> に <code>update</code> / <code>remove</code> を追記。</li>
+      <li><code>actions.ts</code> を共通化版に更新し、<code>MemoForm</code> を汎用化。<code>new/page.tsx</code> の呼び出しも <code>action={createMemoAction}</code> に修正。</li>
+      <li><code>[id]/edit/page.tsx</code> と <code>DeleteMemoButton</code> を作成し、詳細ページに編集/削除を追加。</li>
+      <li>編集 → 保存で詳細に戻り内容が更新される、削除 → 一覧に戻り消えている、を確認。</li>
+      <li>（任意）<code>useOptimistic</code> 版を試し、削除の体感速度の違いを比べる。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary><code>updateMemoAction.bind(null, memo.id)</code> の <code>.bind</code> は何をしている？</summary>
+    <div class="ans">関数の第1引数（ここでは <code>id</code>）を <code>memo.id</code> に<b>固定した新しい関数</b>を作っている（部分適用）。結果として <code>(prev, formData) =&gt; ...</code> という <code>useActionState</code> が期待する形の action になり、<code>id</code> はクロージャで保持される。第1引数 <code>null</code> は <code>this</code> の指定（Server Action では使わないので null）。</div>
+  </details>
+
+  <details class="quiz">
+    <summary><code>useOptimistic</code> で削除して、もし Server Action が失敗したら画面はどうなる？</summary>
+    <div class="ans">楽観的に消していた項目が<b>自動的に元に戻る</b>（本物のサーバー状態＝まだ存在するリストに復帰する）。<code>useOptimistic</code> は「保留中の楽観状態」を一時的に重ねているだけなので、アクション完了（成功でも失敗でも）後は確定したサーバー状態に収束する。</div>
+  </details>
+</section>
+
+<!-- ================= Chapter 7 ================= -->
+<section class="chapter" id="ch7">
+  <h2>7. 状態管理 — Zustand と「サーバ状態 vs クライアント状態」</h2>
+  <p>「状態管理ライブラリを入れる前に、そもそも何をクライアントで持つべきか」を先に決めるのがこの章の肝です。App Router では<b>サーバーで取れるデータはサーバーに任せ</b>、Zustand は<b>本当にクライアント固有の UI 状態</b>にだけ使います。題材として「メモの絞り込み検索」を作ります。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li>サーバ状態とクライアント状態を切り分けられる（<b>これが最重要</b>）</li>
+      <li>Client 動的取得のための Route Handler を作れる</li>
+      <li>Zustand ストアを規約（アクション名に <code>Store</code>）どおりに書ける</li>
+    </ul>
+  </div>
+
+  <h3>7.1 まず切り分ける：その状態、どこが持ち主？</h3>
+  <figure class="diagram">
+  <svg viewBox="0 0 680 250" role="img" aria-label="サーバ状態とクライアント状態の判断フロー">
+    <rect class="d-box-a" x="240" y="14" width="200" height="46" rx="9"/>
+    <text class="d-t" x="340" y="34" text-anchor="middle">その状態は…</text>
+    <text class="d-ts" x="340" y="50" text-anchor="middle">DB/API 由来のデータ？</text>
+
+    <path class="d-arrow" d="M300 60 L170 96" marker-end="url(#ah7)"/>
+    <text class="d-lbl" x="205" y="80">はい</text>
+    <path class="d-arrow" d="M380 60 L510 96" marker-end="url(#ah7)"/>
+    <text class="d-lbl" x="470" y="80">いいえ（UI固有）</text>
+
+    <rect class="d-box-h" x="40" y="100" width="250" height="80" rx="9"/>
+    <text class="d-t" x="165" y="124" text-anchor="middle">サーバ状態</text>
+    <text class="d-ts" x="165" y="144" text-anchor="middle">Server Component で取得</text>
+    <text class="d-ts" x="165" y="160" text-anchor="middle">変更は Server Action + revalidate</text>
+    <text class="d-ts" x="165" y="176" text-anchor="middle" style="fill:var(--handson)">→ Zustand に入れない</text>
+
+    <rect class="d-box" x="390" y="100" width="250" height="80" rx="9"/>
+    <text class="d-t" x="515" y="124" text-anchor="middle">クライアント状態</text>
+    <text class="d-ts" x="515" y="144" text-anchor="middle">検索語・選択・開閉・表示モード</text>
+    <text class="d-ts" x="515" y="160" text-anchor="middle">URL or useState or Zustand</text>
+    <text class="d-ts" x="515" y="176" text-anchor="middle" style="fill:var(--accent)">→ ここで Zustand の出番</text>
+
+    <rect class="d-box" x="240" y="205" width="200" height="36" rx="8"/>
+    <text class="d-ts" x="340" y="227" text-anchor="middle">複数コンポーネントで共有する時だけ Zustand</text>
+    <defs><marker id="ah7" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--fg-soft)"/></marker></defs>
+  </svg>
+  <figcaption>まず「サーバ状態かクライアント状態か」。クライアント状態でも、1コンポーネント内なら <code>useState</code>、URL に載せたいなら searchParams、離れた複数箇所で共有するなら Zustand。</figcaption>
+  </figure>
+
+  <div class="box warn">
+    <div class="bh">⚠ アンチパターン：サーバ取得したデータを Zustand に詰める</div>
+    <p>「メモ一覧を <code>useMemoStore</code> に入れて全画面で共有」…は避けます。サーバ状態を手動でクライアントに複製すると、<b>再検証（revalidate）と二重管理</b>になり「作成したのにストアが古い」バグの温床に。サーバ状態の<b>単一の真実</b>はサーバー。Zustand が持つのは「検索キーワード」「選択中の ID」「サイドバー開閉」のような<b>UI の気分</b>だけにします。<br>参考：mobile はクライアント主体アプリなので <code>useMemoStore</code> にメモ配列を持ちますが、web（Server Component が使える）では方針が異なります。<b>環境に応じて最適解は変わる</b>という良い対比です。</p>
+  </div>
+
+  <h3>7.2 Client 動的取得用の Route Handler</h3>
+  <p>検索はキー入力のたびにサーバーへ問い合わせます。これは「Client Component からの動的取得」なので、規約どおり <b>Route Handler</b>（<code>app/api/*/route.ts</code>）を作り、そこへ<b>同一オリジンで</b> fetch します（ブラウザから Express を直接叩かない原則は維持）。</p>
+
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/app/api/memos/route.ts（新規）">
+import { NextRequest, NextResponse } from "next/server"
+
+import { memoApi } from "@/features/memo/memo.api"
+
+/**
+ * GET /api/memos?q=キーワード
+ * Client Component から呼ぶ検索用エンドポイント。
+ * サーバー側で memoApi（server-only）を使い、絞り込んで返す。
+ */
+export const GET = async (req: NextRequest) => {
+  const q = req.nextUrl.searchParams.get("q")?.toLowerCase().trim() ?? ""
+  const { memos } = await memoApi.getList()
+
+  const filtered = q
+    ? memos.filter(
+        (m) => m.title.toLowerCase().includes(q) || m.body.toLowerCase().includes(q),
+      )
+    : memos
+
+  return NextResponse.json({ memos: filtered })
+}
+  </script>
+
+  <div class="box why">
+    <div class="bh">なぜ検索は Server Action ではなく Route Handler？</div>
+    <p>検索は<b>データ取得（GET 相当）</b>だから。規約で「Server Action は mutation 専用、GET に使ってはいけない」と定めています。取得は Server Component（初期表示）か Route Handler（クライアントからの動的取得）に振り分けます。今回はキー入力に応じた動的取得なので Route Handler が正解。</p>
+  </div>
+
+  <h3>7.3 Zustand ストア（規約：アクション名に <code>Store</code>）</h3>
+  <p>検索の <b>キーワード・結果・ローディング</b>を Zustand で持ちます。プロジェクト規約で<b>アクション関数名には必ず <code>Store</code> を含めます</b>（<code>setStoreQuery</code> など）。これは API 呼び出しやハンドラの <code>setQuery</code> 等と名前が衝突して再帰バグを起こすのを防ぐためです。</p>
+
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/features/memo/memo.state.ts（新規）">
+import { create } from "zustand"
+
+import type { GetMemoListResponse } from "@repo/api-schema"
+
+type Memo = GetMemoListResponse["memos"][number]
+
+type MemoSearchState = {
+  isLoading: boolean
+  query: string
+  results: Memo[]
+  setStoreIsLoading: (isLoading: boolean) => void
+  setStoreQuery: (query: string) => void
+  setStoreResults: (results: Memo[]) => void
+}
+
+/**
+ * メモ検索の「クライアント状態」だけを持つストア。
+ * ※ サーバ状態（正式なメモ一覧）は Server Component 側が真実。ここは検索 UI 専用。
+ */
+export const useMemoStore = create<MemoSearchState>((set) => ({
+  isLoading: false,
+  query: "",
+  results: [],
+  setStoreIsLoading: (isLoading) => set({ isLoading }),
+  setStoreQuery: (query) => set({ query }),
+  setStoreResults: (results) => set({ results }),
+}))
+  </script>
+
+  <h3>7.4 検索 UI（Client 島）</h3>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/components/features/memo/MemoSearch.tsx（新規）">
+"use client"
+
+import { useEffect } from "react"
+
+import { useMemoStore } from "@/features/memo/memo.state"
+
+export function MemoSearch() {
+  const query = useMemoStore((s) => s.query)
+  const results = useMemoStore((s) => s.results)
+  const isLoading = useMemoStore((s) => s.isLoading)
+  const setStoreQuery = useMemoStore((s) => s.setStoreQuery)
+  const setStoreResults = useMemoStore((s) => s.setStoreResults)
+  const setStoreIsLoading = useMemoStore((s) => s.setStoreIsLoading)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
+      setStoreIsLoading(true)
+      try {
+        const res = await fetch(`/api/memos?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        })
+        const data = (await res.json()) as { memos: typeof results }
+        setStoreResults(data.memos)
+      } catch {
+        /** abort 時は無視 */
+      } finally {
+        setStoreIsLoading(false)
+      }
+    }, 300) // デバウンス：入力が止まって 300ms 後に検索
+
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [query, setStoreResults, setStoreIsLoading])
+
+  return (
+    <div className="space-y-3">
+      <input
+        value={query}
+        onChange={(e) => setStoreQuery(e.target.value)}
+        placeholder="メモを検索…"
+        className="w-full rounded border border-zinc-300 p-2"
+      />
+      {isLoading && <p className="text-sm text-zinc-400">検索中…</p>}
+      <ul className="space-y-2">
+        {results.map((memo) => (
+          <li key={memo.id} className="rounded border border-zinc-200 p-3">
+            {memo.title}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+  </script>
+
+  <div class="box why">
+    <div class="bh">なぜ <code>useMemoStore((s) =&gt; s.query)</code> と1つずつ選ぶのか</div>
+    <p>Zustand は<b>セレクタで購読を細かく分ける</b>と、その値が変わった時だけ再レンダリングされます。<code>const { query, results } = useMemoStore()</code> のように丸ごと取ると、ストアのどれか1つでも変わるたびに再描画されて無駄が出ます。パフォーマンス上はセレクタ分割が基本です。</p>
+  </div>
+
+  <div class="box note">
+    <div class="bh">URL に載せる選択肢（searchParams）</div>
+    <p>検索語を「共有・ブックマーク・戻る操作」で復元したいなら、Zustand ではなく <b>URL の searchParams</b>（<code>?q=...</code>）に載せ、Server Component で <code>await searchParams</code> して初期描画する手もあります。「共有したい状態は URL、共有したくない一時的な UI 状態は Zustand/useState」という判断軸を持つと設計がぶれません。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 7</div>
+    <ol>
+      <li><code>pnpm --filter web add zustand</code> で依存追加。</li>
+      <li><code>app/api/memos/route.ts</code>、<code>features/memo/memo.state.ts</code>、<code>components/features/memo/MemoSearch.tsx</code> を作成。</li>
+      <li>一覧ページ（または新規の <code>/memos/search</code>）に <code>&lt;MemoSearch /&gt;</code> を置いて動かす。</li>
+      <li>入力しても<b>300ms 待ってから</b>1回だけ fetch されることを、ネットワークタブで確認（デバウンス）。</li>
+      <li><b>考察</b>：この検索結果を <code>useMemoStore</code> ではなく Server Component + <code>searchParams</code> で作るとしたら、どこが変わる？</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary>「メモ一覧そのもの」を Zustand に保存して全画面で共有するのは、なぜ避けるべき？</summary>
+    <div class="ans">それは<b>サーバ状態</b>であり、真実の持ち主はサーバー（DB/API）だから。クライアントに複製すると、Server Action での作成/更新/削除＋<code>revalidate</code> と Zustand の二重管理になり整合性が崩れる（「作ったのにストアが古い」）。サーバ状態は Server Component で都度取得し、Zustand は検索語や開閉状態などの UI 状態に限定する。</div>
+  </details>
+
+  <details class="quiz">
+    <summary>アクション名を <code>setQuery</code> ではなく <code>setStoreQuery</code> にする規約の理由は？</summary>
+    <div class="ans">API 呼び出しやイベントハンドラの関数名（<code>setQuery</code>, <code>deleteMemo</code> 等）と<b>名前が衝突</b>し、うっかり自分自身を呼ぶ再帰などのバグを生むのを防ぐため。ストア由来のアクションだと一目で分かる命名にする。</div>
+  </details>
+</section>
+
+<!-- ================= Chapter 8 ================= -->
+<section class="chapter" id="ch8">
+  <h2>8. ミドルウェアと認証</h2>
+  <p>ここまで作った <code>/memos</code> 系ページは、実は<b>すでに認証で守られています</b>。その仕組みが <code>proxy.ts</code>（＝ middleware）と cookie 設計、そして <code>apiClient</code> の 401→refresh です。自分で認証コードを書かずに済んでいる理由を、土台のコードを読み解いて理解します。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li><code>proxy.ts</code> が「入口の門番」として何をしているか説明できる</li>
+      <li>HttpOnly / SameSite=lax cookie の設計理由を理解する</li>
+      <li>OAuth ログインの一連の流れを追える</li>
+      <li>Edge ランタイムの制約を知る</li>
+    </ul>
+  </div>
+
+  <div class="box compat">
+    <div class="bh">🔧 互換メモ：<code>middleware.ts</code> → <code>proxy.ts</code></div>
+    <p>Next.js 16 で従来の <code>middleware.ts</code> は <b><code>proxy.ts</code></b> に改名されました（本プロジェクトは <code>src/proxy.ts</code> が <code>proxy</code> 関数と <code>config</code> を export）。役割は同じ「全リクエストの前段で走る関所」です。旧バージョンの資料では <code>middleware</code> という名前で説明されている点に注意。</p>
+  </div>
+
+  <h3>8.1 門番 <code>proxy.ts</code> を読む</h3>
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/proxy.ts（既存・抜粋）">
+export const proxy = (req: NextRequest) => {
+  const { pathname } = req.nextUrl
+
+  // 公開パス（/sign-in や OAuth コールバック）は素通り
+  if (PUBLIC_PATHS.some((p) => matchesPathPrefix(pathname, p))) {
+    return NextResponse.next()
+  }
+
+  const hasAccess = req.cookies.has(ACCESS_TOKEN_COOKIE)
+  const hasRefresh = req.cookies.has(REFRESH_TOKEN_COOKIE)
+
+  // access も refresh も無ければログインへ
+  if (!hasAccess && !hasRefresh) {
+    const url = new URL("/sign-in", req.url)
+    url.searchParams.set("redirect", pathname)
+    return NextResponse.redirect(url)
+  }
+
+  return NextResponse.next()
+}
+
+export const config = {
+  // _next 配下や favicon などを除外して、それ以外の全ページに適用
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|public/).*)"],
+}
+  </script>
+
+  <h4>逐行のポイント</h4>
+  <ul>
+    <li><b>すべてのリクエストの前</b>に走る（<code>config.matcher</code> で対象を絞る）。だから <code>/memos</code> に個別のガードを書かなくても守られる。</li>
+    <li>公開したいパスは <code>PUBLIC_PATHS</code> に列挙。<code>matchesPathPrefix</code> で<b>セグメント境界一致</b>させ、<code>/sign-in</code> が <code>/sign-in-foo</code> まで通す事故を防ぐ。</li>
+    <li><b>JWT の中身は検証しない</b>。cookie が「有るか無いか」だけ見る（理由は次項）。</li>
+    <li><code>hasRefresh</code> だけでも通す：access が切れていても、ページ側の <code>apiClient</code> が 401→refresh で復活させる機会を残すため。</li>
+  </ul>
+
+  <div class="box why">
+    <div class="bh">なぜ proxy で JWT を「検証しない」のか</div>
+    <p><code>proxy.ts</code> は <b>Edge ランタイム</b>で動きます。Edge は軽量で高速ですが、Node.js の暗号ライブラリ等がフルには使えず、署名検証のような重い処理に不向きです。そこで proxy は「cookie の有無」で<b>粗くふるい分け</b>るだけにして、<b>本物の JWT 検証は API 側</b>（Node ランタイム）に任せます。「関所は軽く、厳密な認可はデータに近い層で」という多層防御の考え方です。</p>
+  </div>
+
+  <h3>8.2 cookie 設計</h3>
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/libs/auth.ts（既存・抜粋）">
+store.set(ACCESS_TOKEN_COOKIE, accessToken, {
+  httpOnly: true,          // JS から読めない（XSS でトークンを盗まれにくい）
+  maxAge: 60 * 15,         // 15分（短命）
+  path: "/",
+  sameSite: "lax",         // OAuth の外部→自サイト遷移で cookie を送るため
+  secure: isProduction,    // 本番は HTTPS のみ
+})
+  </script>
+  <div class="box why">
+    <div class="bh">なぜ <code>sameSite: "lax"</code> なのか</div>
+    <p>OAuth は「Google（外部サイト）→ 自サイトのコールバック」という<b>クロスサイト起点の遷移</b>です。<code>strict</code> にすると、この最終遷移で cookie が送られず「ログインしたのに未認証扱い」になります。<code>lax</code> はトップレベルのページ遷移では cookie を送るのでこれを回避。CSRF 対策は別途 <code>state</code> パラメータ（<code>startGoogleOAuth</code> で生成）で担保しています。<b>短命な access（15分）＋長命な refresh（7日）</b>の二段構えも典型パターンです。</p>
+  </div>
+
+  <h3>8.3 OAuth ログインの全体像</h3>
+  <figure class="diagram">
+  <svg viewBox="0 0 700 250" role="img" aria-label="OAuth ログインフロー">
+    <rect class="d-box" x="10" y="20" width="120" height="40" rx="8"/><text class="d-t" x="70" y="45" text-anchor="middle">ブラウザ</text>
+    <rect class="d-box-a" x="200" y="20" width="150" height="40" rx="8"/><text class="d-tm" x="275" y="45" text-anchor="middle">startGoogleOAuth</text>
+    <rect class="d-box" x="430" y="20" width="120" height="40" rx="8"/><text class="d-t" x="490" y="45" text-anchor="middle">Google</text>
+    <rect class="d-box-a" x="200" y="110" width="220" height="46" rx="8"/><text class="d-tm" x="310" y="130" text-anchor="middle">/api/auth/callback/google</text><text class="d-ts" x="310" y="147" text-anchor="middle">Route Handler：state 照合</text>
+    <rect class="d-box-h" x="470" y="110" width="120" height="46" rx="8"/><text class="d-t" x="530" y="132" text-anchor="middle">Express</text><text class="d-ts" x="530" y="148" text-anchor="middle">code→token</text>
+    <rect class="d-box-a" x="200" y="195" width="220" height="40" rx="8"/><text class="d-tm" x="310" y="220" text-anchor="middle">setAuthCookies → redirect /</text>
+
+    <path class="d-arrow-a" d="M130 40 L197 40" marker-end="url(#ah8)"/>
+    <path class="d-arrow-a" d="M350 40 L427 40" marker-end="url(#ah8)"/>
+    <text class="d-lbl" x="365" y="32" text-anchor="middle">state付き</text>
+    <path class="d-arrow" d="M490 60 L430 60 L360 108" marker-end="url(#ah8)"/>
+    <text class="d-lbl" x="420" y="90">code で戻る</text>
+    <path class="d-arrow-a" d="M420 133 L467 133" marker-end="url(#ah8)"/>
+    <path class="d-arrow" d="M310 156 L310 192" marker-end="url(#ah8)"/>
+    <path class="d-arrow" d="M200 215 L70 215 L70 62" marker-end="url(#ah8)"/>
+    <text class="d-lbl" x="120" y="150">cookie を持って /</text>
+    <defs><marker id="ah8" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--fg-soft)"/></marker></defs>
+  </svg>
+  <figcaption>Server Action が state を cookie に保存して Google へ → コールバックを Route Handler が受け、state を照合し、Express で code をトークンに交換して cookie 保存。</figcaption>
+  </figure>
+
+  <h3>8.4 401→refresh の自動リカバリ（再掲）</h3>
+  <p>access（15分）が切れると API は 401 を返します。<code>apiClient</code> はそれを検知して refresh トークンで更新し、<b>一度だけ</b>元のリクエストを再試行します（第0章のコード）。だから proxy は access が切れていても <code>hasRefresh</code> で入場を許可するのでした。この一連が「ユーザーは 15 分ごとに再ログインさせられない」体験を支えています。</p>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 8</div>
+    <ol>
+      <li>ログアウト状態で <code>/memos</code> にアクセス → <code>/sign-in?redirect=/memos</code> に飛ばされることを確認（proxy の働き）。</li>
+      <li>ブラウザの開発者ツール → Application → Cookies で <code>app_access_token</code> / <code>app_refresh_token</code> が <b>HttpOnly</b> になっていることを確認。</li>
+      <li><code>app_access_token</code> だけ削除して <code>/memos</code> を再読込 → それでも表示される（refresh が効く）ことを確認。</li>
+      <li><code>proxy.ts</code> の <code>PUBLIC_PATHS</code> を眺め、なぜ <code>/api/auth/callback/google</code> が公開なのか説明してみる。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary><code>proxy.ts</code> が「cookie の有無だけ」を見て中身を検証しないのは、どんな制約と設計判断から？</summary>
+    <div class="ans">proxy は <b>Edge ランタイム</b>で動き、JWT 署名検証のような処理に不向き・重い。だから関所は軽く（有無で粗くふるい分け）、<b>厳密な検証は API（Node ランタイム）に集約</b>する多層防御にしている。access 切れでも refresh があれば通すのも、ページ側の 401→refresh に復活の機会を残すため。</div>
+  </details>
+</section>
+
+<!-- ================= Chapter 9 ================= -->
+<section class="chapter" id="ch9">
+  <h2>9. エラーハンドリングと堅牢化</h2>
+  <p>正常系ができたので、<b>失敗した時に何が起きるか</b>を設計します。App Router は <code>error.tsx</code> / <code>not-found.tsx</code> / <code>loading.tsx</code> という<b>境界ファイル</b>で、宣言的にエラーとローディングを配線できます。ここではメモ専用の境界を足し、<code>ApiClientError</code> で「無い」と「壊れた」を区別し、Suspense で段階表示します。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li>セグメント単位の <code>error.tsx</code> を書ける</li>
+      <li><code>ApiClientError.status</code> で 4xx/5xx を出し分けられる</li>
+      <li><code>&lt;Suspense&gt;</code> で部分ストリーミングできる</li>
+    </ul>
+  </div>
+
+  <h3>9.1 エラーの3つの砦</h3>
+  <table>
+    <tr><th>ファイル</th><th>捕まえる対象</th><th>どこに置く</th></tr>
+    <tr><td><code>error.tsx</code></td><td>配下の Server/Client で <b>throw された実行時エラー</b></td><td>セグメントごと（例 <code>app/memos/</code>）</td></tr>
+    <tr><td><code>not-found.tsx</code></td><td><code>notFound()</code> 呼び出し・未定義 URL</td><td>セグメントごと / ルート</td></tr>
+    <tr><td><code>global-error.tsx</code></td><td><b>ルートレイアウト自体</b>が落ちた最悪ケース</td><td>ルートのみ（既存）</td></tr>
+  </table>
+  <p><code>error.tsx</code> は<b>自分と同じ階層の <code>layout</code> は捕捉できない</b>（レイアウトはエラー境界の外側）点に注意。<code>/memos</code> 配下の throw は <code>app/memos/error.tsx</code> があればそこで、無ければ上位の <code>app/error.tsx</code>（既存）で捕まります。</p>
+
+  <h3>9.2 メモ専用のエラー境界</h3>
+  <p>第2章で <code>page.tsx</code> は失敗時に throw する方針にしました。その受け皿を作ります。</p>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/error.tsx（新規）">
+"use client"
+
+import { useEffect } from "react"
+
+/**
+ * /memos 配下で throw されたエラーの境界。
+ * Client Component 必須（reset で再試行するため）。
+ */
+export default function MemosError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string }
+  reset: () => void
+}) {
+  useEffect(() => {
+    console.error(error) // 実運用ではここで監視サービスに送る
+  }, [error])
+
+  return (
+    <main className="mx-auto max-w-2xl p-6 text-center">
+      <h1 className="text-xl font-semibold">メモの読み込みに失敗しました</h1>
+      <p className="mt-2 text-sm text-zinc-500">
+        時間をおいて再度お試しください。
+        {error.digest && <span className="ml-1 font-mono text-xs">({error.digest})</span>}
+      </p>
+      <button onClick={reset} className="mt-6 rounded-lg bg-zinc-900 px-5 py-2 text-sm text-white">
+        再試行
+      </button>
+    </main>
+  )
+}
+  </script>
+
+  <div class="box why">
+    <div class="bh">なぜ「正常系はページ、異常系は境界」に分けるのか</div>
+    <p><code>page.tsx</code> の中を <code>try/catch</code> だらけにすると、本来の表示ロジックがエラー処理に埋もれます。App Router は「<b>throw したら最寄りの <code>error.tsx</code> が受ける</b>」という宣言的な仕組みを持つので、ページは正常系だけを書き、失敗は境界に委譲できます。<code>reset()</code> は「同じセグメントをもう一度レンダリングし直す」再試行ボタンに使えます。<code>digest</code> はサーバーで詳細ログに紐づく ID で、ユーザーには詳細を隠しつつ調査可能にします。</p>
+  </div>
+
+  <h3>9.3 「無い」と「壊れた」を分ける — <code>ApiClientError</code></h3>
+  <p>土台の <code>apiClient</code> は non-2xx を <code>ApiClientError(status, body)</code> として throw します。<code>status</code> を保持しているおかげで、呼び出し側が 404（無い）と 500（壊れた）を区別できます。第4章の詳細ページはこれを使って「404 は <code>notFound()</code>、それ以外は throw して <code>error.tsx</code>」と振り分けていました。</p>
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/libs/api-client.ts（既存・抜粋）">
+export class ApiClientError extends Error {
+  constructor(
+    public readonly status: number,   // ← これがあるから 4xx/5xx を判別できる
+    public readonly body?: unknown,
+  ) {
+    super(`API error: ${status}`)
+    this.name = "ApiClientError"
+  }
+}
+  </script>
+  <div class="box note">
+    <div class="bh">昔なぜ困ったか（コメントより）</div>
+    <p>以前は generic な <code>Error</code> を投げていて <code>status</code> が失われ、Route Handler が全部 500 に丸めていました。すると「入力ミス（4xx）」と「サーバー障害（5xx）」をフロントで区別できない。<b>エラーに構造（status）を持たせる</b>と、UI 側で適切な出し分けができます。これは「エラーも型設計の対象」という良い教訓です。</p>
+  </div>
+
+  <h3>9.4 Suspense で段階表示（部分ストリーミング）</h3>
+  <p><code>loading.tsx</code> は「ページ全体」の待ちを扱いました。<b>ページの一部だけ遅い</b>時は、その部分を <code>&lt;Suspense&gt;</code> で包むと、<b>速い部分を先に見せて遅い部分だけ後から流し込む</b>（ストリーミング）ことができます。</p>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="部分ストリーミングの例（概念）">
+import { Suspense } from "react"
+
+export default function MemosPage() {
+  return (
+    <main>
+      <h1>メモ一覧</h1>            {/* 即座に表示 */}
+      <Suspense fallback={<MemoListSkeleton />}>
+        <MemoListAsync />          {/* 取得が終わり次第ここだけ差し込まれる */}
+      </Suspense>
+    </main>
+  )
+}
+
+// 遅い取得を持つ Server Component を切り出す
+async function MemoListAsync() {
+  const { memos } = await memoApi.getList()
+  return <MemoList memos={memos} />
+}
+  </script>
+  <div class="box why">
+    <div class="bh"><code>loading.tsx</code> と <code>&lt;Suspense&gt;</code> の使い分け</div>
+    <p><code>loading.tsx</code> ＝ ルート全体の Suspense（遷移時にページ丸ごとのフォールバック）。手書きの <code>&lt;Suspense&gt;</code> ＝ ページ内の<b>一部分</b>のフォールバック。ヘッダやナビはすぐ出し、重い一覧やレコメンドだけスケルトンにして後から流す、といった<b>体感速度の作り込み</b>ができます。将来的な PPR（Partial Prerendering）はこの延長で、静的な殻を即返し動的部分を流す仕組みです（第10章）。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 9</div>
+    <ol>
+      <li><code>app/memos/error.tsx</code> を作成する。</li>
+      <li>わざと壊す：<code>memo.api.ts</code> の URL を <code>/api/memo-broken</code> に一時変更 → <code>/memos</code> でメモ用エラー画面＋「再試行」が出ることを確認 → 戻す。</li>
+      <li><code>/memos/999999</code> で 404（<code>notFound()</code>）になり、<b>500 のエラー画面ではない</b>ことを確認 → 「無い」と「壊れた」の区別を体感。</li>
+      <li>（任意）一覧を <code>&lt;Suspense&gt;</code> + 切り出した <code>MemoListAsync</code> に変え、見出しが先に出ることを確認。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary><code>app/memos/error.tsx</code> は、同じ階層の <code>app/memos/layout.tsx</code> で起きたエラーを捕捉できる？</summary>
+    <div class="ans"><b>できない</b>。<code>error.tsx</code> はその<b>内側</b>（page や子）で throw されたものを捕まえる境界で、同階層の layout はその<b>外側</b>にあるため捕捉範囲外。layout のエラーは<b>1つ上</b>の階層の <code>error.tsx</code>（または <code>global-error.tsx</code>）が受ける。</div>
+  </details>
+
+  <details class="quiz">
+    <summary>詳細ページで 404 は <code>notFound()</code>、500 は <code>throw</code>、と分けられるのはなぜ？</summary>
+    <div class="ans"><code>apiClient</code> が投げる <code>ApiClientError</code> が <code>status</code> を保持しているから。<code>error.status === 404</code> なら「リソースが無い」＝ <code>notFound()</code>（not-found.tsx）、それ以外は「壊れた」＝ throw して <code>error.tsx</code> に回す、と<b>ステータスコードで意味づけ</b>できる。</div>
+  </details>
+</section>
+
+<!-- ================= Chapter 10 ================= -->
+<section class="chapter" id="ch10">
+  <h2>10. 発展：パフォーマンスとテスト</h2>
+  <p>最後に、作ったメモ機能を「速く・壊れにくく」する視点をまとめます。個々は深掘りせず、<b>App Router で効く勘所</b>と<b>このプロジェクトのテスト方針</b>に絞ります。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li>画像・フォント・バンドルの基本最適化の勘所を持つ</li>
+      <li>キャッシュ / ストリーミング / PPR を「速さ」の観点で整理できる</li>
+      <li>このプロジェクトの UI 動作確認（Playwright MCP）の型を知る</li>
+    </ul>
+  </div>
+
+  <h3>10.1 パフォーマンスの勘所</h3>
+  <table>
+    <tr><th>手法</th><th>何をする</th><th>memo での適用</th></tr>
+    <tr><td><code>next/image</code></td><td>自動リサイズ・遅延読込・レイアウトシフト防止</td><td>メモに画像添付を足すなら <code>&lt;img&gt;</code> でなく <code>&lt;Image&gt;</code></td></tr>
+    <tr><td><code>next/font</code></td><td>フォントを self-host 化し FOUT/CLS を抑制</td><td>既存 <code>layout.tsx</code> の Geist が実例</td></tr>
+    <tr><td><code>next/dynamic</code></td><td>重い/DOM依存の部品を必要時だけ読込</td><td>Lottie の <code>dynamic(ssr:false)</code> が実例</td></tr>
+    <tr><td>Server 優先</td><td>Client 島を小さく保ちバンドル削減</td><td>一覧・詳細は Server、ボタンだけ Client</td></tr>
+    <tr><td>キャッシュ / ISR</td><td>共通・低頻度データはキャッシュ</td><td>メモは動的が正。公開データなら <code>revalidate</code></td></tr>
+    <tr><td>ストリーミング</td><td><code>&lt;Suspense&gt;</code> で速い部分を先に</td><td>第9章の部分ストリーミング</td></tr>
+  </table>
+
+  <div class="box why">
+    <div class="bh">最大の効き目は「Client 島を小さく保つ」</div>
+    <p>App Router のパフォーマンス設計は、突き詰めると<b>「クライアントに送る JS を減らす」</b>ことです。<code>"use client"</code> を根に付けない、状態はできるだけサーバーに置く、島は葉に押し下げる——第3章・第7章でやったことが、そのままパフォーマンス最適化になっています。個別テクニックより<b>境界設計</b>が効きます。</p>
+  </div>
+
+  <div class="box compat">
+    <div class="bh">🔧 互換メモ：PPR（Partial Prerendering）</div>
+    <p>静的な殻を即座に返し、動的部分（<code>Suspense</code> 内）をストリーミングで後追いする仕組み。Next.js の実験的機能として進化中で、バージョンにより有効化方法や安定度が異なります。採用する際は必ず使用中バージョンの公式ドキュメントで対応状況を確認してください。考え方は第9章のストリーミングの延長線上です。</p>
+  </div>
+
+  <h3>10.2 テストと動作確認</h3>
+  <p>このプロジェクトは <b>UI を実装したら Playwright MCP で実画面を確認</b>することを必須にしています（<code>apps/web/CLAUDE.md</code>）。<code>pnpm build</code> が通るのは型とルート登録の確認でしかなく、<b>レンダリング不具合・hydration エラー・コンソールエラー・認証フロー</b>は検出できないためです。</p>
+
+  <div class="box note">
+    <div class="bh">最低限の確認項目（memo 機能に当てはめると）</div>
+    <ol>
+      <li><b>着地 URL</b>：<code>/memos</code> にアクセスして <code>/memos</code> のまま表示される（proxy に <code>/sign-in</code> へ飛ばされて OK 判定しない）。認証必須ページは <code>pnpm --filter api issue-test-token &lt;userId&gt;</code> で発行した JWT を <code>app_access_token</code> / <code>app_refresh_token</code> cookie に注入して検証する。</li>
+      <li><b>コンソール</b>：<code>level: "error"</code> が 0 件（hydration エラー等が無い）。</li>
+      <li><b>要素</b>：一覧の見出し・各メモ・「新規作成」ボタン、フォームの各項目が表示される。</li>
+      <li><b>フロー</b>：作成 → 一覧に増える、編集 → 反映、削除 → 消える、を実操作で確認。</li>
+    </ol>
+    <p>手順は <code>verify-web-page</code> skill にまとまっており、UI 実装直後に自発的に呼ぶ運用です。</p>
+  </div>
+
+  <div class="box why">
+    <div class="bh">Server Component / Server Action はどうテストする？</div>
+    <p>Server Component は「入力（props / 取得データ）→ 出力（要素）」の関数に近いので、<b>取得層（<code>memo.api.ts</code>）を単体テスト</b>し、画面は Playwright の E2E で担保する二段構えが実務的です。Server Action も「Zod 検証 → API 呼び出し → revalidate/redirect」という純粋な処理単位なので、<code>memoApi</code> をモックして<b>検証分岐（成功/バリデーションエラー/API失敗）</b>を関数テストできます。UI と結合した振る舞いは E2E に任せる、と役割分担すると費用対効果が良いです。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 10（総仕上げ）</div>
+    <ol>
+      <li>ここまでの memo 機能を通しで動かし、作成→一覧→詳細→編集→削除→検索が繋がることを確認。</li>
+      <li>ブラウザのコンソールに <code>error</code> が出ていないか確認（hydration エラーの有無）。</li>
+      <li>各ページの Client 島（<code>"use client"</code>）を数え、「本当に必要な最小限か」を見直す。</li>
+      <li>（余力があれば）<code>memo.api.ts</code> の <code>getList</code> に対する簡単な関数テストを書いてみる。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary><code>pnpm build</code> が成功したら「動作確認済み」と言ってよい？</summary>
+    <div class="ans"><b>ダメ</b>。build は型チェックとルート登録の確認に過ぎず、実際のレンダリング崩れ・hydration エラー・コンソールエラー・認証リダイレクトの挙動は検出できない。実画面を（このプロジェクトでは Playwright MCP で）確認して初めて「動作確認済み」と言える。</div>
+  </details>
+</section>
+
+<!-- ================= Appendix ================= -->
+<section class="chapter" id="ap-glossary">
+  <h2>付録</h2>
+  <h3 id="ap-glossary-h">用語集</h3>
+  <table>
+    <tr><th>用語</th><th>意味（この本の文脈で）</th></tr>
+    <tr><td>Server Component (RSC)</td><td>サーバーでのみ実行される既定のコンポーネント。<code>async</code> で直接データ取得でき、JS はクライアントに送られない。</td></tr>
+    <tr><td>Client Component</td><td><code>"use client"</code> を付けた、ブラウザで動くコンポーネント。イベント・state・ブラウザ API を使える。</td></tr>
+    <tr><td>島（island）</td><td>Server の海の中に置く小さな Client の島。境界は葉に押し下げるほど良い。</td></tr>
+    <tr><td>Server Action</td><td><code>"use server"</code> 関数。フォーム送信等の mutation をサーバーで実行。GET には使わない。</td></tr>
+    <tr><td>Route Handler</td><td><code>route.ts</code> の <code>GET/POST…</code>。HTTP エンドポイント。Client からの動的取得やコールバックに。</td></tr>
+    <tr><td>proxy.ts</td><td>Next.js 16 で改名された middleware。全リクエスト前段の関所（Edge ランタイム）。</td></tr>
+    <tr><td>動的レンダリング</td><td>リクエストごとにサーバー実行。<code>cookies()</code>/<code>headers()</code> 使用で自動的にこうなる。</td></tr>
+    <tr><td>ISR / revalidate</td><td>静的生成しつつ N 秒ごとに再生成。共通・低頻度データ向け。</td></tr>
+    <tr><td>ストリーミング</td><td><code>&lt;Suspense&gt;</code> で速い部分を先に返し、遅い部分を後から流す。</td></tr>
+    <tr><td>サーバ状態 / クライアント状態</td><td>前者は DB/API 由来（真実はサーバー）、後者は UI 固有（検索語・開閉など）。Zustand は後者用。</td></tr>
+  </table>
+
+  <h3 id="ap-cheat">ファイル規約チートシート</h3>
+  <div class="filetree">app/&lt;segment&gt;/
+  page.tsx        <span class="cm"># このURLの本体（既定 Server）</span>
+  layout.tsx      <span class="cm"># 配下共通の枠（再マウントされない）</span>
+  template.tsx    <span class="cm"># 枠だが遷移ごと再マウント</span>
+  loading.tsx     <span class="cm"># 配下の読込中に自動表示（=Suspense）</span>
+  error.tsx       <span class="cm"># 配下の throw を捕捉（"use client" 必須）</span>
+  not-found.tsx   <span class="cm"># notFound() / 未定義URL</span>
+  route.ts        <span class="cm"># HTTPエンドポイント（page と同居不可）</span>
+  actions.ts      <span class="cm"># そのページの Server Action（"use server"）</span>
+  [id]/           <span class="cm"># 動的セグメント → params.id（await 必須）</span>
+  (group)/        <span class="cm"># URLに出ないグループ（共通レイアウト用）</span>
+app/global-error.tsx <span class="cm"># ルートlayout自体の砦（ルートのみ）</span>
+proxy.ts          <span class="cm"># middleware（全リクエストの関所）</span></div>
+
+  <h3 id="ap-decide">Server / Client 判断フロー</h3>
+  <ol>
+    <li>まず<b>すべて Server Component</b>で書き始める（<code>"use client"</code> を書かない）。</li>
+    <li>次のどれかが要るか？ → <code>onClick</code>/<code>onChange</code>、<code>useState</code>/<code>useEffect</code>/<code>useRef</code>、<code>window</code>/<code>localStorage</code>、Zustand、DOM 依存ライブラリ。</li>
+    <li>要るなら、<b>その部品だけ</b>を <code>"use client"</code> の小島に切り出す（ページ全体には付けない）。</li>
+    <li>Client の中で Server の中身を出したい → <code>import</code> せず <code>children</code> で渡す。</li>
+    <li>データは？ → 初期表示は Server Component で取得、mutation は Server Action、クライアント動的取得は Route Handler。</li>
+    <li>状態は？ → サーバ状態はサーバーに任せる。クライアント状態は useState → (共有なら) Zustand、(URL共有なら) searchParams。</li>
+  </ol>
+
+  <h3 id="ap-next">次に読むもの</h3>
+  <ul>
+    <li>公式：<a href="https://nextjs.org/docs/app" target="_blank" rel="noopener">Next.js App Router ドキュメント</a>（本書の各概念の一次情報。バージョン差はここで確認）</li>
+    <li>公式：<a href="https://react.dev/reference/rsc/server-components" target="_blank" rel="noopener">React Server Components</a> / <a href="https://react.dev/reference/react/useActionState" target="_blank" rel="noopener">useActionState</a> / <a href="https://react.dev/reference/react/useOptimistic" target="_blank" rel="noopener">useOptimistic</a></li>
+    <li>プロジェクト内：<code>apps/web/CLAUDE.md</code>（API 通信ルール・動作確認）、<code>packages/schema/CLAUDE.md</code>（スキーマ命名）、<code>docs/spec/shared-packages/README.md</code>（共通パッケージ設計）</li>
+    <li>対比学習：<code>apps/mobile/src/features/memo/</code>（クライアント主体・axios 直叩きの実装。web との設計差を読み比べる）</li>
+  </ul>
+
+  <div class="box goal">
+    <div class="bh">おつかれさまでした 🎉</div>
+    <p>ゼロから <code>/memos</code> の一覧・詳細・作成・編集・削除・検索を組み上げる中で、App Router の主要概念——ファイル規約 / Server・Client 境界 / データ取得とキャッシュ / Server Actions / 動的ルート / 状態管理 / 認証 / エラーハンドリング——を一通り実践しました。ここから先は、同じ型で別の機能（例：カテゴリ、コメント）を自分で足してみると定着します。困ったら各章の「なぜ」コラムに戻ってきてください。</p>
+  </div>
+</section>
+</main>
+</div>
+
+<footer style="border-top:1px solid var(--border); padding:24px; text-align:center; color:var(--fg-soft); font-size:13px">
+  Next.js 実践教科書 — project-template / apps/web 向け build-along 教材
+</footer>
+
+<script>
+/* ---------- syntax highlighter (dependency-free) ---------- */
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+var TS_KW = "const|let|var|function|return|if|else|for|while|do|await|async|import|from|export|default|type|interface|class|new|extends|implements|public|private|protected|readonly|static|as|satisfies|typeof|keyof|infer|instanceof|try|catch|finally|throw|void|null|undefined|true|false|this|super|switch|case|break|continue|enum|namespace|yield|delete|abstract|declare";
+var reTS = new RegExp("(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*)|(`(?:\\\\[\\s\\S]|[^`\\\\])*`|\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*')|\\b(?:"+TS_KW+")\\b|\\b(?:0x[0-9a-fA-F]+|\\d+(?:\\.\\d+)?)\\b|\\b[A-Z][A-Za-z0-9_]*","g");
+var reBASH = /(#[^\n]*)|("(?:\\.|[^"\\])*"|'[^']*')|(?:^|\s)(--?[A-Za-z][A-Za-z0-9-]*)|\b(?:pnpm|npm|npx|node|cd|git|export|run|filter|dev|build|start|curl)\b/g;
+function classify(m){
+  if(m[1]) return "tok-c";
+  if(m[2]) return "tok-s";
+  return null;
+}
+function hlTS(code){
+  var out="",last=0,m;
+  reTS.lastIndex=0;
+  while((m=reTS.exec(code))){
+    out += esc(code.slice(last,m.index));
+    var tok=m[0], cls;
+    if(m[1]) cls="tok-c"; else if(m[2]) cls="tok-s";
+    else if(/^\d|^0x/.test(tok)) cls="tok-n";
+    else if(/^[A-Z@]/.test(tok)) cls="tok-t";
+    else cls="tok-k";
+    out += '<span class="'+cls+'">'+esc(tok)+"</span>";
+    last=reTS.lastIndex;
+  }
+  out += esc(code.slice(last));
+  return out;
+}
+function hlBASH(code){
+  var out="",last=0,m;
+  reBASH.lastIndex=0;
+  while((m=reBASH.exec(code))){
+    out += esc(code.slice(last,m.index));
+    var tok=m[0], cls;
+    if(m[1]) cls="tok-c"; else if(m[2]) cls="tok-s"; else if(m[3]!==undefined){cls="tok-n";}
+    else cls="tok-k";
+    /* keep leading whitespace of flag matches outside the span */
+    if(m[3]!==undefined){
+      var lead=tok.slice(0,tok.length-m[3].length);
+      out += esc(lead)+'<span class="tok-n">'+esc(m[3])+"</span>";
+    } else {
+      out += '<span class="'+cls+'">'+esc(tok)+"</span>";
+    }
+    last=reBASH.lastIndex;
+  }
+  out += esc(code.slice(last));
+  return out;
+}
+function buildCode(node){
+  var lang=node.getAttribute("data-lang")||"ts";
+  var file=node.getAttribute("data-file")||"";
+  var raw=node.textContent.replace(/^\n+/,"").replace(/\s+$/,"");
+  var html=(lang==="bash")?hlBASH(raw):hlTS(raw);
+  var fig=document.createElement("figure");
+  fig.className="code";
+  var cap=file?('<figcaption><span class="dot">▍</span><span>'+esc(file)+'</span><button class="copy" type="button">copy</button></figcaption>'):"";
+  fig.innerHTML=cap+'<pre><code>'+html+'</code></pre>';
+  var btn=fig.querySelector(".copy");
+  if(btn){btn.addEventListener("click",function(){
+    navigator.clipboard.writeText(raw).then(function(){btn.textContent="copied";setTimeout(function(){btn.textContent="copy";},1200);});
+  });}
+  node.replaceWith(fig);
+}
+document.querySelectorAll("script.src").forEach(buildCode);
+
+/* ---------- theme toggle ---------- */
+var root=document.documentElement;
+var saved=null; try{saved=localStorage.getItem("nt-theme");}catch(e){}
+if(saved) root.setAttribute("data-theme",saved);
+document.getElementById("themeBtn").addEventListener("click",function(){
+  var cur=root.getAttribute("data-theme")==="dark"?"light":"dark";
+  root.setAttribute("data-theme",cur);
+  try{localStorage.setItem("nt-theme",cur);}catch(e){}
+});
+
+/* ---------- mobile nav ---------- */
+var menuBtn=document.getElementById("menuBtn");
+menuBtn.addEventListener("click",function(){document.body.classList.toggle("nav-open");});
+document.querySelectorAll("#sidebar a").forEach(function(a){
+  a.addEventListener("click",function(){document.body.classList.remove("nav-open");});
+});
+
+/* ---------- scrollspy ---------- */
+var links=Array.prototype.slice.call(document.querySelectorAll("#sidebar a"));
+var map={};
+links.forEach(function(a){var id=a.getAttribute("href").slice(1); map[id]=a;});
+var targets=Object.keys(map).map(function(id){return document.getElementById(id);}).filter(Boolean);
+var spy=new IntersectionObserver(function(entries){
+  entries.forEach(function(en){
+    if(en.isIntersecting){
+      links.forEach(function(a){a.classList.remove("active");});
+      var a=map[en.target.id]; if(a){a.classList.add("active");
+        a.scrollIntoView({block:"nearest"});}
+    }
+  });
+},{rootMargin:"-56px 0px -70% 0px",threshold:0});
+targets.forEach(function(t){spy.observe(t);});
+</script>
+</body>
+</html>

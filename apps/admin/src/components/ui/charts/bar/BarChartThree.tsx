@@ -11,9 +11,26 @@ const ReactApexChart = dynamic(async () => import("react-apexcharts"), {
   ssr: false,
 })
 
+const BAR_COUNT = 30
+
+/**
+ * 2 つの値を ratio (0〜1) で線形補間する
+ */
+const lerp = (start: number, end: number, ratio: number) =>
+  Math.round(start + (end - start) * ratio)
+
+/**
+ * 左端の青 (#465fff) から右端のグレー (#d1d5db) へ、棒ごとに色を割り当てる。
+ * distributed: true と組み合わせることで demo と同じ「横方向に青→グレー」の見た目になる。
+ */
+const barColors = Array.from({ length: BAR_COUNT }, (_, index) => {
+  const ratio = index / (BAR_COUNT - 1)
+  return `rgb(${lerp(70, 209, ratio)}, ${lerp(95, 213, ratio)}, ${lerp(255, 219, ratio)})`
+})
+
 export default function BarChartThree() {
   const options: ApexOptions = {
-    colors: ["#465fff"],
+    colors: barColors,
     chart: {
       fontFamily: "Outfit, sans-serif",
       type: "bar",
@@ -24,6 +41,7 @@ export default function BarChartThree() {
     },
     plotOptions: {
       bar: {
+        distributed: true,
         horizontal: false,
         columnWidth: "80%",
         borderRadius: 2,
@@ -34,22 +52,10 @@ export default function BarChartThree() {
       enabled: false,
     },
     stroke: {
-      show: true,
-      width: 2,
-      colors: ["transparent"],
+      show: false,
     },
-    /**
-     * 左から右へ青 → グレーに変化する横グラデーション
-     */
     fill: {
-      type: "gradient",
-      gradient: {
-        type: "horizontal",
-        gradientToColors: ["#e5e7eb"],
-        opacityFrom: 1,
-        opacityTo: 1,
-        stops: [0, 100],
-      },
+      opacity: 1,
     },
     xaxis: {
       labels: {
@@ -82,11 +88,7 @@ export default function BarChartThree() {
   const series = [
     {
       name: "Value",
-      data: [
-        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-        100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-        100, 100,
-      ],
+      data: Array.from({ length: BAR_COUNT }, () => 100),
     },
   ]
   return (

@@ -35,9 +35,7 @@ export default function BarChartTwo() {
       enabled: false,
     },
     stroke: {
-      show: true,
-      width: 4,
-      colors: ["transparent"],
+      show: false,
     },
     xaxis: {
       categories: [

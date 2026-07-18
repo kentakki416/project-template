@@ -35,9 +35,7 @@ export default function BarChartHorizontal() {
       enabled: false,
     },
     stroke: {
-      show: true,
-      width: 4,
-      colors: ["#fff"],
+      show: false,
     },
     xaxis: {
       categories: ["Total"],
