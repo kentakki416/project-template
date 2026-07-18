@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>9. エラーハンドリングと堅牢化 — Next.js 実践教科書</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <button class="btn" id="menuBtn" aria-label="目次">☰</button>
+  <a class="home" href="index.html">Next.js 実践教科書</a>
+  <span class="sp"></span>
+  <button class="btn" id="themeBtn" title="テーマ切替">◐ テーマ</button>
+</header>
+<div class="wrap">
+<aside id="sidebar">
+  <div class="toc-h">はじめに</div>
+  <a href="index.html">概要とこの本の使い方</a>
+  <div class="toc-h">基礎編 — memo 機能を組み立てる</div>
+  <a href="ch0.html">0. 全体像と土台</a>
+  <a href="ch1.html">1. App Router のファイル規約</a>
+  <a href="ch2.html">2. データ取得（Server Component）</a>
+  <a href="ch3.html">3. コンポーネント設計</a>
+  <a href="ch4.html">4. 動的ルートと詳細ページ</a>
+  <a href="ch5.html">5. Server Actions と作成フォーム</a>
+  <a href="ch6.html">6. 編集・削除と楽観的更新</a>
+  <div class="toc-h">応用編</div>
+  <a href="ch7.html">7. 状態管理（Zustand）</a>
+  <a href="ch8.html">8. ミドルウェアと認証</a>
+  <a href="ch9.html">9. エラーハンドリングと堅牢化</a>
+  <a href="ch10.html">10. 発展：パフォーマンスとテスト</a>
+  <div class="toc-h">付録</div>
+  <a href="appendix.html">付録</a>
+</aside>
+<main>
+<section class="chapter" id="ch9">
+  <h2>9. エラーハンドリングと堅牢化</h2>
+  <p>正常系ができたので、<b>失敗した時に何が起きるか</b>を設計します。App Router は <code>error.tsx</code> / <code>not-found.tsx</code> / <code>loading.tsx</code> という<b>境界ファイル</b>で、宣言的にエラーとローディングを配線できます。ここではメモ専用の境界を足し、<code>ApiClientError</code> で「無い」と「壊れた」を区別し、Suspense で段階表示します。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li>セグメント単位の <code>error.tsx</code> を書ける</li>
+      <li><code>ApiClientError.status</code> で 4xx/5xx を出し分けられる</li>
+      <li><code>&lt;Suspense&gt;</code> で部分ストリーミングできる</li>
+    </ul>
+  </div>
+
+  <h3>9.1 エラーの3つの砦</h3>
+  <table>
+    <tr><th>ファイル</th><th>捕まえる対象</th><th>どこに置く</th></tr>
+    <tr><td><code>error.tsx</code></td><td>配下の Server/Client で <b>throw された実行時エラー</b></td><td>セグメントごと（例 <code>app/memos/</code>）</td></tr>
+    <tr><td><code>not-found.tsx</code></td><td><code>notFound()</code> 呼び出し・未定義 URL</td><td>セグメントごと / ルート</td></tr>
+    <tr><td><code>global-error.tsx</code></td><td><b>ルートレイアウト自体</b>が落ちた最悪ケース</td><td>ルートのみ（既存）</td></tr>
+  </table>
+  <p><code>error.tsx</code> は<b>自分と同じ階層の <code>layout</code> は捕捉できない</b>（レイアウトはエラー境界の外側）点に注意。<code>/memos</code> 配下の throw は <code>app/memos/error.tsx</code> があればそこで、無ければ上位の <code>app/error.tsx</code>（既存）で捕まります。</p>
+
+  <h3>9.2 メモ専用のエラー境界</h3>
+  <p>第2章で <code>page.tsx</code> は失敗時に throw する方針にしました。その受け皿を作ります。</p>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/error.tsx（新規）">
+"use client"
+
+import { useEffect } from "react"
+
+/**
+ * /memos 配下で throw されたエラーの境界。
+ * Client Component 必須（reset で再試行するため）。
+ */
+export default function MemosError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string }
+  reset: () => void
+}) {
+  useEffect(() => {
+    console.error(error) // 実運用ではここで監視サービスに送る
+  }, [error])
+
+  return (
+    <main className="mx-auto max-w-2xl p-6 text-center">
+      <h1 className="text-xl font-semibold">メモの読み込みに失敗しました</h1>
+      <p className="mt-2 text-sm text-zinc-500">
+        時間をおいて再度お試しください。
+        {error.digest && <span className="ml-1 font-mono text-xs">({error.digest})</span>}
+      </p>
+      <button onClick={reset} className="mt-6 rounded-lg bg-zinc-900 px-5 py-2 text-sm text-white">
+        再試行
+      </button>
+    </main>
+  )
+}
+  </script>
+
+  <div class="box why">
+    <div class="bh">なぜ「正常系はページ、異常系は境界」に分けるのか</div>
+    <p><code>page.tsx</code> の中を <code>try/catch</code> だらけにすると、本来の表示ロジックがエラー処理に埋もれます。App Router は「<b>throw したら最寄りの <code>error.tsx</code> が受ける</b>」という宣言的な仕組みを持つので、ページは正常系だけを書き、失敗は境界に委譲できます。<code>reset()</code> は「同じセグメントをもう一度レンダリングし直す」再試行ボタンに使えます。<code>digest</code> はサーバーで詳細ログに紐づく ID で、ユーザーには詳細を隠しつつ調査可能にします。</p>
+  </div>
+
+  <h3>9.3 「無い」と「壊れた」を分ける — <code>ApiClientError</code></h3>
+  <p>土台の <code>apiClient</code> は non-2xx を <code>ApiClientError(status, body)</code> として throw します。<code>status</code> を保持しているおかげで、呼び出し側が 404（無い）と 500（壊れた）を区別できます。第4章の詳細ページはこれを使って「404 は <code>notFound()</code>、それ以外は throw して <code>error.tsx</code>」と振り分けていました。</p>
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/libs/api-client.ts（既存・抜粋）">
+export class ApiClientError extends Error {
+  constructor(
+    public readonly status: number,   // ← これがあるから 4xx/5xx を判別できる
+    public readonly body?: unknown,
+  ) {
+    super(`API error: ${status}`)
+    this.name = "ApiClientError"
+  }
+}
+  </script>
+  <div class="box note">
+    <div class="bh">昔なぜ困ったか（コメントより）</div>
+    <p>以前は generic な <code>Error</code> を投げていて <code>status</code> が失われ、Route Handler が全部 500 に丸めていました。すると「入力ミス（4xx）」と「サーバー障害（5xx）」をフロントで区別できない。<b>エラーに構造（status）を持たせる</b>と、UI 側で適切な出し分けができます。これは「エラーも型設計の対象」という良い教訓です。</p>
+  </div>
+
+  <h3>9.4 Suspense で段階表示（部分ストリーミング）</h3>
+  <p><code>loading.tsx</code> は「ページ全体」の待ちを扱いました。<b>ページの一部だけ遅い</b>時は、その部分を <code>&lt;Suspense&gt;</code> で包むと、<b>速い部分を先に見せて遅い部分だけ後から流し込む</b>（ストリーミング）ことができます。</p>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="部分ストリーミングの例（概念）">
+import { Suspense } from "react"
+
+export default function MemosPage() {
+  return (
+    <main>
+      <h1>メモ一覧</h1>            {/* 即座に表示 */}
+      <Suspense fallback={<MemoListSkeleton />}>
+        <MemoListAsync />          {/* 取得が終わり次第ここだけ差し込まれる */}
+      </Suspense>
+    </main>
+  )
+}
+
+// 遅い取得を持つ Server Component を切り出す
+async function MemoListAsync() {
+  const { memos } = await memoApi.getList()
+  return <MemoList memos={memos} />
+}
+  </script>
+  <div class="box why">
+    <div class="bh"><code>loading.tsx</code> と <code>&lt;Suspense&gt;</code> の使い分け</div>
+    <p><code>loading.tsx</code> ＝ ルート全体の Suspense（遷移時にページ丸ごとのフォールバック）。手書きの <code>&lt;Suspense&gt;</code> ＝ ページ内の<b>一部分</b>のフォールバック。ヘッダやナビはすぐ出し、重い一覧やレコメンドだけスケルトンにして後から流す、といった<b>体感速度の作り込み</b>ができます。将来的な PPR（Partial Prerendering）はこの延長で、静的な殻を即返し動的部分を流す仕組みです（第10章）。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 9</div>
+    <ol>
+      <li><code>app/memos/error.tsx</code> を作成する。</li>
+      <li>わざと壊す：<code>memo.api.ts</code> の URL を <code>/api/memo-broken</code> に一時変更 → <code>/memos</code> でメモ用エラー画面＋「再試行」が出ることを確認 → 戻す。</li>
+      <li><code>/memos/999999</code> で 404（<code>notFound()</code>）になり、<b>500 のエラー画面ではない</b>ことを確認 → 「無い」と「壊れた」の区別を体感。</li>
+      <li>（任意）一覧を <code>&lt;Suspense&gt;</code> + 切り出した <code>MemoListAsync</code> に変え、見出しが先に出ることを確認。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary><code>app/memos/error.tsx</code> は、同じ階層の <code>app/memos/layout.tsx</code> で起きたエラーを捕捉できる？</summary>
+    <div class="ans"><b>できない</b>。<code>error.tsx</code> はその<b>内側</b>（page や子）で throw されたものを捕まえる境界で、同階層の layout はその<b>外側</b>にあるため捕捉範囲外。layout のエラーは<b>1つ上</b>の階層の <code>error.tsx</code>（または <code>global-error.tsx</code>）が受ける。</div>
+  </details>
+
+  <details class="quiz">
+    <summary>詳細ページで 404 は <code>notFound()</code>、500 は <code>throw</code>、と分けられるのはなぜ？</summary>
+    <div class="ans"><code>apiClient</code> が投げる <code>ApiClientError</code> が <code>status</code> を保持しているから。<code>error.status === 404</code> なら「リソースが無い」＝ <code>notFound()</code>（not-found.tsx）、それ以外は「壊れた」＝ throw して <code>error.tsx</code> に回す、と<b>ステータスコードで意味づけ</b>できる。</div>
+  </details>
+</section>
+<nav class="pager"><a class="prev" href="ch8.html"><span class="pl">← 前へ</span><span class="pt">8. ミドルウェアと認証</span></a><a class="next" href="ch10.html"><span class="pl">次へ →</span><span class="pt">10. 発展：パフォーマンスとテスト</span></a></nav>
+</main>
+</div>
+<footer style="border-top:1px solid var(--border); padding:24px; text-align:center; color:var(--fg-soft); font-size:13px">
+  Next.js 実践教科書 — project-template / apps/web 向け build-along 教材
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>2. データ取得（Server Component） — Next.js 実践教科書</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <button class="btn" id="menuBtn" aria-label="目次">☰</button>
+  <a class="home" href="index.html">Next.js 実践教科書</a>
+  <span class="sp"></span>
+  <button class="btn" id="themeBtn" title="テーマ切替">◐ テーマ</button>
+</header>
+<div class="wrap">
+<aside id="sidebar">
+  <div class="toc-h">はじめに</div>
+  <a href="index.html">概要とこの本の使い方</a>
+  <div class="toc-h">基礎編 — memo 機能を組み立てる</div>
+  <a href="ch0.html">0. 全体像と土台</a>
+  <a href="ch1.html">1. App Router のファイル規約</a>
+  <a href="ch2.html">2. データ取得（Server Component）</a>
+  <a href="ch3.html">3. コンポーネント設計</a>
+  <a href="ch4.html">4. 動的ルートと詳細ページ</a>
+  <a href="ch5.html">5. Server Actions と作成フォーム</a>
+  <a href="ch6.html">6. 編集・削除と楽観的更新</a>
+  <div class="toc-h">応用編</div>
+  <a href="ch7.html">7. 状態管理（Zustand）</a>
+  <a href="ch8.html">8. ミドルウェアと認証</a>
+  <a href="ch9.html">9. エラーハンドリングと堅牢化</a>
+  <a href="ch10.html">10. 発展：パフォーマンスとテスト</a>
+  <div class="toc-h">付録</div>
+  <a href="appendix.html">付録</a>
+</aside>
+<main>
+<section class="chapter" id="ch2">
+  <h2>2. データ取得 — Server Component で一覧を出す</h2>
+  <p>いよいよメモ一覧を API から取ってきます。ここが App Router の一番おいしいところ：<b>Server Component の中で直接 <code>await</code> して fetch できる</b>。<code>useEffect</code> + <code>useState</code> のローディング地獄が消えます。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li>Server Component で <code>async/await</code> データ取得ができる</li>
+      <li><code>server-only</code> と <code>@repo/api-schema</code> による検証で「型安全なデータ取得層」を作る</li>
+      <li>キャッシュと動的レンダリングの判断基準（<code>cookies()</code> を使うと動的になる 等）を理解する</li>
+    </ul>
+  </div>
+
+  <h3>2.1 データ取得層 <code>memo.api.ts</code> を作る</h3>
+  <p>規約どおり、API 通信ロジックは <code>features/memo/memo.api.ts</code>（<b>ロジックのみ・UI 非依存</b>）に置きます。土台の <code>apiClient</code> を呼び、返り値を<b>スキーマで検証</b>してから返すのがポイント。</p>
+
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/features/memo/memo.api.ts（新規）">
+import "server-only"
+
+import { getMemoListResponseSchema, type GetMemoListResponse } from "@repo/api-schema"
+
+import { apiClient } from "@/libs/api-client"
+
+/**
+ * メモの API 通信層（サーバー専用）。
+ * apiClient がブラウザ非経由でトークンを付け、401 時は refresh する。
+ * 受け取った JSON は「信用せず」スキーマで parse してから返す。
+ */
+export const memoApi = {
+  getList: async (): Promise<GetMemoListResponse> => {
+    const raw = await apiClient.get<unknown>("/api/memo")
+    return getMemoListResponseSchema.parse(raw)
+  },
+}
+  </script>
+
+  <h4>逐行のポイント</h4>
+  <ul>
+    <li><code>import "server-only"</code>：この関数が<b>誤ってクライアントに混入したらビルドで落とす</b>お守り。トークンやサーバ処理が漏れない。</li>
+    <li><code>apiClient.get&lt;unknown&gt;</code>：<code>apiClient</code> の <code>&lt;T&gt;</code> はただの型キャストで<b>実行時検証はしない</b>。だから <code>unknown</code> で受けて…</li>
+    <li>…<code>getMemoListResponseSchema.parse(raw)</code> で<b>実行時に形を保証</b>する。API が予期せぬ形を返したらここで例外になり、壊れたデータが画面まで到達しない。</li>
+  </ul>
+
+  <div class="box why">
+    <div class="bh">なぜ <code>as</code> ではなく <code>.parse()</code> なのか</div>
+    <p>mobile の <code>memo.api.ts</code> は <code>new Memo(result.data)</code> と<b>キャストするだけ</b>で、コメントに「型安全ではない」と正直に書かれています。TypeScript のキャストは「コンパイラを黙らせる」だけで、実行時には何も守りません。API のバージョン差やバグで <code>title</code> が欠けていても、キャストは素通りして UI で <code>undefined</code> が表示される。<code>@repo/api-schema</code> の <code>.parse()</code> を通せば、<b>契約と実データのズレを境界で検出</b>できます。これが「スキーマをスタック横断で共有する」設計の狙いです。</p>
+  </div>
+
+  <h3>2.2 ページから呼ぶ</h3>
+  <p><code>page.tsx</code> を Server Component のまま <code>async</code> にして、<code>memoApi.getList()</code> を <code>await</code> します。第1章の静的ページを置き換えます。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/page.tsx（更新）">
+import type { Metadata } from "next"
+
+import { memoApi } from "@/features/memo/memo.api"
+
+export const metadata: Metadata = { title: "メモ一覧" }
+
+/**
+ * 一覧ページ。Server Component なので直接 await できる。
+ * データ取得の失敗は上位の error.tsx（第9章）に投げる方針にし、
+ * ここでは正常系だけを素直に書く。
+ */
+export default async function MemosPage() {
+  const { memos } = await memoApi.getList()
+
+  return (
+    <main className="mx-auto max-w-2xl p-6">
+      <h1 className="text-2xl font-semibold">メモ一覧</h1>
+
+      {memos.length === 0 ? (
+        <p className="mt-4 text-zinc-500">まだメモがありません。</p>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {memos.map((memo) => (
+            <li key={memo.id} className="rounded-lg border border-zinc-200 p-4">
+              <h2 className="font-medium">{memo.title}</h2>
+              <p className="mt-1 line-clamp-2 text-sm text-zinc-600">{memo.body}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
+  )
+}
+  </script>
+
+  <figure class="diagram">
+  <svg viewBox="0 0 700 170" role="img" aria-label="Server Component のデータ取得フロー">
+    <rect class="d-box" x="14" y="60" width="120" height="52" rx="9"/>
+    <text class="d-t" x="74" y="82" text-anchor="middle">ブラウザ</text>
+    <text class="d-ts" x="74" y="99" text-anchor="middle">GET /memos</text>
+
+    <rect class="d-box-a" x="185" y="45" width="180" height="82" rx="9"/>
+    <text class="d-t" x="275" y="70" text-anchor="middle">Next.js サーバー</text>
+    <text class="d-tm" x="275" y="90" text-anchor="middle">page.tsx (RSC)</text>
+    <text class="d-tm" x="275" y="108" text-anchor="middle">memoApi.getList()</text>
+
+    <rect class="d-box-h" x="420" y="45" width="150" height="52" rx="9"/>
+    <text class="d-tm" x="495" y="67" text-anchor="middle">apiClient</text>
+    <text class="d-ts" x="495" y="84" text-anchor="middle">+ cookie / refresh</text>
+
+    <rect class="d-box" x="600" y="45" width="90" height="52" rx="9"/>
+    <text class="d-t" x="645" y="70" text-anchor="middle">Express</text>
+    <text class="d-ts" x="645" y="86" text-anchor="middle">/api/memo</text>
+
+    <path class="d-arrow" d="M134 86 L182 86" marker-end="url(#ah2)"/>
+    <path class="d-arrow-a" d="M365 86 L417 86" marker-end="url(#ah2a)"/>
+    <path class="d-arrow-a" d="M570 71 L597 71" marker-end="url(#ah2a)"/>
+    <path class="d-arrow" d="M275 127 L275 150 L74 150 L74 114" marker-end="url(#ah2)"/>
+    <text class="d-lbl" x="180" y="145" text-anchor="middle">HTML を返す</text>
+    <defs>
+      <marker id="ah2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--fg-soft)"/></marker>
+      <marker id="ah2a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker>
+    </defs>
+  </svg>
+  <figcaption>取得もレンダリングもサーバーで完結。ブラウザには JS ではなく完成した HTML が届く（＝トークンも API の存在もクライアントに漏れない）。</figcaption>
+  </figure>
+
+  <h3>2.3 キャッシュと動的レンダリング</h3>
+  <p>「このページ、いつのデータが出るの？」を決めるのが<b>キャッシュ／レンダリング戦略</b>です。Next.js 15 以降のデフォルトを押さえましょう。</p>
+  <table>
+    <tr><th>やりたいこと</th><th>書き方</th><th>結果</th></tr>
+    <tr><td>毎回最新（動的）</td><td>既定。<code>cookies()</code>/<code>headers()</code> を使うと自動でこうなる</td><td>リクエストごとにサーバー実行</td></tr>
+    <tr><td>N 秒キャッシュ</td><td><code>export const revalidate = 60</code></td><td>60秒ごとに裏で再生成（ISR）</td></tr>
+    <tr><td>常に動的を明示</td><td><code>export const dynamic = "force-dynamic"</code></td><td>キャッシュ無効</td></tr>
+    <tr><td>fetch 単位で制御</td><td><code>fetch(url, { next: { revalidate: 60 } })</code></td><td>その取得だけキャッシュ</td></tr>
+  </table>
+
+  <div class="box compat">
+    <div class="bh">🔧 互換メモ：本書のメモ一覧は「動的」</div>
+    <p>本書の <code>apiClient</code> は内部で <code>cookies()</code>（<code>next/headers</code>）を読んでトークンを付けます。<b><code>cookies()</code> を使った時点でそのルートは動的レンダリングになる</b>ため、メモ一覧は常にリクエスト時取得です。ログイン中ユーザー固有のデータなのでこれで正しい。逆に「全員同じ・更新が稀」なデータ（公開記事一覧など）は <code>revalidate</code> でキャッシュした方が速くなります。<br>なお Next.js 15 以降、<code>fetch</code> は<b>デフォルトでキャッシュされません</b>（14 までとは逆）。キャッシュしたい時だけ明示的にオプトインします。</p>
+  </div>
+
+  <div class="box note">
+    <div class="bh">エラーはどこで拾う？</div>
+    <p><code>page.tsx</code> では <code>try/catch</code> せず、失敗時は例外を投げっぱなしにしています。これは第9章で作る <code>app/memos/error.tsx</code>（セグメントのエラー境界）に自動で捕捉させる方針だからです。「正常系はページ、異常系は境界」と役割を分けると、ページ本体が読みやすく保てます。トップの <code>page.tsx</code> が <code>try/catch</code> しているのは、あえて「その場でエラー表示する」別方針の例です。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 2</div>
+    <ol>
+      <li><code>features/memo/memo.api.ts</code> を作成する。</li>
+      <li><code>app/memos/page.tsx</code> を上記の取得版に更新する。</li>
+      <li>API とスキーマを起動：<code>pnpm --filter @repo/api-schema build</code> → API も <code>pnpm --filter api dev</code>（別ターミナル）。</li>
+      <li><code>/memos</code> を開き、一覧が出ることを確認（データが無ければ「まだメモがありません」）。</li>
+      <li><b>実験</b>：<code>memo.api.ts</code> の <code>.parse(raw)</code> を一時的に <code>raw as GetMemoListResponse</code> に変え、API を止めて壊れたレスポンスを返すと何が起きるか観察 → <code>.parse</code> に戻す。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary>Server Component でのデータ取得が、Client Component の <code>useEffect</code>+<code>fetch</code> より優れている点を2つ。</summary>
+    <div class="ans">① <b>ウォーターフォールとローディング状態が消える</b>：サーバーで <code>await</code> して完成 HTML を返すので、クライアントで「読み込み中→データ」の二段階レンダリングが不要。② <b>秘密を隠せる</b>：API トークンや API の URL、重いロジックがクライアント JS に載らない。加えて DB/API に物理的に近いサーバーで叩ける、バンドルが軽くなる、等。</div>
+  </details>
+
+  <details class="quiz">
+    <summary>このメモ一覧ページが「動的レンダリング」になる決め手は？</summary>
+    <div class="ans"><code>apiClient</code> が内部で <code>cookies()</code> を呼んでいること。リクエスト固有の情報（cookie）に依存するルートは、Next.js が自動的に動的（リクエストごとに実行）と判定する。ビルド時に固定 HTML を作れないため。</div>
+  </details>
+</section>
+<nav class="pager"><a class="prev" href="ch1.html"><span class="pl">← 前へ</span><span class="pt">1. App Router のファイル規約</span></a><a class="next" href="ch3.html"><span class="pl">次へ →</span><span class="pt">3. コンポーネント設計</span></a></nav>
+</main>
+</div>
+<footer style="border-top:1px solid var(--border); padding:24px; text-align:center; color:var(--fg-soft); font-size:13px">
+  Next.js 実践教科書 — project-template / apps/web 向け build-along 教材
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>

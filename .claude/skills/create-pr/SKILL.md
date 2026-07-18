@@ -562,7 +562,7 @@ CI 失敗を検出しました (PR #<番号>)
 | before スクショを撮り忘れた | `git stash` → `git checkout <default-branch>` → 撮影 → 元ブランチに戻して `git stash pop` で復元 |
 | Playwright MCP のブラウザが既に開いている / 操作を受け付けない | まず `mcp__playwright__browser_close` を試す。それでも掴めない場合は OS 側で `ps aux \| grep -i 'playwright\\|chromium\\|chrome' \| grep -v grep` から PID を特定して `kill -9 <pid>` で終了し、再度 `browser_navigate` から始める |
 | dev サーバーが port を掴んでいて起動できない | `lsof -i :3000` `lsof -i :8080` でプロセスを特定し、不要なら `kill -9 <pid>`、必要なものなら活かして既存プロセスを使う |
-| 認証必須ページに到達できず login にリダイレクトされる | プロジェクトの dev-login (`/dev/login?as=alice` 等) を踏むか、`pnpm --filter api issue-test-token <userId>` で JWT を発行して cookie に注入する |
+| 認証必須ページに到達できず login にリダイレクトされる | プロジェクトの dev-login (`/api/dev/login?as=alice` 等) を踏むか、`pnpm --filter api issue-test-token <userId>` で JWT を発行して cookie に注入する |
 | 再現条件が複雑で UI が出ない | NODE_ENV !== "production" 限定の debug page (`apps/web/src/app/debug/<name>-preview/page.tsx`) を一時的に作り、対象コンポーネントを mock data 付きで単独 render する。proxy に dev-only public path を追加。撮影後にファイルと proxy 追加を削除（コミットしない） |
 | mobile のスクショが自動取得できない | Expo の preview / iOS Simulator / Android Emulator / 実機いずれかで撮影する必要があるので、ユーザーにスクショ提供を依頼する |
 | `gh pr checks --watch` がすぐ終わる（run が無い） | CI 未設定 or workflow が trigger されていない可能性。`gh workflow list` と `.github/workflows/` を確認 |

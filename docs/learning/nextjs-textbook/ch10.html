@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>10. 発展：パフォーマンスとテスト — Next.js 実践教科書</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <button class="btn" id="menuBtn" aria-label="目次">☰</button>
+  <a class="home" href="index.html">Next.js 実践教科書</a>
+  <span class="sp"></span>
+  <button class="btn" id="themeBtn" title="テーマ切替">◐ テーマ</button>
+</header>
+<div class="wrap">
+<aside id="sidebar">
+  <div class="toc-h">はじめに</div>
+  <a href="index.html">概要とこの本の使い方</a>
+  <div class="toc-h">基礎編 — memo 機能を組み立てる</div>
+  <a href="ch0.html">0. 全体像と土台</a>
+  <a href="ch1.html">1. App Router のファイル規約</a>
+  <a href="ch2.html">2. データ取得（Server Component）</a>
+  <a href="ch3.html">3. コンポーネント設計</a>
+  <a href="ch4.html">4. 動的ルートと詳細ページ</a>
+  <a href="ch5.html">5. Server Actions と作成フォーム</a>
+  <a href="ch6.html">6. 編集・削除と楽観的更新</a>
+  <div class="toc-h">応用編</div>
+  <a href="ch7.html">7. 状態管理（Zustand）</a>
+  <a href="ch8.html">8. ミドルウェアと認証</a>
+  <a href="ch9.html">9. エラーハンドリングと堅牢化</a>
+  <a href="ch10.html">10. 発展：パフォーマンスとテスト</a>
+  <div class="toc-h">付録</div>
+  <a href="appendix.html">付録</a>
+</aside>
+<main>
+<section class="chapter" id="ch10">
+  <h2>10. 発展：パフォーマンスとテスト</h2>
+  <p>最後に、作ったメモ機能を「速く・壊れにくく」する視点をまとめます。個々は深掘りせず、<b>App Router で効く勘所</b>と<b>このプロジェクトのテスト方針</b>に絞ります。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li>画像・フォント・バンドルの基本最適化の勘所を持つ</li>
+      <li>キャッシュ / ストリーミング / PPR を「速さ」の観点で整理できる</li>
+      <li>このプロジェクトの UI 動作確認（Playwright MCP）の型を知る</li>
+    </ul>
+  </div>
+
+  <h3>10.1 パフォーマンスの勘所</h3>
+  <table>
+    <tr><th>手法</th><th>何をする</th><th>memo での適用</th></tr>
+    <tr><td><code>next/image</code></td><td>自動リサイズ・遅延読込・レイアウトシフト防止</td><td>メモに画像添付を足すなら <code>&lt;img&gt;</code> でなく <code>&lt;Image&gt;</code></td></tr>
+    <tr><td><code>next/font</code></td><td>フォントを self-host 化し FOUT/CLS を抑制</td><td>既存 <code>layout.tsx</code> の Geist が実例</td></tr>
+    <tr><td><code>next/dynamic</code></td><td>重い/DOM依存の部品を必要時だけ読込</td><td>Lottie の <code>dynamic(ssr:false)</code> が実例</td></tr>
+    <tr><td>Server 優先</td><td>Client 島を小さく保ちバンドル削減</td><td>一覧・詳細は Server、ボタンだけ Client</td></tr>
+    <tr><td>キャッシュ / ISR</td><td>共通・低頻度データはキャッシュ</td><td>メモは動的が正。公開データなら <code>revalidate</code></td></tr>
+    <tr><td>ストリーミング</td><td><code>&lt;Suspense&gt;</code> で速い部分を先に</td><td>第9章の部分ストリーミング</td></tr>
+  </table>
+
+  <div class="box why">
+    <div class="bh">最大の効き目は「Client 島を小さく保つ」</div>
+    <p>App Router のパフォーマンス設計は、突き詰めると<b>「クライアントに送る JS を減らす」</b>ことです。<code>"use client"</code> を根に付けない、状態はできるだけサーバーに置く、島は葉に押し下げる——第3章・第7章でやったことが、そのままパフォーマンス最適化になっています。個別テクニックより<b>境界設計</b>が効きます。</p>
+  </div>
+
+  <div class="box compat">
+    <div class="bh">🔧 互換メモ：PPR（Partial Prerendering）</div>
+    <p>静的な殻を即座に返し、動的部分（<code>Suspense</code> 内）をストリーミングで後追いする仕組み。Next.js の実験的機能として進化中で、バージョンにより有効化方法や安定度が異なります。採用する際は必ず使用中バージョンの公式ドキュメントで対応状況を確認してください。考え方は第9章のストリーミングの延長線上です。</p>
+  </div>
+
+  <h3>10.2 テストと動作確認</h3>
+  <p>このプロジェクトは <b>UI を実装したら Playwright MCP で実画面を確認</b>することを必須にしています（<code>apps/web/CLAUDE.md</code>）。<code>pnpm build</code> が通るのは型とルート登録の確認でしかなく、<b>レンダリング不具合・hydration エラー・コンソールエラー・認証フロー</b>は検出できないためです。</p>
+
+  <div class="box note">
+    <div class="bh">最低限の確認項目（memo 機能に当てはめると）</div>
+    <ol>
+      <li><b>着地 URL</b>：<code>/memos</code> にアクセスして <code>/memos</code> のまま表示される（proxy に <code>/sign-in</code> へ飛ばされて OK 判定しない）。認証必須ページは <code>pnpm --filter api issue-test-token &lt;userId&gt;</code> で発行した JWT を <code>app_access_token</code> / <code>app_refresh_token</code> cookie に注入して検証する。</li>
+      <li><b>コンソール</b>：<code>level: "error"</code> が 0 件（hydration エラー等が無い）。</li>
+      <li><b>要素</b>：一覧の見出し・各メモ・「新規作成」ボタン、フォームの各項目が表示される。</li>
+      <li><b>フロー</b>：作成 → 一覧に増える、編集 → 反映、削除 → 消える、を実操作で確認。</li>
+    </ol>
+    <p>手順は <code>verify-web-page</code> skill にまとまっており、UI 実装直後に自発的に呼ぶ運用です。</p>
+  </div>
+
+  <div class="box why">
+    <div class="bh">Server Component / Server Action はどうテストする？</div>
+    <p>Server Component は「入力（props / 取得データ）→ 出力（要素）」の関数に近いので、<b>取得層（<code>memo.api.ts</code>）を単体テスト</b>し、画面は Playwright の E2E で担保する二段構えが実務的です。Server Action も「Zod 検証 → API 呼び出し → revalidate/redirect」という純粋な処理単位なので、<code>memoApi</code> をモックして<b>検証分岐（成功/バリデーションエラー/API失敗）</b>を関数テストできます。UI と結合した振る舞いは E2E に任せる、と役割分担すると費用対効果が良いです。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 10（総仕上げ）</div>
+    <ol>
+      <li>ここまでの memo 機能を通しで動かし、作成→一覧→詳細→編集→削除→検索が繋がることを確認。</li>
+      <li>ブラウザのコンソールに <code>error</code> が出ていないか確認（hydration エラーの有無）。</li>
+      <li>各ページの Client 島（<code>"use client"</code>）を数え、「本当に必要な最小限か」を見直す。</li>
+      <li>（余力があれば）<code>memo.api.ts</code> の <code>getList</code> に対する簡単な関数テストを書いてみる。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary><code>pnpm build</code> が成功したら「動作確認済み」と言ってよい？</summary>
+    <div class="ans"><b>ダメ</b>。build は型チェックとルート登録の確認に過ぎず、実際のレンダリング崩れ・hydration エラー・コンソールエラー・認証リダイレクトの挙動は検出できない。実画面を（このプロジェクトでは Playwright MCP で）確認して初めて「動作確認済み」と言える。</div>
+  </details>
+</section>
+<nav class="pager"><a class="prev" href="ch9.html"><span class="pl">← 前へ</span><span class="pt">9. エラーハンドリングと堅牢化</span></a><a class="next" href="appendix.html"><span class="pl">次へ →</span><span class="pt">付録</span></a></nav>
+</main>
+</div>
+<footer style="border-top:1px solid var(--border); padding:24px; text-align:center; color:var(--fg-soft); font-size:13px">
+  Next.js 実践教科書 — project-template / apps/web 向け build-along 教材
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>

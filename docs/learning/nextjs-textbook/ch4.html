@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>4. 動的ルートと詳細ページ — Next.js 実践教科書</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <button class="btn" id="menuBtn" aria-label="目次">☰</button>
+  <a class="home" href="index.html">Next.js 実践教科書</a>
+  <span class="sp"></span>
+  <button class="btn" id="themeBtn" title="テーマ切替">◐ テーマ</button>
+</header>
+<div class="wrap">
+<aside id="sidebar">
+  <div class="toc-h">はじめに</div>
+  <a href="index.html">概要とこの本の使い方</a>
+  <div class="toc-h">基礎編 — memo 機能を組み立てる</div>
+  <a href="ch0.html">0. 全体像と土台</a>
+  <a href="ch1.html">1. App Router のファイル規約</a>
+  <a href="ch2.html">2. データ取得（Server Component）</a>
+  <a href="ch3.html">3. コンポーネント設計</a>
+  <a href="ch4.html">4. 動的ルートと詳細ページ</a>
+  <a href="ch5.html">5. Server Actions と作成フォーム</a>
+  <a href="ch6.html">6. 編集・削除と楽観的更新</a>
+  <div class="toc-h">応用編</div>
+  <a href="ch7.html">7. 状態管理（Zustand）</a>
+  <a href="ch8.html">8. ミドルウェアと認証</a>
+  <a href="ch9.html">9. エラーハンドリングと堅牢化</a>
+  <a href="ch10.html">10. 発展：パフォーマンスとテスト</a>
+  <div class="toc-h">付録</div>
+  <a href="appendix.html">付録</a>
+</aside>
+<main>
+<section class="chapter" id="ch4">
+  <h2>4. 動的ルートと詳細ページ</h2>
+  <p>一覧の各項目は <code>/memos/1</code>, <code>/memos/2</code> … と ID で開けるようにします。URL の一部を変数として受け取る<b>動的ルート</b> <code>[id]</code> を作りながら、<code>await params</code>・<code>notFound()</code>・<code>generateMetadata</code> を学びます。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li><code>[id]</code> 動的セグメントと <code>await params</code> を使える</li>
+      <li>存在しない ID で <code>notFound()</code> → <code>not-found.tsx</code> に繋げられる</li>
+      <li><code>generateMetadata</code> でページごとの <code>&lt;title&gt;</code> を動的生成できる</li>
+      <li>ルートパラメータも Zod で検証する（プロジェクト規約）</li>
+    </ul>
+  </div>
+
+  <h3>4.1 取得層に <code>getDetail</code> を足す</h3>
+  <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/features/memo/memo.api.ts（追記）">
+import "server-only"
+
+import {
+  getMemoListResponseSchema,
+  getMemoResponseSchema,
+  type GetMemoListResponse,
+  type GetMemoResponse,
+} from "@repo/api-schema"
+
+import { apiClient } from "@/libs/api-client"
+
+export const memoApi = {
+  getList: async (): Promise<GetMemoListResponse> => {
+    const raw = await apiClient.get<unknown>("/api/memo")
+    return getMemoListResponseSchema.parse(raw)
+  },
+
+  getDetail: async (id: number): Promise<GetMemoResponse> => {
+    const raw = await apiClient.get<unknown>(`/api/memo/${id}`)
+    return getMemoResponseSchema.parse(raw)
+  },
+}
+  </script>
+
+  <h3>4.2 <code>[id]</code> ページを作る</h3>
+  <p>フォルダ名を <code>[id]</code> にすると、その部分の URL が <code>params.id</code> として渡ります。<b>Next.js 15 以降、<code>params</code> は Promise</b> なので <code>await</code> します。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/[id]/page.tsx（新規）">
+import type { Metadata } from "next"
+import { notFound } from "next/navigation"
+
+import { getMemoPathParamSchema } from "@repo/api-schema"
+
+import { memoApi } from "@/features/memo/memo.api"
+import { ApiClientError } from "@/libs/api-client"
+
+type Props = {
+  params: Promise<{ id: string }>
+}
+
+/** URL の :id を検証し、無ければ notFound() に流す共通処理 */
+async function loadMemo(params: Props["params"]) {
+  const parsed = getMemoPathParamSchema.safeParse(await params)
+  if (!parsed.success) notFound()            // /memos/abc のような不正 ID
+
+  try {
+    return await memoApi.getDetail(parsed.data.id)
+  } catch (error) {
+    if (error instanceof ApiClientError && error.status === 404) notFound()
+    throw error                              // それ以外は error.tsx へ
+  }
+}
+
+/** タブや検索結果に出る title を、メモの内容から動的に作る */
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const parsed = getMemoPathParamSchema.safeParse(await params)
+  if (!parsed.success) return { title: "メモが見つかりません" }
+  const memo = await memoApi.getDetail(parsed.data.id).catch(() => null)
+  return { title: memo ? memo.title : "メモが見つかりません" }
+}
+
+export default async function MemoDetailPage({ params }: Props) {
+  const memo = await loadMemo(params)
+
+  return (
+    <main className="mx-auto max-w-2xl p-6">
+      <h1 className="text-2xl font-semibold">{memo.title}</h1>
+      <p className="mt-2 whitespace-pre-wrap text-zinc-700">{memo.body}</p>
+      <p className="mt-6 text-xs text-zinc-400">更新: {memo.updated_at}</p>
+    </main>
+  )
+}
+  </script>
+
+  <h4>逐行のポイント</h4>
+  <ul>
+    <li><code>getMemoPathParamSchema</code> は <code>z.coerce.number().int().positive()</code>。<b>文字列→数値変換と検証を Zod に任せる</b>（<code>Number()</code> や <code>parseInt</code> を手書きしない、が規約）。</li>
+    <li>不正 ID（<code>/memos/abc</code>）は <code>safeParse</code> 失敗 → <code>notFound()</code>。存在しない ID は API が 404 → <code>ApiClientError.status === 404</code> を見て <code>notFound()</code>。</li>
+    <li><code>notFound()</code> は<b>最寄りの <code>not-found.tsx</code> を表示</b>する。既存の <code>app/not-found.tsx</code> がそのまま使われる（第9章でメモ専用に上書きも可）。</li>
+    <li>404 以外の失敗（500 等）は <code>throw</code> して <code>error.tsx</code> に任せる。「無い」と「壊れた」を区別するのが <code>ApiClientError</code> が <code>status</code> を保持している狙い（第9章）。</li>
+  </ul>
+
+  <div class="box why">
+    <div class="bh">なぜ <code>generateMetadata</code> をわざわざ書くのか</div>
+    <p>静的な <code>export const metadata</code> ではページ内容に応じた <code>&lt;title&gt;</code> を作れません。<code>generateMetadata</code> は <code>params</code> を受け取れる<b>非同期関数</b>なので、「メモのタイトルをそのままページタイトルに」といった動的な SEO / タブ表示ができます。Next.js は本文レンダリングと <code>generateMetadata</code> の <code>getDetail</code> を<b>重複取得しないよう自動でメモ化（dedupe）</b>してくれるので、2回書いても API は1回で済みます。</p>
+  </div>
+
+  <h3>4.3 SSG / ISR はこのページに使う？</h3>
+  <p><code>generateStaticParams</code> を書くと、ビルド時に <code>[id]</code> の一覧を先に生成して<b>静的化（SSG）</b>できます。ブログ記事のような「全員に同じ・更新が稀」なコンテンツでは強力です。</p>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="generateStaticParams の例（※このメモ機能では使わない）">
+// 公開ブログなら：ビルド時に全記事を静的生成し、60秒ごとに再検証
+export const revalidate = 60
+export async function generateStaticParams() {
+  const posts = await getPublicPosts()
+  return posts.map((p) => ({ id: String(p.id) }))
+}
+  </script>
+  <div class="box note">
+    <div class="bh">メモは動的でよい</div>
+    <p>メモは<b>ログインユーザー固有・頻繁に増減</b>し、<code>apiClient</code> が <code>cookies()</code> を使う（＝動的）ため、SSG/ISR は不向きです。<b>「認証が要る・ユーザーごとに違う・すぐ変わる」データは動的レンダリングが正解</b>。逆に公開・共通・低頻度更新なら ISR を検討する、という判断軸を持っておきましょう。</p>
+  </div>
+
+  <div class="box compat">
+    <div class="bh">🔧 互換メモ：動的 API はすべて Promise</div>
+    <p>Next.js 15/16 では <code>params</code> / <code>searchParams</code> / <code>cookies()</code> / <code>headers()</code> がすべて非同期（Promise）です。同期的に <code>params.id</code> と書くと型エラー・実行時警告になります。必ず <code>await</code> しましょう。</p>
+  </div>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 4</div>
+    <ol>
+      <li><code>memo.api.ts</code> に <code>getDetail</code> を追記する。</li>
+      <li><code>app/memos/[id]/page.tsx</code> を作成する。</li>
+      <li>一覧の項目（<code>MemoListItem</code> の <code>Link</code>）から詳細に飛べることを確認。</li>
+      <li><code>/memos/999999</code>（存在しない）と <code>/memos/abc</code>（不正）でどちらも 404 ページになることを確認。</li>
+      <li>ブラウザのタブに<b>メモのタイトルが出る</b>ことを確認（<code>generateMetadata</code> の効果）。</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary>「不正な ID（<code>abc</code>）」と「存在しない ID（<code>999999</code>）」を、コードではどう区別して両方 404 にしている？</summary>
+    <div class="ans">不正 ID は <code>getMemoPathParamSchema.safeParse</code> が<b>失敗</b>する（数値でない/正の整数でない）ので、その場で <code>notFound()</code>。存在しない ID は形式は正しいので API まで行き、API が返す <b>404 を <code>ApiClientError.status</code> で判定</b>して <code>notFound()</code>。500 など他の失敗は <code>throw</code> して <code>error.tsx</code> に回す。</div>
+  </details>
+</section>
+<nav class="pager"><a class="prev" href="ch3.html"><span class="pl">← 前へ</span><span class="pt">3. コンポーネント設計</span></a><a class="next" href="ch5.html"><span class="pl">次へ →</span><span class="pt">5. Server Actions と作成フォーム</span></a></nav>
+</main>
+</div>
+<footer style="border-top:1px solid var(--border); padding:24px; text-align:center; color:var(--fg-soft); font-size:13px">
+  Next.js 実践教科書 — project-template / apps/web 向け build-along 教材
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>

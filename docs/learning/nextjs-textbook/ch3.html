@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>3. コンポーネント設計 — Next.js 実践教科書</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <button class="btn" id="menuBtn" aria-label="目次">☰</button>
+  <a class="home" href="index.html">Next.js 実践教科書</a>
+  <span class="sp"></span>
+  <button class="btn" id="themeBtn" title="テーマ切替">◐ テーマ</button>
+</header>
+<div class="wrap">
+<aside id="sidebar">
+  <div class="toc-h">はじめに</div>
+  <a href="index.html">概要とこの本の使い方</a>
+  <div class="toc-h">基礎編 — memo 機能を組み立てる</div>
+  <a href="ch0.html">0. 全体像と土台</a>
+  <a href="ch1.html">1. App Router のファイル規約</a>
+  <a href="ch2.html">2. データ取得（Server Component）</a>
+  <a href="ch3.html">3. コンポーネント設計</a>
+  <a href="ch4.html">4. 動的ルートと詳細ページ</a>
+  <a href="ch5.html">5. Server Actions と作成フォーム</a>
+  <a href="ch6.html">6. 編集・削除と楽観的更新</a>
+  <div class="toc-h">応用編</div>
+  <a href="ch7.html">7. 状態管理（Zustand）</a>
+  <a href="ch8.html">8. ミドルウェアと認証</a>
+  <a href="ch9.html">9. エラーハンドリングと堅牢化</a>
+  <a href="ch10.html">10. 発展：パフォーマンスとテスト</a>
+  <div class="toc-h">付録</div>
+  <a href="appendix.html">付録</a>
+</aside>
+<main>
+<section class="chapter" id="ch3">
+  <h2>3. コンポーネント設計 — UI を正しく分割する</h2>
+  <p>第2章の <code>page.tsx</code> は取得もマークアップも全部入りでした。実務ではすぐ肥大化します。ここで規約どおり <b>UI を <code>components/</code> に切り出し、<code>page.tsx</code> を薄く</b>します。「どこに置くか」「Server と Client のどちらにするか」を判断できるようになるのがゴール。</p>
+
+  <div class="box goal">
+    <div class="bh">この章のゴール</div>
+    <ul>
+      <li><code>app → components → features</code> の依存方向に沿って UI を分割できる</li>
+      <li>コンポーネント単位で Server / Client を判断できる（<b>デフォルトは Server、必要な島だけ Client</b>）</li>
+      <li>「Server Component を Client Component の <code>children</code> に渡す」合成パターンを使える</li>
+    </ul>
+  </div>
+
+  <h3>3.1 分割方針</h3>
+  <p>一覧画面を3つに割ります。<b>ロジックは <code>features/</code>、見た目は <code>components/</code>、束ねるのは <code>app/</code></b>。</p>
+  <div class="filetree">app/memos/page.tsx                         <span class="cm"># 取得して components に渡すだけ（薄い）</span>
+components/features/memo/
+  <span class="new">├─ MemoList.tsx</span>       <span class="cm"># memos[] を受け取り並べる（Server）</span>
+  <span class="new">├─ MemoListItem.tsx</span>   <span class="cm"># 1件の見た目（Server）</span>
+  <span class="new">└─ MemoEmptyState.tsx</span> <span class="cm"># 0件時の表示（Server）</span></div>
+
+  <h4>MemoListItem — 1件分の見た目</h4>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/components/features/memo/MemoListItem.tsx（新規）">
+import Link from "next/link"
+
+import type { GetMemoListResponse } from "@repo/api-schema"
+
+/** 一覧の1件。型は配列要素型を取り出して使う（独自定義しない） */
+type Props = {
+  memo: GetMemoListResponse["memos"][number]
+}
+
+export function MemoListItem({ memo }: Props) {
+  return (
+    <li className="rounded-lg border border-zinc-200 p-4 transition hover:border-zinc-400">
+      <Link href={`/memos/${memo.id}`} className="block">
+        <h2 className="font-medium">{memo.title}</h2>
+        <p className="mt-1 line-clamp-2 text-sm text-zinc-600">{memo.body}</p>
+      </Link>
+    </li>
+  )
+}
+  </script>
+
+  <h4>MemoList / MemoEmptyState</h4>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/components/features/memo/MemoList.tsx（新規）">
+import type { GetMemoListResponse } from "@repo/api-schema"
+
+import { MemoEmptyState } from "./MemoEmptyState"
+import { MemoListItem } from "./MemoListItem"
+
+type Props = { memos: GetMemoListResponse["memos"] }
+
+export function MemoList({ memos }: Props) {
+  if (memos.length === 0) return <MemoEmptyState />
+
+  return (
+    <ul className="space-y-3">
+      {memos.map((memo) => (
+        <MemoListItem key={memo.id} memo={memo} />
+      ))}
+    </ul>
+  )
+}
+  </script>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/components/features/memo/MemoEmptyState.tsx（新規）">
+import Link from "next/link"
+
+export function MemoEmptyState() {
+  return (
+    <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center">
+      <p className="text-zinc-500">まだメモがありません。</p>
+      <Link href="/memos/new" className="mt-3 inline-block text-blue-600 hover:underline">
+        最初のメモを作成する
+      </Link>
+    </div>
+  )
+}
+  </script>
+
+  <h4>page.tsx は薄くなる</h4>
+  <script type="text/plain" class="src" data-lang="tsx" data-file="apps/web/src/app/memos/page.tsx（更新）">
+import type { Metadata } from "next"
+import Link from "next/link"
+
+import { MemoList } from "@/components/features/memo/MemoList"
+import { memoApi } from "@/features/memo/memo.api"
+
+export const metadata: Metadata = { title: "メモ一覧" }
+
+export default async function MemosPage() {
+  const { memos } = await memoApi.getList()
+
+  return (
+    <main className="mx-auto max-w-2xl p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">メモ一覧</h1>
+        <Link href="/memos/new" className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white">
+          新規作成
+        </Link>
+      </div>
+      <div className="mt-6">
+        <MemoList memos={memos} />
+      </div>
+    </main>
+  )
+}
+  </script>
+
+  <div class="box why">
+    <div class="bh">なぜ <code>page.tsx</code> を薄く保つのか</div>
+    <p><code>page.tsx</code> は「このURLで<b>何を取得し、どの部品を組むか</b>」だけを語る司令塔にします。見た目の詳細（クラス名やマークアップ）はコンポーネント側へ。こうすると ①ページを読むだけで画面構成が分かる、②同じ <code>MemoList</code> を検索結果やダッシュボードで<b>再利用</b>できる、③見た目の変更が <code>page.tsx</code> に波及しない、という利点が出ます。規約の「<code>app/</code> は薄く」はこの狙いです。</p>
+  </div>
+
+  <h3>3.2 Server か Client か — 島（island）で考える</h3>
+  <p>App Router では<b>すべてデフォルト Server Component</b>。<code>"use client"</code> を書いたファイルとそこから import される先だけがクライアントに送られます。だから設計の合言葉は「<b>できるだけ Server、インタラクションが要る所だけ Client の小島にする</b>」。</p>
+  <p>上の <code>MemoList / MemoListItem / MemoEmptyState</code> は表示だけなので<b>全部 Server</b>。<code>onClick</code> や <code>useState</code> が要る部品（例：削除ボタン、検索ボックス）だけを <code>"use client"</code> の小島に切り出します。既存の <code>refresh-button.tsx</code> や Lottie の <code>user-bot-animation.tsx</code> がまさにその実例です。</p>
+
+  <table>
+    <tr><th>Client Component が要るサイン</th><th>例</th></tr>
+    <tr><td><code>onClick</code> / <code>onChange</code> などのイベント</td><td>削除ボタン、フォーム操作</td></tr>
+    <tr><td><code>useState</code> / <code>useEffect</code> / <code>useRef</code></td><td>開閉トグル、入力状態</td></tr>
+    <tr><td>ブラウザ API（<code>window</code>, <code>localStorage</code>）</td><td>テーマ切替</td></tr>
+    <tr><td>状態管理ライブラリ（Zustand 等）</td><td>クライアント状態（第7章）</td></tr>
+    <tr><td>DOM 依存ライブラリ</td><td>Lottie（<code>dynamic(ssr:false)</code>）</td></tr>
+  </table>
+
+  <div class="box warn">
+    <div class="bh">⚠ よくある誤解：<code>"use client"</code> は「ページ全体」に付けない</div>
+    <p>「フォームがあるからページ全部 Client」は最悪手。ページを Client にすると<b>配下の Server の利点（サーバー取得・軽いバンドル）を全部失います</b>。正解は「ページは Server のまま、ボタン1個だけ Client の小島」。境界は<b>できるだけ葉（末端）に押し下げる</b>。</p>
+  </div>
+
+  <h3>3.3 合成パターン：Server を Client の <code>children</code> に渡す</h3>
+  <p>「Client Component の中で Server Component を使いたい」ことがあります（例：開閉できるパネルの中にサーバー取得の中身を入れる）。Client の中で Server を <code>import</code> することは<b>できません</b>が、<b><code>children</code> として渡す</b>のは OK です。</p>
+
+  <script type="text/plain" class="src" data-lang="tsx" data-file="合成パターンの例（概念）">
+// Collapsible.tsx （Client の島：開閉状態だけ持つ）
+"use client"
+import { useState, type ReactNode } from "react"
+
+export function Collapsible({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div>
+      <button onClick={() => setOpen((v) => !v)}>{open ? "閉じる" : "開く"}</button>
+      {open && <div>{children}</div>}
+    </div>
+  )
+}
+
+// page.tsx （Server）— Server で取得した中身を children として流し込む
+export default async function Page() {
+  const { memos } = await memoApi.getList()
+  return (
+    <Collapsible>
+      <MemoList memos={memos} />   {/* ← これは Server Component のまま！ */}
+    </Collapsible>
+  )
+}
+  </script>
+
+  <figure class="diagram">
+  <svg viewBox="0 0 560 150" role="img" aria-label="children で Server を Client に渡す図">
+    <rect x="30" y="30" width="230" height="95" rx="10" fill="none" stroke="var(--handson)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text class="d-t" x="145" y="50" text-anchor="middle" style="fill:var(--handson)">Client の島（Collapsible）</text>
+    <rect class="d-box-a" x="60" y="66" width="170" height="44" rx="8"/>
+    <text class="d-tm" x="145" y="86" text-anchor="middle">{children}</text>
+    <text class="d-ts" x="145" y="102" text-anchor="middle">＝ 差し込まれた枠</text>
+
+    <rect class="d-box-h" x="330" y="60" width="200" height="56" rx="10"/>
+    <text class="d-t" x="430" y="83" text-anchor="middle">MemoList</text>
+    <text class="d-ts" x="430" y="100" text-anchor="middle">Server のまま渡される</text>
+    <path class="d-arrow-a" d="M330 88 L232 88" marker-end="url(#ah3)"/>
+    <text class="d-lbl" x="285" y="78" text-anchor="middle">children</text>
+    <defs><marker id="ah3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker></defs>
+  </svg>
+  <figcaption>Client は「穴（children）」だけ用意する。中身が Server か Client かを Client 側は知らなくてよい。だから Server のまま渡せる。</figcaption>
+  </figure>
+
+  <div class="box handson">
+    <div class="bh">🛠 ハンズオン 3</div>
+    <ol>
+      <li><code>components/features/memo/</code> に <code>MemoListItem</code> / <code>MemoList</code> / <code>MemoEmptyState</code> を作成する。</li>
+      <li><code>page.tsx</code> を薄い版に更新し、見た目が変わらず動くことを確認。</li>
+      <li>各コンポーネントに <code>"use client"</code> が<b>無い</b>ことを確認（全部 Server）。<code>onClick</code> を持たないので不要。</li>
+      <li><b>考察</b>：この3つのうち、将来 Client 化が必要になりそうなのはどれ？（ヒント：削除ボタンを <code>MemoListItem</code> に足したくなったら？）</li>
+    </ol>
+  </div>
+
+  <details class="quiz">
+    <summary>「Client Component の中では Server Component を import できない」のに、<code>children</code> で渡せるのはなぜ？</summary>
+    <div class="ans">Server Component のレンダリング（サーバーでの実行）は<b>親（Server）側で先に済んで</b>、その結果が「描画済みの子」として Client に渡るから。Client が <code>import</code> して自分でレンダリングしようとすると、サーバー専用処理をクライアントで走らせることになり成立しない。<code>children</code> なら Client は「出来上がった中身をどこに置くか」を決めるだけで、中身を実行しない。</div>
+  </details>
+
+  <details class="quiz">
+    <summary>Server/Client の境界は「根（ページ）」と「葉（末端）」どちらに寄せるべき？なぜ？</summary>
+    <div class="ans"><b>葉に寄せる</b>。<code>"use client"</code> は付けたファイルとその配下すべてをクライアントに送る。根に付けると木全体が Client 化してサーバーの恩恵を失う。インタラクションが必要な最小の部品にだけ付けるのがベストプラクティス。</div>
+  </details>
+</section>
+<nav class="pager"><a class="prev" href="ch2.html"><span class="pl">← 前へ</span><span class="pt">2. データ取得（Server Component）</span></a><a class="next" href="ch4.html"><span class="pl">次へ →</span><span class="pt">4. 動的ルートと詳細ページ</span></a></nav>
+</main>
+</div>
+<footer style="border-top:1px solid var(--border); padding:24px; text-align:center; color:var(--fg-soft); font-size:13px">
+  Next.js 実践教科書 — project-template / apps/web 向け build-along 教材
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>
