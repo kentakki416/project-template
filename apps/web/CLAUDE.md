@@ -35,7 +35,9 @@ pnpm start        # 本番サーバー起動
 
 ### Server Action の配置
 
-対応するページと同じディレクトリに `actions.ts` として配置する（例: `app/(dashboard)/categories/actions.ts`）。`app/actions/` のような共通ディレクトリには置かない。
+- 対応するページと同じディレクトリに `actions.ts` として配置する（例: `app/(dashboard)/categories/actions.ts`）。中身は 検証 → `features/*.api.ts` に委譲 → revalidate/redirect のみの薄いグルーに保つ
+- **グローバルな共通 actions ディレクトリ（`src/actions/` / `app/actions/`）は作らない**。理由: 再利用したいロジックは `features/*.api.ts` にあり、action は revalidate/redirect が route 固有の薄いグルーなので、共通化しても feature 単位の凝集を横断で割るだけでメリットが無い
+- 複数ページで完全に同一の action のみ `features/{feature}/{feature}.actions.ts` に置いて import する
 
 ## 動作確認（必須）
 

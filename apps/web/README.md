@@ -2,6 +2,24 @@
 
 Next.js 16 (App Router) を使用した Web アプリケーション
 
+## 目次
+
+- [アーキテクチャ](#アーキテクチャ)
+  - [ディレクトリ構成](#ディレクトリ構成)
+  - [依存の方向](#依存の方向)
+  - [API型の利用ルール](#api型の利用ルール)
+  - [設計原則](#設計原則)
+  - [コンポーネントの分類基準](#コンポーネントの分類基準)
+  - [Server Action の配置](#server-action-の配置)
+  - [hooks の配置](#hooks-の配置)
+- [データフェッチ戦略](#データフェッチ戦略)
+  - [前提](#前提)
+  - [4つの手段は2ペアで捉える](#4つの手段は2ペアで捉える)
+  - [読み取りの分岐点](#読み取りの分岐点)
+  - [判断フロー](#判断フロー)
+  - [使い分け早見表](#使い分け早見表)
+- [開発コマンド](#開発コマンド)
+
 ## アーキテクチャ
 
 ### ディレクトリ構成
@@ -11,7 +29,10 @@ src/
   app/                        # ルーティング + ページ構成（薄く保つ）
     (auth)/                   # Route Group（認証関連）
     dashboard/                # ダッシュボード
-    api/                      # API Route Handlers（Webhook等）
+      categories/             #   1 route = 1 ディレクトリ
+        page.tsx              #     ページ（薄いグルー。componentsを組むだけ）
+        actions.ts            #     Server Action（このページ専用・featuresに委譲）
+    api/                      # Route Handler（認証cookie/redirect・Client fetch用のprivate BFFのみ）
   components/
     ui/                       # 汎用UIコンポーネント（Button, Input等）
     layout/                   # レイアウト系（Header, Footer等）
@@ -19,10 +40,10 @@ src/
       {feature}/              #   例: auth/LoginForm.tsx
   features/                   # ロジックのみ（レンダリングなし）
     {feature}/
-      {feature}.api.ts        #   API通信
+      {feature}.api.ts        #   API通信（Server Component側でのfetch）
       {feature}.entity.ts     #   型・エンティティ
       {feature}.state.ts      #   状態管理
-  hooks/                      # 共有カスタムフック
+  hooks/                      # カスタムフック（基本はここ。UI挙動系が中心）
   libs/                       # ユーティリティ（APIクライアント等）
   constants/                  # 定数
   middleware.ts               # ミドルウェア（認証チェック等）
@@ -76,25 +97,87 @@ type User = {
 
 **判断基準:** ドメイン知識なしで動く → `ui/` / レイアウト系 → `layout/` / それ以外 → `features/{domain}/`
 
-### API 通信方式
+### Server Action の配置
 
-ブラウザから Express API を直接 fetch しない。Next.js の Server Components / Server Actions / Route Handlers を経由してサーバー間通信する。
+- 対応するページと同じディレクトリに `actions.ts` として置く（例: `app/(dashboard)/categories/actions.ts`）。中身は 検証 → `features/*.api.ts` に委譲 → revalidate/redirect のみの薄いグルーに保つ。
+- **グローバルな共通 actions ディレクトリ（`src/actions/` / `app/actions/`）は作らない。** 再利用したいロジックは `features/*.api.ts` にあり、action は revalidate/redirect が route 固有の薄いグルーなので、共通化しても feature の凝集を横断で割るだけでメリットが無い。
 
-#### データ取得（GET）
+### hooks の配置
 
-| 用途 | 方式 | 例 |
-|------|------|----|
-| ページの初期データ表示 | Server Component で `apiClient.get()` | ダッシュボード、一覧表示 |
-| Client Component からの動的データ取得 | Route Handler (`app/api/*/route.ts`) | タブ切替、検索、フィルタ変更 |
+- **基本はすべて `src/hooks/` に置く。** このアーキテクチャでは自作フックの大半が UI 挙動系の汎用フック（`useDisclosure` / `useDebounce` / `useMediaQuery` 等）になるため、種類で悩まずまず `hooks/` でよい。
+- 例外は 2 つだけ:
+  - **Zustand セレクタ**（`useCartStore` 等のドメイン状態）→ store と同居させ `features/{feature}/{feature}.state.ts`
+  - **SWR/TanStack を包む client-fetch フック**（`useNotifications` 等のドメイン API 依存）→ `features/{feature}/{feature}.hooks.ts`
+- サーバーデータは Zustand や自作フックに溜めない（→ Server Component / SWR。「データフェッチ戦略」を参照）。
 
-#### データ変更（POST/PUT/DELETE）
+## データフェッチ戦略
 
-| 用途 | 方式 | 例 |
-|------|------|----|
-| フォーム送信・ボタンによる CRUD | Server Action (`"use server"`) | 作成・更新・削除 |
-| Server Action が適さない場合 | Route Handler | ファイルアップロード、Webhook受信 |
+✅ next.jsにはデータ取得・更新手段が以下の４つが存在する。
+1. `Server Component`
+2. `Server Action`
+3. `Route Handler`
+4. `Client Fetch`
 
----
+### 前提
+基本的にはAPIサーバー（apps/api）が外部通信を行うので、Route Handler（apps/web/src/app/api）では主に以下の２つが主な役割
+
+1. 認証系の cookie セット + redirect（`app/api/auth/callback/google`・`app/api/dev/login`）
+2. 自分の Client Component（SWR / TanStack Query）専用の private エンドポイント
+
+### 4つの手段は2ペアで捉える
+
+| | デフォルト | 例外（逃げ道） |
+|---|---|---|
+| **読み取り (read)** | Server Component（`apiClient.get()`） | Client fetch（SWR / TanStack）＋ Route Handler |
+| **書き込み (write)** | Server Action（`"use server"`） | Route Handler（file upload / webhook / OAuth / cookie+redirect） |
+
+- **Client fetch と Route Handler がペアな理由** 
+  - ブラウザは httpOnly cookie の JWT を JS から読めず、Express APIを認証付きで直接叩けないから、同一オリジンの Route Handler にサーバー側で Bearer 付与を代行させる必要があるから
+
+### 読み取りの分岐点
+
+> 判断基準：**いまの状態を URL で共有したら、相手も同じ画面を見るべきか？**
+
+- **Yes** → その状態は URL に属する → **Server Component**（`searchParams` を読んで再取得）
+- **No** → 一時的な入力補助・ライブ更新 → **Client fetch（SWR / TanStack）＋ Route Handler**
+
+同じ「検索」でも、**結果がページ本体の一覧なら Server Component**、**入力中のサジェスト候補なら Client fetch** と分かれる。URL 共有テストがこれを一発で切り分ける。
+
+（補足: 検索ボックスで履歴を汚したくないだけなら `router.replace()` を使えばよく、それだけでは Route Handler の理由にならない。）
+
+### 判断フロー
+
+```mermaid
+flowchart TD
+    Q1{"書き込み or 読み取り？"}
+    Q1 -->|書き込み| Qw{"通常のフォーム / ボタン操作？"}
+    Q1 -->|読み取り| Qr{"URL で復元できる画面状態？"}
+
+    Qw -->|はい| SA["Server Action<br/>（デフォルト）"]
+    Qw -->|"特殊 I/O<br/>file upload・webhook<br/>OAuth・cookie+redirect"| RH["Route Handler"]
+
+    Qr -->|"はい<br/>初期表示・検索・フィルタ<br/>タブ・ページ・ソート"| SC["Server Component<br/>（searchParams・デフォルト）"]
+    Qr -->|"いいえ<br/>URL に出さない動的取得"| CF["Client fetch（SWR / TanStack）<br/>＋ Route Handler"]
+```
+
+### 使い分け早見表
+
+| 機能 | 判定 | 手段 |
+|---|---|---|
+| 一覧の初期表示 | URL 共有すべき | Server Component |
+| `?status=paid` フィルタ | URL 共有すべき | Server Component |
+| `?page=2` ページネーション | URL 共有すべき | Server Component |
+| 検索ボックス（結果が一覧本体） | URL 共有すべき | Server Component（`router.replace` でデバウンス） |
+| `?tab=profile`（タブごとに別データ） | URL 共有すべき | Server Component |
+| タブ（取得済みデータの表示切替だけ） | fetch 不要 | Client state のみ |
+| 検索のサジェスト候補ドロップダウン | 共有しない | Client fetch ＋ Route Handler |
+| 通知バッジの未読数ポーリング | 共有しない | Client fetch ＋ Route Handler |
+| 無限スクロールの追加読み込み | 共有しない | Client fetch ＋ Route Handler |
+| いいね / カート追加 / 削除 | 書き込み | Server Action |
+| ユーザー登録・プロフィール更新フォーム | 書き込み | Server Action |
+| CSV / 画像アップロード | 特殊 I/O | Route Handler |
+| Google OAuth コールバック | cookie + redirect | Route Handler |
+
 
 ## 開発コマンド
 

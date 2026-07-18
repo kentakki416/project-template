@@ -84,7 +84,11 @@
   </div>
 
   <h3>7.2 Client 動的取得用の Route Handler</h3>
-  <p>検索はキー入力のたびにサーバーへ問い合わせます。これは「Client Component からの動的取得」なので、規約どおり <b>Route Handler</b>（<code>app/api/*/route.ts</code>）を作り、そこへ<b>同一オリジンで</b> fetch します（ブラウザから Express を直接叩かない原則は維持）。</p>
+  <div class="box note">
+    <div class="bh">先に：一覧の絞り込みは本来 searchParams + Server Component が既定</div>
+    <p>判断基準は「<b>いまの状態を URL で共有したら、相手も同じ画面を見るべきか？</b>」。<b>Yes</b>（一覧そのものを絞り込む検索で、共有・リロードで復元したい）なら <code>?q=...</code> を <code>searchParams</code> に載せて <b>Server Component</b> が再取得するのが既定で、Route Handler も Zustand も要りません。<b>No</b>（サジェスト候補・入力補助のような URL に残さないライブ取得）なら、下記の <b>Client fetch ＋ Route Handler</b> の出番です。詳しくは web の README「データフェッチ戦略／読み取りの分岐点」を参照。</p>
+  </div>
+  <p>この章では<b>後者（URL に残さないライブ検索）</b>を題材に、Client からの動的取得と Zustand を学びます。検索はキー入力のたびにサーバーへ問い合わせるので、規約どおり <b>Route Handler</b>（<code>app/api/*/route.ts</code>）を作り、そこへ<b>同一オリジンで</b> fetch します（ブラウザから Express を直接叩かない原則は維持）。</p>
 
   <script type="text/plain" class="src" data-lang="ts" data-file="apps/web/src/app/api/memos/route.ts（新規）">
 import { NextRequest, NextResponse } from "next/server"
@@ -112,7 +116,7 @@ export const GET = async (req: NextRequest) => {
 
   <div class="box why">
     <div class="bh">なぜ検索は Server Action ではなく Route Handler？</div>
-    <p>検索は<b>データ取得（GET 相当）</b>だから。規約で「Server Action は mutation 専用、GET に使ってはいけない」と定めています。取得は Server Component（初期表示）か Route Handler（クライアントからの動的取得）に振り分けます。今回はキー入力に応じた動的取得なので Route Handler が正解。</p>
+    <p>検索は<b>データ取得（GET 相当）</b>で、規約で「Server Action は mutation 専用、GET に使ってはいけない」と定めているので、まず Server Action は外れます。残る取得手段は <b>Server Component</b>（<code>searchParams</code> 経由。URL 共有したい一覧絞り込みの既定）か <b>Route Handler</b>（URL に残さない Client 動的取得）。今回は<b>後者（キー入力ごとのライブ検索・URL に残さない）</b>を題材にしているので Route Handler が正解です。</p>
   </div>
 
   <h3>7.3 Zustand ストア（規約：アクション名に <code>Store</code>）</h3>

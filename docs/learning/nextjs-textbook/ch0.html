@@ -142,7 +142,7 @@ export type CreateMemoRequest = z.infer<typeof createMemoRequestSchema>
   </div>
 
   <h3>0.4 依存の方向：<code>app → components → features</code></h3>
-  <p>このプロジェクトはフロント3アプリ（web / admin / mobile）で<b>ディレクトリ規約を統一</b>しています。技術単位（hooks/ や utils/）ではなく<b>機能単位</b>で分け、依存の向きを一方向に保ちます。</p>
+  <p>このプロジェクトはフロント3アプリ（web / admin / mobile）で<b>ディレクトリ規約を統一</b>しています。<b>ドメイン固有のロジックは機能単位（<code>features/</code>）</b>で分け、依存の向きを一方向に保ちます。汎用フックや純関数など<b>ドメインを持たない共有コード</b>だけを <code>hooks/</code>・<code>libs/</code> の共有ティアに置きます（＝技術単位でドメインを散らかさない、という意味）。</p>
 
   <figure class="diagram">
   <svg viewBox="0 0 640 150" role="img" aria-label="依存方向の図">
