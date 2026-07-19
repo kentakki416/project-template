@@ -10,7 +10,15 @@ const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
   ? ["/api/dev/login"]
   : []
 
+/**
+ * 認証不要で通す公開パス。
+ * memo はユーザー非依存（グローバル）で、Express 側も `/api/memo` を PUBLIC_PATHS に
+ * 入れているため、web でも一覧ページ `/memos` と検索 Route Handler `/api/memos` を
+ * 未ログインで通す。
+ */
 const PUBLIC_PATHS = [
+  "/memos",
+  "/api/memos",
   "/sign-in",
   "/api/auth/callback/google",
   ...DEV_ONLY_PUBLIC_PATHS,

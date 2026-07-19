@@ -19,7 +19,7 @@
 | Component を export するファイル | PascalCase | `UserProfile.tsx`, `LoginForm.tsx`, `Button.tsx` |
 | テストファイル | テスト対象の関数名 + `.test.ts` | `getUserById.test.ts`, `authenticateWithGoogle.test.ts` |
 
-- フロントの `features/` 内はドット区切りで役割を表す: `{name}.api.ts` / `{name}.entity.ts` / `{name}.state.ts`。
+- フロントの `features/` 内はドット区切りで役割を表す: `{name}.api.ts` / `{name}.entity.ts` / `{name}.store.ts`（zustand ストア）。
 - API スキーマはエンドポイントと 1 対 1（`api-schema/category.ts`）。アプリ固有はサブディレクトリに分ける（`api-schema/admin/stats.ts`）。
 
 ## 変数名

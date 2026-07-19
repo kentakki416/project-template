@@ -15,7 +15,7 @@ import EmptyView from "@/components/features/memo/EmptyView"
 import MemoListItem from "@/components/features/memo/MemoListItem"
 import { COLORS } from "@/constants/color"
 import { memoApi } from "@/features/memo/memo.api"
-import { useMemoStore } from "@/features/memo/memo.state"
+import { useMemoStore } from "@/features/memo/memo.store"
 
 export default function MemoListScreen() {
   const router = useRouter()

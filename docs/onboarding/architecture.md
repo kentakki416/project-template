@@ -125,7 +125,7 @@ src/
   features/{name}/        # ロジックのみ（レンダリングなし）
     {name}.api.ts         # API 通信
     {name}.entity.ts      # 型・エンティティ
-    {name}.state.ts       # 状態管理（zustand）
+    {name}.store.ts       # 状態管理（zustand）
   hooks/                  # 共有カスタムフック
   constants/              # 定数
 ```

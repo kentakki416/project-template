@@ -42,7 +42,7 @@ src/
     {feature}/
       {feature}.api.ts        #   API通信（Server Component側でのfetch）
       {feature}.entity.ts     #   型・エンティティ
-      {feature}.state.ts      #   状態管理
+      {feature}.store.ts      #   状態管理（zustand）
   hooks/                      # カスタムフック（基本はここ。UI挙動系が中心）
   libs/                       # ユーティリティ（APIクライアント等）
   constants/                  # 定数
@@ -106,7 +106,7 @@ type User = {
 
 - **基本はすべて `src/hooks/` に置く。** このアーキテクチャでは自作フックの大半が UI 挙動系の汎用フック（`useDisclosure` / `useDebounce` / `useMediaQuery` 等）になるため、種類で悩まずまず `hooks/` でよい。
 - 例外は 2 つだけ:
-  - **Zustand セレクタ**（`useCartStore` 等のドメイン状態）→ store と同居させ `features/{feature}/{feature}.state.ts`
+  - **Zustand セレクタ**（`useCartStore` 等のドメイン状態）→ store と同居させ `features/{feature}/{feature}.store.ts`
   - **SWR/TanStack を包む client-fetch フック**（`useNotifications` 等のドメイン API 依存）→ `features/{feature}/{feature}.hooks.ts`
 - サーバーデータは Zustand や自作フックに溜めない（→ Server Component / SWR。「データフェッチ戦略」を参照）。
 

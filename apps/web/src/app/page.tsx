@@ -1,7 +1,7 @@
 import type { GetUserResponse } from "@repo/api-schema"
 
-import { RefreshButton } from "@/components/user/refresh-button"
-import { UserBotAnimation } from "@/components/user/user-bot-animation"
+import { RefreshButton } from "@/components/features/user/refresh-button"
+import { UserBotAnimation } from "@/components/features/user/user-bot-animation"
 import { getUser } from "@/features/user/get-user"
 
 /**
