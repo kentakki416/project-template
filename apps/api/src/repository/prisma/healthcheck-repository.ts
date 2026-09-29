@@ -1,11 +1,6 @@
 import { PrismaClient } from "@repo/db"
 
-/**
- * データベースのヘルスチェック用リポジトリのインターフェース
- */
-export interface DatabaseHealthRepository {
-  ping(): Promise<void>
-}
+import type { DatabaseHealthRepository } from "../database-health-repository"
 
 /**
  * Prisma実装のデータベースヘルスチェックリポジトリ

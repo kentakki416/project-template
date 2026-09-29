@@ -1,8 +1,7 @@
 import { ok, Result } from "@repo/errors"
 import { logger } from "@repo/logger"
 
-import { DatabaseHealthRepository } from "../repository/prisma"
-import { RedisHealthRepository } from "../repository/redis"
+import { DatabaseHealthRepository, RedisHealthRepository } from "../repository"
 
 export type ServiceStatus = {
   latency_ms: number

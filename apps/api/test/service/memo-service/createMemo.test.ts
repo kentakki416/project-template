@@ -1,6 +1,6 @@
 import { Memo } from "@repo/domain"
 
-import { CreateMemoInput, MemoRepository } from "../../../src/repository/prisma/memo-repository"
+import { CreateMemoInput, MemoRepository } from "../../../src/repository"
 import { createMemo } from "../../../src/service/memo-service"
 
 // モック

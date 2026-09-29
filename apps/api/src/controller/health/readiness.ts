@@ -4,8 +4,7 @@ import { healthReadinessResponseSchema } from "@repo/api-schema"
 import { logger } from "@repo/logger"
 
 import { parseResponse } from "../../lib/parse-schema"
-import { DatabaseHealthRepository } from "../../repository/prisma"
-import { RedisHealthRepository } from "../../repository/redis"
+import { DatabaseHealthRepository, RedisHealthRepository } from "../../repository"
 import * as service from "../../service"
 
 /**

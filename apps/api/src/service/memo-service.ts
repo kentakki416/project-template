@@ -2,7 +2,7 @@ import { Memo } from "@repo/domain"
 import { err, notFoundError, ok, Result } from "@repo/errors"
 import { logger } from "@repo/logger"
 
-import { CreateMemoInput, MemoRepository, UpdateMemoInput } from "../repository/prisma"
+import { CreateMemoInput, MemoRepository, UpdateMemoInput } from "../repository"
 
 type MemoRepo = { memoRepository: MemoRepository }
 

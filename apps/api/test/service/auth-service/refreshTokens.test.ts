@@ -1,4 +1,4 @@
-import { RefreshTokenRepository } from "../../../src/repository/redis/refresh-token-repository"
+import { RefreshTokenRepository } from "../../../src/repository"
 import { refreshTokens } from "../../../src/service/auth-service"
 
 const mockDelete = vi.fn<(_0: string) => Promise<void>>()

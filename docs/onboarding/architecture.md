@@ -78,7 +78,7 @@ Router → Controller → Service → Repository → (Prisma / Redis)
 | **Router** | `src/routes/` | `export const {feature}Router = (controllers) => Router` | エンドポイントを登録。controllers はオプショナルオブジェクト |
 | **Controller** | `src/controller/{feature}/` | `class` + `execute(req, res)`。API と 1 対 1 | Zod で入出力を検証し、Service を呼ぶ。**try-catch は書かない** |
 | **Service** | `src/service/` | `export const` のアロー関数 | 業務ロジック。戻り値は必ず `Promise<Result<T>>` |
-| **Repository** | `src/repository/prisma/`・`repository/redis/` | `interface` + `class Prisma{X}Repository implements` | DB / Redis アクセスを集約。`_toDomain()` でドメイン型へ変換 |
+| **Repository** | interface: `src/repository/`／実装: `src/repository/prisma/`・`repository/redis/` | `interface` + `class Prisma{X}Repository implements` | DB / Redis アクセスを集約。`_toDomain()` でドメイン型へ変換。Service / Controller は `src/repository` バレルから interface だけを import する |
 | **Domain 型** | `packages/domain`（`@repo/domain`） | 機能ごとにファイル + `index.ts` バレル | Repository / Service が参照する型。api / cron / worker で共有する。`@repo/api-schema` にも Prisma にも依存しない |
 
 - **DI**: `src/index.ts` で Repository → Controller → Router の順にインスタンス化して組み立てる。

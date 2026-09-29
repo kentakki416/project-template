@@ -4,7 +4,7 @@ import { getMemoListResponseSchema } from "@repo/api-schema"
 
 import { parseResponse } from "../../lib/parse-schema"
 import { sendError } from "../../lib/send-error"
-import { MemoRepository } from "../../repository/prisma"
+import { MemoRepository } from "../../repository"
 import * as service from "../../service"
 
 /**

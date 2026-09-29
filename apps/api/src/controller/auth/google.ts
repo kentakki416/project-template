@@ -9,10 +9,10 @@ import { parseRequest, parseResponse } from "../../lib/parse-schema"
 import { sendError } from "../../lib/send-error"
 import {
   AuthAccountRepository,
+  RefreshTokenRepository,
+  type TransactionRunner,
   UserRepository,
-} from "../../repository/prisma"
-import { RefreshTokenRepository } from "../../repository/redis"
-import type { TransactionRunner } from "../../repository/transaction"
+} from "../../repository"
 import * as service from "../../service"
 
 /**

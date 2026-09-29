@@ -1,11 +1,6 @@
 import type { Redis } from "@repo/redis"
 
-/**
- * Redisのヘルスチェック用リポジトリのインターフェース
- */
-export interface RedisHealthRepository {
-  ping(): Promise<void>
-}
+import type { RedisHealthRepository } from "../redis-health-repository"
 
 /**
  * ioredis実装のRedisヘルスチェックリポジトリ

@@ -2,26 +2,9 @@ import { Prisma as PrismaTypes, PrismaClient } from "@repo/db"
 import { User } from "@repo/domain"
 
 import type { TransactionContext } from "../transaction"
+import type { CreateUserInput, UserRepository } from "../user-repository"
 
 import { resolvePrismaClient } from "./transaction-runner"
-
-/**
- * ユーザー作成時の入力
- */
-export type CreateUserInput = {
-    avatarUrl?: string
-    email?: string
-    name?: string
-}
-
-/**
- * ユーザーリポジトリのインターフェース
- */
-export interface UserRepository {
-    create(data: CreateUserInput, tx?: TransactionContext): Promise<User>
-    findByEmail(email: string): Promise<User | null>
-    findById(id: number): Promise<User | null>
-}
 
 /**
  * Prisma実装のユーザーリポジトリ
@@ -58,8 +41,8 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   /**
-     * Prismaの型 → ドメインの型に変換
-     */
+   * Prismaの型 → ドメインの型に変換
+   */
   private _toDomainUser(prismaUser: PrismaTypes.UserGetPayload<{}>): User {
     return {
       avatarUrl: prismaUser.avatarUrl,
