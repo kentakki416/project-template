@@ -9,7 +9,7 @@ import { memoApi } from "@/features/memo/memo.api"
 
 /** useActionStateに返すフォームの状態 */
 export type MemoFormState = {
-  errors?: {title?: string[], body?: string[]}
+  errors?: { title?: string[], body?: string[] }
   message?: string
 }
 

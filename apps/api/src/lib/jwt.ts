@@ -15,16 +15,16 @@ const JWT_ACCESS_EXPIRATION = env.JWT_ACCESS_EXPIRATION as SignOptions["expiresI
 const JWT_REFRESH_EXPIRATION = env.JWT_REFRESH_EXPIRATION as SignOptions["expiresIn"]
 
 export type AccessTokenPayload = {
-    exp?: number
-    iat?: number
-    userId: number
+  exp?: number
+  iat?: number
+  userId: number
 }
 
 export type RefreshTokenPayload = {
-    exp?: number
-    iat?: number
-    jti: string
-    userId: number
+  exp?: number
+  iat?: number
+  jti: string
+  userId: number
 }
 
 /**

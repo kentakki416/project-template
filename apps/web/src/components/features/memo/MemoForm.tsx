@@ -9,7 +9,7 @@ type MemoAction = (prev: MemoFormState, formData: FormData) => Promise<MemoFormS
 
 type Props = {
   action: MemoAction,
-  defaultValues?: { title?: string, body?: string}
+  defaultValues?: { title?: string, body?: string }
   submitLabel: string
 }
 

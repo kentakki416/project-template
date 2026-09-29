@@ -8,7 +8,7 @@ import { MemoForm } from "@/components/features/memo/MemoForm"
 import { memoApi } from "@/features/memo/memo.api"
 import { ApiClientError } from "@/libs/api-client"
 
-type Props = { params: Promise<{id: string}>}
+type Props = { params: Promise<{ id: string }> }
 
 export const metadata: Metadata = { title: "メモを編集" }
 

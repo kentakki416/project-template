@@ -8,16 +8,16 @@ import type { Storage } from "./storage"
  */
 export type StorageConfig =
   | {
-      baseDir: string
-      publicUrlPrefix: string
-      type: "local"
-    }
+    baseDir: string
+    publicUrlPrefix: string
+    type: "local"
+  }
   | {
-      bucket: string
-      publicUrlBase: string
-      region?: string
-      type: "s3"
-    }
+    bucket: string
+    publicUrlBase: string
+    region?: string
+    type: "s3"
+  }
 
 /**
  * config.type に応じて Storage 実装を選択する factory（strategy）。

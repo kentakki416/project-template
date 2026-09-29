@@ -27,7 +27,7 @@ type MarkerStyle = {
     fill: string;
     r: number; // Radius for markers
   };
-};
+}
 
 type Marker = {
   latLng: [number, number];
@@ -39,7 +39,7 @@ type Marker = {
     stroke?: string;
     strokeOpacity?: number;
   };
-};
+}
 
 export default function CountryMap({ mapColor }: CountryMapProps) {
   return (

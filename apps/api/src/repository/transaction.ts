@@ -25,5 +25,5 @@ export type TransactionContext = {
  * Repository は受け取った `tx` を使って書き込めば、`run` の callback 内すべてが同一 tx で実行される。
  */
 export interface TransactionRunner {
-    run<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T>
+  run<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T>
 }

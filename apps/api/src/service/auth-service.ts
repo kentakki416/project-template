@@ -11,22 +11,22 @@ import {
 } from "../repository"
 
 export type AuthenticateWithGoogleSuccess = {
-    accessToken: string
-    isNewUser: boolean
-    refreshToken: string
-    user: User
+  accessToken: string
+  isNewUser: boolean
+  refreshToken: string
+  user: User
 }
 
 type Repositories = {
-    authAccountRepository: AuthAccountRepository
-    refreshTokenRepository: RefreshTokenRepository
-    transactionRunner: TransactionRunner
-    userRepository: UserRepository
+  authAccountRepository: AuthAccountRepository
+  refreshTokenRepository: RefreshTokenRepository
+  transactionRunner: TransactionRunner
+  userRepository: UserRepository
 }
 
 type TokenGenerators = {
-    generateAccessToken: (userId: number) => string
-    generateRefreshToken: (userId: number) => { jti: string; token: string }
+  generateAccessToken: (userId: number) => string
+  generateRefreshToken: (userId: number) => { jti: string; token: string }
 }
 
 const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 7
@@ -106,9 +106,9 @@ export const authenticateWithGoogle = async (
 }
 
 export type LoginAsDevUserSuccess = {
-    accessToken: string
-    refreshToken: string
-    user: User
+  accessToken: string
+  refreshToken: string
+  user: User
 }
 
 /**
@@ -147,8 +147,8 @@ export const loginAsDevUser = async (
 }
 
 export type RefreshTokensSuccess = {
-    accessToken: string
-    refreshToken: string
+  accessToken: string
+  refreshToken: string
 }
 
 type RefreshVerifier = (token: string) => { jti: string; userId: number } | null

@@ -45,8 +45,12 @@ ESLint 本体の formatting ルールは v8.53.0 で deprecated、v11.0.0 で削
 | `no-multi-spaces` | `@stylistic/no-multi-spaces` |
 | `no-return-await` | `@typescript-eslint/return-await` |
 
-検査対象・オプションは移行前と同じ（`type` / `interface` / `enum` の中身は本体同様に
-検査しない）。理由は `common-rules.js` のコメントを参照。
+オプションは本体と同じ値を渡している。例外は `@stylistic/indent` の `SwitchCase: 0`
+（本体は 0 / @stylistic は 1 が既定）だけ。
+
+本体の formatting ルールは TS 固有ノードを検査していなかったが、**@stylistic は
+`type` / `interface` / `enum` の中身も検査する**。セミコロンなし・`{ foo }`・
+2 スペースが型宣言にも効く。
 
 `@stylistic` は `commonRules` を使う側で登録が必要なので、`commonPlugins` を
 同じ config オブジェクトの `plugins` に展開する（→ [使い方](#使い方新規-app-追加時)）。

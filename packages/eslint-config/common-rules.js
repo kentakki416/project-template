@@ -15,72 +15,21 @@
 const stylistic = require("@stylistic/eslint-plugin")
 
 /**
- * 本体の formatting ルールが検査していなかったノード種別。
+ * formatting 系ルールを提供する plugin。
  *
  * ESLint 本体の formatting ルール (indent / quotes / semi 等) は v8.53.0 で
- * deprecated、v11.0.0 で削除される。後継の `@stylistic/eslint-plugin` は
- * 同名・同オプションだが、本体が持っていなかった TS 構文 (`type` / `interface`
- * / `enum` / decorator など) の検査が追加されている。
- *
- * そのまま入れ替えると「移行したら既存コードが一斉に整形された」状態になり、
- * deprecated 対応と整形が 1 つの差分に混ざってしまう。ここでは検査範囲を本体と
- * 同じに保ち、TS 構文まで広げるかどうかは別の判断として切り離す。
- *
- * この一覧は本体 indent の KNOWN_NODES に無いノード種別（= 本体が
- * 「構造を知らない」として検査を諦めていたもの）と一致する。
- */
-const CORE_UNCHECKED_NODE_TYPES = new Set([
-  "AccessorProperty",
-  "Decorator",
-  "ImportAttribute",
-  "JSXSpreadChild",
-])
-
-const isNodeTypeUncheckedByCoreRules = (nodeType) =>
-  nodeType.startsWith("TS") || CORE_UNCHECKED_NODE_TYPES.has(nodeType)
-
-/**
- * TS 固有ノードへの報告だけを落として、本体ルールと同じ検査範囲にしたルールを作る。
- *
- * `indent` は `ignoredNodes` オプションで同じ除外ができるのでラップ不要。
- * `semi` / `object-curly-spacing` はノードを絞るオプションを持たないのでここで包む。
- */
-const createCoreCompatibleRule = (rule) => ({
-  ...rule,
-  create: (context) =>
-    rule.create(
-      Object.create(context, {
-        report: {
-          value: (descriptor) => {
-            if (descriptor.node && isNodeTypeUncheckedByCoreRules(descriptor.node.type)) {
-              return
-            }
-            context.report(descriptor)
-          },
-        },
-      }),
-    ),
-})
-
-/**
- * formatting 系ルールを提供する plugin。
+ * deprecated、v11.0.0 で削除されるため `@stylistic/eslint-plugin` の同名ルールを
+ * 使う。本体が検査していなかった TS 構文 (`type` / `interface` / `enum` の中身)
+ * も検査されるので、セミコロンなし・`{ foo }`・2 スペースが型宣言にも効く。
  *
  * commonRules を spread する config は、同じ config オブジェクトに
  * `plugins: { ...commonPlugins }` も並べる必要がある
  * (plugin 未登録の namespace を rules で参照すると ESLint が起動時に落ちる)。
  * eslint-config-next / eslint-config-expo は `@stylistic` を登録しないので
- * `@typescript-eslint` のような "Cannot redefine plugin" は起きない
- * (このモジュールが唯一の生成元なので、全 app が同じオブジェクトを受け取る)。
+ * `@typescript-eslint` のような "Cannot redefine plugin" は起きない。
  */
 const commonPlugins = {
-  "@stylistic": {
-    ...stylistic,
-    rules: {
-      ...stylistic.rules,
-      "object-curly-spacing": createCoreCompatibleRule(stylistic.rules["object-curly-spacing"]),
-      semi: createCoreCompatibleRule(stylistic.rules.semi),
-    },
-  },
+  "@stylistic": stylistic,
 }
 
 const commonNamingConvention = [
@@ -109,22 +58,8 @@ const commonRules = {
    * インデント
    *
    * SwitchCase のデフォルトが本体は 0 / @stylistic は 1 なので明示する。
-   * ignoredNodes は CORE_UNCHECKED_NODE_TYPES と同じ除外をオプションで再現したもの。
    */
-  "@stylistic/indent": [
-    "error",
-    2,
-    {
-      SwitchCase: 0,
-      ignoredNodes: [
-        "[type=/^TS/]",
-        "AccessorProperty",
-        "Decorator",
-        "ImportAttribute",
-        "JSXSpreadChild",
-      ],
-    },
-  ],
+  "@stylistic/indent": ["error", 2, { SwitchCase: 0 }],
 
   /** Console */
   "no-console": ["warn", { allow: ["warn", "error"] }],

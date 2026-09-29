@@ -1,4 +1,4 @@
-type AspectRatio = "16:9" | "4:3" | "21:9" | "1:1";
+type AspectRatio = "16:9" | "4:3" | "21:9" | "1:1"
 
 interface YouTubeEmbedProps {
   videoId: string;

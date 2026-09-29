@@ -12,7 +12,7 @@ type SidebarContextType = {
   setIsHovered: (isHovered: boolean) => void;
   setActiveItem: (item: string | null) => void;
   toggleSubmenu: (item: string) => void;
-};
+}
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined)
 
