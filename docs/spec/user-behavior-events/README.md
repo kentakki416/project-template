@@ -125,7 +125,15 @@ web / admin / mobile は **DB を直接触らず必ず API を経由する** と
 | `@repo/queue` | `track-event` queue の名前と Job 型（既存パッケージに追加） | ❌ |
 | `@repo/api-schema` | `POST /api/events` のリクエストスキーマ（フロントが使う） | ✅ |
 
-`@repo/data-warehouse` を技術名ではなく役割名にしているのは、**将来 BigQuery 等へ移行する余地を残すため**。ただし interface は `insertAll` だけに絞る。クエリ・DDL・マイグレーションはバックエンドごとに差が大きく、汎用化すると必ず漏れる（→ [`deferred-event-delivery.md`](./deferred-event-delivery.md)）。
+`@repo/data-warehouse` を技術名ではなく役割名にしている理由は 3 つ。
+
+1. **テストで ClickHouse を立てずに済む**（fake の `DataWarehouse` を渡せば worker の Repository をユニットテストできる）
+2. **技術名を `apps/worker/src/index.ts` の 1 箇所に封じ込められる**（`apps/worker` の他のコードは ClickHouse を知らない）
+3. ClickHouse Cloud / Tinybird のような **同じ SQL 方言のマネージドサービスへの乗り換えが容易になる**
+
+interface は `insertAll` / `close` だけに絞る。クエリ・DDL・マイグレーションはバックエンドごとに差が大きく、汎用化すると必ず漏れるため。
+
+なお **BigQuery のような別方言への移行はこの抽象化ではほとんど楽にならない**（吸収できるのは書き込み経路だけで、移行コストの大半はクエリとダッシュボードの作り直し）。詳細は [`deferred-event-delivery.md`](./deferred-event-delivery.md)。
 
 `EventTracker` を interface にしているのは、**送出の transport を後から差し替えられるようにするため**。MVP の実装は Queue に enqueue するだけで、ClickHouse への書き込みは `apps/worker` が持つ。将来ログ経由に切り替える場合も service 層のコードは変わらない（→ [`deferred-event-delivery.md`](./deferred-event-delivery.md)）。テストでは fake に差し替え、Redis も ClickHouse も無しで service をテストする。
 
