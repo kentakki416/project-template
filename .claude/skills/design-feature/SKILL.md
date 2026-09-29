@@ -1,6 +1,6 @@
 ---
 name: design-feature
-description: 新機能の設計をまとめる skill。docs/spec/{feature}/ に人間用 README（仕様 / 設計を分離した構造）と AI 実装用の step ファイル（実装手順・コード例）を作成する。さらに docs/spec/README.md（全機能のクイックリファレンス）も同時に更新する。実装はこの skill が完了してから着手する。ユーザーが「〜の設計を作って」「〜機能を追加したい」「新しい機能を考えたい」など、新機能の仕様策定を依頼したときに使用する。デザインモック作成は対象外（design-mock skill を使う）。
+description: 新機能の設計をまとめる skill。docs/spec/{feature}/ に人間用 README（仕様 / 設計を分離した構造）と、AI 実装用の step ファイル（実装手順・コード例）を tasks/ 配下に作成する。さらに docs/spec/README.md（全機能のクイックリファレンス）も同時に更新する。実装はこの skill が完了してから着手する。ユーザーが「〜の設計を作って」「〜機能を追加したい」「新しい機能を考えたい」など、新機能の仕様策定を依頼したときに使用する。デザインモック作成は対象外（design-mock skill を使う）。
 ---
 
 # design-feature
@@ -15,7 +15,8 @@ description: 新機能の設計をまとめる skill。docs/spec/{feature}/ に�
 docs/spec/{feature}/ ディレクトリ作成
   ├── README.md（人間用：仕様 / 設計 / 画面 / API / DB / フロー図）
   ├── deferred-*.md（MVP 対象外の将来設計を保存する場合のみ）
-  └── step*.md（AI 実装用：レイヤー別の実装手順・コード例・テスト）
+  └── tasks/
+      └── step*.md（AI 実装用：レイヤー別の実装手順・コード例・テスト）
   ↓
 docs/spec/README.md（全機能のクイックリファレンス）に追記
   ↓
@@ -33,13 +34,15 @@ docs/spec/
 ├── README.md                           ← 全機能のクイックリファレンス（このskillで都度更新）
 ├── template/
 │   ├── README.md                       ← 機能ごとのREADMEテンプレ
-│   └── step1-template.md               ← stepファイルテンプレ
+│   └── tasks/
+│       └── step1-template.md           ← stepファイルテンプレ
 ├── {feature-a}/
 │   ├── README.md                       ← 人間用設計書（仕様 / 設計を分離）
 │   ├── deferred-*.md                   ← MVP 対象外の将来設計（必要時のみ）
-│   ├── step1-db-{topic}.md             ← AI 実装用
-│   ├── step2-api-{endpoint}.md
-│   └── ...
+│   └── tasks/                          ← AI 実装用の手順書はここに集約
+│       ├── step1-db-{topic}.md
+│       ├── step2-api-{endpoint}.md
+│       └── ...
 └── {feature-b}/
     └── ...
 ```
@@ -169,8 +172,9 @@ docs/spec/
   - **既存仕様との差分（着手時のチェックリスト）**
 - 本体 README.md の「## 設計」セクションに **「MVP 対象外（将来検討）」サブセクション** を置き、deferred ドキュメントへのリンクを貼る
 
-### {feature}/step*.md（AI 実装用：How を詳細に）
+### {feature}/tasks/step*.md（AI 実装用：How を詳細に）
 
+- **配置**: `docs/spec/{feature}/tasks/` 配下（README と同階層に置かない）
 - ファイル名: `step{number}-{db|api|web|mobile|admin}-{feature}.md`
 - 例: `step1-db-users.md`, `step2-api-create-user.md`, `step3-web-signup-page.md`
 - **テスト可能な最小単位** で分割
@@ -197,7 +201,7 @@ docs/spec/
 設計書を作成する前に、テンプレートと既存機能の設計書を読んで形式を合わせる:
 
 - `docs/spec/template/README.md` — 機能ごとの README テンプレ
-- `docs/spec/template/step1-template.md` — step ファイルテンプレ
+- `docs/spec/template/tasks/step1-template.md` — step ファイルテンプレ
 - `docs/spec/template/quick-reference.md` — `docs/spec/README.md` のテンプレ
 - `docs/spec/{既存機能}/` — 既存機能の設計書（あれば最も網羅的なものを参考）
 
@@ -235,7 +239,7 @@ MVP 対象外の機能・将来課題が出てきたら、本体 README では�
 - 着手トリガー、対象範囲、設計案、差分チェックリストを含める
 - 本体 README の「## 設計 > MVP 対象外（将来検討）」サブセクションからリンクを貼る
 
-### Step 4: docs/spec/{feature}/step*.md を作成
+### Step 4: docs/spec/{feature}/tasks/step*.md を作成
 
 テスト可能な最小単位で分割:
 
@@ -279,6 +283,7 @@ OK が出たら設計フェーズ完了。実装に入る前にデザインの�
 - **モックを作成する**（このskillの責務外。`design-mock` skill を使う）
 - **UI の確定仕様を書き込む**（`design-mock` skill で確定後に追記される）
 - ユーザー確認なしに DB/API の方針を独断で決める
+- **step ファイルを `docs/spec/{feature}/` 直下に置く**（必ず `tasks/` 配下に置く）
 - `docs/spec/template/` の形式から逸脱する
 - `docs/spec/README.md`（クイックリファレンス）の更新を忘れる
 - MVP 対象外の機能を本体 README にダラダラ書く（deferred ドキュメントに切り出す）
