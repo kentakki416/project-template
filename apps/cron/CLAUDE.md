@@ -46,7 +46,7 @@ apps/cron/
 
 - **`task/<name>.ts`**: cron 1 本 = 1 ファイル。env を組み立てて Prisma client / Repository を生成し、service に DI するだけ。閾値計算や件数集計などのドメインロジックは書かない。サブディレクトリは切らない
 - **`service/<domain>/`**: 業務ロジック層。`export const` のアロー関数で定義し、Repository は単一でも `repo: { xxxRepository }` のオブジェクト引数で受ける（将来 Repository が増えてもシグネチャを変えなくて済む）。`service/index.ts` で `export * as <domain> from "./<domain>"` してバレル、task からは `service.<domain>.<method>(input, { xxxRepository })` で呼ぶ。`apps/api` の service と同じ流儀。**Repository class を service の中に書かない**
-- **`repository/prisma/`**: `interface XxxRepository` + `class PrismaXxxRepository implements XxxRepository` のペア。`index.ts` で barrel export
+- **`repository/prisma/`**: `interface XxxRepository` + `class PrismaXxxRepository implements XxxRepository` のペア。`index.ts` で barrel export。**interface の引数・戻り値に Prisma の型を出さず、必要なら `@repo/domain` の型を使う**
 - **`runtime/`**: プロセスライフサイクル関連（graceful shutdown 等）
 - **`lib/`** (任意): env も DB も知らない純関数のみ
 - **`client/<service>/`** (任意): 外部 API クライアント class。env を直接 import せずコンストラクタ DI
@@ -54,6 +54,18 @@ apps/cron/
 ### Repository の interface 分離
 
 cron 側の Repository (`PrismaMemoRepository`) は apps/api 側と意図的に分離している。`api` は CRUD ベース、`cron` は batch 削除など別の操作セットを持つので、共有 interface を作ると不要なメソッドが両方に漏れる。**各 app で必要な操作のみを持つ独自 interface を定義する**方針。
+
+ドメイン型（`Memo` / `User` 等）は逆に `@repo/domain` で共有する。api / cron / worker は 1 つの DB と Prisma schema を共有する単一アプリの実行形態違いなので、型を app ごとに複製しても独立性は得られず drift のリスクだけが増える。
+
+### Prisma の型は repository 実装の内側に閉じる
+
+**`@repo/eslint-config/prisma-boundary` で lint 強制している**（`eslint.config.js` で spread 済み）。`@repo/db` の Prisma 型（`Memo` / `User` / `AuthAccount` / `Prisma`）を import してよいのは以下だけ:
+
+- `repository/prisma/*.ts` の **実装クラスの内側**（`_toDomainXxx` のような変換関数の引数）
+- `src/task/*.ts`（`createPrismaClient` の呼び出し。`PrismaClient` 型は制限対象外）
+- `src/runtime/graceful-shutdown.ts`（`$disconnect()` のための `PrismaClient` 型）
+
+現状の `MemoRepository` は `deleteOlderThan(threshold: Date): Promise<number>` のみで Prisma 型を一切公開していない。新しい操作を追加するときもこの形を保つ。
 
 ### env / errors / logger
 

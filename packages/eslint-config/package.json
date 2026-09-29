@@ -5,11 +5,13 @@
   "main": "./index.js",
   "exports": {
     ".": "./index.js",
-    "./common-rules": "./common-rules.js"
+    "./common-rules": "./common-rules.js",
+    "./prisma-boundary": "./prisma-boundary.js"
   },
   "files": [
+    "common-rules.js",
     "index.js",
-    "common-rules.js"
+    "prisma-boundary.js"
   ],
   "dependencies": {
     "@typescript-eslint/eslint-plugin": "^8.46.4",

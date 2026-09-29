@@ -123,6 +123,12 @@ class PrismaUserRepository implements UserRepository {
 }
 ```
 
+### Prisma 型の import 境界（server-side app）
+
+`@repo/db` を依存に持つ app（api / cron / worker）は `@repo/eslint-config/prisma-boundary` を spread し、Prisma 型（`AuthAccount` / `Memo` / `Prisma` / `User`）の import を `src/repository/**` に限定する。業務ロジック（service / jobs / controller）は `@repo/domain` の型を使う。`PrismaClient` は composition root と graceful shutdown で必要なため制限対象外。**新しい server-side app を追加したら同じフラグメントを spread する。**
+
+- **lint の限界**: 検出できるのは `@repo/db` からの直接 import だけ。repository の `interface` が戻り値に Prisma 型を使うと service / jobs へ推論で伝播するが検出できない。`interface` の引数・戻り値を domain 型にする規約はレビューで担保する（詳細は `packages/eslint-config/README.md`）
+
 ### Comment style
 
 - ブロックコメントは `/** */` 形式で統一（`//` は使わない）。1 行の内容でも `/**` / ` * 内容` / ` */` の複数行形式で書く

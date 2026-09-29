@@ -5,6 +5,7 @@ const importPlugin = require("eslint-plugin-import")
 const vitestPlugin = require("@vitest/eslint-plugin")
 
 const { commonRules } = require("@repo/eslint-config/common-rules")
+const prismaBoundary = require("@repo/eslint-config/prisma-boundary")
 
 module.exports = defineConfig([
   {
@@ -36,6 +37,11 @@ module.exports = defineConfig([
   {
     ignores: ["dist/**", "node_modules/**", "src/prisma/generated/**"],
   },
+  /**
+   * Prisma 型の import 境界。詳細と限界は
+   * packages/eslint-config/prisma-boundary.js を参照。
+   */
+  ...prismaBoundary,
   {
     files: ["test/**/*.ts"],
     plugins: {
