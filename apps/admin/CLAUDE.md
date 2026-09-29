@@ -26,7 +26,34 @@ pnpm start        # 本番サーバー起動
 | `API_URL` | no | `http://localhost:8080` | Express API の origin |
 | `NODE_ENV` | no | `development` | `development` / `test` / `production` |
 
-API を叩く処理は `src/libs/api-client.ts` に閉じており、こちらも `server-only`。client 側でデータが必要な場合は Server Component か Route Handler を経由する。
+値は `.env.local` に置き、**dotenvx で暗号化して git にコミットする**（api / web / cron / worker と同じ方式）。復号鍵は root の `.env.keys`（git 管理外）で、各 app の `.env.keys` はそこへの symlink。公開鍵は全 app で共有している。
+
+`dev` / `build` / `start` はいずれも `dotenvx run -f .env.local -- ` を通す。
+
+```bash
+# 値を追加・変更するときは手書きせず dotenvx を使う
+cd apps/admin && pnpm exec dotenvx set API_URL "http://localhost:8080" -f .env.local
+```
+
+## API 接続の下地
+
+admin は DB を直接触らず、必ず Express API を経由する。現状は TailAdmin テンプレートの画面がそのまま入っており **API には未接続**だが、繋ぐための足場は用意してある。
+
+| ファイル | 状態 | 役割 |
+| --- | --- | --- |
+| `src/env.ts` | 配線済み（ただし未 import） | `API_URL` を Zod で検証。`server-only` |
+| `src/libs/api-client.ts` | **未使用** | `env.API_URL` を叩く `get` / `post` / `put` / `delete`。`server-only` |
+| `@repo/api-schema` | **未使用**（依存宣言のみ） | API のリクエスト / レスポンス Zod スキーマ |
+
+画面を API に繋ぐときは:
+
+1. Server Component か Route Handler から `apiClient` を呼ぶ（`server-only` なので client component からは import できない）
+2. レスポンスは `@repo/api-schema` のスキーマで parse する。**独自に型を書かない**
+3. client component にデータが必要な場合は Server Component で取得して props で渡す
+
+`src/env.ts` はどこからも import されていないため **現状 env 検証は実行されない**（`api-client.ts` が未使用のため）。API に繋いだ時点で初めて検証が走る。
+
+`@repo/*` のうち admin が import できるのは `@repo/api-schema` だけで、これは lint で強制している（`@repo/eslint-config/frontend-boundary`）。
 
 ## ダミーモード
 
