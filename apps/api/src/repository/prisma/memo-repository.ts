@@ -1,6 +1,5 @@
 import { Prisma as PrismaTypes, PrismaClient } from "@repo/db"
-
-import { Memo } from "../../types/domain"
+import { Memo } from "@repo/domain"
 
 /**
  * メモ作成時の入力

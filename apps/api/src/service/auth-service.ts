@@ -1,3 +1,4 @@
+import { User } from "@repo/domain"
 import { err, notFoundError, ok, Result, unauthorizedError } from "@repo/errors"
 import { logger } from "@repo/logger"
 
@@ -8,7 +9,6 @@ import {
   UserRepository,
 } from "../repository/prisma"
 import { RefreshTokenRepository } from "../repository/redis"
-import { User } from "../types/domain"
 
 export type AuthenticateWithGoogleSuccess = {
     accessToken: string

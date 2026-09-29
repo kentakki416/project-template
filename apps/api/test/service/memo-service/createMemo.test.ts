@@ -1,6 +1,7 @@
+import { Memo } from "@repo/domain"
+
 import { CreateMemoInput, MemoRepository } from "../../../src/repository/prisma/memo-repository"
 import { createMemo } from "../../../src/service/memo-service"
-import { Memo } from "../../../src/types/domain"
 
 // モック
 const mockCreate = vi.fn<(_0: CreateMemoInput) => Promise<Memo>>()

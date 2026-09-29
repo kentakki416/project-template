@@ -1,6 +1,7 @@
+import { User } from "@repo/domain"
+
 import { UserRepository } from "../../../src/repository/prisma/user-repository"
 import { getUserById } from "../../../src/service/user-service"
-import { User } from "../../../src/types/domain"
 
 // モック
 const mockFindById = vi.fn<(_0: number) => Promise<User | null>>()

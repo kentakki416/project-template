@@ -1,6 +1,5 @@
 import { Prisma as PrismaTypes, PrismaClient } from "@repo/db"
-
-import { User } from "../../types/domain"
+import { User } from "@repo/domain"
 
 import { TransactionContext } from "./transaction-runner"
 

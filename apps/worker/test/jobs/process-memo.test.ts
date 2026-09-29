@@ -1,4 +1,4 @@
-import type { Memo } from "@repo/db"
+import type { Memo } from "@repo/domain"
 import type { JobMessage, ProcessMemoJobData } from "@repo/queue"
 
 import { processMemo } from "../../src/jobs/process-memo"

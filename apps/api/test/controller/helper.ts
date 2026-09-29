@@ -1,9 +1,10 @@
 import express from "express"
 
+import { User } from "@repo/domain"
+
 import { generateAccessToken } from "../../src/lib/jwt"
 import { authMiddleware } from "../../src/middleware/auth"
 import { unhandledExceptionHandler } from "../../src/middleware/unhandled-exception-handler"
-import { User } from "../../src/types/domain"
 
 import { testPrisma } from "./setup"
 
