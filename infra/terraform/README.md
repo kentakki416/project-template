@@ -55,4 +55,4 @@ trivy config aws/env/prd -c aws/env/dev/.trivy.yml                       # prd
 | [`../../docs/setup/infra.md`](../../docs/setup/infra.md) | **初回セットアップ手順** |
 | [`CLAUDE.md`](CLAUDE.md) | 層構造 / CI ワークフロー / OIDC role 復旧手順 |
 | [`../README.md`](../README.md) | インフラ構成 / dev・prd の差分 / デプロイフロー |
-| [AWS インフラ構成図](./aws-infrastructure.drawio) | drawio 形式の AWS インフラ構成図 |
+| [AWS インフラ構成図](./aws/aws-dev-infrastructure.drawio) | drawio 形式の AWS インフラ構成図（dev 環境） |

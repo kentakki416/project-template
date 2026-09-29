@@ -57,6 +57,10 @@ zustand store のアクション関数名には **`Store` を含める**（例: 
 - **関数スタイル**:
   - API / cron / worker: `function` 宣言を使わず **`const` + アロー関数**（例: `export const foo = async () => {}`）
   - web / admin / mobile: **コンポーネントは `function`** に統一
+- **必ず動詞から始める**（`getUserById` / `createOrder` / `sendWelcomeMail`）。名詞だけの関数名（`userValidation`, `orderTotal`）は使わない。
+- **boolean を返す関数は `is` / `should` / `can` / `has` などの述語プレフィックスで始める**（`isActiveUser`, `shouldRetryJob`, `canEditMemo`, `hasAdminRole`）。
+  - **例外**: 複数の条件をまとめて検証する関数は `check` / `verify` / `validate` から始めてよい（`checkOrderPreconditions`, `verifyWebhookSignature`, `validateCsvRow`）。ただし単一条件の真偽判定には `check` を使わず、述語プレフィックスを優先する。
+  - **例外**: 処理を実行して成否を boolean で返すアクション系の関数は、述語プレフィックスにせず動作を表す動詞のままにする（`tryRefresh`, `saveDraft`）。述語プレフィックスの対象は「判定だけを行う関数」。
 - **処理内容が明確にわかる名前にする**。抽象的すぎる名前を避け、何をするかを具体的に表す。
 
 | ❌ 悪い例 | ✅ 良い例 |
