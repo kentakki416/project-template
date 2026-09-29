@@ -10,6 +10,15 @@ const workerEnvSchema = z
   .object({
     /** Prisma の接続文字列。NODE_ENV !== "test" のときは必須 */
     DATABASE_URL: z.string().url().optional(),
+    /** データウェアハウスの DB 名 */
+    DATA_WAREHOUSE_DATABASE: z.string().default("project_template"),
+    DATA_WAREHOUSE_PASSWORD: z.string().default("password"),
+    /**
+     * データウェアハウスの接続 URL。NODE_ENV !== "test" のときは必須。
+     * 技術名を入れていないのは、バックエンドを差し替えても env を変えずに済ませるため。
+     */
+    DATA_WAREHOUSE_URL: z.string().url().optional(),
+    DATA_WAREHOUSE_USER: z.string().default("default"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     /** ロガー実装の選択 */
     LOGGER_TYPE: z
@@ -29,6 +38,13 @@ const workerEnvSchema = z
         code: z.ZodIssueCode.custom,
         message: "DATABASE_URL is required when NODE_ENV is not 'test'",
         path: ["DATABASE_URL"],
+      })
+    }
+    if (env.NODE_ENV !== "test" && !env.DATA_WAREHOUSE_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "DATA_WAREHOUSE_URL is required when NODE_ENV is not 'test'",
+        path: ["DATA_WAREHOUSE_URL"],
       })
     }
     if (env.NODE_ENV !== "test" && !env.REDIS_URL) {

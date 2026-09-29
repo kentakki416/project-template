@@ -13,6 +13,7 @@ SQS / Cloud Tasks / pg-boss 等へ乗り換えるときは `packages/queue` に�
 | Queue 名 | ジョブ型 | 処理内容 |
 | --- | --- | --- |
 | `process-memo` | `ProcessMemoJobData = { memoId: number }` | memo を id で fetch してログ出力（メール送信 / 通知などに差し替える起点） |
+| `track-event` | `TrackEventJobData = { events: [...] }` | 行動イベントをデータウェアハウスへ一括 INSERT。1 ジョブに複数イベントが入る |
 
 ## Commands
 
@@ -28,7 +29,7 @@ pnpm test   # Vitest（Prisma / Redis を mock するので DB / Redis 不要）
 - **`jobs/<name>.ts`**: 純粋関数（`(deps) => JobProcessor<T>` の factory）。**BullMQ や ioredis を直接 import しない**
 - **`workers/<name>-worker.ts`**: Queue 実装とジョブハンドラを結線するだけ。Queue 実装を切り替えるときの唯一の差分対象
 - **`repository/`**: interface の引数・戻り値は `@repo/domain` の型にする。Prisma の型は実装クラスの内側に閉じる（`@repo/eslint-config/prisma-boundary` が lint で強制。限界は `packages/eslint-config/README.md`）
-- **`src/index.ts`**: 接続生成 → Repository インスタンス化 → Worker 起動 → graceful shutdown 登録
+- **`src/index.ts`**: 接続生成 → Repository インスタンス化 → Worker 起動 → graceful shutdown 登録。**どのデータウェアハウスを使うかを決めるのはここだけ**（`createDataWarehouse({ type: "clickhouse", ... })`）
 
 Repository の interface は api / cron と意図的に分離する（各 app が必要な操作だけを持つ。共有すると不要なメソッドが漏れる）。一方ドメイン型は `@repo/domain` で共有する。
 
@@ -47,6 +48,10 @@ BullMQ の stalled 検出 / リトライ / ECS deploy 時の SIGKILL で **同�
 | 変数 | 必須 | デフォルト | 説明 |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | `NODE_ENV !== "test"` で必須 | - | Prisma の接続文字列 |
+| `DATA_WAREHOUSE_URL` | `NODE_ENV !== "test"` で必須 | - | データウェアハウスの接続 URL。**技術名を入れていない**のはバックエンドを差し替えても env を変えずに済ませるため |
+| `DATA_WAREHOUSE_DATABASE` | no | `project_template` | DB 名 |
+| `DATA_WAREHOUSE_USER` | no | `default` | ユーザー名 |
+| `DATA_WAREHOUSE_PASSWORD` | no | `password` | パスワード |
 | `REDIS_URL` | `NODE_ENV !== "test"` で必須 | - | BullMQ 用 Redis |
 | `NODE_ENV` | no | `development` | `development` / `test` / `production` |
 | `LOGGER_TYPE` | no | `pino` | `pino` / `winston` / `console` / `silent` |
