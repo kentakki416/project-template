@@ -61,6 +61,7 @@ docker compose ps           # postgres / redis が healthy か確認
 |---|---|
 | Postgres | `postgresql://postgres:password@localhost:5433/project-template_dev` |
 | Redis | `redis://localhost:6380` |
+| ClickHouse | `http://localhost:8124`（DB: `project_template` / user: `default` / password: `password`） |
 
 接続情報は `apps/api/.env.local` の `DATABASE_URL` / `REDIS_HOST` と一致している前提。
 

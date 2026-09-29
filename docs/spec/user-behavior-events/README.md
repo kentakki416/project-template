@@ -181,7 +181,7 @@ worker は queue から取り出したイベントを **まとめて 1 回の IN
 | サービス | コンテナ内 | ホスト側（既定） | env |
 | --- | --- | --- | --- |
 | ClickHouse HTTP | 8123 | **8124** | `CLICKHOUSE_HTTP_PORT` |
-| ClickHouse native | 9000 | **9002** | `CLICKHOUSE_NATIVE_PORT` |
+| ClickHouse native | 9000 | **9003** | `CLICKHOUSE_NATIVE_PORT` |
 
 ### MVP 対象外（将来検討）
 

@@ -42,10 +42,43 @@ services:
     networks:
       - app-network
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    container_name: project-template-clickhouse # TODO: プロジェクト名に変更
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: project_template
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: password
+      # 開発用。本番は IAM / ネットワーク側で絞る
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      # 既定 8123 / 9000 は他プロジェクトと衝突しうるためずらす
+      - '${CLICKHOUSE_HTTP_PORT:-8124}:8123'
+      - '${CLICKHOUSE_NATIVE_PORT:-9003}:9000'
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./infra/clickhouse/init:/docker-entrypoint-initdb.d
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      # localhost だとコンテナ内で ::1 に解決されるが ClickHouse は IPv4 のみ listen するため
+      # 127.0.0.1 を明示する
+      test: ['CMD', 'wget', '--spider', '-q', '127.0.0.1:8123/ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  clickhouse_data:
     driver: local
 
 networks:

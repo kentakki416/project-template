@@ -20,7 +20,7 @@ ClickHouse をローカル環境に追加し、`events` テーブルとデータ
     ports:
       # 既定 8123 / 9000 をそのまま使うと他プロジェクトと衝突しうるためずらす
       - '${CLICKHOUSE_HTTP_PORT:-8124}:8123'
-      - '${CLICKHOUSE_NATIVE_PORT:-9002}:9000'
+      - '${CLICKHOUSE_NATIVE_PORT:-9003}:9000'
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ./infra/clickhouse/init:/docker-entrypoint-initdb.d
@@ -29,7 +29,9 @@ ClickHouse をローカル環境に追加し、`events` テーブルとデータ
         soft: 262144
         hard: 262144
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'localhost:8123/ping']
+      # localhost だとコンテナ内で ::1 に解決されるが ClickHouse は IPv4 のみ listen するため
+      # 127.0.0.1 を明示する
+      test: ['CMD', 'wget', '--spider', '-q', '127.0.0.1:8123/ping']
       interval: 5s
       timeout: 3s
       retries: 10
@@ -44,7 +46,7 @@ ClickHouse をローカル環境に追加し、`events` テーブルとデータ
 `infra/clickhouse/init/01-events.sql` を作成する。`/docker-entrypoint-initdb.d` に置くと初回起動時に実行される。
 
 ```sql
-CREATE TABLE IF NOT EXISTS events
+CREATE TABLE IF NOT EXISTS project_template.events
 (
     event_id       UUID,
     event_name     LowCardinality(String),
