@@ -25,6 +25,7 @@ Turborepo + pnpm モノレポ。
 - **packages/queue**: Queue 抽象 (`JobQueue<T>` / `JobProcessor<T>` / `JobConsumer`) + BullMQ 実装 (`@repo/queue`)。ハンドラ側は実装を知らないため、SQS / Cloud Tasks 等への差し替えが可能
 - **packages/domain**: api / cron / worker が共有するドメイン型 (`@repo/domain`)。型と純粋関数のみ・依存ゼロ。**Repository interface と Prisma 型は置かない**（`packages/domain/README.md` 参照）
 - **packages/data-warehouse**: `DataWarehouse` 抽象 + ClickHouse 実装 + `createDataWarehouse` factory (`@repo/data-warehouse`)。分析イベントの書き込み先
+- **packages/events**: 行動イベントの型定義 + `EventTracker` 抽象 + Queue 実装 (`@repo/events`)。送出は fire-and-forget で、失敗を呼び出し元に伝播させない
 - **packages/storage**: `createStorage` factory + local / S3 実装 (`@repo/storage`)
 - **packages/eslint-config** / **packages/typescript-config**: 共有 lint / tsconfig
 
