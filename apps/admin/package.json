@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p ${PORT_ADMIN:-3030}",
-    "build": "next build",
-    "start": "next start -p ${PORT_ADMIN:-3030}",
+    "dev": "dotenvx run -f .env.local -- next dev -p ${PORT_ADMIN:-3030}",
+    "build": "dotenvx run -f .env.local -- next build",
+    "start": "dotenvx run -f .env.local -- next start -p ${PORT_ADMIN:-3030}",
     "lint": "eslint",
     "lint:fix": "eslint --fix"
   },
