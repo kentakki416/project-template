@@ -59,7 +59,7 @@ cron 側の Repository (`PrismaMemoRepository`) は apps/api 側と意図的に�
 
 ### Prisma の型は repository 実装の内側に閉じる
 
-**`@repo/eslint-config/prisma-boundary` で lint 強制している**（`eslint.config.js` で spread 済み）。`@repo/db` の Prisma 型（`Memo` / `User` / `AuthAccount` / `Prisma`）を import してよいのは以下だけ:
+**`@repo/eslint-config/prisma-boundary` で lint 強制している**（`eslint.config.js` で spread 済み）。`@repo/db` から import してよいのは `createPrismaClient` / `CreatePrismaClientOptions` / `PrismaClient` の 3 つだけ（許可リスト方式なので、モデルが増えても設定変更なしで新しい型が制限対象になる）。Prisma のモデル型（`Memo` / `User` / `AuthAccount` …）を import してよいのは以下だけ:
 
 - `repository/prisma/*.ts` の **実装クラスの内側**（`_toDomainXxx` のような変換関数の引数）
 - `src/task/*.ts`（`createPrismaClient` の呼び出し。`PrismaClient` 型は制限対象外）

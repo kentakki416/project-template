@@ -1,7 +1,7 @@
 /**
  * Prisma 型の import 境界を強制する flat config フラグメント
  *
- * `@repo/db` を依存に持つ server-side app（api / cron / worker / 将来の push）の
+ * `@repo/db` を依存に持つ server-side app（api / cron / worker）の
  * eslint.config.* から spread して使う:
  *
  *   const baseConfig = require("@repo/eslint-config")
@@ -18,12 +18,24 @@
  */
 
 /**
- * repository 実装の内側にだけ置いてよい Prisma の型。
+ * repository 層の外から import してよい `@repo/db` の export。
  *
- * `PrismaClient` は composition root（`src/index.ts`）と graceful shutdown で
- * `$disconnect()` のために必要なので、意図的に制限対象から外している。
+ * **禁止リストではなく許可リストにしている理由**: Prisma のモデル型は
+ * `schema.prisma` にテーブルを追加するたびに増えるため、禁止する型を列挙する形だと
+ * 追加を忘れた瞬間に保護が外れる（fail-open）。許可リストなら新しいモデル型は
+ * 列挙しなくても自動的に制限対象になる（fail-closed）。
+ *
+ * このリストの更新が必要になるのは `@repo/db` が factory 系の export を追加した
+ * ときだけで、モデルが増えても触る必要はない。
  */
-const RESTRICTED_PRISMA_TYPE_NAMES = ["AuthAccount", "Memo", "Prisma", "User"]
+const ALLOWED_DB_IMPORT_NAMES = [
+  /** composition root で client を生成する factory */
+  "createPrismaClient",
+  /** 上記 factory の options 型 */
+  "CreatePrismaClientOptions",
+  /** DI の型注釈 / graceful shutdown の $disconnect() で必要 */
+  "PrismaClient",
+]
 
 const RESTRICTED_IMPORT_MESSAGE =
   "Prisma の型は repository 層の内側に閉じる。業務ロジックでは @repo/domain の型を使う"
@@ -43,7 +55,7 @@ module.exports = [
         {
           paths: [
             {
-              importNames: RESTRICTED_PRISMA_TYPE_NAMES,
+              allowImportNames: ALLOWED_DB_IMPORT_NAMES,
               message: RESTRICTED_IMPORT_MESSAGE,
               name: "@repo/db",
             },
