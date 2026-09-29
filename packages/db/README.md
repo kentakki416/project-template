@@ -91,7 +91,7 @@ pnpm db:studio           # Prisma Studio 起動
 pnpm db:push             # スキーマを DB へ直接反映（開発用）
 ```
 
-> `packages/db` を直接 `pnpm --filter @repo/db db:migrate` で叩くと `DATABASE_URL` が注入されず、`prisma.config.ts` の `DEFAULT_URL`（`localhost:5432` 平文）にフォールバックするため通常は使わない。
+> `packages/db` を直接 `pnpm --filter @repo/db db:migrate` で叩くと `DATABASE_URL` が注入されず、`prisma.config.ts` の `DEFAULT_URL`（`localhost:5433` 平文）にフォールバックするため通常は使わない。
 
 **`db:generate` だけは例外**で、DB 接続せずスキーマから client を生成するだけなので env なしで叩ける（`pnpm build` 時に turbo が `@repo/db#db:generate` を流すため、通常は明示実行も不要）。
 

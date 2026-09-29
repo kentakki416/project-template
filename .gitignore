@@ -101,3 +101,6 @@ app-example
 
 # serena
 .serena
+
+# Claude Code のエージェント用一時ワークツリー（コミット対象外）
+.claude/worktrees/

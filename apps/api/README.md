@@ -434,5 +434,5 @@ cd src/prisma
 npx prisma db seed
 
 # Studio の起動
-npx prisma studio --url postgresql://postgres:password@localhost:5432/ai_trainer_dev
+npx prisma studio --url postgresql://postgres:password@localhost:5433/project-template_dev
 ```

@@ -20,7 +20,7 @@ pnpm --filter @repo/db db:generate
 
 ```bash
 # 起動 (tsx watch)
-DATABASE_URL=postgres://... REDIS_URL=redis://localhost:6379 pnpm dev
+DATABASE_URL=postgres://... REDIS_URL=redis://localhost:6380 pnpm dev
 ```
 
 ## enqueue する側のサンプル (api 等から)
