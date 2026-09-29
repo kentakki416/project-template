@@ -1,20 +1,22 @@
 import { Prisma, PrismaClient } from "@repo/db"
 
-/**
- * トランザクション内で実行される Prisma client。
- * Repository の tx 引数として受け取る型。通常の PrismaClient と互換のメソッド集を持つ。
- */
-export type TransactionContext = Prisma.TransactionClient
+import type { TransactionContext, TransactionRunner } from "../transaction"
 
 /**
- * 業務ロジック単位でトランザクション境界を制御する抽象。
+ * 不透明な TransactionContext を Prisma のトランザクションクライアントへ解決する。
  *
- * Service 層が複数の Repository をまたぐ操作を atomic に実行するために使う。
- * Repository は受け取った `tx` を使って書き込めば、`run` の callback 内すべてが同一 tx で実行される。
+ * **Prisma 実装の内側だけで使う。** TransactionContext は brand 型で構造を持たないため、
+ * 実体（Prisma のトランザクションクライアント）へ戻すにはここを通す必要がある。
+ * この関数が「Prisma 型が外へ出ない」境界の出入口になっている。
+ *
+ * `tx` が未指定のときは通常の PrismaClient を返すので、Repository 側は
+ * トランザクション内外を同じコードで扱える。
  */
-export interface TransactionRunner {
-    run<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T>
-}
+export const resolvePrismaClient = (
+  prisma: PrismaClient,
+  tx?: TransactionContext,
+): Prisma.TransactionClient =>
+  (tx as unknown as Prisma.TransactionClient | undefined) ?? prisma
 
 /**
  * Prisma 実装。`prisma.$transaction` をそのままラップする。
@@ -27,6 +29,7 @@ export class PrismaTransactionRunner implements TransactionRunner {
   }
 
   public async run<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T> {
-    return this._prisma.$transaction(fn)
+    return this._prisma.$transaction(async (tx) =>
+      fn(tx as unknown as TransactionContext))
   }
 }

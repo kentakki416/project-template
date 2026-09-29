@@ -5,10 +5,10 @@ import { logger } from "@repo/logger"
 import { type IGoogleOAuthClient, GoogleUserInfo } from "../client/google-oauth"
 import {
   AuthAccountRepository,
-  TransactionRunner,
   UserRepository,
 } from "../repository/prisma"
 import { RefreshTokenRepository } from "../repository/redis"
+import type { TransactionRunner } from "../repository/transaction"
 
 export type AuthenticateWithGoogleSuccess = {
     accessToken: string

@@ -24,6 +24,12 @@ pnpm test:coverage # カバレッジ計測（V8 ベース、coverage/ に出力�
   - constructor で `PrismaClient` を受け取る
   - `private _toDomain()` メソッドで Prisma の型 → ドメイン型に変換
   - Input 型（`Create{Feature}Input`, `Update{Feature}Input`）はリポジトリファイル内に定義
+  - **Prisma の型（`Memo` / `User` / `AuthAccount` / `Prisma`）を interface の引数・戻り値に出さない**。実装クラスの内側（`_toDomain()` の引数など）に閉じる
+- **トランザクション**: 抽象は `src/repository/transaction.ts`（技術非依存）、実装は `src/repository/prisma/transaction-runner.ts`
+  - `TransactionContext` は **brand 型の不透明トークン**。`Prisma.TransactionClient` を公開すると service / controller が永続化技術に型付けされるため、あえて構造を持たせていない
+  - Service は `repo.transactionRunner.run(async (tx) => ...)` で受け取った `tx` を Repository へ**そのまま渡すだけ**。`tx` のメソッドを呼ぶことはできない（型エラーになる）
+  - Prisma 実装側は `resolvePrismaClient(this._prisma, tx)` で実体へ解決する。この関数が Prisma 型の唯一の出入口
+  - Service / Controller は `TransactionRunner` を `src/repository/transaction` から import する（`repository/prisma` バレル経由にしない）
 - **Service**（`src/service/`）: エクスポート関数パターン
   - クラスではなく `export const` のアロー関数で定義
   - **Repository は単一でも複数でも必ず `repo` という名前のオブジェクト引数にまとめる**（引数の数を増やさず、将来 Repository が追加されてもシグネチャを変えなくて済むため）
