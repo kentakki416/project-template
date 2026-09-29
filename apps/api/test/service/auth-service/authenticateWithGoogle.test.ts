@@ -1,13 +1,13 @@
 import { AuthAccountWithUser, User } from "@repo/domain"
 
 import { GoogleUserInfo, IGoogleOAuthClient } from "../../../src/client/google-oauth"
-import { AuthAccountRepository } from "../../../src/repository/prisma/auth-account-repository"
-import { UserRepository } from "../../../src/repository/prisma/user-repository"
-import { RefreshTokenRepository } from "../../../src/repository/redis/refresh-token-repository"
-import type {
-  TransactionContext,
-  TransactionRunner,
-} from "../../../src/repository/transaction"
+import {
+  AuthAccountRepository,
+  RefreshTokenRepository,
+  type TransactionContext,
+  type TransactionRunner,
+  UserRepository,
+} from "../../../src/repository"
 import { authenticateWithGoogle } from "../../../src/service/auth-service"
 
 const mockGetUserInfo = vi.fn<(_0: string, _1: string) => Promise<GoogleUserInfo>>()

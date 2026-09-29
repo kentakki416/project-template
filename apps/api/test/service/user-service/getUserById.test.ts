@@ -1,6 +1,6 @@
 import { User } from "@repo/domain"
 
-import { UserRepository } from "../../../src/repository/prisma/user-repository"
+import { UserRepository } from "../../../src/repository"
 import { getUserById } from "../../../src/service/user-service"
 
 // モック

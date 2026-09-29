@@ -2,7 +2,7 @@ import { User } from "@repo/domain"
 import { err, notFoundError, ok, Result } from "@repo/errors"
 import { logger } from "@repo/logger"
 
-import { UserRepository } from "../repository/prisma"
+import { UserRepository } from "../repository"
 
 /**
  * ユーザーIDからユーザー情報を取得

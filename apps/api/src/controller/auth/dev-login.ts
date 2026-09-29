@@ -9,8 +9,7 @@ import { logger } from "@repo/logger"
 import { generateAccessToken, generateRefreshToken } from "../../lib/jwt"
 import { parseRequest, parseResponse } from "../../lib/parse-schema"
 import { sendError } from "../../lib/send-error"
-import { UserRepository } from "../../repository/prisma"
-import { RefreshTokenRepository } from "../../repository/redis"
+import { RefreshTokenRepository, UserRepository } from "../../repository"
 import * as service from "../../service"
 
 /**

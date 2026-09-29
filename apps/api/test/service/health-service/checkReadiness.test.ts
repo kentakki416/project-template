@@ -1,5 +1,4 @@
-import { DatabaseHealthRepository } from "../../../src/repository/prisma/healthcheck-repository"
-import { RedisHealthRepository } from "../../../src/repository/redis/healthcheck-repository"
+import { DatabaseHealthRepository, RedisHealthRepository } from "../../../src/repository"
 import { checkReadiness } from "../../../src/service/health-service"
 
 // モック

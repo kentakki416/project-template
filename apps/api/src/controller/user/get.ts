@@ -6,7 +6,7 @@ import { logger } from "@repo/logger"
 import { parseResponse } from "../../lib/parse-schema"
 import { sendError } from "../../lib/send-error"
 import { AuthRequest } from "../../middleware/auth"
-import { UserRepository } from "../../repository/prisma"
+import { UserRepository } from "../../repository"
 import * as service from "../../service"
 
 /**
