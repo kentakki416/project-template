@@ -151,7 +151,7 @@ Claudeが参照するドメイン知識・パターン集。タスクに関連�
 
 | スキル | 説明 |
 |---|---|
-| `design-feature` | 新機能の設計書（`docs/spec/{feature}/` 配下の人間用 README + AI実装用 step ファイル）を作成し、`docs/spec/README.md`（全機能のクイックリファレンス）も更新する。**実装前に必ず通すこと**。「〜の設計を作って」「〜機能を追加したい」で起動 |
+| `design-feature` | 新機能の設計書（`docs/spec/{feature}/` の人間用 README + `tasks/` 配下の AI 実装用 step ファイル）を作成し、`docs/spec/README.md`（全機能のクイックリファレンス）も更新する。**実装前に必ず通すこと**。「〜の設計を作って」「〜機能を追加したい」で起動 |
 | `design-mock` | デザインモックを `apps/web` に作成し、ユーザー承認後に `docs/spec/{feature}/README.md` の「UI設計」セクションを追記する。テーマヒアリング → `apps/admin` の既存デザイン参照 → モック作成 → 承認 → 仕様書化 までを 1 skill で対応。「モック作って」「画面のイメージを作って」で起動 |
 
 > プロジェクト固有のコーディング規約・アーキテクチャは `CLAUDE.md` と各サブディレクトリ（`apps/*/CLAUDE.md`、`packages/*/CLAUDE.md`）に集約されています。skill には**タスク手順型のもの**だけを置きます。
