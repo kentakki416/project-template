@@ -1,4 +1,15 @@
-const API_BASE_URL = process.env.API_URL || "http://localhost:8080"
+import "server-only"
+
+import { env } from "../env"
+
+/**
+ * Express API を叩く server-side 専用クライアント。
+ *
+ * admin は DB を直接触らず必ず API を経由する。ブラウザから API を直接叩かないよう
+ * `server-only` でガードしているので、client component からは import できない。
+ * client 側からデータが必要な場合は Server Component か Route Handler を経由する。
+ */
+const API_BASE_URL = env.API_URL
 
 export const apiClient = {
   delete: async <T = unknown>(path: string): Promise<T> => {

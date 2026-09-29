@@ -17,6 +17,17 @@ pnpm start        # 本番サーバー起動
 - 型・スキーマは `@repo/api-schema/admin/` から import（Admin 固有のレスポンスが必要な場合）
 - Admin 向け API は `/api/admin/` 配下を呼び出す（API 側の方針は `apps/api/CLAUDE.md` の "Admin API 設計方針" 参照）
 
+## 環境変数
+
+`src/env.ts` に Zod スキーマをインラインで定義し、import 時に `safeParse` → 失敗なら `process.exit(1)`。先頭で `import "server-only"` しているので client component からは import できない。
+
+| 変数 | 必須 | デフォルト | 説明 |
+| --- | --- | --- | --- |
+| `API_URL` | no | `http://localhost:8080` | Express API の origin |
+| `NODE_ENV` | no | `development` | `development` / `test` / `production` |
+
+API を叩く処理は `src/libs/api-client.ts` に閉じており、こちらも `server-only`。client 側でデータが必要な場合は Server Component か Route Handler を経由する。
+
 ## ダミーモード
 
 API 側で `ADMIN_USE_DUMMY=true`（`apps/api/.env.local`）を設定すると DB なしでダミーデータが返るため、フロント開発時に活用する。

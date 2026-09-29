@@ -7,6 +7,7 @@
 - [役割](#役割)
 - [公開 API](#公開-api)
 - [Prisma 型の import 境界](#prisma-型の-import-境界)
+- [フロントの @repo import 境界](#フロントの-repo-import-境界)
 - [使い方（新規 app 追加時）](#使い方新規-app-追加時)
 - [関連](#関連)
 
@@ -24,6 +25,7 @@
 | `@repo/eslint-config/common-rules` | `{ commonRules, commonNamingConvention }`（**rules オブジェクト**） | 全 apps / packages 共通の rule set（命名・import 順・style 等）。framework config の `rules` に展開して使う（→ [使い方](#使い方新規-app-追加時)） |
 | `@repo/eslint-config`（= `index.js`） | **完成済み flat config 配列** | TS 向けの最小 flat config。framework を使わない packages 側は `module.exports = require("@repo/eslint-config")` でそのまま利用できる |
 | `@repo/eslint-config/prisma-boundary` | **flat config 配列（フラグメント）** | Prisma 型の import 境界。`@repo/db` を依存に持つ server-side app が spread する（→ [Prisma 型の import 境界](#prisma-型の-import-境界)） |
+| `@repo/eslint-config/frontend-boundary` | **flat config 配列（フラグメント）** | フロント（Next.js / Expo）が import してよい `@repo/*` の制限（→ [フロントの @repo import 境界](#フロントの-repo-import-境界)） |
 
 ## Prisma 型の import 境界
 
@@ -58,6 +60,34 @@ export interface MemoRepository {
 ```
 
 「`interface` の引数・戻り値を domain 型にする」規約は各 app の `CLAUDE.md` とコードレビューで担保する。
+
+## フロントの @repo import 境界
+
+`apps/web` / `apps/admin` / `apps/mobile` が spread する。これらの app は DB を直接触らず必ず Express API を経由する設計なので、共有する契約は `@repo/api-schema` だけになる。
+
+```js
+// apps/mobile/eslint.config.js
+const frontendBoundary = require("@repo/eslint-config/frontend-boundary")
+
+module.exports = defineConfig([...(既存の config), ...frontendBoundary])
+```
+
+| 項目 | 内容 |
+| --- | --- |
+| 許可する package | `@repo/api-schema` **のみ** |
+| 制限する package | 他の `@repo/*` すべて。パッケージが増えても設定変更は不要 |
+| 意図的に許可しない | `@repo/domain`（domain 型は `createdAt: Date`、API は `created_at: string` なのでフロントは api-schema 側を使う）/ `@repo/errors`（service 層のパターン） |
+
+### client bundle への混入は lint だけでは防げない
+
+このルールが止められるのはフロントの**ソースに書かれた直接 import** まで。server 用モジュールが client component から参照される経路は lint では追えないので、`import "server-only"` を併用する。
+
+```ts
+// apps/admin/src/libs/api-client.ts
+import "server-only"
+```
+
+client component から import されると Turbopack / webpack がビルドを落とし、import チェーンを表示する。**なお `server-only` は共有パッケージ側には入れられない**（`react-server` condition を持たない plain Node では無条件に throw するため、api / cron / worker が起動できなくなる）。各 app の server 用モジュール側に置く。
 
 ## 使い方（新規 app 追加時）
 

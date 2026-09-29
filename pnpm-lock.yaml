@@ -76,12 +76,18 @@ importers:
       react-dropzone:
         specifier: ^14.4.1
         version: 14.4.1(react@19.2.0)
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
       swiper:
         specifier: ^11.2.10
         version: 11.2.10
       tailwind-merge:
         specifier: ^2.6.1
         version: 2.6.1
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
