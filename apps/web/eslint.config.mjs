@@ -9,7 +9,7 @@ import tailwindcss from "eslint-plugin-tailwindcss"
 import eslintConfigCommonRules from "@repo/eslint-config/common-rules"
 import frontendBoundary from "@repo/eslint-config/frontend-boundary"
 
-const { commonRules } = eslintConfigCommonRules
+const { commonPlugins, commonRules } = eslintConfigCommonRules
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -39,6 +39,9 @@ const eslintConfig = defineConfig([
       parserOptions: {
         project: "./tsconfig.json",
       },
+    },
+    plugins: {
+      ...commonPlugins,
     },
     settings: {
       "import/resolver": {

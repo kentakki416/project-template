@@ -6,6 +6,7 @@
 
 - [役割](#役割)
 - [公開 API](#公開-api)
+- [formatting ルールは @stylistic](#formatting-ルールは-stylistic)
 - [Prisma 型の import 境界](#prisma-型の-import-境界)
 - [フロントの @repo import 境界](#フロントの-repo-import-境界)
 - [使い方（新規 app 追加時）](#使い方新規-app-追加時)
@@ -22,10 +23,36 @@
 
 | Export | 形 | 用途 |
 | --- | --- | --- |
-| `@repo/eslint-config/common-rules` | `{ commonRules, commonNamingConvention }`（**rules オブジェクト**） | 全 apps / packages 共通の rule set（命名・import 順・style 等）。framework config の `rules` に展開して使う（→ [使い方](#使い方新規-app-追加時)） |
+| `@repo/eslint-config/common-rules` | `{ commonRules, commonPlugins, commonNamingConvention }`（**rules / plugins オブジェクト**） | 全 apps / packages 共通の rule set（命名・import 順・style 等）と、それが参照する plugin。`rules` と `plugins` に展開して使う（→ [使い方](#使い方新規-app-追加時)） |
 | `@repo/eslint-config`（= `index.js`） | **完成済み flat config 配列** | TS 向けの最小 flat config。framework を使わない packages 側は `module.exports = require("@repo/eslint-config")` でそのまま利用できる |
 | `@repo/eslint-config/prisma-boundary` | **flat config 配列（フラグメント）** | Prisma 型の import 境界。`@repo/db` を依存に持つ server-side app が spread する（→ [Prisma 型の import 境界](#prisma-型の-import-境界)） |
 | `@repo/eslint-config/frontend-boundary` | **flat config 配列（フラグメント）** | フロント（Next.js / Expo）が import してよい `@repo/*` の制限（→ [フロントの @repo import 境界](#フロントの-repo-import-境界)） |
+
+## formatting ルールは @stylistic
+
+ESLint 本体の formatting ルールは v8.53.0 で deprecated、v11.0.0 で削除されるため
+[`@stylistic/eslint-plugin`](https://eslint.style) の同名ルールに置き換えている。
+
+| 旧（本体） | 新 |
+| --- | --- |
+| `indent` | `@stylistic/indent` |
+| `quotes` | `@stylistic/quotes` |
+| `semi` | `@stylistic/semi` |
+| `object-curly-spacing` | `@stylistic/object-curly-spacing` |
+| `no-multiple-empty-lines` | `@stylistic/no-multiple-empty-lines` |
+| `padded-blocks` | `@stylistic/padded-blocks` |
+| `no-trailing-spaces` | `@stylistic/no-trailing-spaces` |
+| `no-multi-spaces` | `@stylistic/no-multi-spaces` |
+| `no-return-await` | `@typescript-eslint/return-await` |
+
+検査対象・オプションは移行前と同じ（`type` / `interface` / `enum` の中身は本体同様に
+検査しない）。理由は `common-rules.js` のコメントを参照。
+
+`@stylistic` は `commonRules` を使う側で登録が必要なので、`commonPlugins` を
+同じ config オブジェクトの `plugins` に展開する（→ [使い方](#使い方新規-app-追加時)）。
+
+なお `react/jsx-indent` / `react/jsx-indent-props` / `react/jsx-tag-spacing` は
+eslint-plugin-react 7.37.5 で deprecated ではないため `react/*` のまま使う。
 
 ## Prisma 型の import 境界
 
@@ -99,12 +126,15 @@ import nextVitals from "eslint-config-next/core-web-vitals"
 
 import eslintConfigCommonRules from "@repo/eslint-config/common-rules"
 
-const { commonRules } = eslintConfigCommonRules
+const { commonPlugins, commonRules } = eslintConfigCommonRules
 
 export default [
   ...nextVitals,                       // framework の config を先に置く
   {
     files: ["**/*.ts", "**/*.tsx"],
+    plugins: {
+      ...commonPlugins,                // commonRules が参照する plugin を登録
+    },
     rules: {
       ...commonRules,                  // 共通ルールを展開
       "react/jsx-indent": ["error", 2], // app 固有のルールを上書き / 追加
@@ -113,7 +143,7 @@ export default [
 ]
 ```
 
-> **注意**: `eslint-config-next` / `eslint-config-expo` を使う app は **`@typescript-eslint` プラグインを再定義してはいけない**（"Cannot redefine plugin" エラー）。`common-rules` は再定義を避けた形になっている。
+> **注意**: `eslint-config-next` / `eslint-config-expo` を使う app は **`@typescript-eslint` プラグインを再定義してはいけない**（"Cannot redefine plugin" エラー）。`common-rules` は再定義を避けた形になっている。`@stylistic` はどちらの framework config も登録しないので `commonPlugins` の展開で衝突しない。
 
 ## 関連
 

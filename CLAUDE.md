@@ -67,11 +67,13 @@ pnpm test         # テスト
 ESLint v9 flat config (`eslint.config.{js,mjs}`)。**全アプリ共通ルール**。**ファイル変更後は `pnpm lint:fix` を実行する**。
 
 - **プラグイン定義**: Web / Admin は `eslint-config-next`、Mobile は `eslint-config-expo/flat` を使うため `@typescript-eslint` を再定義してはいけない（"Cannot redefine plugin" エラー）。API は全プラグインを自前で定義。
+- **formatting ルール**: 本体の `indent` / `quotes` / `semi` 等は deprecated（v11 で削除）なので `@stylistic/eslint-plugin` の同名ルールを使う。`commonRules` を展開する config は `plugins: { ...commonPlugins }` も並べる（対応表は `packages/eslint-config/README.md`）
 
 ### 共通ルール
 
-- **No semicolons** (`semi: ["error", "never"]`)
-- **Double quotes** (`quotes: ["error", "double"]`)
+- **No semicolons** (`@stylistic/semi: ["error", "never"]`)
+- **Double quotes** (`@stylistic/quotes: ["error", "double"]`)
+- **Indent**: 2 スペース（`@stylistic/indent`）
 - **Object curly spacing**: `{ foo }` (not `{foo}`)
 - **Strict equality**: `===` (not `==`)
 - **Import ordering**: builtin → external → internal (`@repo`) → parent → sibling → index、グループ間に空行
