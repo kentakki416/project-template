@@ -40,17 +40,9 @@ module.exports = [...baseConfig, ...prismaBoundary]
 | 項目 | 内容 |
 | --- | --- |
 | 許可する export | `createPrismaClient` / `CreatePrismaClientOptions` / `PrismaClient` の 3 つ**のみ** |
-| 制限する export | 上記以外すべて。Prisma のモデル型（`Memo` / `User` / `AuthAccount` …）と型ユーティリティ `Prisma` が対象。`import type` と `import * as` も検出する |
+| 制限する export | 上記以外すべて。Prisma のモデル型（`Memo` / `User` / `AuthAccount` …）と型ユーティリティ `Prisma` が対象。`import type` と `import * as` も検出する。モデルが増えても設定変更は不要 |
 | 許可する層 | `src/repository/**/*.ts` のみ。Repository 実装だけが「DB row → domain 型」の変換責務を持つ |
 | 業務ロジックが使う型 | `@repo/domain`（`packages/domain`） |
-
-### なぜ禁止リストではなく許可リストなのか
-
-Prisma のモデル型は `schema.prisma` にテーブルを追加するたびに増える。**禁止する型を列挙する形（denylist）だと、新しいモデルを追加したときにリスト更新を忘れた瞬間に保護が外れる**（fail-open）。
-
-許可リスト（`allowImportNames`）にしておけば、新しいモデル型は**列挙しなくても自動的に制限対象**になる（fail-closed）。リストの更新が必要になるのは `@repo/db` が factory 系の export を追加したときだけで、これは稀。
-
-副作用として `import * as db from "@repo/db"` のような namespace import も検出できる（どの名前を使うか静的に判別できないため）。
 
 ### このルールの限界
 
