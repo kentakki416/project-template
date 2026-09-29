@@ -91,6 +91,7 @@ ESLint v9 flat config (`eslint.config.{js,mjs}`)。**全アプリ共通ルール
   - 良い例: `isActiveUser`, `shouldRetryJob`, `canEditMemo`, `hasAdminRole`
   - 悪い例: `activeUser`, `retryJob`（retry するように見える）, `adminRole`
   - **例外**: 複数の条件をまとめて検証する関数は `check` / `verify` / `validate` から始めてよい（例: `checkOrderPreconditions`, `verifyWebhookSignature`, `validateCsvRow`）。ただし単一条件の真偽判定に `check` は使わず、述語プレフィックスを優先する
+  - **例外**: 処理を実行して成否を boolean で返すアクション系の関数は、述語プレフィックスにせず動作を表す動詞のままにする（例: `tryRefresh`, `saveDraft`）。述語プレフィックスの対象は「判定だけを行う関数」
 - **処理内容が明確にわかる名前にする**:
   - 悪い例: `parseCsvLine`, `toHalfWidth`, `parseAmount`
   - 良い例: `splitCsvLineWithQuotes`, `convertFullWidthToHalfWidth`, `convertCommaAmountToNumber`
