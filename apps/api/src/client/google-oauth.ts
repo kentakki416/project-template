@@ -2,10 +2,10 @@ import { OAuth2Client } from "google-auth-library"
 import { z } from "zod"
 
 export type GoogleUserInfo = {
-    email: string
-    id: string
-    name: string
-    picture?: string
+  email: string
+  id: string
+  name: string
+  picture?: string
 }
 
 /**
@@ -28,7 +28,7 @@ const googleUserInfoResponseSchema = z.object({
  * 認証時に使った URL と完全一致する必要があるため、getUserInfo の引数で受け取る。
  */
 export interface IGoogleOAuthClient {
-    getUserInfo(code: string, redirectUri: string): Promise<GoogleUserInfo>
+  getUserInfo(code: string, redirectUri: string): Promise<GoogleUserInfo>
 }
 
 export class GoogleOAuthClient implements IGoogleOAuthClient {

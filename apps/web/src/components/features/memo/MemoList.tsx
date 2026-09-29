@@ -3,7 +3,7 @@ import type { GetMemoListResponse } from "@repo/api-schema"
 import { MemoEmptyState } from "./MemoEmptyState"
 import { MemoListItem } from "./MemoListItem"
 
-type Props = { memos : GetMemoListResponse["memos"]}
+type Props = { memos : GetMemoListResponse["memos"] }
 
 export function MemoList({ memos }: Props) {
   if (memos.length === 0) return <MemoEmptyState />

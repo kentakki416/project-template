@@ -7,7 +7,7 @@ import { COLORS } from "@/constants/color"
 type Props = {
   navigation: { goBack: () => void }
   options: NativeStackNavigationOptions
-  back: {title?: string, href?: string } | undefined
+  back: { title?: string, href?: string } | undefined
 }
 
 export default function Header({ navigation, options, back }: Props) {

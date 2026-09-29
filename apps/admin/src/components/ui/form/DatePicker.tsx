@@ -6,8 +6,8 @@ import { CalenderIcon } from "@/icons"
 
 import Label from "./Label"
 
-import Hook = flatpickr.Options.Hook;
-import DateOption = flatpickr.Options.DateOption;
+import Hook = flatpickr.Options.Hook
+import DateOption = flatpickr.Options.DateOption
 
 type PropsType = {
   id: string;
@@ -16,7 +16,7 @@ type PropsType = {
   defaultDate?: DateOption;
   label?: string;
   placeholder?: string;
-};
+}
 
 export default function DatePicker({
   id,

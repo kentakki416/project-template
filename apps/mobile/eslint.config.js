@@ -3,7 +3,7 @@ const { defineConfig } = require("eslint/config")
 const expoConfig = require("eslint-config-expo/flat")
 const tailwindcss = require("eslint-plugin-tailwindcss")
 
-const { commonNamingConvention, commonRules } = require("@repo/eslint-config/common-rules")
+const { commonNamingConvention, commonPlugins, commonRules } = require("@repo/eslint-config/common-rules")
 const frontendBoundary = require("@repo/eslint-config/frontend-boundary")
 
 /**
@@ -31,6 +31,7 @@ module.exports = defineConfig([
       },
     },
     plugins: {
+      ...commonPlugins,
       tailwindcss: tailwindcss,
     },
     settings: {

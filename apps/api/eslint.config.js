@@ -4,7 +4,7 @@ const typescriptParser = require("@typescript-eslint/parser")
 const importPlugin = require("eslint-plugin-import")
 const vitestPlugin = require("@vitest/eslint-plugin")
 
-const { commonRules } = require("@repo/eslint-config/common-rules")
+const { commonPlugins, commonRules } = require("@repo/eslint-config/common-rules")
 const prismaBoundary = require("@repo/eslint-config/prisma-boundary")
 
 module.exports = defineConfig([
@@ -19,6 +19,7 @@ module.exports = defineConfig([
       },
     },
     plugins: {
+      ...commonPlugins,
       "@typescript-eslint": typescriptEslint,
       import: importPlugin,
     },

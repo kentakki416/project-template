@@ -16,7 +16,7 @@ const typescriptEslint = require("@typescript-eslint/eslint-plugin")
 const typescriptParser = require("@typescript-eslint/parser")
 const importPlugin = require("eslint-plugin-import")
 
-const { commonRules } = require("./common-rules")
+const { commonPlugins, commonRules } = require("./common-rules")
 
 module.exports = defineConfig([
   {
@@ -30,6 +30,7 @@ module.exports = defineConfig([
       },
     },
     plugins: {
+      ...commonPlugins,
       "@typescript-eslint": typescriptEslint,
       import: importPlugin,
     },

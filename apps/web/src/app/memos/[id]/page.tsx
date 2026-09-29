@@ -11,7 +11,7 @@ import { ApiClientError } from "@/libs/api-client"
 import { deleteMemoAction } from "../actions"
 
 type Props = {
-  params: Promise<{id: string}>
+  params: Promise<{ id: string }>
 }
 
 /** URLの:idを検証し、なければnotFound() */
