@@ -66,7 +66,7 @@ worker 側の `MemoRepository` は apps/api / apps/cron と意図的に分離し
 
 ### Prisma の型は repository 実装の内側に閉じる
 
-`@repo/db` の Prisma 型（`Memo` / `User` / `AuthAccount` / `Prisma`）を import してよいのは以下だけ:
+**`@repo/eslint-config/prisma-boundary` で lint 強制している**（`eslint.config.js` で spread 済み）。`@repo/db` から import してよいのは `createPrismaClient` / `CreatePrismaClientOptions` / `PrismaClient` の 3 つだけ。Prisma のモデル型（`Memo` / `User` / `AuthAccount` …）を import してよいのは以下だけ:
 
 - `repository/prisma/*.ts` の **実装クラスの内側**（`_toDomainMemo` のような変換関数の引数）
 - `src/index.ts`（`createPrismaClient` の呼び出し）
