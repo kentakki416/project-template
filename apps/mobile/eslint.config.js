@@ -16,6 +16,9 @@ const mobileNamingConvention = commonNamingConvention.map((entry) =>
     : entry,
 )
 
+const MOBILE_ENV_ACCESS_MESSAGE =
+  "EXPO_PUBLIC_* は直接参照せず `import { env } from \"@/env\"` を経由する（src/env.ts の Zod 検証を通すため）"
+
 module.exports = defineConfig([
   expoConfig,
   {
@@ -66,6 +69,34 @@ module.exports = defineConfig([
    * 詳細は packages/eslint-config/frontend-boundary.js を参照。
    */
   ...frontendBoundary,
+  /**
+   * `EXPO_PUBLIC_*` の参照は src/env.ts に閉じる。
+   *
+   * babel-preset-expo は `process.env.EXPO_PUBLIC_*` をビルド時にバンドルへ
+   * 展開するため、直参照が散ると「どの env に依存しているか」が追えなくなり
+   * 未設定でも起動してしまう。src/env.ts の Zod 検証を必ず通すよう強制する。
+   * `process.env.EXPO_OS` は Expo が platform 名に置換するビルド時定数
+   * （開発者が設定する env ではない）ため対象外。
+   */
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    ignores: ["src/env.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          message: MOBILE_ENV_ACCESS_MESSAGE,
+          selector:
+            "MemberExpression[object.object.name=\"process\"][object.property.name=\"env\"][property.name=/^EXPO_PUBLIC_/]",
+        },
+        {
+          message: MOBILE_ENV_ACCESS_MESSAGE,
+          selector:
+            "MemberExpression[object.object.name=\"process\"][object.property.name=\"env\"][property.value=/^EXPO_PUBLIC_/]",
+        },
+      ],
+    },
+  },
   {
     ignores: ["dist/*"],
   },

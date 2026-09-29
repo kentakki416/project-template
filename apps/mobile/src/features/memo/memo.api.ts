@@ -1,8 +1,10 @@
 import axios from "axios"
 
+import { env } from "@/env"
+
 import { Memo } from "./memo.entity"
 
-const client = axios.create({ baseURL: process.env.EXPO_PUBLIC_API_URL })
+const client = axios.create({ baseURL: env.EXPO_PUBLIC_API_URL })
 
 export const memoApi = {
   /** メモ一覧の取得 */
