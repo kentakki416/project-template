@@ -1,96 +1,55 @@
 # apps/cron
 
-定期実行されるタスク群を 1 つの Node.js プロセスにまとめたパッケージ。本番では EventBridge → ECS Scheduled Task を想定（タスク 1 回実行して exit するモデル）。
+定期実行タスク。**タスクを 1 回実行して exit する run-once モデル**で、常駐しない。本番は EventBridge Schedule → ECS Scheduled Task / Kubernetes CronJob から起動する。
 
 ## 含まれるタスク
 
-| コマンド | 用途 |
-| --- | --- |
-| `pnpm cleanup:old-memos` | `CLEANUP_MEMO_OLDER_THAN_DAYS` (default: 90) 日より前の memo を一括削除（DB cleanup の例） |
-
-新タスクは `src/task/<name>.ts` を 1 ファイル追加し、`package.json` の scripts にエントリを追加する。
+| タスク | コマンド | 処理内容 |
+| --- | --- | --- |
+| `cleanup:old-memos` | `pnpm cleanup:old-memos` | `CLEANUP_MEMO_OLDER_THAN_DAYS`（既定 90）日より前の memo を一括削除 |
 
 ## Commands
 
 ```bash
-pnpm dev              # tsx watch で src/index.ts を起動（起動確認用）
-pnpm build            # dist/ にコンパイル
-pnpm cleanup:old-memos # 単発実行
-pnpm lint             # ESLint
-pnpm test             # Vitest（DB 不要、Prisma は mock）
-```
-
-## ディレクトリ構成
-
-```
-apps/cron/
-  src/
-    index.ts                      # 起動確認用エントリポイント（本番では使わない）
-    env.ts                        # Zod による env 検証 (safeParse → process.exit(1))
-    task/                         # 1 ファイル = 1 cron タスク。フラット配置。サブディレクトリは切らない
-      cleanup-old-memos.ts        # env を組み立てて service を呼ぶだけ
-    service/                      # 業務ロジック層（純粋関数 + Repository を引数 DI）
-      index.ts                    # barrel: export * as memo from "./memo"
-      memo/
-        cleanup-old-memos.ts
-        index.ts
-    runtime/
-      graceful-shutdown.ts        # SIGTERM / SIGINT で Prisma を $disconnect して exit
-    repository/prisma/            # DB アクセスを集約（apps/api と同じ構造）
-      memo-repository.ts
-      index.ts                    # barrel export
-  test/                           # vitest ユニットテスト
+pnpm dev               # tsx watch で起動
+pnpm cleanup:old-memos # タスクを 1 回実行
+pnpm test              # Vitest（Prisma を mock するので DB 不要）
 ```
 
 ## レイヤード設計のルール
 
-- **`task/<name>.ts`**: cron 1 本 = 1 ファイル。env を組み立てて Prisma client / Repository を生成し、service に DI するだけ。閾値計算や件数集計などのドメインロジックは書かない。サブディレクトリは切らない
-- **`service/<domain>/`**: 業務ロジック層。`export const` のアロー関数で定義し、Repository は単一でも `repo: { xxxRepository }` のオブジェクト引数で受ける（将来 Repository が増えてもシグネチャを変えなくて済む）。`service/index.ts` で `export * as <domain> from "./<domain>"` してバレル、task からは `service.<domain>.<method>(input, { xxxRepository })` で呼ぶ。`apps/api` の service と同じ流儀。**Repository class を service の中に書かない**
-- **`repository/prisma/`**: `interface XxxRepository` + `class PrismaXxxRepository implements XxxRepository` のペア。`index.ts` で barrel export。**interface の引数・戻り値に Prisma の型を出さず、必要なら `@repo/domain` の型を使う**
-- **`runtime/`**: プロセスライフサイクル関連（graceful shutdown 等）
-- **`lib/`** (任意): env も DB も知らない純関数のみ
-- **`client/<service>/`** (任意): 外部 API クライアント class。env を直接 import せずコンストラクタ DI
+参考実装: `src/task/cleanup-old-memos.ts` / `src/service/memo/cleanup-old-memos.ts` / `src/repository/prisma/memo-repository.ts`。
 
-### Repository の interface 分離
+- **`task/<name>.ts`**: cron 1 本 = 1 ファイル。env を読んで Prisma client と Repository を生成し service に DI するだけ。**閾値計算や件数集計などのドメインロジックを書かない**。サブディレクトリは切らない
+- **`service/<domain>/`**: 業務ロジック。`export const` のアロー関数で、Repository は単一でも `repo: { xxxRepository }` のオブジェクト引数で受ける（将来増えてもシグネチャを変えずに済む）。**Repository class を service の中に書かない**
+- **`repository/`**: interface の引数・戻り値は `@repo/domain` の型か素の値にする。Prisma の型は実装クラスの内側に閉じる（`@repo/eslint-config/prisma-boundary` が lint で強制）
+- **`lib/`**（任意）: env も DB も知らない純関数のみ
+- **`client/<service>/`**（任意）: 外部 API クライアント。env を直接 import せずコンストラクタ DI
 
-cron 側の Repository (`PrismaMemoRepository`) は apps/api 側と意図的に分離している。`api` は CRUD ベース、`cron` は batch 削除など別の操作セットを持つので、共有 interface を作ると不要なメソッドが両方に漏れる。**各 app で必要な操作のみを持つ独自 interface を定義する**方針。
+Repository の interface は api / worker と意図的に分離する（api は CRUD、cron は batch 系と操作セットが違うため）。一方ドメイン型は `@repo/domain` で共有する。
 
-ドメイン型（`Memo` / `User` 等）は逆に `@repo/domain` で共有する。api / cron / worker は 1 つの DB と Prisma schema を共有する単一アプリの実行形態違いなので、型を app ごとに複製しても独立性は得られず drift のリスクだけが増える。
+## 中断は失敗として扱う
 
-### Prisma の型は repository 実装の内側に閉じる
+run-once モデルなので、**処理の途中でシグナルを受けて終了した場合はタスクが未完了**を意味する。ここで exit 0 を返すとスケジューラが成功と誤認し、削除が途中で止まっても次回まで気付けない。
 
-**`@repo/eslint-config/prisma-boundary` で lint 強制している**（`eslint.config.js` で spread 済み）。`@repo/db` から import してよいのは `createPrismaClient` / `CreatePrismaClientOptions` / `PrismaClient` の 3 つだけ。Prisma のモデル型（`Memo` / `User` / `AuthAccount` …）を import してよいのは以下だけ:
+`src/runtime/graceful-shutdown.ts` は中断時に **非 0（`128 + シグナル番号`。SIGTERM=143 / SIGINT=130）で終了する**。戻り値の `isShuttingDown` は長時間ループや batch で各 iteration の頭をチェックして自発的に break するために使う。
 
-- `repository/prisma/*.ts` の **実装クラスの内側**（`_toDomainXxx` のような変換関数の引数）
-- `src/task/*.ts`（`createPrismaClient` の呼び出し。`PrismaClient` 型は制限対象外）
-- `src/runtime/graceful-shutdown.ts`（`$disconnect()` のための `PrismaClient` 型）
+タスク失敗時は `throw` してプロセスを exit code 1 で終わらせ、スケジューラに通知する。
 
-現状の `MemoRepository` は `deleteOlderThan(threshold: Date): Promise<number>` のみで Prisma 型を一切公開していない。新しい操作を追加するときもこの形を保つ。
+## 環境変数
 
-### env / errors / logger
+`src/env.ts` に Zod スキーマをインラインで定義し、import 時に `safeParse` → 失敗なら `process.exit(1)`。
 
-- `@repo/logger`: ログ出力
-- `@repo/db`: `createPrismaClient` で PrismaClient を生成
-- `@repo/errors`: 業務エラーが必要になったら使う（現状の cleanup タスクでは throw で十分）
-- env 検証は `src/env.ts` に Zod スキーマをインラインで定義（`safeParse → process.exit(1)` パターン。apps/api と同じ）
-
-## 本番起動（想定）
-
-本番では以下のいずれかで定期起動する想定（今回は apps/cron のコードのみ。スケジュール側の実装はスコープ外）:
-
-- **AWS**: EventBridge Schedule → ECS Scheduled Task → `dist/task/<name>.js` を直接起動
-- **GitHub Actions**: `.github/workflows/cron-*.yml` で `schedule:` トリガー + `pnpm --filter cron <task>`
-- **Kubernetes**: CronJob で `node dist/task/<name>.js`
-
-Dockerfile はマルチステージ (turbo prune ベース) で用意済み (`apps/cron/Dockerfile`)。CMD はデフォルトで `cleanup-old-memos` を呼ぶが、ECS Task Definition の command で別 task に差し替え可能。
+| 変数 | 必須 | デフォルト | 説明 |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | `NODE_ENV !== "test"` で必須 | - | Prisma の接続文字列 |
+| `CLEANUP_MEMO_OLDER_THAN_DAYS` | no | `90` | 削除対象とする経過日数 |
+| `NODE_ENV` | no | `development` | `development` / `test` / `production` |
+| `LOGGER_TYPE` | no | `pino` | `pino` / `winston` / `console` / `silent` |
+| `LOG_LEVEL` | no | `info` | `debug` / `info` / `warn` / `error` |
 
 ## テスト戦略
 
-- **Repository / Service の unit test**: Prisma は `vi.fn()` で mock（DB 不要、並列実行可）
-- **Controller integration テストのような統合テストは現状無し**（task はエントリポイントから直接 service を呼ぶフラットな構造のため）
-
-apps/api と同じく `describe("正常系" / "異常系")` の入れ子で分類する。
-
-## コードスタイル
-
-ルート `CLAUDE.md` の「Code Style and Linting」と同じ規約に従う。**Function style は API と同じく `const + arrow function`**。クラスメンバーは `public` / `private` を明示し、private には `_` プレフィックス必須。
+- **Repository / Service の unit test のみ**。Prisma は `vi.fn()` で mock するので DB 不要
+- 統合テストは無い（task はエントリポイントから直接 service を呼ぶフラットな構造のため）
+- テストケースは `describe` を「正常系」「異常系」で分類する（`apps/api` と同じ）
