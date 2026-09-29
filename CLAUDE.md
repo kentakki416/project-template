@@ -13,7 +13,7 @@ Turborepo + pnpm モノレポ。
 - **apps/mobile**: Expo/React Native mobile application
 - **apps/api**: Express.js API server (port 8080)
 - **apps/cron**: 定期実行タスク（タスク 1 回実行で exit するモデル。本番は EventBridge / CronJob 等で起動）
-- **apps/worker**: 常駐型 worker（BullMQ ベース。Queue 実装は `@repo/queue` の抽象越しに DI されており、SQS / Cloud Tasks 等への差し替えが容易）
+- **apps/worker**: 常駐型 worker（BullMQ ベース）
 
 ### Packages
 
@@ -22,17 +22,19 @@ Turborepo + pnpm モノレポ。
 - **packages/logger**: `ILogger` + pino/winston/console/silent + AsyncLocalStorage context (`@repo/logger`)
 - **packages/errors**: `Result<T>` + `ApiError` + 業務エラー生成ヘルパ (`@repo/errors`)
 - **packages/redis**: `createRedisClient` factory（BullMQ / Pub/Sub 対応）(`@repo/redis`)
-- **packages/queue**: Queue 抽象 (`JobQueue<T>` / `JobProcessor<T>` / `JobConsumer`) + BullMQ 実装 + Job 型 (`@repo/queue`)。ハンドラ側は実装を knows せず、別 queue 実装への切り替えが可能
+- **packages/queue**: Queue 抽象 (`JobQueue<T>` / `JobProcessor<T>` / `JobConsumer`) + BullMQ 実装 (`@repo/queue`)。ハンドラ側は実装を知らないため、SQS / Cloud Tasks 等への差し替えが可能
+- **packages/storage**: `createStorage` factory + local / S3 実装 (`@repo/storage`)
+- **packages/eslint-config** / **packages/typescript-config**: 共有 lint / tsconfig
 
-共通パッケージの設計詳細は [`docs/spec/shared-packages/`](docs/spec/shared-packages/README.md) を参照。新規 server-side app (cron / worker / batch) を追加する場合は同設計書に沿って `@repo/db` / `@repo/logger` / `@repo/errors` / `@repo/redis` を依存に追加し、各 app の `src/index.ts` で client を生成して Repository に DI する。
+**共通パッケージの方針**: `db` / `logger` / `errors` / `redis` / `storage` は server-side app 横断で使う共通基盤。client は **factory のみを export** し、各 app の `src/index.ts` で 1 回生成して Repository に DI する。新規 server-side app (cron / worker / batch) も同じ流儀に従う。
 
-**環境変数の検証は各 app の `src/env.ts` にインラインで定義する**（Zod スキーマ + `safeParse → process.exit(1)`）。共通の env 検証パッケージは持たず、app ごとに必要な env を直接宣言することで、`apps/{app}/src/env.ts` 単独で env 仕様が完結する。Next.js 側（`apps/web` / `apps/admin`）は `server-only` でガードして client component からの import を防ぐ。
+**env の検証は各 app の `src/env.ts` にインラインで定義する**（Zod スキーマ + `safeParse → process.exit(1)`）。共通の env 検証パッケージは持たず、`apps/{app}/src/env.ts` 単独で env 仕様が完結するようにする。`apps/web` / `apps/admin` は `server-only` でガードして client component からの import を防ぐ。
 
 ### Infra
 
 - **infra/terraform**: AWS Infrastructure as Code
 
-### CLAUDE.md の参照
+### 作業時に参照するドキュメント
 
 各ディレクトリでの作業時は **対応する `CLAUDE.md` を参照してください**:
 
@@ -44,7 +46,8 @@ Turborepo + pnpm モノレポ。
 - Worker → `apps/worker/CLAUDE.md`（Queue 抽象 / BullMQ → 他実装への切り替え方 / 新 Queue の追加手順 / 冪等性）
 - スキーマ → `packages/schema/CLAUDE.md`（スキーマ命名規則）
 - Terraform → `infra/terraform/CLAUDE.md`
-- 共通パッケージ設計 → [`docs/spec/shared-packages/README.md`](docs/spec/shared-packages/README.md)（`@repo/db` / `@repo/logger` / `@repo/errors` / `@repo/redis` の仕様・設計・移行手順）
+
+アーキテクチャ・規約のトピック別まとめは [`docs/onboarding/`](docs/onboarding/README.md)（人間向けキャッチアップ。正典は各 `CLAUDE.md`）。
 
 ## Common Commands (root)
 
@@ -56,25 +59,16 @@ pnpm lint:fix     # ESLint 自動修正
 pnpm test         # テスト
 ```
 
-各アプリ固有のコマンドは対応サブディレクトリの `CLAUDE.md` を参照。
-
-## Environment Requirements
-
-- **Node.js**: >=18.0.0
-- **pnpm**: >=9.0.0
-- **Terraform**: インフラ作業時に必要
-- **AWS CLI**: Terraform デプロイ時に必要
+各アプリ固有のコマンドは対応サブディレクトリの `CLAUDE.md` を参照。前提は Node.js >=18 / pnpm >=9（インフラ作業時は Terraform + AWS CLI）。
 
 ## Code Style and Linting
 
-ESLint v9 flat config (`eslint.config.{js,mjs}`)。**全アプリ共通ルール**。
+ESLint v9 flat config (`eslint.config.{js,mjs}`)。**全アプリ共通ルール**。**ファイル変更後は `pnpm lint:fix` を実行する**。
 
-### ESLint Configuration Architecture
-- **Web & Admin**: `eslint-config-next` を使用。`@typescript-eslint` プラグインを再定義してはいけない（"Cannot redefine plugin" エラー）
-- **Mobile**: `eslint-config-expo/flat` を使用。同様に `@typescript-eslint` を再定義しない
-- **API**: 全プラグインを自前で定義
+- **プラグイン定義**: Web / Admin は `eslint-config-next`、Mobile は `eslint-config-expo/flat` を使うため `@typescript-eslint` を再定義してはいけない（"Cannot redefine plugin" エラー）。API は全プラグインを自前で定義。
 
 ### 共通ルール
+
 - **No semicolons** (`semi: ["error", "never"]`)
 - **Double quotes** (`quotes: ["error", "double"]`)
 - **Object curly spacing**: `{ foo }` (not `{foo}`)
@@ -87,62 +81,49 @@ ESLint v9 flat config (`eslint.config.{js,mjs}`)。**全アプリ共通ルール
 - **バレルエクスポート（index.ts）**: ファイル名のアルファベット順
 - **React JSX props**: callbacks last, shorthand first, reserved first
 - **TypeScript**: No `any` (warn), no empty functions, `async` for Promise-returning functions
-- **Naming conventions**:
-  - Variables: camelCase / UPPER_CASE / PascalCase
-  - Functions: camelCase / PascalCase
-  - Types: PascalCase
+- **Naming conventions**: Variables は camelCase / UPPER_CASE / PascalCase、Functions は camelCase / PascalCase、Types は PascalCase
 - **Prefer**: `const` over `let`/`var`、template literals、arrow callbacks
-- **関数名は処理内容が明確にわかる名前にする**:
+
+### 関数名
+
+- **必ず動詞から始める**（例: `getUserById`, `createOrder`, `sendWelcomeMail`）。名詞だけの関数名（`userValidation`, `orderTotal`）は使わない
+- **boolean を返す関数は `is` / `should` / `can` / `has` などの述語プレフィックスで始める**:
+  - 良い例: `isActiveUser`, `shouldRetryJob`, `canEditMemo`, `hasAdminRole`
+  - 悪い例: `activeUser`, `retryJob`（retry するように見える）, `adminRole`
+  - **例外**: 複数の条件をまとめて検証する関数は `check` / `verify` / `validate` から始めてよい（例: `checkOrderPreconditions`, `verifyWebhookSignature`, `validateCsvRow`）。ただし単一条件の真偽判定に `check` は使わず、述語プレフィックスを優先する
+- **処理内容が明確にわかる名前にする**:
   - 悪い例: `parseCsvLine`, `toHalfWidth`, `parseAmount`
   - 良い例: `splitCsvLineWithQuotes`, `convertFullWidthToHalfWidth`, `convertCommaAmountToNumber`
 
 ### Function style
-- **API (`apps/api`)**: `function` 宣言は使わず、`const` + アロー関数で統一（例: `export const foo = async () => {}`）
+
+- **API / cron / worker**: `function` 宣言は使わず、`const` + アロー関数で統一（例: `export const foo = async () => {}`）
 - **Web / Mobile / Admin**: コンポーネントは `function` に統一
 
 ### Class member style (全 apps / packages 共通)
-- **constructor 以外のクラスメンバー（メソッド・プロパティ）は必ず `public` / `private` を明示する**（`@typescript-eslint/explicit-member-accessibility`）。修飾子を省略してデフォルトの `public` 扱いにしない。`protected` は継承を使う場合のみ。
-- **`private` なメンバー（メソッド・プロパティ・constructor parameter property を含む）は `_` プレフィックスを必須にする**（`@typescript-eslint/naming-convention` の `memberLike` + `private` modifier + `leadingUnderscore: "require"`）。
-- `constructor` は除外（修飾子を書かない）。
-- 例:
-  ```typescript
-  /** ✓ OK */
-  class PrismaUserRepository implements UserRepository {
-    constructor(private readonly _prisma: PrismaClient) {}
 
-    public async findById(id: number): Promise<User | null> {
-      const row = await this._prisma.user.findUnique({ where: { id } })
-      return row ? this._toDomain(row) : null
-    }
+- **`constructor` 以外のクラスメンバー（メソッド・プロパティ）は必ず `public` / `private` を明示する**（`@typescript-eslint/explicit-member-accessibility`）。修飾子を省略してデフォルトの `public` 扱いにしない。`protected` は継承を使う場合のみ
+- **`private` なメンバー（メソッド・プロパティ・constructor parameter property を含む）は `_` プレフィックスを必須にする**（`@typescript-eslint/naming-convention`）
+- `constructor` 自体には修飾子を書かない
 
-    private _toDomain(row: PrismaUser): User {
-      return { id: row.id, name: row.name }
-    }
+```typescript
+class PrismaUserRepository implements UserRepository {
+  constructor(private readonly _prisma: PrismaClient) {}
+
+  public async findById(id: number): Promise<User | null> {
+    const row = await this._prisma.user.findUnique({ where: { id } })
+    return row ? this._toDomain(row) : null
   }
 
-  /** ✗ NG: public が無い */
-  class Foo {
-    doSomething() {}
+  private _toDomain(row: PrismaUser): User {
+    return { id: row.id, name: row.name }
   }
-
-  /** ✗ NG: private に _ プレフィックスが無い */
-  class Foo {
-    private helper() {}
-  }
-  ```
+}
+```
 
 ### Comment style
-- ブロックコメントは `/** */` 形式で統一（`//` は使わない）
-- 1行でも複数行形式で書く:
-  ```
-  /**
-   * コメント内容
-   */
-  ```
 
-### When editing files
-- 変更後は `pnpm lint:fix` を実行
-- 新規 import はインポート順序ルールに従う
+- ブロックコメントは `/** */` 形式で統一（`//` は使わない）。1 行の内容でも `/**` / ` * 内容` / ` */` の複数行形式で書く
 
 ## Documentation Guidelines
 
@@ -153,13 +134,11 @@ ESLint v9 flat config (`eslint.config.{js,mjs}`)。**全アプリ共通ルール
 - README.md には **目次（Table of Contents）必須**: GitHub Markdown アンカーリンク形式、`##` / `###` 見出しを全て含める
 - step ファイル: 実装手順に番号を振らない、各ファイルは「対応内容」「動作確認」セクションを含める
 - テンプレート: `docs/spec/template/README.md` および `docs/spec/template/step1-template.md`
-- **図は Mermaid で記載する**: フロー図 / シーケンス図 / ER 図 / 状態遷移図はすべて ` ```mermaid ` コードフェンスを使う。ASCII アートは使わない（GitHub・VSCode 等でネイティブレンダリングされる）
+- **図は Mermaid で記載する**: フロー図 / シーケンス図 / ER 図 / 状態遷移図はすべて ` ```mermaid ` コードフェンスを使う。ASCII アートは使わない
 
 **新機能を実装する前に必ず `design-feature` skill で設計書を作成する**。デザインのモックが必要なときは `design-mock` skill を使う（テーマヒアリング → admin 参照 → モック作成 → 承認後に仕様書追記）。
 
 ## Important Notes
 
-- スキーマパッケージは依存アプリより先にビルドする必要がある
-- スキーマ変更時は `cd packages/schema && pnpm build`
+- スキーマパッケージは依存アプリより先にビルドする必要がある。スキーマ変更時は `cd packages/schema && pnpm build`
 - Terraform state は S3 + S3 ネイティブロック（`use_lockfile = true`、Terraform 1.10+）構成（bootstrap で構成済み）
-- **共通パッケージの設計方針**: `packages/db` / `logger` / `errors` / `config` / `redis` は server-side app 横断で利用される共通基盤。Prisma / Redis は **factory のみを export** し、各 app の `src/index.ts` で 1 回呼んで Repository に DI する。詳細は [`docs/spec/shared-packages/README.md`](docs/spec/shared-packages/README.md) を参照
