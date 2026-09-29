@@ -85,6 +85,6 @@ aws ssm put-parameter --name "/my-app-prd-api/deploy/approval" --value "rejected
 |---|---|
 | [`../docs/setup/infra.md`](../docs/setup/infra.md) | **初回セットアップ手順** (bootstrap → account → GitHub Environments → env apply → DNS 委任 → seed-secrets → image push) |
 | [`terraform/CLAUDE.md`](terraform/CLAUDE.md) | Terraform 層構造 / CI ワークフロー / OIDC role 復旧手順 |
-| [`../docs/spec/shared-packages/README.md`](../docs/spec/shared-packages/README.md) | server-side app が共有する `@repo/db` / `logger` / `errors` / `redis` の設計 |
+| [`../docs/onboarding/architecture.md`](../docs/onboarding/architecture.md) | server-side app が共有する `@repo/db` / `logger` / `errors` / `redis` / `queue` の一覧と責務 |
 | [`../apps/api/README.md`](../apps/api/README.md) | API サーバーの設計思想・テスト戦略 |
 | [`../docs/setup/api.md`](../docs/setup/api.md) | API サーバーのローカル起動手順 |

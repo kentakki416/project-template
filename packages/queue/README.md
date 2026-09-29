@@ -151,4 +151,4 @@ export const startProcessMemoWorker = (args) =>
 ## 関連
 
 - [apps/worker/README.md](../../apps/worker/README.md) / [apps/worker/CLAUDE.md](../../apps/worker/CLAUDE.md)
-- [docs/tool/bullMQ.md](../../docs/tool/bullMQ.md) — デフォルト Queue 実装 BullMQ の概要・特徴
+- [BullMQ 公式ドキュメント](https://docs.bullmq.io/) — デフォルト Queue 実装 BullMQ の概要・特徴

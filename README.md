@@ -160,8 +160,7 @@ graph TB
 
 | ドキュメント | 内容 |
 |---|---|
-| [docs/spec/README.md](docs/spec/README.md) | 機能仕様クイックリファレンス（dev-login / shared-packages 等） |
-| [docs/spec/shared-packages/README.md](docs/spec/shared-packages/README.md) | packages/db, logger, errors, config, redis 切り出しの設計書 |
+| [docs/spec/README.md](docs/spec/README.md) | 機能仕様クイックリファレンス（dev-login 等） |
 | [docs/mcp.md](docs/mcp.md) | MCP サーバーの一覧・使い方・追加方法 |
 | [.claude/README.md](.claude/README.md) | Claude Code の設定（Agents・Commands・Skills） |
 
