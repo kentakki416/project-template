@@ -4,51 +4,65 @@
 
 ## 目次
 
-- [Queue 経由の配送](#queue-経由の配送)
+- [ログ経由の配送](#ログ経由の配送)
 - [匿名ユーザーの追跡](#匿名ユーザーの追跡)
 - [DB 状態のレプリケーション](#db-状態のレプリケーション)
 - [admin への分析画面](#admin-への分析画面)
 
-## Queue 経由の配送
+## ログ経由の配送
 
 ### 着手トリガー
 
-- イベントを **課金・請求・監査の根拠** に使うことになった
-- ClickHouse の障害中に落ちたイベントが業務上問題になった
-- ClickHouse への書き込み遅延が API のレイテンシに影響し始めた（MVP は `await` しないので通常は影響しない）
+- **サービスが多言語化**し、各言語に `@repo/events` 相当を用意するのが辛くなった
+- **api を serverless（Lambda 等）に移し**、常駐 worker が使えなくなった
+- **既に Vector / Fluent Bit を運用**していて、宛先を 1 つ足すだけで済む状況になった
 
 ### 対象範囲
 
-| | MVP | Queue 経由に切り替えた後 |
+| | MVP（Queue 経由） | ログ経由に切り替えた後 |
 | --- | --- | --- |
-| 送出 | service から ClickHouse へ直接 | service → `@repo/queue` に enqueue |
-| 書き込み | API プロセス | `apps/worker` が消費して ClickHouse へ |
-| 欠落 | 許容（プロセス終了時などに落ちる） | BullMQ のリトライで担保 |
-| 依存 | ClickHouse | ClickHouse + Redis |
+| アプリ側 | `@repo/queue` に enqueue | `logger` に構造化 JSON を出すだけ |
+| 運搬 | Redis + `apps/worker` | Vector / Fluent Bit |
+| 新しいインフラ | なし（既存） | **Vector 等の常駐プロセス** |
+| 欠落耐性 | BullMQ のリトライ | Vector のディスクバッファ + リトライ |
+| 運用ログとの関係 | 完全に別経路 | **同じ stdout に混ざるため再分離が必要** |
 
 ### 設計案
 
-`EventTracker` の interface はそのままに、実装を差し替える。
+`EventTracker` の interface はそのままに、実装だけ差し替える。**service 層のコードは 1 行も変わらない。**
 
 ```
-ClickHouseEventTracker  →  QueueEventTracker
-                              ↓ enqueue
-                           apps/worker の track-event ジョブ
-                              ↓
-                           ClickHouse
+QueueEventTracker  →  LogEventTracker
+                        ↓ logger.info({ type: "event", ... })
+                      stdout
+                        ↓ Vector が type: "event" だけを抽出
+                      ClickHouse
 ```
 
-`EventTracker` を interface にしておく理由がこれで、**service 層のコードは 1 行も変わらない**。`apps/api/src/index.ts` の DI 組み立てだけを差し替える。
+`TrackedEvent` 型をそのまま JSON にして出せるので、**型安全性は維持できる**（`logger.info("memo_deleted")` のような生の文字列呼び出しにはしない）。
 
-ジョブは冪等にする必要がある（BullMQ は at-least-once）。`event_id` を ClickHouse 側の重複排除キーにしておけば、同じイベントが 2 回届いても `ReplacingMergeTree` か `SELECT DISTINCT` で吸収できる。
+運用ログと同じ stdout に流れるため、Vector 側で `type` フィールドによるルーティングが必須になる。ここを怠ると、分けたはずの運用ログが ClickHouse に混入する。
+
+### 現在の AWS 構成との差分
+
+現状 ECS は `awslogs` ドライバで CloudWatch Logs に送っている（`infra/terraform/aws/modules/ecs-workload/main.tf`）。ここから ClickHouse に流すには次のどちらかが必要になる。
+
+- **サイドカーで Vector を常駐させる**（タスク定義にコンテナを 1 つ追加）
+- **CloudWatch subscription filter → Kinesis Firehose → 変換 → ClickHouse**（AWS 側の配管が増える）
+
+### このアプローチが解決しないこと
+
+**`POST /api/events` は残る。** `apps/mobile` はユーザーの端末で動くため収集できる stdout がなく、web の `memo_viewed` もブラウザ側の出来事だからである。ログ経由にしても**クライアント起点のイベントはネットワークを越える必要がある**ため、構成は単純にならない。
+
+節約できるのはサーバー側（api / worker / cron）の送出だけ。
 
 ### 着手時のチェックリスト
 
-- [ ] `EventTracker` の interface が変わっていないか確認する（変わっていたら両実装を揃える）
-- [ ] `packages/queue` に `track-event` の Job 型と queue 名を追加
-- [ ] `apps/worker` にジョブハンドラを追加し `consumers` に登録
-- [ ] ClickHouse のテーブルを `ReplacingMergeTree(event_id)` に変更するか、集計側で重複排除する
-- [ ] worker が落ちている間のキュー滞留量を監視できるようにする
+- [ ] `EventTracker` の interface が変わっていないか確認する
+- [ ] Vector の設定で `type: "event"` 以外（= 運用ログ）が ClickHouse に混入しないことを確認する
+- [ ] Vector のディスクバッファ上限と、溢れたときの挙動を決める
+- [ ] ローカル開発でも Vector を動かすか、開発時は Queue 実装のままにするかを決める
+- [ ] `POST /api/events` 側の経路は変更不要であることを確認する
 
 ## 匿名ユーザーの追跡
 

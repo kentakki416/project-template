@@ -55,17 +55,21 @@ CREATE TABLE IF NOT EXISTS events
     properties     String,
     schema_version UInt16 DEFAULT 1
 )
-ENGINE = MergeTree
+ENGINE = ReplacingMergeTree
 PARTITION BY toYYYYMM(occurred_at)
-ORDER BY (event_name, occurred_at, user_id)
+ORDER BY (event_name, occurred_at, user_id, event_id)
 TTL toDateTime(occurred_at) + INTERVAL 2 YEAR;
 ```
 
 `ORDER BY` は「特定イベントを期間で絞る」という最頻クエリに合わせている。`properties` は JSON 文字列で持ち、多用する値が固まった時点で MATERIALIZED カラムに昇格させる。
 
+`ReplacingMergeTree` にしているのは **BullMQ が at-least-once** で同じイベントが 2 回届きうるため。`ORDER BY` 末尾の `event_id` が重複排除キーになる。集計時は `FINAL` を付けるか `argMax` で最新を取る。
+
 ### packages/clickhouse
 
 `@repo/db` / `@repo/redis` と同じく **factory のみ export** する。app 側で `new` させない。
+
+このパッケージを依存に持つのは **`apps/worker` だけ**。ClickHouse へ書くのは worker であり、`apps/api` は queue に enqueue するだけで ClickHouse を知らない。
 
 ```typescript
 /** packages/clickhouse/src/client.ts */
@@ -90,9 +94,14 @@ export const createClickHouseClient = (
 ): ClickHouseClient =>
   createClient({
     clickhouse_settings: {
+      /**
+       * worker が queue から取り出した分をまとめて INSERT するため、
+       * ここでのバッファリングは補助的。**確定は待つ**。
+       * 待たないと worker が成功扱いでジョブを完了し、
+       * ClickHouse 側で失敗しても BullMQ のリトライが効かなくなる。
+       */
       async_insert: 1,
-      /** 書き込みの確定を待たない（行動イベントは欠落を許容する） */
-      wait_for_async_insert: 0,
+      wait_for_async_insert: 1,
     },
     database: process.env.CLICKHOUSE_DB ?? "project_template",
     password: process.env.CLICKHOUSE_PASSWORD ?? "password",

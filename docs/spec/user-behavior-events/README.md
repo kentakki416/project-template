@@ -12,7 +12,7 @@
 ## 関連 spec
 
 - [`../dev-login/README.md`](../dev-login/README.md) — 開発環境ログイン。イベントに載せる `user_id` はこの認証を経たユーザー ID を使う
-- [`./deferred-event-delivery.md`](./deferred-event-delivery.md) — MVP 対象外。Queue 経由の配送と匿名ユーザー追跡
+- [`./deferred-event-delivery.md`](./deferred-event-delivery.md) — MVP 対象外。ログ経由の配送・匿名ユーザー追跡・DB レプリケーション
 
 ## 目次
 
@@ -20,12 +20,13 @@
   - [記録するイベント](#記録するイベント)
   - [すべてのイベントが持つ共通項目](#すべてのイベントが持つ共通項目)
   - [記録しないもの](#記録しないもの)
-  - [欠落の許容](#欠落の許容)
+  - [欠落の扱い](#欠落の扱い)
 - [設計](#設計)
   - [全体構成](#全体構成)
   - [フロントは ClickHouse に直接書かない](#フロントは-clickhouse-に直接書かない)
   - [パッケージ構成](#パッケージ構成)
-  - [書き込み方式](#書き込み方式)
+  - [配送経路](#配送経路)
+  - [フロントのバッチ送信](#フロントのバッチ送信)
   - [ローカル環境](#ローカル環境)
   - [MVP 対象外（将来検討）](#mvp-対象外将来検討)
 - [必要な画面](#必要な画面)
@@ -69,11 +70,13 @@
 - **個人を特定する値**（メールアドレス・氏名・メモ本文）。`user_id` で join できれば足りる
 - **未ログインユーザーの行動**。匿名 ID を発行しない方針のため（→ [MVP 対象外](#mvp-対象外将来検討)）
 
-### 欠落の許容
+### 欠落の扱い
 
-**行動イベントは多少欠落してもよい**（分析用途であり、請求や監査には使わない）。ClickHouse が落ちていてもユーザーのリクエストは成功させる。
+**ユーザーのリクエストはイベント送出の失敗で失敗させない。** ClickHouse が落ちていてもメモの削除は成功する。
 
-この割り切りを変える場合（イベントを課金根拠にする等）は [`deferred-event-delivery.md`](./deferred-event-delivery.md) の Queue 経由配送へ切り替える。
+ただし **イベント自体は可能な限り落とさない**。Queue を挟んでリトライさせる（→ [配送経路](#配送経路)）。
+
+行動イベントは請求や監査には使わないため厳密な exactly-once までは求めない。しかし **欠落が「デプロイ時」「障害時」に偏るのは避ける**。最もデータが欲しい瞬間に限って記録が消えると、分析結果そのものが歪むため。
 
 ---
 
@@ -85,12 +88,16 @@
 flowchart LR
     web["apps/web<br/>apps/admin<br/>apps/mobile"]
     api["apps/api"]
+    q[("Redis<br/>track-event queue")]
+    worker["apps/worker"]
     ch[("ClickHouse<br/>events")]
     pg[("Postgres<br/>アプリ状態")]
     logs["CloudWatch Logs 等<br/>(運用ログ)"]
 
-    web -->|"POST /api/events"| api
-    api -->|"service 層から直接"| ch
+    web -->|"POST /api/events<br/>(バッチ)"| api
+    api -->|"enqueue"| q
+    q --> worker
+    worker -->|"一括 INSERT"| ch
     api --> pg
     api -.->|"pino / stdout"| logs
 
@@ -114,20 +121,48 @@ web / admin / mobile は **DB を直接触らず必ず API を経由する** と
 | パッケージ | 役割 | フロントから import 可 |
 | --- | --- | --- |
 | `@repo/clickhouse` | `createClickHouseClient` factory のみ export（`@repo/db` / `@repo/redis` と同じ流儀） | ❌ |
-| `@repo/events` | イベント名の定義と `EventTracker` 抽象、ClickHouse 実装 | ❌ |
+| `@repo/events` | イベント名の定義と `EventTracker` 抽象、Queue 実装 | ❌ |
+| `@repo/queue` | `track-event` queue の名前と Job 型（既存パッケージに追加） | ❌ |
 | `@repo/api-schema` | `POST /api/events` のリクエストスキーマ（フロントが使う） | ✅ |
 
-`EventTracker` は interface にして ClickHouse 実装を DI する。テストでは `vi.fn()` の fake に差し替え、ClickHouse なしでテストできるようにする。
+`EventTracker` を interface にしているのは、**送出の transport を後から差し替えられるようにするため**。MVP の実装は Queue に enqueue するだけで、ClickHouse への書き込みは `apps/worker` が持つ。将来ログ経由に切り替える場合も service 層のコードは変わらない（→ [`deferred-event-delivery.md`](./deferred-event-delivery.md)）。テストでは fake に差し替え、Redis も ClickHouse も無しで service をテストする。
 
-### 書き込み方式
+### 配送経路
 
-**fire-and-forget + ClickHouse の `async_insert`** を採用する。
+**API から ClickHouse へ直接書かず、`@repo/queue` に enqueue して `apps/worker` が書く。**
 
-- ClickHouse は小さな INSERT を大量に受けるとマージ負荷で劣化する。`async_insert=1` にするとサーバー側でバッファリングされる
-- 送出は `await` せず、失敗しても呼び出し元に伝播させない（`logger.warn` に落とすだけ）
-- これにより **ClickHouse の障害がユーザーのリクエストに波及しない**
+```
+service → EventTracker.track() → Redis (track-event queue) → worker → ClickHouse
+```
 
-この方式ではプロセス強制終了時などにイベントが落ちうるが、[欠落の許容](#欠落の許容)の方針どおり許容する。
+API から直接書く（fire-and-forget）案も検討したが採用しなかった。直接書くとプロセス再起動でバッファが失われるため、**デプロイ時と障害時に集中してイベントが落ちる**。最もデータが欲しい瞬間に偏って欠けるのは分析用途として質が悪い。
+
+Queue を挟む判断が成り立つ根拠:
+
+- **Redis は新しい依存ではない。** `apps/api` は refresh token とヘルスチェックで既に `@repo/redis` を使っている
+- **worker はローカルでも動いている。** `pnpm dev` は `turbo run dev` なので worker の `dev` script も起動する
+- **BullMQ のリトライが効く。** ClickHouse の一時的な障害を吸収できる
+
+代わりに払うコスト:
+
+- 調査の経路が増える（api → Redis → worker → ClickHouse）。イベントが届かないときは queue の滞留量を先に見る
+- **BullMQ は at-least-once なので重複しうる。** `event_id` を送出側で採番し、ClickHouse 側は `ReplacingMergeTree` で吸収する
+
+worker は queue から取り出したイベントを **まとめて 1 回の INSERT にする**。ClickHouse は小さな INSERT を大量に受けるとマージ負荷で劣化するため。
+
+### フロントのバッチ送信
+
+フロントのイベント（`memo_viewed` など）を 1 件ずつ送ると 1 セッションで数十回 API を叩き、その都度認証を通ることになる。**クライアント側でバッファリングしてまとめて送る。**
+
+| flush する条件 | 理由 |
+| --- | --- |
+| バッファが 10 件に達した | 上限を設けないと離脱時にまとめて失う |
+| 前回の flush から 5 秒経過 | 操作が止まっても滞留させない |
+| `visibilitychange` で hidden になった | タブを閉じる・バックグラウンドへ回る瞬間を捕まえる |
+
+離脱時は通常の `fetch` が中断されうるため `sendBeacon`（または `fetch` の `keepalive: true`）を使う。
+
+`POST /api/events` が配列を受け取る仕様にしているのはこのため。1 セッションあたりのリクエストが数十回から数回に減る。
 
 ### ローカル環境
 
@@ -142,7 +177,7 @@ web / admin / mobile は **DB を直接触らず必ず API を経由する** と
 
 詳細は [`deferred-event-delivery.md`](./deferred-event-delivery.md)。
 
-- **Queue 経由の配送**（`@repo/queue` → worker → ClickHouse）。欠落を許さない要件が出たとき
+- **ログ経由の配送**（`logger` → Vector 等 → ClickHouse）。多言語化や serverless 化で常駐 worker が使えなくなったとき
 - **匿名ユーザーの追跡**（`anonymous_id`）。獲得ファネルを分析したくなったとき
 - **DB 状態のレプリケーション**（Postgres → ClickHouse）。DB にある状態はいつでも取り込めるため後回し
 - **admin への分析画面**
@@ -197,7 +232,7 @@ ClickHouse のテーブル定義:
 
 | カラム | 型 | 備考 |
 | --- | --- | --- |
-| `event_id` | `UUID` | 重複排除キー |
+| `event_id` | `UUID` | **送出側で採番**し、`ReplacingMergeTree` の重複排除キーにする |
 | `event_name` | `LowCardinality(String)` | 種別が少ないので辞書圧縮が効く |
 | `occurred_at` | `DateTime64(3)` | **ソートキーに含める** |
 | `received_at` | `DateTime64(3)` | |
@@ -206,9 +241,9 @@ ClickHouse のテーブル定義:
 | `properties` | `String` | JSON 文字列。よく使う値は後から MATERIALIZED カラムに昇格させる |
 | `schema_version` | `UInt16` | |
 
-- エンジン: `MergeTree`
+- エンジン: **`ReplacingMergeTree`** — BullMQ が at-least-once なので同じイベントが 2 回届きうる。`ORDER BY` 末尾の `event_id` で重複を畳む
 - `PARTITION BY toYYYYMM(occurred_at)` — 月単位で TTL 削除できるようにする
-- `ORDER BY (event_name, occurred_at, user_id)` — 「特定イベントを期間で絞る」が最頻クエリのため
+- `ORDER BY (event_name, occurred_at, user_id, event_id)` — 「特定イベントを期間で絞る」が最頻クエリのため
 - `TTL occurred_at + INTERVAL 2 YEAR`
 
 `properties` を JSON 型ではなく `String` にしているのは、ClickHouse の JSON 型がバージョン依存で扱いが変わるため。分析で多用する値が固まった時点で MATERIALIZED カラムを足す方が安全。
@@ -221,20 +256,27 @@ sequenceDiagram
     participant W as apps/web
     participant A as apps/api
     participant P as Postgres
+    participant Q as Redis (queue)
+    participant K as apps/worker
     participant C as ClickHouse
 
     Note over U,C: ① API 起点のイベント（memo_deleted）
     U->>W: 削除ボタン
     W->>A: DELETE /api/memo/:id
     A->>P: memo を物理削除
-    A--)C: memo_deleted を送出（await しない）
+    A--)Q: memo_deleted を enqueue（await しない）
     A-->>W: 200
-    Note right of C: ClickHouse が落ちていても<br/>削除は成功する
+    Note right of A: enqueue に失敗しても<br/>削除は成功する
+    Q->>K: ジョブ配信
+    K->>C: 一括 INSERT
+    Note right of K: 失敗したら BullMQ が<br/>リトライする
 
     Note over U,C: ② フロント起点のイベント（memo_viewed）
     U->>W: メモ詳細を開く
-    W->>A: POST /api/events<br/>[{ event_name: "memo_viewed", ... }]
-    A->>A: 認証から user_id を解決<br/>received_at を付与
-    A--)C: 一括 INSERT
-    A-->>W: 200 { accepted: 1 }
+    W->>W: バッファに積む
+    Note right of W: 10 件 / 5 秒 /<br/>タブが hidden で flush
+    W->>A: POST /api/events<br/>[{ name: "memo_viewed", ... }, ...]
+    A->>A: 認証から user_id を解決<br/>event_id を採番
+    A--)Q: まとめて enqueue
+    A-->>W: 200 { accepted: 3 }
 ```

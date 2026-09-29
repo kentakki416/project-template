@@ -1,4 +1,4 @@
-# step3-api-emit
+# step4-api-emit
 
 API から memo のイベントを送出し、フロントからのイベントを受け取る `POST /api/events` を実装する。
 
@@ -6,14 +6,14 @@ API から memo のイベントを送出し、フロントからのイベント�
 
 ### DI の組み立て
 
-`apps/api/src/index.ts` で ClickHouse client と tracker を 1 回だけ生成し、service に渡す。
+`apps/api/src/index.ts` で `track-event` の `JobQueue` と tracker を 1 回だけ生成する。Redis client は既存のものを使い回す。
 
 ```typescript
-const clickhouse = createClickHouseClient()
-const eventTracker = new ClickHouseEventTracker(clickhouse)
+const trackEventQueue = createBullMQJobQueue<TrackEventJobData>(redis, TRACK_EVENT_QUEUE_NAME)
+const eventTracker = new QueueEventTracker(trackEventQueue)
 ```
 
-graceful shutdown で `clickhouse.close()` を呼ぶ。
+api は **ClickHouse を知らない**（依存に `@repo/clickhouse` を入れない）。
 
 ### service 層からの送出
 
@@ -34,7 +34,6 @@ export const deleteMemo = async (
   /** 物理削除なので DB からは復元できない。ここで記録しないと永久に失われる */
   deps.eventTracker.track({
     name: "memo_deleted",
-    occurredAt: new Date(),
     properties: { memo_id: id },
     source: "api",
     userId: deps.userId,
@@ -46,9 +45,9 @@ export const deleteMemo = async (
 
 `memo_created` / `memo_updated` も同様に送出する。**送出は `await` しない**（`EventTracker.track` の戻り値は `void`）。
 
-### POST /api/events
+**失敗したときは記録しない**（上の例で `notFound` のときイベントを出さない）。失敗を記録したい場合は `memo_delete_failed` のような別イベントにする。成功イベントに成否フラグを混ぜると集計時に必ず事故る。
 
-フロントからのイベントを受け取る。
+### POST /api/events
 
 `@repo/api-schema` にスキーマを定義する（命名規則は `packages/schema/CLAUDE.md`）。
 
@@ -74,10 +73,11 @@ export const createEventResponseSchema = z.object({
 
 Controller の要点:
 
-- **`user_id` はリクエストボディから受け取らない。** 認証済みユーザーから server 側で解決する（他人の ID を詐称させないため）
-- **`source` も server 側で決める**（`web` / `admin` / `mobile` を Origin か専用ヘッダで判定する）
+- **`userId` はリクエストボディから受け取らない。** 認証済みユーザーから server 側で解決する（他人の ID を詐称させないため）
+- **`source` も server 側で決める。** クライアントの自己申告を信用しない
 - **壊れたイベントがあっても 4xx にしない。** 捨てて残りを受理し、`accepted` に実際の件数を返す。分析のためにユーザー体験を壊さないため
-- `received_at` は tracker 側で付与するので Controller では触らない
+- 受け取った配列は **1 回の `trackAll()` でまとめて enqueue する**（1 リクエスト = 1 ジョブ）
+- `occurredAt` は **クライアントの時計** なので信用しすぎない。ClickHouse 側の `received_at` と突き合わせて異常値を検出できるようにしておく
 
 Router は `src/routes/event-router.ts` を新設して `/api/events` にマッピングする。
 
@@ -91,12 +91,19 @@ Router は `src/routes/event-router.ts` を新設して `/api/events` にマッ�
 pnpm --filter api test
 ```
 
-- [ ] `deleteMemo` のユニットテスト: `FakeEventTracker` を渡し、`memo_deleted` が `memo_id` 付きで 1 件記録されること
-- [ ] `deleteMemo` のユニットテスト: メモが存在しない（`notFound`）ときイベントが記録されないこと
+Service のユニットテスト（`FakeEventTracker` を使い Redis 不要）:
+
+- [ ] `deleteMemo` 成功時に `memo_deleted` が `memo_id` 付きで 1 件記録されること
+- [ ] `deleteMemo` がメモ不在で失敗したときイベントが記録されないこと
 - [ ] `createMemo` / `updateMemo` も同様に検証する
-- [ ] **tracker が throw してもリクエストが成功すること**（fire-and-forget の検証。`track` が例外を投げる fake を渡す）
-- [ ] `POST /api/events` のインテグレーションテスト: 認証なしで 401
-- [ ] `POST /api/events` のインテグレーションテスト: ボディに `userId` を混ぜても**無視され**、認証済みユーザーの ID が使われること
-- [ ] `POST /api/events` のインテグレーションテスト: 50 件を超えると 400、壊れたイベントが混ざっても 200 で `accepted` が正しいこと
+- [ ] **tracker が throw してもリクエストが成功すること**（`track` が例外を投げる fake を渡す）
+
+Controller のインテグレーションテスト:
+
+- [ ] 認証なしで 401
+- [ ] ボディに `userId` を混ぜても **無視され**、認証済みユーザーの ID が使われること
+- [ ] 51 件以上で 400
+- [ ] 壊れたイベントが混ざっても 200 で `accepted` が有効な件数になること
+- [ ] 3 件のイベントで `trackAll` が **1 回だけ** 呼ばれること（1 リクエスト = 1 ジョブ）
 
 テストケースは `describe` を「正常系」「異常系」で分類する（`apps/api/CLAUDE.md`）。
