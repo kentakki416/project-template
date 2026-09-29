@@ -13,7 +13,7 @@ const trackEventQueue = createBullMQJobQueue<TrackEventJobData>(redis, TRACK_EVE
 const eventTracker = new QueueEventTracker(trackEventQueue)
 ```
 
-api は **ClickHouse を知らない**（依存に `@repo/clickhouse` を入れない）。
+api は **データウェアハウスを知らない**（依存に `@repo/data-warehouse` を入れない）。書き込むのは worker だけ。
 
 ### service 層からの送出
 

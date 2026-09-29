@@ -5,6 +5,7 @@
 ## 目次
 
 - [ログ経由の配送](#ログ経由の配送)
+- [BigQuery など他バックエンドへの移行](#bigquery-など他バックエンドへの移行)
 - [匿名ユーザーの追跡](#匿名ユーザーの追跡)
 - [DB 状態のレプリケーション](#db-状態のレプリケーション)
 - [admin への分析画面](#admin-への分析画面)
@@ -63,6 +64,50 @@ QueueEventTracker  →  LogEventTracker
 - [ ] Vector のディスクバッファ上限と、溢れたときの挙動を決める
 - [ ] ローカル開発でも Vector を動かすか、開発時は Queue 実装のままにするかを決める
 - [ ] `POST /api/events` 側の経路は変更不要であることを確認する
+
+## BigQuery など他バックエンドへの移行
+
+### 着手トリガー
+
+- 組織のデータ基盤が既に BigQuery に寄っていて、**そこに集約した方が分析者にとって都合が良い**
+- ClickHouse の運用（アップグレード・バックアップ・スケール）が負担になった
+- マネージドサービスに寄せてインフラ管理を減らしたくなった
+
+### 対象範囲
+
+`@repo/data-warehouse` を技術名ではなく役割名にしているのはこのため。`DataWarehouse` interface の実装を 1 つ足し、factory の分岐を 1 つ増やすだけで済むようにしてある。
+
+| | 変更が必要か |
+| --- | --- |
+| `apps/worker` の `EventRepository` | ❌ 不要（`DataWarehouse` にしか依存していない） |
+| ジョブハンドラ・`@repo/events`・`apps/api` | ❌ 不要 |
+| `createDataWarehouse` の分岐 | ✅ `"bigquery"` を追加 |
+| `BigQueryDataWarehouse` 実装 | ✅ 新規 |
+| **テーブル定義（DDL）** | ✅ **新規に書き直す**（抽象化の対象外） |
+| 分析クエリ | ✅ SQL 方言が違うので書き直す |
+
+### 注意: interface は意図的に狭い
+
+`DataWarehouse` が `insertAll` と `close` しか持たないのは、**ClickHouse と BigQuery の差が大きく、汎用 API を作ると必ず漏れる**ため。
+
+| | ClickHouse | BigQuery |
+| --- | --- | --- |
+| 挿入 | 大きなバッチが有利。小さな INSERT を大量に受けるとマージ負荷で劣化 | ストリーミング挿入に行単位のクォータと課金がある |
+| エラー | throw | **部分失敗を戻り値で返す**（throw しない） |
+| 論理単位 | database | dataset |
+| パーティション / TTL | `PARTITION BY` / `TTL` | パーティション列 + 有効期限（構文が別物） |
+| 重複排除 | `ReplacingMergeTree` | **同等機能なし**。`insertId` による best-effort か、クエリ側で `ROW_NUMBER()` 等で排除 |
+
+最後の行が移行時の最大の争点になる。現設計は BullMQ の at-least-once を `ReplacingMergeTree` で吸収しているが、BigQuery にはこれが無い。
+
+### 着手時のチェックリスト
+
+- [ ] `DataWarehouse` interface が `insertAll` / `close` のままか確認する（増えていたら両実装を揃える）
+- [ ] **重複排除の方針を決める**（`insertId` による best-effort か、クエリ側で排除するか）
+- [ ] BigQuery 側の DDL を書く（パーティション列と有効期限）
+- [ ] ストリーミング挿入のクォータと課金見積もりを確認する
+- [ ] 既存データを移行するか、ある時点から切り替えるだけにするかを決める
+- [ ] `apps/worker/src/env.ts` の `DATA_WAREHOUSE_*` で表現できるか確認する（できなければ env 名を見直す）
 
 ## 匿名ユーザーの追跡
 

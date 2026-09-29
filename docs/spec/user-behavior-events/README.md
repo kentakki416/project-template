@@ -120,10 +120,12 @@ web / admin / mobile は **DB を直接触らず必ず API を経由する** と
 
 | パッケージ | 役割 | フロントから import 可 |
 | --- | --- | --- |
-| `@repo/clickhouse` | `createClickHouseClient` factory のみ export（`@repo/db` / `@repo/redis` と同じ流儀） | ❌ |
+| `@repo/data-warehouse` | `DataWarehouse` interface + ClickHouse 実装 + `createDataWarehouse` factory（`@repo/storage` と同じ流儀） | ❌ |
 | `@repo/events` | イベント名の定義と `EventTracker` 抽象、Queue 実装 | ❌ |
 | `@repo/queue` | `track-event` queue の名前と Job 型（既存パッケージに追加） | ❌ |
 | `@repo/api-schema` | `POST /api/events` のリクエストスキーマ（フロントが使う） | ✅ |
+
+`@repo/data-warehouse` を技術名ではなく役割名にしているのは、**将来 BigQuery 等へ移行する余地を残すため**。ただし interface は `insertAll` だけに絞る。クエリ・DDL・マイグレーションはバックエンドごとに差が大きく、汎用化すると必ず漏れる（→ [`deferred-event-delivery.md`](./deferred-event-delivery.md)）。
 
 `EventTracker` を interface にしているのは、**送出の transport を後から差し替えられるようにするため**。MVP の実装は Queue に enqueue するだけで、ClickHouse への書き込みは `apps/worker` が持つ。将来ログ経由に切り替える場合も service 層のコードは変わらない（→ [`deferred-event-delivery.md`](./deferred-event-delivery.md)）。テストでは fake に差し替え、Redis も ClickHouse も無しで service をテストする。
 

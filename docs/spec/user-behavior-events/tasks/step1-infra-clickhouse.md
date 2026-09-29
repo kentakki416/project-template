@@ -1,6 +1,6 @@
 # step1-infra-clickhouse
 
-ClickHouse をローカル環境に追加し、`events` テーブルと接続用パッケージ `@repo/clickhouse` を用意する。
+ClickHouse をローカル環境に追加し、`events` テーブルとデータウェアハウス抽象 `@repo/data-warehouse` を用意する。
 
 ## 対応内容
 
@@ -65,56 +65,107 @@ TTL toDateTime(occurred_at) + INTERVAL 2 YEAR;
 
 `ReplacingMergeTree` にしているのは **BullMQ が at-least-once** で同じイベントが 2 回届きうるため。`ORDER BY` 末尾の `event_id` が重複排除キーになる。集計時は `FINAL` を付けるか `argMax` で最新を取る。
 
-### packages/clickhouse
+### packages/data-warehouse
 
-`@repo/db` / `@repo/redis` と同じく **factory のみ export** する。app 側で `new` させない。
+**技術名ではなく役割名のパッケージにする。** 将来 BigQuery 等へ移行する余地を残すため。`@repo/storage`（`Storage` interface + `createStorage` が local / S3 を分岐）と同じ流儀にそろえる。
 
-このパッケージを依存に持つのは **`apps/worker` だけ**。ClickHouse へ書くのは worker であり、`apps/api` は queue に enqueue するだけで ClickHouse を知らない。
-
-```typescript
-/** packages/clickhouse/src/client.ts */
-import { createClient, type ClickHouseClient } from "@clickhouse/client"
-
-const DEFAULT_URL = "http://localhost:8124"
-
-export type CreateClickHouseClientOptions = {
-  /** 接続 URL。省略時は process.env.CLICKHOUSE_URL */
-  url?: string
-}
-
-/**
- * ClickHouse クライアントの factory
- *
- * 各 app の src/index.ts で 1 回呼び、EventTracker に DI する。
- * async_insert を有効にしているのは、小さな INSERT を大量に受けると
- * ClickHouse のマージ負荷で劣化するため。サーバー側でバッファリングさせる。
- */
-export const createClickHouseClient = (
-  options: CreateClickHouseClientOptions = {},
-): ClickHouseClient =>
-  createClient({
-    clickhouse_settings: {
-      /**
-       * worker が queue から取り出した分をまとめて INSERT するため、
-       * ここでのバッファリングは補助的。**確定は待つ**。
-       * 待たないと worker が成功扱いでジョブを完了し、
-       * ClickHouse 側で失敗しても BullMQ のリトライが効かなくなる。
-       */
-      async_insert: 1,
-      wait_for_async_insert: 1,
-    },
-    database: process.env.CLICKHOUSE_DB ?? "project_template",
-    password: process.env.CLICKHOUSE_PASSWORD ?? "password",
-    url: options.url ?? process.env.CLICKHOUSE_URL ?? DEFAULT_URL,
-    username: process.env.CLICKHOUSE_USER ?? "default",
-  })
+```
+packages/data-warehouse/src/
+├── data-warehouse.ts              # DataWarehouse interface
+├── clickhouse-data-warehouse.ts   # ClickHouse 実装
+├── create-data-warehouse.ts       # factory
+└── index.ts
 ```
 
-`package.json` は `@repo/redis` を雛形にする（`main` / `types` / `sideEffects: false` / `build` は `tsc`）。
+```typescript
+/** packages/data-warehouse/src/data-warehouse.ts */
+
+/**
+ * 分析用データウェアハウスへの書き込み抽象。
+ *
+ * 実装は ClickHouse / 将来の BigQuery 等を差し替えられる。
+ *
+ * **意図的に insertAll だけに絞っている。** クエリ・DDL・マイグレーションは
+ * バックエンドごとに差が大きく（ClickHouse は database / BigQuery は dataset、
+ * TTL の構文も別物、BigQuery のストリーミング挿入は部分失敗を戻り値で返す）、
+ * 汎用化すると必ず漏れるため抽象化の対象外とする。
+ */
+export interface DataWarehouse {
+  insertAll(table: string, rows: Record<string, unknown>[]): Promise<void>
+  /** graceful shutdown 用 */
+  close(): Promise<void>
+}
+```
+
+```typescript
+/** packages/data-warehouse/src/clickhouse-data-warehouse.ts */
+import { createClient, type ClickHouseClient } from "@clickhouse/client"
+
+import type { DataWarehouse } from "./data-warehouse"
+
+export class ClickHouseDataWarehouse implements DataWarehouse {
+  private readonly _client: ClickHouseClient
+
+  constructor(config: ClickHouseConfig) {
+    this._client = createClient({
+      clickhouse_settings: {
+        /**
+         * worker が queue から取り出した分をまとめて INSERT するため、
+         * ここでのバッファリングは補助的。**確定は待つ**。
+         * 待たないと worker が成功扱いでジョブを完了し、
+         * ClickHouse 側で失敗しても BullMQ のリトライが効かなくなる。
+         */
+        async_insert: 1,
+        wait_for_async_insert: 1,
+      },
+      database: config.database,
+      password: config.password,
+      url: config.url,
+      username: config.username,
+    })
+  }
+
+  public async insertAll(table: string, rows: Record<string, unknown>[]): Promise<void> {
+    if (rows.length === 0) return
+    await this._client.insert({ format: "JSONEachRow", table, values: rows })
+  }
+
+  public async close(): Promise<void> {
+    await this._client.close()
+  }
+}
+```
+
+```typescript
+/** packages/data-warehouse/src/create-data-warehouse.ts */
+
+/**
+ * DataWarehouse の factory
+ *
+ * 各 app の src/index.ts で 1 回呼び、Repository に DI する。
+ * BigQuery 実装を足すときは type に "bigquery" を追加して分岐を 1 つ増やす。
+ */
+export type DataWarehouseConfig = {
+  database: string
+  password: string
+  type: "clickhouse"
+  url: string
+  username: string
+}
+
+export const createDataWarehouse = (config: DataWarehouseConfig): DataWarehouse => {
+  switch (config.type) {
+  case "clickhouse":
+    return new ClickHouseDataWarehouse(config)
+  }
+}
+```
+
+**DDL は抽象化の対象外。** `events` テーブルの定義はバックエンドごとに `infra/clickhouse/init/` のような場所へ置き、パッケージには持ち込まない。
 
 ### 依存の追加
 
-- `packages/clickhouse` に `@clickhouse/client`
+- `packages/data-warehouse` に `@clickhouse/client`
 - ルート `docker-compose.yaml` の変更に伴い `docs/setup/api.md` の接続先表に ClickHouse を追記
 
 ## 動作確認
@@ -130,15 +181,18 @@ docker exec project-template-clickhouse \
   clickhouse-client -q "SHOW CREATE TABLE project_template.events"
 
 # factory から接続できるか
-pnpm --filter @repo/clickhouse build
+pnpm --filter @repo/data-warehouse build
 node -e '
-const { createClickHouseClient } = require("./packages/clickhouse/dist/index.js")
-createClickHouseClient().query({ query: "SELECT 1", format: "JSONEachRow" })
-  .then(r => r.json()).then(console.log)
+const { createDataWarehouse } = require("./packages/data-warehouse/dist/index.js")
+const dwh = createDataWarehouse({
+  database: "project_template", password: "password", type: "clickhouse",
+  url: "http://localhost:8124", username: "default",
+})
+dwh.insertAll("events", []).then(() => console.log("ok")).then(() => dwh.close())
 '
 ```
 
 - [ ] `curl http://localhost:8124/ping` が `Ok.` を返す
 - [ ] `events` テーブルが作成されている
-- [ ] factory 経由で `SELECT 1` が実行できる
+- [ ] `createDataWarehouse()` 経由で `insertAll` が実行できる（空配列は no-op）
 - [ ] 既存の `docker compose up -d` が postgres / redis ともども問題なく起動する

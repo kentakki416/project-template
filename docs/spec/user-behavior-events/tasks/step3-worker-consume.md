@@ -26,7 +26,36 @@ export interface EventRepository {
 }
 ```
 
-実装 `src/repository/clickhouse/event-repository.ts` が `@repo/clickhouse` の client を受け取り、`received_at` と `schema_version` を付与して INSERT する。`@repo/clickhouse` の型を import してよいのはこの実装クラスの内側だけ。
+実装 `src/repository/data-warehouse/event-repository.ts` が `@repo/data-warehouse` の `DataWarehouse` を受け取り、`received_at` と `schema_version` を付与して `insertAll("events", rows)` する。
+
+```typescript
+/** apps/worker/src/repository/data-warehouse/event-repository.ts */
+import type { DataWarehouse } from "@repo/data-warehouse"
+
+import type { EventRepository, EventRow } from "../event-repository"
+
+const SCHEMA_VERSION = 1
+
+export class DataWarehouseEventRepository implements EventRepository {
+  constructor(private readonly _dwh: DataWarehouse) {}
+
+  public async insertAll(events: EventRow[]): Promise<void> {
+    const receivedAt = new Date().toISOString()
+    await this._dwh.insertAll("events", events.map((e) => ({
+      event_id: e.eventId,
+      event_name: e.name,
+      occurred_at: e.occurredAt,
+      properties: JSON.stringify(e.properties),
+      received_at: receivedAt,
+      schema_version: SCHEMA_VERSION,
+      source: e.source,
+      user_id: e.userId,
+    })))
+  }
+}
+```
+
+**ClickHouse という語はここにも出てこない。** どのバックエンドを使うかは `src/index.ts` の `createDataWarehouse()` の config だけが決める。
 
 ### ジョブハンドラ
 
@@ -71,12 +100,12 @@ export const trackEvent = (deps: TrackEventDeps): JobProcessor<TrackEventJobData
 ### 結線と DI
 
 - `src/workers/track-event-worker.ts` で `startBullMQWorker` と結線する
-- `src/index.ts` で `createClickHouseClient()` を 1 回呼び、Repository → ハンドラ → worker の順に組み立てて `consumers` に追加する
-- `src/runtime/graceful-shutdown.ts` の `ShutdownDeps` に ClickHouse client を足し、`close()` を呼ぶ
+- `src/index.ts` で `createDataWarehouse({ type: "clickhouse", ... })` を 1 回呼び、Repository → ハンドラ → worker の順に組み立てて `consumers` に追加する
+- `src/runtime/graceful-shutdown.ts` の `ShutdownDeps` に `DataWarehouse` を足し、`close()` を呼ぶ
 
 ### env
 
-`apps/worker/src/env.ts` に `CLICKHOUSE_URL` を追加する（`NODE_ENV !== "test"` で必須）。`apps/worker/CLAUDE.md` の環境変数表にも 1 行足す。
+`apps/worker/src/env.ts` に `DATA_WAREHOUSE_URL` / `DATA_WAREHOUSE_DATABASE` / `DATA_WAREHOUSE_USER` / `DATA_WAREHOUSE_PASSWORD` を追加する（`NODE_ENV !== "test"` で URL は必須）。**env 名にも技術名を入れない**ことで、バックエンドを変えても env を書き換えずに済む。`apps/worker/CLAUDE.md` の環境変数表にも追記する。
 
 ## 動作確認
 
@@ -84,7 +113,8 @@ export const trackEvent = (deps: TrackEventDeps): JobProcessor<TrackEventJobData
 pnpm --filter worker test
 ```
 
-- [ ] イベント 3 件のジョブで `insertAll` が **1 回だけ** 3 件まとめて呼ばれること
+- [ ] イベント 3 件のジョブで `EventRepository.insertAll` が **1 回だけ** 3 件まとめて呼ばれること
+- [ ] `DataWarehouseEventRepository` が `received_at` / `schema_version` を付与し、`insertAll("events", ...)` を 1 回だけ呼ぶこと（fake の `DataWarehouse` で検証）
 - [ ] 空配列なら `insertAll` が呼ばれないこと
 - [ ] `insertAll` が throw したら **そのまま伝播すること**（BullMQ にリトライさせるため握りつぶさない）
 - [ ] 同じ `eventId` のジョブを 2 回処理しても ClickHouse 上で 1 件になること（`SELECT count() FROM events FINAL WHERE event_id = ...`）
