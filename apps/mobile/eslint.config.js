@@ -4,6 +4,7 @@ const expoConfig = require("eslint-config-expo/flat")
 const tailwindcss = require("eslint-plugin-tailwindcss")
 
 const { commonNamingConvention, commonRules } = require("@repo/eslint-config/common-rules")
+const frontendBoundary = require("@repo/eslint-config/frontend-boundary")
 
 /**
  * mobile では Expo Router の `unstable_*` 変数を許容するため、
@@ -60,6 +61,11 @@ module.exports = defineConfig([
       "tailwindcss/no-custom-classname": "error",
     },
   },
+  /**
+   * フロントが import してよい @repo パッケージの制限。
+   * 詳細は packages/eslint-config/frontend-boundary.js を参照。
+   */
+  ...frontendBoundary,
   {
     ignores: ["dist/*"],
   },

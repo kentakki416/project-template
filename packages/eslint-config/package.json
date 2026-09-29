@@ -6,10 +6,12 @@
   "exports": {
     ".": "./index.js",
     "./common-rules": "./common-rules.js",
+    "./frontend-boundary": "./frontend-boundary.js",
     "./prisma-boundary": "./prisma-boundary.js"
   },
   "files": [
     "common-rules.js",
+    "frontend-boundary.js",
     "index.js",
     "prisma-boundary.js"
   ],

@@ -7,6 +7,7 @@ import nextTs from "eslint-config-next/typescript"
 import tailwindcss from "eslint-plugin-tailwindcss"
 
 import eslintConfigCommonRules from "@repo/eslint-config/common-rules"
+import frontendBoundary from "@repo/eslint-config/frontend-boundary"
 
 const { commonRules } = eslintConfigCommonRules
 
@@ -66,6 +67,11 @@ const eslintConfig = defineConfig([
       "tailwindcss/classnames-order": "off",
     },
   },
+  /**
+   * フロントが import してよい @repo パッケージの制限。
+   * 詳細は packages/eslint-config/frontend-boundary.js を参照。
+   */
+  ...frontendBoundary,
 ])
 
 export default eslintConfig
