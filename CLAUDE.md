@@ -62,98 +62,34 @@ pnpm test         # テスト
 
 各アプリ固有のコマンドは対応サブディレクトリの `CLAUDE.md` を参照。前提は Node.js >=18 / pnpm >=9（インフラ作業時は Terraform + AWS CLI）。
 
-## Code Style and Linting
+## Code Style
 
-ESLint v9 flat config (`eslint.config.{js,mjs}`)。**全アプリ共通ルール**。**ファイル変更後は `pnpm lint:fix` を実行する**。
+ESLint v9 flat config。**ファイル変更後は `pnpm lint:fix` を実行する。** ルールの実体は `packages/eslint-config/`。セミコロン / クォート / インデント / import 順 / 命名（case）/ クラスメンバーの修飾子と `_` プレフィックス / Prisma 型と `@repo/*` の import 境界は**すべて lint が強制する**ので、ここには列挙しない。
 
-- **プラグイン定義**: Web / Admin は `eslint-config-next`、Mobile は `eslint-config-expo/flat` を使うため `@typescript-eslint` を再定義してはいけない（"Cannot redefine plugin" エラー）。API は全プラグインを自前で定義。
-- **formatting ルール**: 本体の `indent` / `quotes` / `semi` 等は deprecated（v11 で削除）なので `@stylistic/eslint-plugin` の同名ルールを使う。`commonRules` を展開する config は `plugins: { ...commonPlugins }` も並べる（対応表は `packages/eslint-config/README.md`）
+lint で強制できていない規約は以下。
 
-### 共通ルール
-
-- **No semicolons** (`@stylistic/semi: ["error", "never"]`)
-- **Double quotes** (`@stylistic/quotes: ["error", "double"]`)
-- **Indent**: 2 スペース（`@stylistic/indent`）
-- **Object curly spacing**: `{ foo }` (not `{foo}`)
-- **Strict equality**: `===` (not `==`)
-- **Import ordering**: builtin → external → internal (`@repo`) → parent → sibling → index、グループ間に空行
-- **Sort object keys** alphabetically (2+ keys)。例外:
-  - `id` は常に先頭
-  - `createdAt` / `updatedAt` / `deletedAt`（および snake_case）は常に末尾
-  - 例: `{ id, color, name, sortOrder, createdAt, updatedAt }`
-- **バレルエクスポート（index.ts）**: ファイル名のアルファベット順
+- **関数名は動詞から始める**。boolean を返す判定関数は `is` / `should` / `can` / `has` で始める
+  - 例外: 複数条件をまとめて検証するものは `check` / `verify` / `validate` 可（`checkOrderPreconditions`）
+  - 例外: 処理を実行して成否を返すものは動作の動詞のまま（`tryRefresh`）
+  - 抽象的すぎる名前を避ける（`parseAmount` ✗ → `convertCommaAmountToNumber` ✓）
+- **オブジェクトのキーはアルファベット順**（2 個以上）。`id` は先頭、`createdAt` / `updatedAt` / `deletedAt` は末尾
+- **バレルエクスポート（index.ts）はファイル名順**
 - **React JSX props**: callbacks last, shorthand first, reserved first
-- **TypeScript**: No `any` (warn), no empty functions, `async` for Promise-returning functions
-- **Naming conventions**: Variables は camelCase / UPPER_CASE / PascalCase、Functions は camelCase / PascalCase、Types は PascalCase
-- **Prefer**: `const` over `let`/`var`、template literals、arrow callbacks
+- **Function style**: api / cron / worker は `const` + アロー関数、web / admin / mobile のコンポーネントは `function`
+- **ブロックコメントは `/** */`**（`//` は使わない）。1 行の内容でも複数行形式で書く
+- **web / admin で server 側の処理（API 呼び出し・env 参照）を書くモジュールは先頭に `import "server-only"` を置く**。client component から import されたらビルドが落ちるようにするため（lint では検出できない）
 
-### 関数名
+lint 設定自体を触るときの注意:
 
-- **必ず動詞から始める**（例: `getUserById`, `createOrder`, `sendWelcomeMail`）。名詞だけの関数名（`userValidation`, `orderTotal`）は使わない
-- **boolean を返す関数は `is` / `should` / `can` / `has` などの述語プレフィックスで始める**:
-  - 良い例: `isActiveUser`, `shouldRetryJob`, `canEditMemo`, `hasAdminRole`
-  - 悪い例: `activeUser`, `retryJob`（retry するように見える）, `adminRole`
-  - **例外**: 複数の条件をまとめて検証する関数は `check` / `verify` / `validate` から始めてよい（例: `checkOrderPreconditions`, `verifyWebhookSignature`, `validateCsvRow`）。ただし単一条件の真偽判定に `check` は使わず、述語プレフィックスを優先する
-  - **例外**: 処理を実行して成否を boolean で返すアクション系の関数は、述語プレフィックスにせず動作を表す動詞のままにする（例: `tryRefresh`, `saveDraft`）。述語プレフィックスの対象は「判定だけを行う関数」
-- **処理内容が明確にわかる名前にする**:
-  - 悪い例: `parseCsvLine`, `toHalfWidth`, `parseAmount`
-  - 良い例: `splitCsvLineWithQuotes`, `convertFullWidthToHalfWidth`, `convertCommaAmountToNumber`
-
-### Function style
-
-- **API / cron / worker**: `function` 宣言は使わず、`const` + アロー関数で統一（例: `export const foo = async () => {}`）
-- **Web / Mobile / Admin**: コンポーネントは `function` に統一
-
-### Class member style (全 apps / packages 共通)
-
-- **`constructor` 以外のクラスメンバー（メソッド・プロパティ）は必ず `public` / `private` を明示する**（`@typescript-eslint/explicit-member-accessibility`）。修飾子を省略してデフォルトの `public` 扱いにしない。`protected` は継承を使う場合のみ
-- **`private` なメンバー（メソッド・プロパティ・constructor parameter property を含む）は `_` プレフィックスを必須にする**（`@typescript-eslint/naming-convention`）
-- `constructor` 自体には修飾子を書かない
-
-```typescript
-class PrismaUserRepository implements UserRepository {
-  constructor(private readonly _prisma: PrismaClient) {}
-
-  public async findById(id: number): Promise<User | null> {
-    const row = await this._prisma.user.findUnique({ where: { id } })
-    return row ? this._toDomain(row) : null
-  }
-
-  private _toDomain(row: PrismaUser): User {
-    return { id: row.id, name: row.name }
-  }
-}
-```
-
-### Prisma 型の import 境界（server-side app）
-
-`@repo/db` を依存に持つ app（api / cron / worker）は `@repo/eslint-config/prisma-boundary` を spread し、`@repo/db` からの import を `src/repository/**` 以外では `createPrismaClient` / `CreatePrismaClientOptions` / `PrismaClient` の 3 つだけに限定する（許可リスト方式なのでモデルが増えても設定変更は不要）。業務ロジック（service / jobs / controller）は `@repo/domain` の型を使う。新しい server-side app を追加したら同じフラグメントを spread する。
-
-- **lint の限界**: 検出できるのは `@repo/db` からの直接 import だけ。repository の `interface` が戻り値に Prisma 型を使うと service / jobs へ推論で伝播するが検出できない。`interface` の引数・戻り値を domain 型にする規約はレビューで担保する（詳細は `packages/eslint-config/README.md`）
-
-### @repo パッケージの import 境界（フロント）
-
-`apps/web` / `apps/admin` / `apps/mobile` は `@repo/eslint-config/frontend-boundary` を spread し、`@repo/*` の import を **`@repo/api-schema` だけ**に限定する（許可リスト方式なのでパッケージが増えても設定変更は不要）。フロントは DB を直接触らず必ず Express API を経由する設計なので、共有する契約は API スキーマだけになる。
-
-- `@repo/domain` を許可しないのは意図的。domain 型は `createdAt: Date` だが API のワイヤーフォーマットは `created_at: string` なので、フロントが使うべき型は `@repo/api-schema` 側
-- server で動く処理（API 呼び出し・env 参照）は `import "server-only"` を先頭に置いたモジュールに閉じ、client component から import されたらビルドが落ちるようにする
-
-### Comment style
-
-- ブロックコメントは `/** */` 形式で統一（`//` は使わない）。1 行の内容でも `/**` / ` * 内容` / ` */` の複数行形式で書く
+- `eslint-config-next` / `eslint-config-expo` を使う app では `@typescript-eslint` を再定義しない（"Cannot redefine plugin"）
+- `commonRules` を spread する config には `plugins: { ...commonPlugins }` も並べる（plugin 未登録の namespace を rules で参照すると ESLint が起動時に落ちる）
+- import 境界の lint が防げるのは直接 import だけで、`interface` の戻り値経由の型伝播は防げない（`packages/eslint-config/README.md`）
 
 ## Documentation Guidelines
 
-仕様書・設計書は `docs/spec/` 配下、機能単位でディレクトリを切る。
-
-- ファイル構成: `docs/spec/{feature}/README.md`（人間向け：背景・全体像・図） + `step{n}-{db|api|web|mobile|admin}-{feature}.md`（実装手順）
-- 全て日本語で記述
-- README.md には **目次（Table of Contents）必須**: GitHub Markdown アンカーリンク形式、`##` / `###` 見出しを全て含める
-- step ファイル: 実装手順に番号を振らない、各ファイルは「対応内容」「動作確認」セクションを含める
-- テンプレート: `docs/spec/template/README.md` および `docs/spec/template/step1-template.md`
-- **図は Mermaid で記載する**: フロー図 / シーケンス図 / ER 図 / 状態遷移図はすべて ` ```mermaid ` コードフェンスを使う。ASCII アートは使わない
-
-**新機能を実装する前に必ず `design-feature` skill で設計書を作成する**。デザインのモックが必要なときは `design-mock` skill を使う（テーマヒアリング → admin 参照 → モック作成 → 承認後に仕様書追記）。
+- 仕様書・設計書は `docs/spec/{feature}/` に置き、**実装前に必ず `design-feature` skill で作成する**（構成・テンプレート・step の書き方は同 skill が持つ）。デザインモックは `design-mock` skill
+- ドキュメントは日本語で書く
+- **図は Mermaid で書く**（フロー図 / シーケンス図 / ER 図 / 状態遷移図）。ASCII アートは使わない
 
 ## Important Notes
 
