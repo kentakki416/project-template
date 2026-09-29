@@ -29,7 +29,7 @@ Turborepo + pnpm モノレポ。
 
 **共通パッケージの方針**: `db` / `logger` / `errors` / `redis` / `storage` は server-side app 横断で使う共通基盤。client は **factory のみを export** し、各 app の `src/index.ts` で 1 回生成して Repository に DI する。新規 server-side app (cron / worker / batch) も同じ流儀に従う。
 
-**env の検証は各 app の `src/env.ts` にインラインで定義する**（Zod スキーマ + `safeParse → process.exit(1)`）。共通の env 検証パッケージは持たず、`apps/{app}/src/env.ts` 単独で env 仕様が完結するようにする。`apps/web` / `apps/admin` は `server-only` でガードして client component からの import を防ぐ。
+**env の検証は各 app の `src/env.ts` にインラインで定義する**（Zod スキーマ + `safeParse → process.exit(1)`）。共通の env 検証パッケージは持たず、`apps/{app}/src/env.ts` 単独で env 仕様が完結するようにする。`apps/web` / `apps/admin` は `server-only` でガードして client component からの import を防ぐ。`apps/mobile` は RN に server が無く `process.exit` も使えないため、`EXPO_PUBLIC_*` を静的に列挙して検証し、不正なら throw する（詳細は `apps/mobile/CLAUDE.md`）。
 
 ### Infra
 
