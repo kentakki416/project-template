@@ -1,6 +1,5 @@
 import { PrismaClient, Prisma as PrismaTypes } from "@repo/db"
-
-import { AuthAccount, AuthAccountWithUser, User } from "../../types/domain"
+import { AuthAccount, AuthAccountWithUser, User } from "@repo/domain"
 
 import { TransactionContext } from "./transaction-runner"
 

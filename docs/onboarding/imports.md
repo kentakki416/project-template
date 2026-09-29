@@ -49,8 +49,8 @@ export * as memo from "./memo-service"
 | import する側 | import してよいもの | してはいけないもの |
 |---|---|---|
 | フロント（web / admin / mobile） | 型・スキーマは **`@repo/api-schema` から**（`admin/` は `@repo/api-schema/admin/`） | 型のローカル独自定義（API 変更に追従できず型不整合バグの原因） |
-| API の `types/domain` | 自ドメイン型 | `@repo/api-schema`（ドメイン層は Zod スキーマに依存しない。同じ値で独立定義する） |
-| API の Repository / Service | `types/domain` の型 | `@repo/api-schema`（検証はレイヤ外で行う） |
+| `@repo/domain` | なし（依存ゼロ） | `@repo/api-schema` / `@repo/db`（ドメイン層は Zod スキーマにも Prisma にも依存しない。同じ値で独立定義する） |
+| API の Repository / Service | `@repo/domain` の型 | `@repo/api-schema`（検証はレイヤ外で行う） |
 | worker の `jobs/<name>.ts` | `@repo/queue` の `JobProcessor<T>` / `JobMessage<T>` | **BullMQ / ioredis を直接 import**（Queue 実装の差し替えを不能にする） |
 | server-side app 全般 | `@repo/db` / `logger` / `errors` / `redis` の **factory** | client の直接生成（`src/index.ts` で 1 回だけ生成して DI する） |
 
@@ -60,7 +60,7 @@ graph LR
     ctrl["API Controller"] -.検証.-> schema
     ctrl --> svc["API Service"]
     svc --> repo["API Repository"]
-    svc --> domain["types/domain"]
+    svc --> domain[["@repo/domain"]]
     repo --> db[["@repo/db"]]
     jobs["worker jobs/"] --> queue[["@repo/queue 抽象"]]
     queue -.実装は隠蔽.-> bullmq[BullMQ]

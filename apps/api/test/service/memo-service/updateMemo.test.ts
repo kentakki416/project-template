@@ -1,6 +1,7 @@
+import { Memo } from "@repo/domain"
+
 import { MemoRepository, UpdateMemoInput } from "../../../src/repository/prisma/memo-repository"
 import { updateMemo } from "../../../src/service/memo-service"
-import { Memo } from "../../../src/types/domain"
 
 // モック
 const mockFindById = vi.fn<(_0: number) => Promise<Memo | null>>()

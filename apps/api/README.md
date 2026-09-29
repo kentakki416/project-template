@@ -66,11 +66,11 @@ apps/api/
 
 ### ドメインモデル
 
-- types/domainにドメインモデルの型だけ定義している。
+- `@repo/domain`（`packages/domain`）にドメインモデルの型だけ定義している。api / cron / worker で共有する。
 - 実装はドメインロジックが必要になるまでしない（おそらく必要になるケースが少ないので対応しない）
 - Repository層でPrisma -> ドメインモデル型に変化することでInterfaceを差し替え可能なものにしている
 - ビジネス上の区分・列挙型もここに定義する（例: `RegistrationPeriod`）
-- Repository / Service は `types/domain` から型をインポートする（`@repo/api-schema` には依存しない）
+- Repository / Service は `@repo/domain` から型をインポートする（`@repo/api-schema` には依存しない）
 
 ### Repository 層の責務
 

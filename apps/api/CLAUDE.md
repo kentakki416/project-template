@@ -74,9 +74,10 @@ pnpm test:coverage # カバレッジ計測（V8 ベース、coverage/ に出力�
   - `type {Feature}RouterControllers = { list?: ..., create?: ..., ... }` で定義
   - `export const {feature}Router = (controllers: {Feature}RouterControllers): Router => { ... }`
   - 各コントローラーが存在する場合のみルートを登録
-- **Domain 型**（`src/types/domain/`）: 各機能ごとにファイルを作成し、`index.ts` でバレルエクスポート
+- **Domain 型**（`packages/domain` = `@repo/domain`）: api / cron / worker で共有する。機能ごとにファイルを作成し、`index.ts` でバレルエクスポート
   - ビジネス上の区分・列挙型もここに定義する（例: `RegistrationPeriod`）
-  - Repository / Service は `types/domain` から型をインポートする（`@repo/api-schema` に依存しない）
+  - Repository / Service は `@repo/domain` から型をインポートする（`@repo/api-schema` にも Prisma にも依存しない）
+  - **Repository interface は `@repo/domain` に置かない**。必要な操作は app ごとに異なるため各 app の `src/repository/` に残す（詳細は `packages/domain/README.md`）
   - `@repo/api-schema` の Zod スキーマは同じ値で独立定義し、API バリデーション用として使う
 - **DI（依存性注入）**: `index.ts` で Repository → Controller → Router の順にインスタンス化して組み立て
 

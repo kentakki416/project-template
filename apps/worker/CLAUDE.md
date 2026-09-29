@@ -54,13 +54,25 @@ apps/worker/
 
 - **`jobs/<name>.ts`**: 純粋関数 (`(deps) => JobProcessor<T>` の factory 形式)。`@repo/queue` から `JobProcessor<T>` / `JobMessage<T>` だけ import する。**BullMQ や ioredis を直接 import しない**
 - **`workers/<name>-worker.ts`**: Queue 実装 (現状は `startBullMQWorker`) と job ハンドラを結線するだけ。ここが Queue 実装を切り替えるときの唯一の差分対象
-- **`repository/prisma/`**: `interface XxxRepository` + `class PrismaXxxRepository implements XxxRepository` のペア + barrel
+- **`repository/prisma/`**: `interface XxxRepository` + `class PrismaXxxRepository implements XxxRepository` のペア + barrel。**interface の戻り値は Prisma の型ではなく `@repo/domain` の型にする**
 - **`runtime/graceful-shutdown.ts`**: SIGTERM/SIGINT を捕まえて全 `JobConsumer.close()` → Prisma/Redis 切断 → exit
 - **`src/index.ts`**: 接続生成 (Prisma / Redis) + Repository インスタンス化 + 各 Worker 起動 + graceful shutdown 登録
 
 ### Repository の interface 分離
 
 worker 側の `MemoRepository` は apps/api / apps/cron と意図的に分離している。各 app は必要な操作のみを持つ独自 interface を定義する方針（共有 interface を作ると不要なメソッドが漏れるため）。
+
+ドメイン型（`Memo` / `User` 等）は逆に `@repo/domain` で共有する。api / cron / worker は 1 つの DB と Prisma schema を共有する単一アプリの実行形態違いなので、型を app ごとに複製しても独立性は得られず drift のリスクだけが増える。
+
+### Prisma の型は repository 実装の内側に閉じる
+
+`@repo/db` の Prisma 型（`Memo` / `User` / `AuthAccount` / `Prisma`）を import してよいのは以下だけ:
+
+- `repository/prisma/*.ts` の **実装クラスの内側**（`_toDomainMemo` のような変換関数の引数）
+- `src/index.ts`（`createPrismaClient` の呼び出し）
+- `src/runtime/graceful-shutdown.ts`（`$disconnect()` のための `PrismaClient` 型）
+
+`interface XxxRepository` の戻り値には Prisma の型を出さない。出すと `jobs/` の業務ロジックが永続化モデルに型付けされ、ORM を差し替えたときにジョブハンドラまで影響が及ぶ。Repository 実装が `private _toDomainXxx()` で `@repo/domain` の型へ変換して返す（`apps/api` と同じ流儀）。
 
 ### 冪等性は必須
 

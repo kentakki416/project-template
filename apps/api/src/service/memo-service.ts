@@ -1,8 +1,8 @@
+import { Memo } from "@repo/domain"
 import { err, notFoundError, ok, Result } from "@repo/errors"
 import { logger } from "@repo/logger"
 
 import { CreateMemoInput, MemoRepository, UpdateMemoInput } from "../repository/prisma"
-import { Memo } from "../types/domain"
 
 type MemoRepo = { memoRepository: MemoRepository }
 
