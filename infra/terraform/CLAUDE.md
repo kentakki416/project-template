@@ -4,19 +4,13 @@ AWS デプロイ用の Infrastructure as Code (Terraform)。
 
 ## 構造
 
-```
-aws/
-├── bootstrap/    # S3 backend のみ（state lock は S3 ネイティブの use_lockfile、初回のみ apply、local state）
-├── account/      # OIDC provider / GitHub Actions IAM role / ECR（AWS アカウント単位で共有、remote state）
-├── env/          # 環境別設定（dev / staging / prod、remote state）
-└── modules/      # 再利用可能な Terraform モジュール
-```
+`aws/` はリソースの**生存期間**で 3 層に分かれている（`modules/` は再利用モジュール）。
 
-リソースの「生存期間」で 3 層に分かれている:
-
-- **bootstrap**: 一度きり apply。chicken-and-egg のため local state
-- **account**: アカウント単位で共有するリソース（OIDC, ECR）。env をまたいで使う
-- **env**: 環境ごとに分離するリソース（VPC, ECS, RDS, ALB ...）
+| 層 | 内容 | state |
+| --- | --- | --- |
+| `bootstrap/` | S3 backend のみ。一度きり apply | **local**（chicken-and-egg のため） |
+| `account/` | OIDC provider / GitHub Actions IAM role / ECR。env をまたいで共有 | remote |
+| `env/` | 環境ごとに分離するリソース（VPC / ECS / RDS / ALB） | remote |
 
 ## Commands
 
@@ -46,25 +40,7 @@ IAM の trust policy / permission policy は `jsonencode()` のインライン�
 - attach 先 resource が `count` 付きで、policy document がその counted resource を参照する場合のみ、data source 側にも同じ `count` を付ける
 - ECR lifecycle policy など IAM policy document ではない JSON は対象外（`jsonencode` のまま）
 
-```hcl
-/** trust policy の例 */
-data "aws_iam_policy_document" "scheduler_trust" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["scheduler.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "scheduler" {
-  name               = "${var.name}-scheduler"
-  assume_role_policy = data.aws_iam_policy_document.scheduler_trust.json
-}
-```
+実例は `aws/modules/ecs-schedule-task/main.tf`（`scheduler_trust`）と `aws/account/github_oidc.tf`。
 
 ## CI/CD 運用
 
