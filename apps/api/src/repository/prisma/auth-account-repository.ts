@@ -1,7 +1,9 @@
 import { PrismaClient, Prisma as PrismaTypes } from "@repo/db"
 import { AuthAccount, AuthAccountWithUser, User } from "@repo/domain"
 
-import { TransactionContext } from "./transaction-runner"
+import type { TransactionContext } from "../transaction"
+
+import { resolvePrismaClient } from "./transaction-runner"
 
 /**
  * 認証アカウント作成時の入力
@@ -65,7 +67,7 @@ export class PrismaAuthAccountRepository implements AuthAccountRepository {
   }
 
   public async create(data: CreateAuthAccountInput, tx?: TransactionContext): Promise<AuthAccount> {
-    const client = tx ?? this._prisma
+    const client = resolvePrismaClient(this._prisma, tx)
     const prismaAuthAccount = await client.authAccount.create({
       data: {
         provider: data.provider,

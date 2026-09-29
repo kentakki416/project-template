@@ -1,7 +1,9 @@
 import { Prisma as PrismaTypes, PrismaClient } from "@repo/db"
 import { User } from "@repo/domain"
 
-import { TransactionContext } from "./transaction-runner"
+import type { TransactionContext } from "../transaction"
+
+import { resolvePrismaClient } from "./transaction-runner"
 
 /**
  * ユーザー作成時の入力
@@ -44,7 +46,7 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   public async create(data: CreateUserInput, tx?: TransactionContext): Promise<User> {
-    const client = tx ?? this._prisma
+    const client = resolvePrismaClient(this._prisma, tx)
     const prismaUser = await client.user.create({
       data: {
         avatarUrl: data.avatarUrl,
