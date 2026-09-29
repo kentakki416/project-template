@@ -103,6 +103,6 @@ subscriber.on("message", (channel, message) => { /* ... */ })
 
 | 変数 | 説明 |
 | --- | --- |
-| `REDIS_URL` | `redis://[:password@]host:port[/db]`。未設定時は `redis://localhost:6379`（local 開発用デフォルト） |
+| `REDIS_URL` | `redis://[:password@]host:port[/db]`。未設定時は `redis://localhost:6380`（local 開発用デフォルト。docker-compose の公開ポートに合わせている） |
 
 接続は **`REDIS_URL` 一本**（DB 番号は URL 末尾の `/1` 等で指定する）。

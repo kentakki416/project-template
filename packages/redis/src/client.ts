@@ -23,7 +23,7 @@ export type CreateRedisClientOptions = {
   onError?: (error: Error) => void
 }
 
-const DEFAULT_URL = "redis://localhost:6379"
+const DEFAULT_URL = "redis://localhost:6380"
 
 /**
  * 環境変数から接続 URL を解決する。

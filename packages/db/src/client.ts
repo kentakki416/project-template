@@ -3,7 +3,7 @@ import { readReplicas } from "@prisma/extension-read-replicas"
 
 import { PrismaClient } from "../generated/client"
 
-const DEFAULT_URL = "postgresql://postgres:password@localhost:5432/project-template_dev"
+const DEFAULT_URL = "postgresql://postgres:password@localhost:5433/project-template_dev"
 
 /**
  * DATABASE_URL を取得しつつ、DB_NAME が指定されていれば DB 名部分を上書きする

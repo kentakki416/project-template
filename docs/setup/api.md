@@ -59,8 +59,8 @@ docker compose ps           # postgres / redis が healthy か確認
 
 | サービス | 接続情報 |
 |---|---|
-| Postgres | `postgresql://postgres:password@localhost:5432/project-template_dev` |
-| Redis | `redis://localhost:6379` |
+| Postgres | `postgresql://postgres:password@localhost:5433/project-template_dev` |
+| Redis | `redis://localhost:6380` |
 
 接続情報は `apps/api/.env.local` の `DATABASE_URL` / `REDIS_HOST` と一致している前提。
 

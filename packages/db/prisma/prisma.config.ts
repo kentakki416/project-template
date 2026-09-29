@@ -1,6 +1,6 @@
 import { defineConfig } from "prisma/config"
 
-const DEFAULT_URL = "postgresql://postgres:password@localhost:5432/project-template_dev"
+const DEFAULT_URL = "postgresql://postgres:password@localhost:5433/project-template_dev"
 
 /**
  * DB_NAME 環境変数が設定されている場合、DATABASE_URL のDB名部分を置き換える
