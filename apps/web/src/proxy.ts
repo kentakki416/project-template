@@ -19,6 +19,12 @@ const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
 const PUBLIC_PATHS = [
   "/memos",
   "/api/memos",
+  /**
+   * 行動イベントの受け口。未ログインでも 204 を返して静かに捨てるため公開にする。
+   * ここでリダイレクトすると sendBeacon がサインインページの HTML を受け取り、
+   * ブラウザのコンソールが無意味なエラーで汚れる。
+   */
+  "/api/events",
   "/sign-in",
   "/api/auth/callback/google",
   ...DEV_ONLY_PUBLIC_PATHS,

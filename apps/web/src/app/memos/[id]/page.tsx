@@ -5,6 +5,7 @@ import { notFound } from "next/navigation"
 import { getMemoPathParamSchema } from "@repo/api-schema"
 
 import { DeleteMemoButton } from "@/components/features/memo/DeletememoButton"
+import { TrackEvent } from "@/components/ui/TrackEvent"
 import { memoApi } from "@/features/memo/memo.api"
 import { ApiClientError } from "@/libs/api-client"
 
@@ -43,6 +44,7 @@ export default async function MemoDetailPage({ params }: Props) {
 
   return (
     <main className="mx-auto max-w-2xl p-6">
+      <TrackEvent name="memo_viewed" properties={{ memo_id: memo.id }} />
       <h1 className="text-2xl font-semibold">{memo.title}</h1>
       <p className="mt-2 whitespace-pre-wrap text-zinc-700">{memo.body}</p>
       <p className="mt-6 text-xs text-zinc-400">更新： {memo.updated_at}</p>
