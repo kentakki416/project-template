@@ -130,9 +130,27 @@ fi
 # scheme が redis:// なのは module.elasticache が transit_encryption_enabled = false
 # で立てているため。TLS を有効化したら rediss:// に変える必要がある。
 if REDIS_HOST=$(terraform -chdir="$TF_DIR" output -raw redis_address 2>/dev/null); then
-  # port / db は app secret の初期値を使い、無ければ ElastiCache の既定にフォールバック
-  REDIS_PORT=$(echo "$CURRENT" | jq -r '.REDIS_PORT // "6379"')
-  REDIS_DB=$(echo "$CURRENT" | jq -r '.REDIS_DB // "0"')
+  # port / db は app secret の値を使い、無い or 不正なら ElastiCache の既定にフォールバックする。
+  #
+  # 検証しているのは、不正な値をそのまま埋めると Secrets Manager に壊れた URL が入り、
+  # 障害が「worker が Redis に繋がらない」という原因の分かりにくい形で出るため。
+  # jq の `//` は null にしか効かず空文字列は素通りするので、ここで明示的に弾く。
+  REDIS_PORT=$(echo "$CURRENT" | jq -r '.REDIS_PORT // empty')
+  REDIS_DB=$(echo "$CURRENT" | jq -r '.REDIS_DB // empty')
+
+  if ! [[ "$REDIS_PORT" =~ ^[0-9]+$ ]] || [ "$REDIS_PORT" -lt 1 ] || [ "$REDIS_PORT" -gt 65535 ]; then
+    if [ -n "$REDIS_PORT" ]; then
+      echo "  ! REDIS_PORT='${REDIS_PORT}' は不正なため既定の 6379 を使う"
+    fi
+    REDIS_PORT=6379
+  fi
+
+  if ! [[ "$REDIS_DB" =~ ^[0-9]+$ ]]; then
+    if [ -n "$REDIS_DB" ]; then
+      echo "  ! REDIS_DB='${REDIS_DB}' は不正なため既定の 0 を使う"
+    fi
+    REDIS_DB=0
+  fi
 
   REDIS_URL="redis://${REDIS_HOST}:${REDIS_PORT}/${REDIS_DB}"
   NEW_VALUES=$(echo "$NEW_VALUES" | jq --arg url "$REDIS_URL" '. + { REDIS_URL: $url }')
