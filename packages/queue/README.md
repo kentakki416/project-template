@@ -7,8 +7,7 @@
 - [設計の意図](#設計の意図)
 - [役割](#役割)
 - [設計の核](#設計の核)
-- [公開 API](#公開-api)
-  - [失敗の分類](#失敗の分類)
+- [失敗の分類](#失敗の分類)
 - [使い方](#使い方)
 - [関連](#関連)
 
@@ -35,6 +34,7 @@ worker.on("error", (err) => logger.error("[queue] worker error", err, { queueNam
 - 将来 SQS / Cloud Tasks / pg-boss / Inngest 等に乗り換える際、**ハンドラ無変更** で実装だけ差し替え可能
 
 ## 設計の核
+
 ### コンポーネント間の関係性
 
 ```
@@ -62,31 +62,7 @@ queue.enqueue({memoId:42}) ──▶  process-memo  ──pull──▶  new Wor
                                                   = memoRepository.findById + ログ
 ```
 
-## 公開 API
-
-```ts
-import {
-  // ===== Queue 抽象 =====
-  type JobQueue,
-  type JobProcessor,
-  type JobConsumer,
-  type JobMessage,
-  type EnqueueOptions,
-  type StartWorkerOptions,
-
-  // ===== BullMQ 実装 =====
-  BullMQJobQueue,        // class, Producer 用
-  startBullMQWorker,     // function, Consumer 用
-  isTerminalJobFailure,  // function, 失敗が終局かの判定
-
-  // ===== Job 型 + Queue 名 =====
-  PROCESS_MEMO_QUEUE_NAME,
-  type ProcessMemoJobData,
-  buildProcessMemoJobId,
-} from "@repo/queue"
-```
-
-### 失敗の分類
+## 失敗の分類
 
 `isTerminalJobFailure` は失敗が「もうリトライされない終局」かを判定する。
 `startBullMQWorker` が log level の出し分けに使っており、**終局だけを `error`**、
@@ -98,21 +74,6 @@ import {
 | --- | --- |
 | `attemptsMade >= maxAttempts` | `attemptsMade` は `failed` イベントの発火時点で**既に加算済み**（1 オリジン）。`JobProcessor` に渡る値は初回 0 なので混同しないこと |
 | `error instanceof UnrecoverableError` | BullMQ はこれを `attempts` の上限を待たず即 failed set に移すため、回数で見ると初回失敗を「リトライされる」と誤判定する |
-
-### 抽象型
-
-| 型 | 役割 |
-| --- | --- |
-| `JobQueue<T>` | Producer 側の interface。`enqueue(data, opts?)` / `close()` |
-| `JobProcessor<T>` | `(msg: JobMessage<T>) => Promise<void>` の純粋関数 |
-| `JobConsumer` | Worker のハンドル。`close()` で graceful shutdown |
-| `JobMessage<T>` | Worker が受け取る最小情報（`id` / `data` / `attemptsMade`） |
-
-### 含まれる Job
-
-| Queue 名 | ペイロード | 用途 |
-| --- | --- | --- |
-| `process-memo` | `{ memoId: number }` | memo を id で fetch してログ出力（メール送信 / 通知への差し替えの起点） |
 
 ## 使い方
 
@@ -137,30 +98,6 @@ await queue.enqueue(
   { memoId: 42 },
   { jobId: buildProcessMemoJobId(42) },  // 決定的 ID で重複 enqueue を防ぐ
 )
-```
-
-### Consumer 側（apps/worker）
-
-```ts
-// apps/worker/src/jobs/process-memo.ts ─ 実装に依存しない純粋関数
-import type { JobProcessor, ProcessMemoJobData } from "@repo/queue"
-
-export const processMemo = (deps: Deps): JobProcessor<ProcessMemoJobData> =>
-  async (msg) => {
-    const memo = await deps.memoRepository.findById(msg.data.memoId)
-    deps.logger.info("memo processed", { memoId: msg.data.memoId })
-  }
-
-// apps/worker/src/workers/process-memo-worker.ts ─ 結線
-import { startBullMQWorker, PROCESS_MEMO_QUEUE_NAME } from "@repo/queue"
-
-/** 常駐リスナーを起動。index.ts で起動時に 1 回だけ呼ぶ（以降 enqueue ごとにハンドラが自動実行される） */
-export const startProcessMemoWorker = (args) =>
-  startBullMQWorker(args.redis, {
-    concurrency: args.concurrency,
-    processor: processMemo({ ... }),
-    queueName: PROCESS_MEMO_QUEUE_NAME,
-  })
 ```
 
 ## 関連

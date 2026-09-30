@@ -5,9 +5,8 @@ Prisma schema / migrations / generated client を一元管理する共有パッ�
 ## 目次
 
 - [設計の意図と役割](#設計の意図と役割)
-- [公開 API](#公開-api)
 - [リードレプリカの仕様](#リードレプリカの仕様)
-- [コマンド](#コマンド)
+
 ## 設計の意図と役割
 
 - `prisma/schema.prisma` を **唯一の正本** として保有し、migration / generate / seed コマンドを 1 箇所に集約
@@ -35,24 +34,6 @@ process.on("SIGTERM", async () => {
 })
 ```
 
-## 公開 API
-
-```ts
-import { createPrismaClient, type PrismaClient, type User, type Memo } from "@repo/db"
-```
-
-| Export | 用途 |
-| --- | --- |
-| `createPrismaClient(options?)` | PrismaClient を生成する factory。`url` と `replicaUrl` を任意指定可 |
-| Prisma 生成型 (`User` / `Memo` ...) | re-export されたドメイン型 |
-
-### `createPrismaClient` のオプション
-
-| key | デフォルト | 説明 |
-| --- | --- | --- |
-| `url` | `process.env.DATABASE_URL` (+ `DB_NAME` 上書き) | 接続文字列 |
-| `replicaUrl` | `process.env.DATABASE_REPLICA_URL` | read replica の接続文字列。指定時は `@prisma/extension-read-replicas` で read/write を自動振り分け |
-
 ## リードレプリカの仕様
 
 `replicaUrl`（または `DATABASE_REPLICA_URL`）を指定すると、`@prisma/extension-read-replicas` が read / write を自動で振り分ける。**未指定なら replica は使わず、primary が read / write の両方を担う**。
@@ -77,24 +58,3 @@ const fresh = await prisma.$primary().user.findUnique({ where: { id } })
 
 **Repository 規約**: 強整合が必須のメソッドは名前の末尾に `FromPrimary` を付け、`$primary()` 経由であることを呼び出し側に明示する（例: `findByIdFromPrimary`）。
 
-## コマンド
-
-`db:migrate` / `db:migrate:deploy` / `db:seed` / `db:studio` / `db:push` は DB に接続するため `DATABASE_URL` が必要で、**env を注入する app 経由の `dotenvx` ラッパーで叩く**のが基本。現状 db 系スクリプト（`dotenvx run -f .env.local -- pnpm --filter @repo/db <cmd>`）を持つのは `apps/api` のみ。worker / cron も同じ DB を共有するが、migration / seed は **api に一本化**している（スキーマの正本も migration の実行入口も 1 箇所に集約する方針）。
-
-```bash
-# apps/api 経由: .env.local を復号 → DATABASE_URL を注入 → @repo/db の該当コマンドを実行
-cd apps/api
-pnpm db:migrate          # マイグレーション作成（開発）
-pnpm db:migrate:deploy   # マイグレーション適用（本番 / CI）
-pnpm db:seed             # シード投入
-pnpm db:studio           # Prisma Studio 起動
-pnpm db:push             # スキーマを DB へ直接反映（開発用）
-```
-
-> `packages/db` を直接 `pnpm --filter @repo/db db:migrate` で叩くと `DATABASE_URL` が注入されず、`prisma.config.ts` の `DEFAULT_URL`（`localhost:5433` 平文）にフォールバックするため通常は使わない。
-
-**`db:generate` だけは例外**で、DB 接続せずスキーマから client を生成するだけなので env なしで叩ける（`pnpm build` 時に turbo が `@repo/db#db:generate` を流すため、通常は明示実行も不要）。
-
-```bash
-pnpm --filter @repo/db db:generate   # env 不要。build 時にも自動で走る
-```

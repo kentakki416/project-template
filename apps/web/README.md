@@ -18,7 +18,6 @@ Next.js 16 (App Router) を使用した Web アプリケーション
   - [読み取りの分岐点](#読み取りの分岐点)
   - [判断フロー](#判断フロー)
   - [使い分け早見表](#使い分け早見表)
-- [開発コマンド](#開発コマンド)
 
 ## アーキテクチャ
 
@@ -178,20 +177,3 @@ flowchart TD
 | CSV / 画像アップロード | 特殊 I/O | Route Handler |
 | Google OAuth コールバック | cookie + redirect | Route Handler |
 
-
-## 開発コマンド
-
-```bash
-# 開発サーバー起動（ホットリロード）
-pnpm dev
-
-# ビルド
-pnpm build
-
-# 本番サーバー起動
-pnpm start
-
-# リント
-pnpm lint
-pnpm lint:fix
-```

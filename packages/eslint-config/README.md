@@ -5,7 +5,6 @@
 ## 目次
 
 - [役割](#役割)
-- [公開 API](#公開-api)
 - [formatting ルールは @stylistic](#formatting-ルールは-stylistic)
 - [Prisma 型の import 境界](#prisma-型の-import-境界)
 - [フロントの @repo import 境界](#フロントの-repo-import-境界)
@@ -16,17 +15,6 @@
 
 - 全 apps / packages で **同じ lint ルール** を強制（命名規則 / import 順 / クォート / セミコロン等）
 - 共通 rule セット（`common-rules`）と完成済み flat config（`index.js`）を export し、apps 側は自身の framework (Next / Expo / Express) 用 config に merge する形で利用
-
-## 公開 API
-
-3 つのエントリがあり、用途で使い分ける。
-
-| Export | 形 | 用途 |
-| --- | --- | --- |
-| `@repo/eslint-config/common-rules` | `{ commonRules, commonPlugins, commonNamingConvention }`（**rules / plugins オブジェクト**） | 全 apps / packages 共通の rule set（命名・import 順・style 等）と、それが参照する plugin。`rules` と `plugins` に展開して使う（→ [使い方](#使い方新規-app-追加時)） |
-| `@repo/eslint-config`（= `index.js`） | **完成済み flat config 配列** | TS 向けの最小 flat config。framework を使わない packages 側は `module.exports = require("@repo/eslint-config")` でそのまま利用できる |
-| `@repo/eslint-config/prisma-boundary` | **flat config 配列（フラグメント）** | Prisma 型の import 境界。`@repo/db` を依存に持つ server-side app が spread する（→ [Prisma 型の import 境界](#prisma-型の-import-境界)） |
-| `@repo/eslint-config/frontend-boundary` | **flat config 配列（フラグメント）** | フロント（Next.js / Expo）が import してよい `@repo/*` の制限（→ [フロントの @repo import 境界](#フロントの-repo-import-境界)） |
 
 ## formatting ルールは @stylistic
 

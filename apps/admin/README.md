@@ -103,19 +103,3 @@ app/ → components/ → features/(ロジック)
 | フォーム送信・ボタンによる CRUD | Server Action (`"use server"`) | 作成・更新・削除モーダル |
 | Server Action が適さない場合 | Route Handler | ファイルアップロード等 |
 
-## 開発コマンド
-
-```bash
-# 開発サーバー起動（ポート 3030）
-pnpm dev
-
-# ビルド
-pnpm build
-
-# 本番サーバー起動
-pnpm start
-
-# リント
-pnpm lint
-pnpm lint:fix
-```
