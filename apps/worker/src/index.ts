@@ -1,6 +1,7 @@
 import { createDataWarehouse } from "@repo/data-warehouse"
 import { createPrismaClient } from "@repo/db"
 import { logger } from "@repo/logger"
+import { PROCESS_MEMO_QUEUE_NAME, TRACK_EVENT_QUEUE_NAME } from "@repo/queue"
 import { createRedisClient } from "@repo/redis"
 
 import { env } from "./env"
@@ -36,14 +37,19 @@ const main = (): void => {
   /**
    * どのデータウェアハウスを使うかを決めるのはここだけ。
    * Repository 以降は DataWarehouse 抽象にしか依存しない。
+   *
+   * `none` は何も書かない実装になる。ClickHouse をホスティングしない環境
+   * （dev 等）のための選択肢で、env.ts 側で URL の必須判定も外れる。
    */
-  const dataWarehouse = createDataWarehouse({
-    database: env.DATA_WAREHOUSE_DATABASE,
-    password: env.DATA_WAREHOUSE_PASSWORD,
-    type: "clickhouse",
-    url: env.DATA_WAREHOUSE_URL ?? "",
-    username: env.DATA_WAREHOUSE_USER,
-  })
+  const dataWarehouse = env.DATA_WAREHOUSE_TYPE === "none"
+    ? createDataWarehouse({ type: "none" })
+    : createDataWarehouse({
+      database: env.DATA_WAREHOUSE_DATABASE,
+      password: env.DATA_WAREHOUSE_PASSWORD,
+      type: "clickhouse",
+      url: env.DATA_WAREHOUSE_URL ?? "",
+      username: env.DATA_WAREHOUSE_USER,
+    })
 
   const memoRepository = new PrismaMemoRepository(prisma)
   const eventRepository = new DataWarehouseEventRepository(dataWarehouse)
@@ -65,7 +71,8 @@ const main = (): void => {
 
   logger.info("worker started", {
     concurrency: env.WORKER_CONCURRENCY,
-    queues: ["process-memo"],
+    dataWarehouseType: env.DATA_WAREHOUSE_TYPE,
+    queues: [PROCESS_MEMO_QUEUE_NAME, TRACK_EVENT_QUEUE_NAME],
   })
 }
 

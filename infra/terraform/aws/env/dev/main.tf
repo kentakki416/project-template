@@ -484,18 +484,30 @@ locals {
     subnets            = [for k in local.private_subnet_keys : module.vpc.subnets[k].id]
     security_groups    = [module.vpc.security_groups["ecs"].id]
     secrets_arn        = module.app_secrets.secret_arn
+  }
 
-    # Secrets Manager に登録している全環境変数を 1 箇所で集中管理。
-    # 全 workload で同じ secret 集合を共有 (最小権限より「forget しない」事故防止を優先)。
-    secret_keys = [
-      "DATABASE_URL",
-      "REDIS_HOST", "REDIS_PORT", "REDIS_DB",
+  # Secrets Manager のキーを workload ごとに宣言する。
+  #
+  # 以前は全 workload で 1 つの集合を共有していたが、DATA_WAREHOUSE_* のように
+  # 1 つの workload しか使わないキーが出てきたため分割した。各 app が実際に読む
+  # env は apps/{app}/src/env.ts が正典なので、増減時はそちらと突き合わせる。
+  #
+  # **ここに足すキーは Secrets Manager 側に値が存在していること。** ECS は存在
+  # しないキーを valueFrom で参照するとタスクの起動自体に失敗する
+  # (ResourceInitializationError)。値は scripts/seed-secrets.sh か
+  # module.app_secrets の initial_values で投入する。
+  secret_keys = {
+    api = [
+      "DATABASE_URL", "REDIS_URL",
       "JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET",
       "JWT_ACCESS_EXPIRATION", "JWT_REFRESH_EXPIRATION",
       "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
-      "LIVEKIT_HOST", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET",
       "FRONTEND_URL", "NODE_ENV", "PORT",
     ]
+    # dev は DATA_WAREHOUSE_TYPE=none で ClickHouse を持たないため接続情報は渡さない
+    worker    = ["DATABASE_URL", "REDIS_URL", "NODE_ENV"]
+    cron      = ["DATABASE_URL", "NODE_ENV"]
+    migration = ["DATABASE_URL"]
   }
 }
 
@@ -519,7 +531,7 @@ module "ecs_api" {
   security_groups    = local.ecs_common.security_groups
 
   secrets_arn = local.ecs_common.secrets_arn
-  secret_keys = local.ecs_common.secret_keys
+  secret_keys = local.secret_keys.api
 
   # ALB (通常 rolling デプロイ)
   target_group_arn  = module.alb.target_group_a_arn
@@ -547,7 +559,13 @@ module "ecs_worker" {
   security_groups    = local.ecs_common.security_groups
 
   secrets_arn = local.ecs_common.secrets_arn
-  secret_keys = local.ecs_common.secret_keys
+  secret_keys = local.secret_keys.worker
+
+  # ClickHouse をホスティングしない環境なので、何も書き込まない実装を使わせる。
+  # 秘密情報ではないので secrets ではなく平文の environment で渡す。
+  environment = {
+    DATA_WAREHOUSE_TYPE = "none"
+  }
 
   # 先に ECR へ image を push してから apply する前提で 1 固定。
   # image が未 push の状態で apply すると ECS task が CannotPullContainerError で
@@ -581,7 +599,7 @@ module "ecs_migration" {
   security_groups    = local.ecs_common.security_groups
 
   secrets_arn = local.ecs_common.secrets_arn
-  secret_keys = local.ecs_common.secret_keys
+  secret_keys = local.secret_keys.migration
 
   create_service        = false
   log_retention_in_days = var.log_retention_days
@@ -609,7 +627,7 @@ module "ecs_cron" {
   security_groups    = local.ecs_common.security_groups
 
   secrets_arn = local.ecs_common.secrets_arn
-  secret_keys = local.ecs_common.secret_keys
+  secret_keys = local.secret_keys.cron
 
   create_service        = false
   log_retention_in_days = var.log_retention_days
