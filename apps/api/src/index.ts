@@ -3,7 +3,9 @@ import express from "express"
 import helmet from "helmet"
 
 import { createPrismaClient } from "@repo/db"
+import { QueueEventTracker } from "@repo/events"
 import { logger } from "@repo/logger"
+import { BullMQJobQueue, TRACK_EVENT_QUEUE_NAME } from "@repo/queue"
 import { createRedisClient } from "@repo/redis"
 
 import { GoogleOAuthClient } from "./client/google-oauth"
@@ -11,6 +13,7 @@ import { AuthDevLoginController } from "./controller/auth/dev-login"
 import { AuthGoogleController } from "./controller/auth/google"
 import { AuthLogoutController } from "./controller/auth/logout"
 import { AuthRefreshController } from "./controller/auth/refresh"
+import { EventCreateController } from "./controller/event/create"
 import { HealthLivenessController } from "./controller/health/liveness"
 import { HealthReadinessController } from "./controller/health/readiness"
 import { MemoCreateController } from "./controller/memo/create"
@@ -33,6 +36,7 @@ import {
 } from "./repository/prisma"
 import { IoRedisHealthRepository, IoRedisRefreshTokenRepository } from "./repository/redis"
 import { authRouter } from "./routes/auth-router"
+import { eventRouter } from "./routes/event-router"
 import { healthRouter } from "./routes/health-router"
 import { memoRouter } from "./routes/memo-router"
 import { userRouter } from "./routes/user-router"
@@ -98,9 +102,21 @@ const authDevLoginController = process.env.NODE_ENV !== "production"
  */
 const memoListController = new MemoListController(memoRepository)
 const memoDetailController = new MemoDetailController(memoRepository)
-const memoCreateController = new MemoCreateController(memoRepository)
-const memoUpdateController = new MemoUpdateController(memoRepository)
-const memoDeleteController = new MemoDeleteController(memoRepository)
+/**
+ * 行動イベントの送出先。
+ *
+ * queue に enqueue するだけで、ClickHouse への書き込みは apps/worker が行う。
+ * api はデータウェアハウスを知らない。
+ */
+const eventTracker = new QueueEventTracker(
+  new BullMQJobQueue(redis, TRACK_EVENT_QUEUE_NAME),
+)
+
+const eventCreateController = new EventCreateController(eventTracker)
+
+const memoCreateController = new MemoCreateController(memoRepository, eventTracker)
+const memoUpdateController = new MemoUpdateController(memoRepository, eventTracker)
+const memoDeleteController = new MemoDeleteController(memoRepository, eventTracker)
 
 const app = express()
 
@@ -178,6 +194,12 @@ app.use(
   "/api/user",
   userRouter({
     get: userGetController,
+  })
+)
+app.use(
+  "/api/events",
+  eventRouter({
+    create: eventCreateController,
   })
 )
 app.use(

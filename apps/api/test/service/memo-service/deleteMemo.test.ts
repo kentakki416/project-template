@@ -1,4 +1,5 @@
 import { Memo } from "@repo/domain"
+import { FakeEventTracker } from "@repo/events"
 
 import { MemoRepository } from "../../../src/repository"
 import { deleteMemo } from "../../../src/service/memo-service"
@@ -14,6 +15,8 @@ const mockMemoRepository: MemoRepository = {
   findById: mockFindById,
   update: vi.fn(),
 }
+
+const eventTracker = new FakeEventTracker()
 
 describe("deleteMemo", () => {
   beforeEach(() => {
@@ -34,7 +37,7 @@ describe("deleteMemo", () => {
     mockDeleteById.mockResolvedValue(undefined)
 
     // Act
-    const result = await deleteMemo(1, { memoRepository: mockMemoRepository })
+    const result = await deleteMemo(1, { memoRepository: mockMemoRepository }, { eventTracker, userId: 1 })
 
     // Assert
     expect(result.ok).toBe(true)
@@ -50,7 +53,7 @@ describe("deleteMemo", () => {
     mockFindById.mockResolvedValue(null)
 
     // Act
-    const result = await deleteMemo(999, { memoRepository: mockMemoRepository })
+    const result = await deleteMemo(999, { memoRepository: mockMemoRepository }, { eventTracker, userId: 1 })
 
     // Assert
     expect(result.ok).toBe(false)
@@ -69,7 +72,7 @@ describe("deleteMemo", () => {
     mockFindById.mockRejectedValue(mockError)
 
     // Act & Assert
-    await expect(deleteMemo(1, { memoRepository: mockMemoRepository })).rejects.toThrow(
+    await expect(deleteMemo(1, { memoRepository: mockMemoRepository }, { eventTracker, userId: 1 })).rejects.toThrow(
       "Database connection failed"
     )
     expect(mockFindById).toHaveBeenCalledWith(1)

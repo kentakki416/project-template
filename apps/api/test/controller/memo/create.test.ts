@@ -1,5 +1,7 @@
 import request from "supertest"
 
+import { FakeEventTracker } from "@repo/events"
+
 import { MemoCreateController } from "../../../src/controller/memo/create"
 import { PrismaMemoRepository } from "../../../src/repository/prisma/memo-repository"
 import { memoRouter } from "../../../src/routes/memo-router"
@@ -10,7 +12,7 @@ const memoRepository = new PrismaMemoRepository(testPrisma)
 
 const app = createTestApp()
 
-app.use("/api/memo", memoRouter({ create: new MemoCreateController(memoRepository) }))
+app.use("/api/memo", memoRouter({ create: new MemoCreateController(memoRepository, new FakeEventTracker()) }))
 attachUnhandledExceptionHandler(app)
 
 beforeEach(async () => {

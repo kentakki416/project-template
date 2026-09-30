@@ -1,24 +1,29 @@
 import request from "supertest"
 
+import { FakeEventTracker } from "@repo/events"
+
 import { MemoDeleteController } from "../../../src/controller/memo/delete"
 import { MemoDetailController } from "../../../src/controller/memo/detail"
 import { PrismaMemoRepository } from "../../../src/repository/prisma/memo-repository"
 import { memoRouter } from "../../../src/routes/memo-router"
-import { attachUnhandledExceptionHandler, createTestApp } from "../helper"
+import { attachUnhandledExceptionHandler, createTestApp, createTestUser } from "../helper"
 import { cleanupTestData, disconnectTestDb, disconnectTestRedis, testPrisma } from "../setup"
+
+const eventTracker = new FakeEventTracker()
 
 const memoRepository = new PrismaMemoRepository(testPrisma)
 
 const app = createTestApp()
 
 app.use("/api/memo", memoRouter({
-  delete: new MemoDeleteController(memoRepository),
+  delete: new MemoDeleteController(memoRepository, eventTracker),
   detail: new MemoDetailController(memoRepository),
 }))
 attachUnhandledExceptionHandler(app)
 
 beforeEach(async () => {
   await cleanupTestData()
+  eventTracker.inputs.length = 0
 })
 
 afterAll(async () => {
@@ -55,5 +60,49 @@ describe("DELETE /api/memo/:id", () => {
 
     expect(res.status).toBe(400)
     expect(res.body.error).toBeDefined()
+  })
+})
+
+describe("公開パスでの optional 認証と行動イベント", () => {
+  describe("正常系", () => {
+    /**
+     * /api/memo は PUBLIC_PATHS に含まれるが、トークンが付いていれば
+     * userId を解決して行動イベントを記録する（optional 認証）。
+     */
+    it("トークン付きで削除すると memo_deleted を userId 付きで記録する", async () => {
+      const { token, user } = await createTestUser()
+      const memo = await testPrisma.memo.create({ data: { body: "b", title: "t" } })
+
+      const res = await request(app)
+        .delete(`/api/memo/${memo.id}`)
+        .set("Authorization", `Bearer ${token}`)
+
+      expect(res.status).toBe(200)
+      expect(eventTracker.inputs).toEqual([
+        { name: "memo_deleted", properties: { memo_id: memo.id }, source: "api", userId: user.id },
+      ])
+    })
+
+    /** 未認証アクセスは従来どおり通る（401 にしない）が、イベントは記録しない */
+    it("トークンなしでも削除は成功し、イベントは記録されない", async () => {
+      const memo = await testPrisma.memo.create({ data: { body: "b", title: "t" } })
+
+      const res = await request(app).delete(`/api/memo/${memo.id}`)
+
+      expect(res.status).toBe(200)
+      expect(eventTracker.inputs).toHaveLength(0)
+    })
+
+    /** 不正なトークンでも 401 にせず未ログイン扱いにする */
+    it("不正なトークンでも削除は成功し、イベントは記録されない", async () => {
+      const memo = await testPrisma.memo.create({ data: { body: "b", title: "t" } })
+
+      const res = await request(app)
+        .delete(`/api/memo/${memo.id}`)
+        .set("Authorization", "Bearer invalid-token")
+
+      expect(res.status).toBe(200)
+      expect(eventTracker.inputs).toHaveLength(0)
+    })
   })
 })
