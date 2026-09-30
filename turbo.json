@@ -40,14 +40,12 @@
     },
     "lint": {
       "dependsOn": [
-        "^build",
-        "^lint"
+        "^build"
       ]
     },
     "lint:fix": {
       "dependsOn": [
-        "^build",
-        "^lint:fix"
+        "^build"
       ]
     },
     "test": {
