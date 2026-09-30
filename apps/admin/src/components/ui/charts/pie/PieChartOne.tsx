@@ -6,9 +6,6 @@ import React from "react"
 
 import { useTheme } from "@/features/theme/theme.context"
 
-/**
- * Dynamically import the ReactApexChart component
- */
 const ReactApexChart = dynamic(async () => import("react-apexcharts"), {
   ssr: false,
 })

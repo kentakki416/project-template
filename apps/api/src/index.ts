@@ -41,11 +41,7 @@ import { healthRouter } from "./routes/health-router"
 import { memoRouter } from "./routes/memo-router"
 import { userRouter } from "./routes/user-router"
 
-/**
- * インフラ client の生成 (プロセス起動時に 1 回だけ)
- * - createPrismaClient: DATABASE_URL / DATABASE_REPLICA_URL を読んで PrismaClient を生成
- * - createRedisClient: REDIS_URL を最優先で読んで Redis を生成
- */
+/** インフラ client はプロセス起動時に 1 回だけ生成する */
 const prisma = createPrismaClient()
 /**
  * onError を渡さないと factory 既定の console.error に落ち、構造化ログに乗らない。
@@ -110,12 +106,7 @@ const authDevLoginController = process.env.NODE_ENV !== "production"
  */
 const memoListController = new MemoListController(memoRepository)
 const memoDetailController = new MemoDetailController(memoRepository)
-/**
- * 行動イベントの送出先。
- *
- * queue に enqueue するだけで、ClickHouse への書き込みは apps/worker が行う。
- * api はデータウェアハウスを知らない。
- */
+/** enqueue するだけ。ClickHouse への書き込みは apps/worker が行う */
 const eventTracker = new QueueEventTracker(
   new BullMQJobQueue(redis, TRACK_EVENT_QUEUE_NAME),
 )
@@ -129,22 +120,15 @@ const memoDeleteController = new MemoDeleteController(memoRepository, eventTrack
 const app = express()
 
 /**
- * ロードバランサ / リバースプロキシ（ALB 等）の裏で動くため、プロキシが付与する
- * X-Forwarded-For ヘッダーから本当のクライアント IP を取得できるようにする。
- *
- * これを設定しないと、Express が見る IP は「直接の接続元 = プロキシの内部 IP」になり、
- * 全ユーザーが同じ IP として扱われてしまう。その結果、IP 単位のレート制限が
- * 「全ユーザーで 1 つの枠を共有」する状態になり、ほぼ機能しなくなる。
- *
- * 値 `1` は「自分の手前にある信頼できるプロキシ 1 段だけを信頼する」という意味。
- * プロキシの段数に一致させる（プロキシが無い環境では false に戻す）。
+ * ALB 越しの X-Forwarded-For から実 IP を取る。設定しないと全ユーザーが
+ * プロキシの内部 IP として扱われ、IP 単位のレート制限が機能しない。
+ * 値はプロキシの段数（プロキシが無い環境では false）。
  */
 app.set("trust proxy", 1)
 
 /**
- * セキュリティヘッダー（HSTS / X-Content-Type-Options: nosniff / X-Frame-Options 等）。
- * 別オリジンのフロントから API のリソースを <img> 等で読み込む場合は
- * `crossOriginResourcePolicy` を cross-origin に緩める。
+ * 別オリジンのフロントから <img> 等で読む場合は crossOriginResourcePolicy を
+ * cross-origin に緩める。
  */
 app.use(helmet())
 

@@ -10,20 +10,11 @@ const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
   ? ["/api/dev/login"]
   : []
 
-/**
- * 認証不要で通す公開パス。
- * memo はユーザー非依存（グローバル）で、Express 側も `/api/memo` を PUBLIC_PATHS に
- * 入れているため、web でも一覧ページ `/memos` と検索 Route Handler `/api/memos` を
- * 未ログインで通す。
- */
+/** memo はユーザー非依存で、Express 側も `/api/memo` を公開にしている */
 const PUBLIC_PATHS = [
   "/memos",
   "/api/memos",
-  /**
-   * 行動イベントの受け口。未ログインでも 204 を返して静かに捨てるため公開にする。
-   * ここでリダイレクトすると sendBeacon がサインインページの HTML を受け取り、
-   * ブラウザのコンソールが無意味なエラーで汚れる。
-   */
+  /** リダイレクトすると sendBeacon がサインインページの HTML を受け取ってしまう */
   "/api/events",
   "/sign-in",
   "/api/auth/callback/google",

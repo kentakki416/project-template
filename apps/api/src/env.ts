@@ -24,9 +24,6 @@ const apiEnvSchema = z.object({
    */
   DATABASE_URL: z.string().url().optional(),
 
-  /**
-   * Postgres read replica の接続 URL
-   */
   DATABASE_REPLICA_URL: z.string().url().optional(),
 
   /**
@@ -45,9 +42,6 @@ const apiEnvSchema = z.object({
    */
   GOOGLE_CLIENT_ID: z.string().default("dummy"),
 
-  /**
-   * Google OAuth クライアントシークレット
-   */
   GOOGLE_CLIENT_SECRET: z.string().default("dummy"),
 
   /**
@@ -55,9 +49,6 @@ const apiEnvSchema = z.object({
    */
   JWT_ACCESS_EXPIRATION: z.string().default("15m"),
 
-  /**
-   * Access Token 署名鍵
-   */
   JWT_ACCESS_SECRET: z.string().min(32),
 
   /**
@@ -65,14 +56,8 @@ const apiEnvSchema = z.object({
    */
   JWT_REFRESH_EXPIRATION: z.string().default("7d"),
 
-  /**
-   * Refresh Token 署名鍵
-   */
   JWT_REFRESH_SECRET: z.string().min(32),
 
-  /**
-   * ログレベル
-   */
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 
   /**
@@ -81,14 +66,8 @@ const apiEnvSchema = z.object({
    */
   LOGGER_TYPE: z.enum(["pino", "winston", "console", "silent"]).default("pino"),
 
-  /**
-   * 実行環境
-   */
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
-  /**
-   * Express サーバーの待受ポート
-   */
   PORT: z.coerce.number().int().positive().default(8080),
 
   /**

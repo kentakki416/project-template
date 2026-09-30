@@ -10,28 +10,14 @@ type Props = {
 }
 
 /**
- * マウント時に行動イベントを 1 回送出する汎用コンポーネント。
+ * マウント時に 1 回送出する。**イベントごとに専用コンポーネントを作らない。**
+ * 命令的に送りたい場合は `trackEvent()` を直接呼ぶ。
  *
- * **イベントごとに専用コンポーネントを作らない。** 種類が増えてもこれ 1 つを使う。
- *
- * ```tsx
- * <TrackEvent name="memo_viewed" properties={{ memo_id: memo.id }} />
- * ```
- *
- * Server Component の JSX に置ける Client Component にしているのは、
- * hook では Server Component から呼べないため。Server Component 側で送ると
- * プリフェッチやキャッシュヒットでも記録され、実際には見ていない閲覧が混入する。
- *
- * イベントハンドラの中など **命令的に送りたい場合は `trackEvent()` を直接呼ぶ**。
- * このコンポーネントは「画面に到達したら送る」ケース専用。
+ * Client Component なのは、Server Component 側で送るとプリフェッチや
+ * キャッシュヒットでも記録され、実際には見ていない閲覧が混入するため。
  */
 export function TrackEvent({ name, properties }: Props) {
-  /**
-   * name と properties から作るキー。これが変わったときだけ送る。
-   *
-   * React Strict Mode は開発時に useEffect を 2 回実行するため、
-   * ref でガードしないと同じイベントが 2 件記録される。
-   */
+  /** Strict Mode は useEffect を 2 回実行するため、ref でガードしないと 2 件記録される */
   const key = JSON.stringify({ name, properties })
   const sentKey = useRef<string | null>(null)
 

@@ -11,12 +11,8 @@ import type {
 } from "./types"
 
 /**
- * BullMQ ベースの `JobQueue` 実装。
- *
- * 他の queue 実装 (AWS SQS / GCP Cloud Tasks / pg-boss / Inngest 等) に切り替えるときは、
- * 同じ `JobQueue<T>` interface を実装した別クラス（例: `SqsJobQueue<T>`）を用意し、
- * app 側の生成箇所だけ差し替える。ジョブハンドラは `JobQueue<T>` interface しか
- * 知らないため、Queue 実装の変更で影響を受けない。
+ * 別実装（SQS / Cloud Tasks 等）に切り替えるときは同じ `JobQueue<T>` を実装した
+ * クラスを用意し、app 側の生成箇所だけ差し替える。ハンドラは影響を受けない。
  */
 export class BullMQJobQueue<T> implements JobQueue<T> {
   private _queue: Queue<T>
@@ -86,14 +82,7 @@ export const isTerminalJobFailure = (params: {
   params.attemptsMade >= params.maxAttempts
   || params.error instanceof UnrecoverableError
 
-/**
- * BullMQ ベースの Worker を起動する。返り値の `JobConsumer.close()` で
- * 新規ジョブ取得を停止し、in-flight ジョブの完了を待つ (graceful shutdown 用)。
- *
- * BullMQ の Worker は内部で Redis 接続を共有するため、呼び出し側で
- * `maxRetriesPerRequest: null` を指定した ioredis インスタンスを渡すこと
- * (BullMQ 5.x の要件)。
- */
+/** 渡す Redis は `maxRetriesPerRequest: null` が必須（BullMQ 5.x の要件） */
 export const startBullMQWorker = <T>(
   redis: Redis,
   options: StartWorkerOptions<T>,
