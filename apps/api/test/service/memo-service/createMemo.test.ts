@@ -1,4 +1,5 @@
 import { Memo } from "@repo/domain"
+import { FakeEventTracker } from "@repo/events"
 
 import { CreateMemoInput, MemoRepository } from "../../../src/repository"
 import { createMemo } from "../../../src/service/memo-service"
@@ -13,6 +14,8 @@ const mockMemoRepository: MemoRepository = {
   findById: vi.fn(),
   update: vi.fn(),
 }
+
+const eventTracker = new FakeEventTracker()
 
 describe("createMemo", () => {
   beforeEach(() => {
@@ -37,7 +40,7 @@ describe("createMemo", () => {
     mockCreate.mockResolvedValue(mockMemo)
 
     // Act
-    const result = await createMemo(input, { memoRepository: mockMemoRepository })
+    const result = await createMemo(input, { memoRepository: mockMemoRepository }, { eventTracker, userId: 1 })
 
     // Assert
     expect(result.ok).toBe(true)
@@ -59,7 +62,7 @@ describe("createMemo", () => {
     mockCreate.mockRejectedValue(mockError)
 
     // Act & Assert
-    await expect(createMemo(input, { memoRepository: mockMemoRepository })).rejects.toThrow(
+    await expect(createMemo(input, { memoRepository: mockMemoRepository }, { eventTracker, userId: 1 })).rejects.toThrow(
       "Database connection failed"
     )
     expect(mockCreate).toHaveBeenCalledWith(input)

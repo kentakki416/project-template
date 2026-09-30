@@ -32,6 +32,17 @@ pnpm test:coverage # カバレッジ計測（coverage/ に出力）
 - **DI は `src/index.ts`** で Repository → Controller → Router の順に組み立てる。実装クラスを import してよいのはここと Controller インテグレーションテストだけ
 - **トランザクション**: 抽象は `src/repository/transaction.ts`、Prisma 実装は `src/repository/prisma/transaction-runner.ts`。`TransactionContext` は不透明トークンなので、service から `tx` で直接クエリを書くことはできない（型エラーになる）
 
+## 行動イベントの送出
+
+`@repo/events` の `EventTracker` を service の第 3 引数（`deps`）で受け取り、**操作が成功したときだけ**記録する。失敗を記録したい場合は別イベントにする（成功イベントに成否フラグを混ぜると集計時に事故る）。
+
+- **送出は `await` しない。** `EventTracker.track()` の戻り値は `void` で、失敗は実装側が catch する
+- **`userId` は `findUserId(req)` で取り出す。** `/api/memo` のように `PUBLIC_PATHS` に含まれるパスは未ログインでも呼べるため `undefined` になりうる。**匿名ユーザーは追跡しない方針**なので、その場合は送出をスキップする
+- **auth middleware は公開パスでも optional 認証を行う。** トークンがあれば `req.userId` を埋め、無くても 401 にしない。早期 return すると公開パスで有効なトークンを渡しても userId が入らず、イベントが永久に記録されない
+- `POST /api/events` は `PUBLIC_PATHS` に含めない（認証必須）。`userId` はボディから受け取らず server 側で解決する
+
+設計: `docs/spec/user-behavior-events/README.md`
+
 ## エラーハンドリング（Result 型）
 
 `@repo/errors` の `Result<T>` を使う。**業務エラー（4xx）は値で返し、想定外エラー（DB 障害等）は throw する**、が原則。

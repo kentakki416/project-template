@@ -24,11 +24,37 @@ export interface AuthRequest extends Request {
 const matchesPathPrefix = (path: string, p: string): boolean =>
   path === p || path.startsWith(`${p}/`)
 
+/**
+ * Authorization ヘッダから userId を取り出す。取り出せなければ undefined。
+ *
+ * **エラーを投げない。** 公開パスでの optional 認証に使うため、
+ * トークンが無い / 不正 / 期限切れのいずれも「未ログイン」として扱う。
+ */
+const tryResolveUserId = (authHeader: string | undefined): number | undefined => {
+  if (!authHeader?.startsWith("Bearer ")) return undefined
+  try {
+    return verifyAccessToken(authHeader.substring(7))?.userId
+  } catch {
+    return undefined
+  }
+}
+
 export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
   /**
-   * 公開パスは認証不要
+   * 公開パスは認証不要。
+   *
+   * ただし **トークンが付いていれば読んで `req.userId` を埋める**（optional 認証）。
+   * 無くても 401 にはしないので未認証アクセスの挙動は変わらない。
+   *
+   * こうしているのは、公開パスでも「ログイン済みなら誰がやったか」を記録したい
+   * ケースがあるため（行動イベントの `user_id`）。ここで早期 return すると
+   * 有効なトークンを渡しても userId が入らず、イベントが永久に記録されない。
    */
   if (PUBLIC_PATHS.some(p => matchesPathPrefix(req.path, p))) {
+    const optionalUserId = tryResolveUserId(req.headers.authorization)
+    if (optionalUserId !== undefined) {
+      req.userId = optionalUserId
+    }
     return next()
   }
 

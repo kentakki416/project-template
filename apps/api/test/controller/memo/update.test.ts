@@ -1,5 +1,7 @@
 import request from "supertest"
 
+import { FakeEventTracker } from "@repo/events"
+
 import { MemoDetailController } from "../../../src/controller/memo/detail"
 import { MemoUpdateController } from "../../../src/controller/memo/update"
 import { PrismaMemoRepository } from "../../../src/repository/prisma/memo-repository"
@@ -13,7 +15,7 @@ const app = createTestApp()
 
 app.use("/api/memo", memoRouter({
   detail: new MemoDetailController(memoRepository),
-  update: new MemoUpdateController(memoRepository),
+  update: new MemoUpdateController(memoRepository, new FakeEventTracker()),
 }))
 attachUnhandledExceptionHandler(app)
 

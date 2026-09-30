@@ -1,4 +1,5 @@
 import { Memo } from "@repo/domain"
+import { FakeEventTracker } from "@repo/events"
 
 import { MemoRepository, UpdateMemoInput } from "../../../src/repository"
 import { updateMemo } from "../../../src/service/memo-service"
@@ -14,6 +15,8 @@ const mockMemoRepository: MemoRepository = {
   findById: mockFindById,
   update: mockUpdate,
 }
+
+const eventTracker = new FakeEventTracker()
 
 describe("updateMemo", () => {
   beforeEach(() => {
@@ -47,7 +50,7 @@ describe("updateMemo", () => {
     mockUpdate.mockResolvedValue(updatedMemo)
 
     // Act
-    const result = await updateMemo(1, input, { memoRepository: mockMemoRepository })
+    const result = await updateMemo(1, input, { memoRepository: mockMemoRepository }, { eventTracker, userId: 1 })
 
     // Assert
     expect(result.ok).toBe(true)
@@ -68,7 +71,7 @@ describe("updateMemo", () => {
     mockFindById.mockResolvedValue(null)
 
     // Act
-    const result = await updateMemo(999, input, { memoRepository: mockMemoRepository })
+    const result = await updateMemo(999, input, { memoRepository: mockMemoRepository }, { eventTracker, userId: 1 })
 
     // Assert
     expect(result.ok).toBe(false)
@@ -92,7 +95,7 @@ describe("updateMemo", () => {
     mockFindById.mockRejectedValue(mockError)
 
     // Act & Assert
-    await expect(updateMemo(1, input, { memoRepository: mockMemoRepository })).rejects.toThrow(
+    await expect(updateMemo(1, input, { memoRepository: mockMemoRepository }, { eventTracker, userId: 1 })).rejects.toThrow(
       "Database connection failed"
     )
     expect(mockFindById).toHaveBeenCalledWith(1)
