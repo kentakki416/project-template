@@ -107,12 +107,34 @@ export const startBullMQWorker = <T>(
     )
   })
 
+  /**
+   * 失敗は「まだリトライされる」ものと「試行を使い切った」ものを分ける。
+   *
+   * 前者は backoff 後に自動回復しうるので warn に留める。後者だけが
+   * 「データが失われうる」状態なので error にして、アラートの対象を絞る。
+   * 最終失敗したジョブは removeOnFail の期間だけ failed セットに残るため、
+   * 気付ければ再投入して救済できる。
+   *
+   * `attemptsMade` は **`failed` の発火時点で既に加算済み**（1 オリジン）。
+   * JobProcessor に渡る `attemptsMade` は初回実行時 0 なので混同しないこと。
+   * ここで `+1` すると最終失敗を 1 回早く error にしてしまう。
+   */
   worker.on("failed", (job, err) => {
-    logger.error(
-      "[queue] job failed",
-      err instanceof Error ? err : new Error(String(err)),
-      { jobId: job?.id, queueName: options.queueName },
-    )
+    const error = err instanceof Error ? err : new Error(String(err))
+    const attemptsMade = job?.attemptsMade ?? 0
+    const maxAttempts = job?.opts.attempts ?? 1
+    const metadata = {
+      attemptsMade,
+      jobId: job?.id,
+      maxAttempts,
+      queueName: options.queueName,
+    }
+
+    if (attemptsMade >= maxAttempts) {
+      logger.error("[queue] job failed permanently", error, metadata)
+      return
+    }
+    logger.warn("[queue] job failed, will retry", { ...metadata, reason: error.message })
   })
 
   worker.on("completed", (job) => {

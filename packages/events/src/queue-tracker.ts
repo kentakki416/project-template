@@ -43,10 +43,15 @@ export class QueueEventTracker implements EventTracker {
         })),
       })
       .catch((err: unknown) => {
-        logger.warn("failed to enqueue events", {
-          count: inputs.length,
-          reason: err instanceof Error ? err.message : String(err),
-        })
+        /**
+         * 呼び出し元には伝播させないが、ここで落ちたイベントは失われるので
+         * error として残す（Redis 障害の検知点になる）。
+         */
+        logger.error(
+          "failed to enqueue events",
+          err instanceof Error ? err : new Error(String(err)),
+          { count: inputs.length },
+        )
       })
   }
 }

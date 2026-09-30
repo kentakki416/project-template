@@ -12,7 +12,8 @@
     "lint:fix": "eslint 'src/**/*.ts' --fix"
   },
   "dependencies": {
-    "@clickhouse/client": "^1.14.0"
+    "@clickhouse/client": "^1.14.0",
+    "@repo/logger": "workspace:^"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:^",

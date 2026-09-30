@@ -47,7 +47,15 @@ import { userRouter } from "./routes/user-router"
  * - createRedisClient: REDIS_URL を最優先で読んで Redis を生成
  */
 const prisma = createPrismaClient()
-const redis = createRedisClient()
+/**
+ * onError を渡さないと factory 既定の console.error に落ち、構造化ログに乗らない。
+ * Redis は refresh token と queue の両方を載せているため、障害は error として残す。
+ */
+const redis = createRedisClient({
+  onError: (error) => {
+    logger.error("redis connection error", error)
+  },
+})
 
 /**
  * Repository の DI assembly
