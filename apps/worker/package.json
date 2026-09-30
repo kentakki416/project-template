@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@repo/data-warehouse": "workspace:^",
     "@repo/db": "workspace:^",
     "@repo/domain": "workspace:^",
     "@repo/logger": "workspace:^",

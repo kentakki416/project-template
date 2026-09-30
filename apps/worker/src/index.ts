@@ -1,11 +1,14 @@
+import { createDataWarehouse } from "@repo/data-warehouse"
 import { createPrismaClient } from "@repo/db"
 import { logger } from "@repo/logger"
 import { createRedisClient } from "@repo/redis"
 
 import { env } from "./env"
+import { DataWarehouseEventRepository } from "./repository/data-warehouse"
 import { PrismaMemoRepository } from "./repository/prisma"
 import { setupGracefulShutdown } from "./runtime/graceful-shutdown"
 import { startProcessMemoWorker } from "./workers/process-memo-worker"
+import { startTrackEventWorker } from "./workers/track-event-worker"
 
 /**
  * apps/worker のエントリポイント。
@@ -30,7 +33,20 @@ const main = (): void => {
     url: env.REDIS_URL,
   })
 
+  /**
+   * どのデータウェアハウスを使うかを決めるのはここだけ。
+   * Repository 以降は DataWarehouse 抽象にしか依存しない。
+   */
+  const dataWarehouse = createDataWarehouse({
+    database: env.DATA_WAREHOUSE_DATABASE,
+    password: env.DATA_WAREHOUSE_PASSWORD,
+    type: "clickhouse",
+    url: env.DATA_WAREHOUSE_URL ?? "",
+    username: env.DATA_WAREHOUSE_USER,
+  })
+
   const memoRepository = new PrismaMemoRepository(prisma)
+  const eventRepository = new DataWarehouseEventRepository(dataWarehouse)
 
   const consumers = [
     startProcessMemoWorker({
@@ -38,9 +54,14 @@ const main = (): void => {
       memoRepository,
       redis,
     }),
+    startTrackEventWorker({
+      concurrency: env.WORKER_CONCURRENCY,
+      eventRepository,
+      redis,
+    }),
   ]
 
-  setupGracefulShutdown({ consumers, prisma, redis })
+  setupGracefulShutdown({ consumers, dataWarehouse, prisma, redis })
 
   logger.info("worker started", {
     concurrency: env.WORKER_CONCURRENCY,

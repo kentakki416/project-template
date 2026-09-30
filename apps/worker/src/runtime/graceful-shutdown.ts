@@ -1,3 +1,4 @@
+import type { DataWarehouse } from "@repo/data-warehouse"
 import type { PrismaClient } from "@repo/db"
 import { logger } from "@repo/logger"
 import type { JobConsumer } from "@repo/queue"
@@ -5,6 +6,7 @@ import type { Redis } from "@repo/redis"
 
 export type ShutdownDeps = {
   consumers: JobConsumer[]
+  dataWarehouse: DataWarehouse
   prisma: PrismaClient
   redis: Redis
 }
@@ -29,7 +31,11 @@ export const setupGracefulShutdown = (deps: ShutdownDeps): void => {
     logger.warn("worker shutdown initiated", { signal })
     try {
       await Promise.all(deps.consumers.map(async (c) => c.close()))
-      await Promise.all([deps.prisma.$disconnect(), deps.redis.quit()])
+      await Promise.all([
+        deps.dataWarehouse.close(),
+        deps.prisma.$disconnect(),
+        deps.redis.quit(),
+      ])
       logger.info("worker shutdown completed")
       process.exit(0)
     } catch (err) {

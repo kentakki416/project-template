@@ -498,6 +498,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@repo/data-warehouse':
+        specifier: workspace:^
+        version: link:../../packages/data-warehouse
       '@repo/db':
         specifier: workspace:^
         version: link:../../packages/db
