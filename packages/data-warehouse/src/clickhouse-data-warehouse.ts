@@ -1,5 +1,7 @@
 import { createClient, type ClickHouseClient } from "@clickhouse/client"
 
+import { logger } from "@repo/logger"
+
 import type { DataWarehouse } from "./data-warehouse"
 
 export type ClickHouseConfig = {
@@ -36,7 +38,22 @@ export class ClickHouseDataWarehouse implements DataWarehouse {
 
   public async insertAll(table: string, rows: Record<string, unknown>[]): Promise<void> {
     if (rows.length === 0) return
-    await this._client.insert({ format: "JSONEachRow", table, values: rows })
+
+    try {
+      await this._client.insert({ format: "JSONEachRow", table, values: rows })
+    } catch (error) {
+      /**
+       * 呼び出し元がリトライできるよう re-throw するが、ログはここで出す。
+       * ここで出さないと queue の汎用的なジョブ失敗としか残らず、
+       * 原因が ClickHouse だと分からないため。
+       */
+      logger.error(
+        "clickhouse insert failed",
+        error instanceof Error ? error : new Error(String(error)),
+        { count: rows.length, table },
+      )
+      throw error
+    }
   }
 
   public async close(): Promise<void> {

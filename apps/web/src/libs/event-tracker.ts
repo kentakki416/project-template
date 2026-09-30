@@ -61,17 +61,25 @@ export const trackEvent = (event: Omit<EventInput, "occurredAt">): void => {
 }
 
 /**
- * タブが hidden になったタイミングで flush する。
+ * ページが隠れる / 破棄されるタイミングで flush する。
  *
  * アプリのルートで 1 回呼び、返り値をクリーンアップに使う。
  * これが無いとタブを閉じた瞬間のバッファが失われる。
+ *
+ * **visibilitychange と pagehide の両方を購読する。** iOS Safari は
+ * アプリ切り替えやタブ破棄で visibilitychange が発火しないことがあり、
+ * これだけに頼るとモバイル閲覧のバッファを取りこぼす。
+ * flushEvents はバッファが空なら即 return するので、両方発火しても
+ * 二重送信にはならない。
  */
 export const setupEventFlushOnHide = (): (() => void) => {
-  const onVisibilityChange = (): void => {
+  const flushWhenHidden = (): void => {
     if (document.visibilityState === "hidden") flushEvents()
   }
-  document.addEventListener("visibilitychange", onVisibilityChange)
+  document.addEventListener("visibilitychange", flushWhenHidden)
+  window.addEventListener("pagehide", flushEvents)
   return () => {
-    document.removeEventListener("visibilitychange", onVisibilityChange)
+    document.removeEventListener("visibilitychange", flushWhenHidden)
+    window.removeEventListener("pagehide", flushEvents)
   }
 }

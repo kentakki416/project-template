@@ -26,7 +26,10 @@ reviews:
     - "!pnpm-lock.yaml"
     - "!**/.terraform.lock.hcl"
 
-  profile: quiet
+  # 既定の false では COMMENT 形式でしか返さず、レビュー結果がマージの
+  # ゲートにならない。true にすると指摘ありで Request changes、解消後に
+  # Approve を出すため、GitHub の review state として機能する。
+  request_changes_workflow: true
 
 tone_instructions: |
   日本語でレビューする。指摘には根拠と具体的な修正案を添える。

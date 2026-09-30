@@ -565,6 +565,9 @@ importers:
       '@clickhouse/client':
         specifier: ^1.14.0
         version: 1.23.1
+      '@repo/logger':
+        specifier: workspace:^
+        version: link:../logger
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:^
