@@ -1,4 +1,4 @@
-import { Queue, Worker } from "bullmq"
+import { Queue, UnrecoverableError, Worker } from "bullmq"
 
 import { logger } from "@repo/logger"
 import type { Redis } from "@repo/redis"
@@ -118,6 +118,10 @@ export const startBullMQWorker = <T>(
    * `attemptsMade` は **`failed` の発火時点で既に加算済み**（1 オリジン）。
    * JobProcessor に渡る `attemptsMade` は初回実行時 0 なので混同しないこと。
    * ここで `+1` すると最終失敗を 1 回早く error にしてしまう。
+   *
+   * 試行回数だけでは判定できない終局もある。ハンドラが `UnrecoverableError`
+   * を投げた場合、BullMQ は `attempts` の上限を待たず即 failed set に移すので、
+   * 回数で見ると初回失敗が「リトライされる」に誤判定される。
    */
   worker.on("failed", (job, err) => {
     const error = err instanceof Error ? err : new Error(String(err))
@@ -130,7 +134,7 @@ export const startBullMQWorker = <T>(
       queueName: options.queueName,
     }
 
-    if (attemptsMade >= maxAttempts) {
+    if (attemptsMade >= maxAttempts || error instanceof UnrecoverableError) {
       logger.error("[queue] job failed permanently", error, metadata)
       return
     }
