@@ -6,8 +6,7 @@ on:
   push:
     branches: [main]
   # paths フィルタは付けない。required status check にした場合、対象外の変更で
-  # skip されると「保留 / 失敗」表示のまま merge がブロックされるため、常に実行して
-  # 必ず結果を報告する（lint は PR の base との差分で変更パッケージのみ走り軽量）。
+  # skip されると「保留 / 失敗」表示のまま merge がブロックされるため、常に実行する。
   pull_request:
   workflow_dispatch:
 
@@ -31,9 +30,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # PR の base との差分で対象を絞るため全履歴が必要。
-          # 浅い clone だと base の commit が無く diff が取れない。
-          fetch-depth: 0
+          fetch-depth: 0 # base との差分算出に全履歴が必要
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -57,16 +54,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile # pnpm-lock.yamlを固定
 
-      # 変更されたパッケージとそれに依存するパッケージだけを lint する。
-      #
-      # base に `HEAD^` を使わないこと。直前のコミットとの差分しか見ないため
-      # **複数コミットの PR で最後のコミット以外の変更を取りこぼす。**
-      #
-      # また turbo の `--filter=...[ref]` は **パッケージに属さないファイルの
-      # 変更で 0 件を返す**。lint 設定やワークスペース定義を変えたときに
-      # 1 件も lint されないまま緑になるため、それらの変更は全実行に倒す。
-      # 影響範囲の判定は scripts/ci-turbo-scope.sh に共通化している（test.yml と共用）。
-      # docker-compose / infra は lint に影響しないので追加のグローバルパスは渡さない。
+      # 判定ロジックは scripts/ci-turbo-scope.sh 参照。
       - name: Run lint on changed packages
         run: scripts/ci-turbo-scope.sh lint
         env:
