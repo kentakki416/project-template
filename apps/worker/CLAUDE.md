@@ -48,7 +48,8 @@ BullMQ の stalled 検出 / リトライ / ECS deploy 時の SIGKILL で **同�
 | 変数 | 必須 | デフォルト | 説明 |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | `NODE_ENV !== "test"` で必須 | - | Prisma の接続文字列 |
-| `DATA_WAREHOUSE_URL` | `NODE_ENV !== "test"` で必須 | - | データウェアハウスの接続 URL。**技術名を入れていない**のはバックエンドを差し替えても env を変えずに済ませるため |
+| `DATA_WAREHOUSE_TYPE` | no | `clickhouse` | `clickhouse` / `none`。`none` は何も書き込まない実装になる |
+| `DATA_WAREHOUSE_URL` | `DATA_WAREHOUSE_TYPE === "clickhouse"` かつ `NODE_ENV !== "test"` で必須 | - | データウェアハウスの接続 URL。**技術名を入れていない**のはバックエンドを差し替えても env を変えずに済ませるため |
 | `DATA_WAREHOUSE_DATABASE` | no | `project_template` | DB 名 |
 | `DATA_WAREHOUSE_USER` | no | `default` | ユーザー名 |
 | `DATA_WAREHOUSE_PASSWORD` | no | `password` | パスワード |
@@ -57,6 +58,16 @@ BullMQ の stalled 検出 / リトライ / ECS deploy 時の SIGKILL で **同�
 | `LOGGER_TYPE` | no | `pino` | `pino` / `winston` / `console` / `silent` |
 | `LOG_LEVEL` | no | `info` | `debug` / `info` / `warn` / `error` |
 | `WORKER_CONCURRENCY` | no | `10` | 1 worker あたりの同時並行ジョブ数 |
+
+### データウェアハウスを持たない環境
+
+`DATA_WAREHOUSE_TYPE=none` にすると `NoopDataWarehouse` が DI され、行動イベントの
+insert がスキップされる（ジョブは成功扱いで completed になる）。**dev はこの設定**で、
+分析価値の無い環境のために ClickHouse を常駐させないための逃げ道。
+
+**本番で `none` にしてはいけない。** 呼び出し側から見ると insert は成功するので、
+設定を間違えるとイベントが無言で消える。気付けるように insert のたびに
+`data warehouse is disabled, skipped insert` を debug ログに出している。
 
 ## 新 Queue の追加
 

@@ -121,13 +121,24 @@ else
 fi
 
 # ============================================================================
-# 4. ElastiCache: terraform output から REDIS_HOST
+# 4. ElastiCache: terraform output から REDIS_URL を構築
 # ============================================================================
+# app が読むのは REDIS_URL の 1 本だけ (packages/redis の createRedisClient が
+# process.env.REDIS_URL を見る)。ホスト名だけ渡しても組み立てるコードが無いので、
+# ここで完全な URL にする。
+#
+# scheme が redis:// なのは module.elasticache が transit_encryption_enabled = false
+# で立てているため。TLS を有効化したら rediss:// に変える必要がある。
 if REDIS_HOST=$(terraform -chdir="$TF_DIR" output -raw redis_address 2>/dev/null); then
-  NEW_VALUES=$(echo "$NEW_VALUES" | jq --arg h "$REDIS_HOST" '. + { REDIS_HOST: $h }')
-  echo "  ✓ REDIS_HOST (from terraform output)"
+  # port / db は app secret の初期値を使い、無ければ ElastiCache の既定にフォールバック
+  REDIS_PORT=$(echo "$CURRENT" | jq -r '.REDIS_PORT // "6379"')
+  REDIS_DB=$(echo "$CURRENT" | jq -r '.REDIS_DB // "0"')
+
+  REDIS_URL="redis://${REDIS_HOST}:${REDIS_PORT}/${REDIS_DB}"
+  NEW_VALUES=$(echo "$NEW_VALUES" | jq --arg url "$REDIS_URL" '. + { REDIS_URL: $url }')
+  echo "  ✓ REDIS_URL (constructed from ElastiCache output)"
 else
-  echo "  - REDIS_HOST (skipped, ElastiCache not deployed yet)"
+  echo "  - REDIS_URL (skipped, ElastiCache not deployed yet)"
 fi
 
 # ============================================================================

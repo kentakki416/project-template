@@ -14,7 +14,15 @@ const workerEnvSchema = z
     DATA_WAREHOUSE_DATABASE: z.string().default("project_template"),
     DATA_WAREHOUSE_PASSWORD: z.string().default("password"),
     /**
-     * データウェアハウスの接続 URL。NODE_ENV !== "test" のときは必須。
+     * どのデータウェアハウスに書くか。`none` は何も書かない実装を使う。
+     *
+     * 行動イベントの分析価値が無い環境（dev 等）のために ClickHouse を常駐
+     * させるのはコストに見合わないため、繋ぎ先を持たない選択肢を用意する。
+     */
+    DATA_WAREHOUSE_TYPE: z.enum(["clickhouse", "none"]).default("clickhouse"),
+    /**
+     * データウェアハウスの接続 URL。
+     * DATA_WAREHOUSE_TYPE === "clickhouse" かつ NODE_ENV !== "test" のときは必須。
      * 技術名を入れていないのは、バックエンドを差し替えても env を変えずに済ませるため。
      */
     DATA_WAREHOUSE_URL: z.string().url().optional(),
@@ -40,10 +48,14 @@ const workerEnvSchema = z
         path: ["DATABASE_URL"],
       })
     }
-    if (env.NODE_ENV !== "test" && !env.DATA_WAREHOUSE_URL) {
+    if (
+      env.NODE_ENV !== "test"
+      && env.DATA_WAREHOUSE_TYPE === "clickhouse"
+      && !env.DATA_WAREHOUSE_URL
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "DATA_WAREHOUSE_URL is required when NODE_ENV is not 'test'",
+        message: "DATA_WAREHOUSE_URL is required when DATA_WAREHOUSE_TYPE is 'clickhouse'",
         path: ["DATA_WAREHOUSE_URL"],
       })
     }
