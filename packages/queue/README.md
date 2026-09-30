@@ -8,6 +8,7 @@
 - [役割](#役割)
 - [設計の核](#設計の核)
 - [公開 API](#公開-api)
+  - [失敗の分類](#失敗の分類)
 - [使い方](#使い方)
 - [関連](#関連)
 
@@ -76,6 +77,7 @@ import {
   // ===== BullMQ 実装 =====
   BullMQJobQueue,        // class, Producer 用
   startBullMQWorker,     // function, Consumer 用
+  isTerminalJobFailure,  // function, 失敗が終局かの判定
 
   // ===== Job 型 + Queue 名 =====
   PROCESS_MEMO_QUEUE_NAME,
@@ -83,6 +85,19 @@ import {
   buildProcessMemoJobId,
 } from "@repo/queue"
 ```
+
+### 失敗の分類
+
+`isTerminalJobFailure` は失敗が「もうリトライされない終局」かを判定する。
+`startBullMQWorker` が log level の出し分けに使っており、**終局だけを `error`**、
+リトライ余地のあるものは `warn` にしてアラート対象を絞っている。
+
+判定に 2 つの条件があるのは、試行回数だけでは終局を判定できないため。
+
+| 条件 | 理由 |
+| --- | --- |
+| `attemptsMade >= maxAttempts` | `attemptsMade` は `failed` イベントの発火時点で**既に加算済み**（1 オリジン）。`JobProcessor` に渡る値は初回 0 なので混同しないこと |
+| `error instanceof UnrecoverableError` | BullMQ はこれを `attempts` の上限を待たず即 failed set に移すため、回数で見ると初回失敗を「リトライされる」と誤判定する |
 
 ### 抽象型
 

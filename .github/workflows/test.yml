@@ -88,3 +88,11 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/project-template_test
           REDIS_URL: redis://localhost:6379/1
+
+      # 実 Redis を使うインテグレーションテストを含むため、上の services を共有する。
+      # ルートの `pnpm test` を使わないのは packages/schema の test が
+      # プレースホルダ (exit 1) で落ちるため。
+      - name: Run package tests
+        run: pnpm --filter @repo/queue --filter @repo/events test
+        env:
+          REDIS_URL: redis://localhost:6379/1

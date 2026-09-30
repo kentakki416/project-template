@@ -68,6 +68,25 @@ export class BullMQJobQueue<T> implements JobQueue<T> {
 }
 
 /**
+ * 失敗がもうリトライされない「終局」かを判定する。
+ *
+ * `attemptsMade` は **`failed` イベントの発火時点で既に加算済み**（1 オリジン）。
+ * JobProcessor に渡る `attemptsMade` は初回実行時 0 なので混同しないこと。
+ * ここで `+1` すると最終失敗を 1 回早く error にしてしまう。
+ *
+ * 試行回数だけでは判定できない終局もある。ハンドラが `UnrecoverableError` を
+ * 投げた場合、BullMQ は `attempts` の上限を待たず即 failed set に移すため、
+ * 回数だけで見ると初回失敗が「リトライされる」に誤判定される。
+ */
+export const isTerminalJobFailure = (params: {
+  attemptsMade: number
+  error: Error
+  maxAttempts: number
+}): boolean =>
+  params.attemptsMade >= params.maxAttempts
+  || params.error instanceof UnrecoverableError
+
+/**
  * BullMQ ベースの Worker を起動する。返り値の `JobConsumer.close()` で
  * 新規ジョブ取得を停止し、in-flight ジョブの完了を待つ (graceful shutdown 用)。
  *
@@ -108,20 +127,12 @@ export const startBullMQWorker = <T>(
   })
 
   /**
-   * 失敗は「まだリトライされる」ものと「試行を使い切った」ものを分ける。
+   * 失敗は「まだリトライされる」ものと「終局」に分ける。
    *
    * 前者は backoff 後に自動回復しうるので warn に留める。後者だけが
    * 「データが失われうる」状態なので error にして、アラートの対象を絞る。
    * 最終失敗したジョブは removeOnFail の期間だけ failed セットに残るため、
    * 気付ければ再投入して救済できる。
-   *
-   * `attemptsMade` は **`failed` の発火時点で既に加算済み**（1 オリジン）。
-   * JobProcessor に渡る `attemptsMade` は初回実行時 0 なので混同しないこと。
-   * ここで `+1` すると最終失敗を 1 回早く error にしてしまう。
-   *
-   * 試行回数だけでは判定できない終局もある。ハンドラが `UnrecoverableError`
-   * を投げた場合、BullMQ は `attempts` の上限を待たず即 failed set に移すので、
-   * 回数で見ると初回失敗が「リトライされる」に誤判定される。
    */
   worker.on("failed", (job, err) => {
     const error = err instanceof Error ? err : new Error(String(err))
@@ -134,7 +145,7 @@ export const startBullMQWorker = <T>(
       queueName: options.queueName,
     }
 
-    if (attemptsMade >= maxAttempts || error instanceof UnrecoverableError) {
+    if (isTerminalJobFailure({ attemptsMade, error, maxAttempts })) {
       logger.error("[queue] job failed permanently", error, metadata)
       return
     }
