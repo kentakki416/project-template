@@ -6,8 +6,7 @@ on:
   push:
     branches: [main]
   # paths フィルタは付けない。required status check にした場合、対象外の変更で
-  # skip されると「保留 / 失敗」表示のまま merge がブロックされるため、常に実行して
-  # 必ず結果を報告する（lint は turbo の ...[HEAD^] で変更パッケージのみ走り軽量）。
+  # skip されると「保留 / 失敗」表示のまま merge がブロックされるため、常に実行する。
   pull_request:
   workflow_dispatch:
 
@@ -31,7 +30,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2 # HEAD^とHEADのコミットまで取得
+          fetch-depth: 0 # base との差分算出に全履歴が必要
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -55,5 +54,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile # pnpm-lock.yamlを固定
 
+      # 判定ロジックは scripts/ci-turbo-scope.sh 参照。
       - name: Run lint on changed packages
-        run: pnpm turbo run lint --filter="...[HEAD^]" # commitの差分の中で変更されたパッケージとその依存パッケージを対象
+        run: scripts/ci-turbo-scope.sh lint
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
