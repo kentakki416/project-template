@@ -56,7 +56,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          # PR の base との差分でテスト対象を絞るため全履歴が必要。
+          # 浅い clone だと base の commit が無く diff が取れない。
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -83,16 +85,43 @@ jobs:
       - name: Build shared packages
         run: pnpm --filter "./packages/*" build
 
+      # テストは turbo の test:ci タスクに統一している。api だけ `test` が dotenvx で
+      # .env.local を復号するため（CI に復号鍵は無い）、CI 用のタスクを分けている。
+      #
+      # PR では影響範囲だけを実行してランナー時間を削る。ただし turbo の
+      # `--filter=...[ref]` は **パッケージに属さないファイルの変更で 0 件を返す**。
+      # workflow / docker-compose / infra を変えたときにテストが 1 件も走らないまま
+      # 緑になるため、それらの変更は全実行に倒す。
       - name: Run tests
-        run: pnpm --filter api test:ci
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+
+          # パッケージ外だが全テストに影響しうるパス
+          GLOBAL_PATHS='^(\.github/|turbo\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|docker-compose\.yaml|infra/)'
+
+          if [ -z "$BASE" ]; then
+            echo "::notice::main への push / 手動実行のため全テストを実行する"
+            pnpm turbo run test:ci
+            exit 0
+          fi
+
+          # `git diff | grep -q` にしないこと。grep -q はマッチ時点で終了するため
+          # 差分が大きいと git diff が SIGPIPE で 141 を返し、pipefail によって
+          # 条件全体が偽になる。**マッチしているのに影響範囲のみに倒れる**
+          # （ファイル 2 万件で再現確認済み）。ファイルに落としてパイプを挟まない。
+          CHANGED="$RUNNER_TEMP/changed-files.txt"
+          git diff --name-only "$BASE...HEAD" > "$CHANGED"
+          echo "変更ファイル ($(wc -l < "$CHANGED") 件):"
+          cat "$CHANGED"
+
+          if grep -qE "$GLOBAL_PATHS" "$CHANGED"; then
+            echo "::notice::パッケージ外の変更を検出したため全テストを実行する"
+            pnpm turbo run test:ci
+          else
+            echo "::notice::影響範囲のみ実行する (base=$BASE)"
+            pnpm turbo run test:ci --filter="...[$BASE]"
+          fi
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/project-template_test
-          REDIS_URL: redis://localhost:6379/1
-
-      # 実 Redis を使うインテグレーションテストを含むため、上の services を共有する。
-      # ルートの `pnpm test` を使わないのは packages/schema の test が
-      # プレースホルダ (exit 1) で落ちるため。
-      - name: Run package tests
-        run: pnpm --filter @repo/queue --filter @repo/events test
-        env:
           REDIS_URL: redis://localhost:6379/1
