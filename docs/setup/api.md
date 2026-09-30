@@ -43,7 +43,7 @@ pnpm install
 └── apps/api/.env.keys              → ../../.env.keys (シンボリックリンク、git 管理)
 ```
 
-詳細はルート README の [環境変数の設定](../../README.md#2-環境変数の設定) を参照。
+詳細はルート README の [env は dotenvx で管理する](../../README.md#env-は-dotenvx-で管理する) を参照。
 
 > ⚠️ `apps/api` ディレクトリで `cd` してから `dotenvx set` を叩くと、シンボリックリンクが実体ファイルで上書きされて鍵が壊れる。値の追加・更新は **必ずプロジェクトルートから** `npx dotenvx set KEY "value" -f apps/api/.env.local` を実行すること。
 

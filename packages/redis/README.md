@@ -7,6 +7,7 @@ ioredis の接続クライアントを生成する **factory + 型 re-export** �
 - [設計の意図](#設計の意図)
 - [役割](#役割)
 - [使い方](#使い方)
+  - [通常用途（cache / session）](#通常用途cache--session)
 
 ## 設計の意図
 

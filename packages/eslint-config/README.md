@@ -7,7 +7,9 @@
 - [役割](#役割)
 - [formatting ルールは @stylistic](#formatting-ルールは-stylistic)
 - [Prisma 型の import 境界](#prisma-型の-import-境界)
+  - [このルールの限界](#このルールの限界)
 - [フロントの @repo import 境界](#フロントの-repo-import-境界)
+  - [client bundle への混入は lint だけでは防げない](#client-bundle-への混入は-lint-だけでは防げない)
 - [使い方（新規 app 追加時）](#使い方新規-app-追加時)
 - [関連](#関連)
 

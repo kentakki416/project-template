@@ -6,6 +6,8 @@ Prisma schema / migrations / generated client を一元管理する共有パッ�
 
 - [設計の意図と役割](#設計の意図と役割)
 - [リードレプリカの仕様](#リードレプリカの仕様)
+  - [自動振り分けルール](#自動振り分けルール)
+  - [強整合性が必要な read（read-after-write）](#強整合性が必要な-readread-after-write)
 
 ## 設計の意図と役割
 

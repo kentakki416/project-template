@@ -2,6 +2,25 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## 目次
+
+- [Get started](#get-started)
+- [アーキテクチャ](#アーキテクチャ)
+  - [ディレクトリ構成](#ディレクトリ構成)
+  - [依存の方向](#依存の方向)
+  - [API型の利用ルール](#api型の利用ルール)
+  - [設計原則](#設計原則)
+  - [コンポーネントの分類基準](#コンポーネントの分類基準)
+- [EAS によるビルド・公開](#eas-によるビルド公開)
+  - [セットアップ](#セットアップ)
+  - [ビルドプロファイル](#ビルドプロファイル)
+  - [ビルド](#ビルド)
+  - [ストアへの提出](#ストアへの提出)
+  - [OTA アップデート (EAS Update)](#ota-アップデート-eas-update)
+- [Get a fresh project](#get-a-fresh-project)
+- [Learn more](#learn-more)
+- [Join the community](#join-the-community)
+
 ## Get started
 
 1. Install dependencies

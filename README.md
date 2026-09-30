@@ -1,28 +1,143 @@
 <!-- TODO: プロジェクト名に変更してください -->
 # project-template
 
-Turborepo + pnpm monorepo を使用したフルスタックアプリケーションテンプレート
+Turborepo + pnpm モノレポのフルスタックアプリケーションテンプレート。
+
+Web / Admin / Mobile のフロントエンド、Express の API、定期実行タスク（cron）、常駐 worker と、それらが共有する DB / ロガー / エラー型 / キュー / 分析イベント基盤を最初から揃えています。AWS（ECS Fargate）へのデプロイ用 Terraform と GitHub Actions も含まれます。
+
+- **このテンプレートから新しいプロジェクトを作る** → [新規プロジェクトを作る](#新規プロジェクトを作る)
+- **既存プロジェクトの開発に参加する** → [ローカル開発を始める](#ローカル開発を始める) → [ドキュメント案内](#ドキュメント案内)
 
 ## 目次
 
-- [プロジェクト構成図](#プロジェクト構成図)
-- [技術スタック](#技術スタック)
-- [クイックリファレンス](#クイックリファレンス)
-  - [アーキテクチャ & コーディング規約のキャッチアップ (まずここから)](#アーキテクチャ--コーディング規約のキャッチアップ-まずここから)
-  - [セットアップ手順](#セットアップ手順)
-  - [仕様 / 設計](#仕様--設計)
-- [テンプレートの使い方](#テンプレートの使い方)
-  - [1. プロジェクトのコピー](#1-プロジェクトのコピー)
-  - [2. 環境変数の設定](#2-環境変数の設定)
-- [Claude Code（MCP設定）](#claude-codemcp設定)
-- [開発ルール](#開発ルール)
-  - [1. 命名規則](#1-命名規則)
-  - [2. 基本コマンド](#2-基本コマンド)
-  - [3. pnpm ワークスペースコマンド](#3-pnpm-ワークスペースコマンド)
-  - [4. 環境変数の管理コマンド](#4-環境変数の管理コマンド)
-  - [5. Docker環境の起動コマンド](#5-docker環境の起動コマンド)
+- [新規プロジェクトを作る](#新規プロジェクトを作る)
+  - [1. テンプレートをコピーする](#1-テンプレートをコピーする)
+  - [2. プロジェクト名を置き換える](#2-プロジェクト名を置き換える)
+  - [3. 環境変数の鍵を作り直す](#3-環境変数の鍵を作り直す)
+  - [4. AWS にデプロイする（必要になったら）](#4-aws-にデプロイする必要になったら)
+- [ローカル開発を始める](#ローカル開発を始める)
+  - [前提ツール](#前提ツール)
+  - [手順](#手順)
+  - [ポート](#ポート)
+  - [よく使うコマンド](#よく使うコマンド)
+- [構成](#構成)
+  - [技術スタック](#技術スタック)
+- [ドキュメント案内](#ドキュメント案内)
+  - [アーキテクチャと規約（まずここから）](#アーキテクチャと規約まずここから)
+  - [セットアップ・運用](#セットアップ運用)
+  - [各 app](#各-app)
+  - [仕様・設計](#仕様設計)
+  - [Claude Code](#claude-code)
+- [開発のルール](#開発のルール)
+  - [env は dotenvx で管理する](#env-は-dotenvx-で管理する)
+  - [コーディング規約](#コーディング規約)
 
-## プロジェクト構成図
+## 新規プロジェクトを作る
+
+### 1. テンプレートをコピーする
+
+```bash
+# プロジェクト名を指定する
+./scripts/copy-template.sh ../my-new-app my-new-app
+
+# プロジェクト名を省略すると、コピー先のディレクトリ名が使われる
+./scripts/copy-template.sh ~/workspace/my-new-app
+```
+
+`.git` / `node_modules` / ビルド成果物 / `.env.keys`（各 app の symlink を含む）を除いてコピーし、ルート `package.json` の `name` を置換します。
+
+### 2. プロジェクト名を置き換える
+
+`project-template` という名前がコード内に残っています。`TODO: プロジェクト名に変更` のコメントが目印です。
+
+```bash
+git grep -n "project-template"
+```
+
+主な箇所は `README.md` / `docker-compose.yaml`（コンテナ名・DB 名）/ `infra/terraform/`（bootstrap の state バケット名など）/ `.github/workflows/` です。
+
+### 3. 環境変数の鍵を作り直す
+
+コピーした各 app の `.env.local` は、テンプレートの鍵で暗号化されたままです。新しいプロジェクト用の鍵で暗号化し直してください。コマンドは **必ずプロジェクトルートで** 実行します（理由は [env は dotenvx で管理する](#env-は-dotenvx-で管理する) を参照）。
+
+```bash
+# 1. テンプレートの .env.keys を一時的にルートへ置き、平文に戻す
+for app in api web admin mobile cron worker; do
+  npx dotenvx decrypt -f apps/$app/.env.local
+done
+rm .env.keys
+
+# 2. 新しい鍵で暗号化する（ルートに新しい .env.keys が生成される）
+for app in api web admin mobile cron worker; do
+  npx dotenvx encrypt -f apps/$app/.env.local
+done
+
+# 3. 各 app からルートの .env.keys を参照する symlink を張り直す
+for app in api web admin mobile cron worker; do
+  ln -s ../../.env.keys apps/$app/.env.keys
+done
+```
+
+生成された `.env.keys` は git に入りません。チームメンバーにはリポジトリ外の安全な経路で渡してください。
+
+### 4. AWS にデプロイする（必要になったら）
+
+初回セットアップ（bootstrap → account → GitHub Environments → env apply → DNS 委任 → seed-secrets → image push）は [docs/setup/infra.md](docs/setup/infra.md) の手順に従います。
+
+## ローカル開発を始める
+
+### 前提ツール
+
+- Node.js >= 18
+- pnpm >= 9
+- Docker（Postgres / Redis / ClickHouse をローカルで起動するため）
+
+### 手順
+
+```bash
+# 1. 依存をインストールする
+pnpm install
+
+# 2. 管理者から受け取った .env.keys をプロジェクトルートに置く
+#    （各 app の .env.keys はルートへの symlink として git 管理されている）
+
+# 3. Postgres / Redis / ClickHouse を起動する
+docker compose up -d
+
+# 4. Prisma Client を生成し、migration を適用する
+pnpm --filter api db:generate
+pnpm --filter api db:migrate
+
+# 5. 全アプリを起動する
+pnpm dev
+```
+
+app 単体で起動するときは `pnpm --filter <app> dev`（例: `pnpm --filter web dev`）を使います。API のテスト実行や seed 投入などの詳細は [docs/setup/api.md](docs/setup/api.md) を参照してください。
+
+### ポート
+
+| サービス | URL / 接続先 |
+|---|---|
+| web | http://localhost:3000 |
+| admin | http://localhost:3030 |
+| api | http://localhost:8080 |
+| Postgres | `localhost:5433` |
+| Redis | `localhost:6380` |
+| ClickHouse | `localhost:8124`（HTTP）/ `localhost:9003`（native） |
+
+ミドルウェアのポートは、他プロジェクトとの衝突を避けるため既定値からずらしています。変えたい場合は `POSTGRES_PORT` などの環境変数で上書きできます（`docker-compose.yaml` を参照）。
+
+### よく使うコマンド
+
+```bash
+pnpm dev          # 全アプリを dev 起動
+pnpm build        # 全アプリをビルド
+pnpm lint         # ESLint
+pnpm lint:fix     # ESLint 自動修正（ファイル変更後に実行する）
+pnpm test         # テスト
+```
+
+## 構成
 
 ```mermaid
 graph TB
@@ -31,58 +146,74 @@ graph TB
         Admin["apps/admin<br/>Next.js 16 :3030"]
         Mobile["apps/mobile<br/>Expo / React Native"]
         API["apps/api<br/>Express 5 :8080"]
-        Cron["apps/cron<br/>定期実行タスク (1回 exit)"]
-        Worker["apps/worker<br/>BullMQ 常駐 worker"]
+        Cron["apps/cron<br/>定期実行タスク (1 回実行で exit)"]
+        Worker["apps/worker<br/>常駐 worker"]
     end
 
     subgraph Packages
-        Schema["packages/schema<br/>Zod スキーマ / 型定義"]
-        DB["packages/db<br/>Prisma schema + createPrismaClient"]
-        Logger["packages/logger<br/>ILogger + pino/winston/console/silent"]
-        Errors["packages/errors<br/>Result&lt;T&gt; + ApiError"]
-        RedisPkg["packages/redis<br/>createRedisClient (ioredis)"]
-        Queue["packages/queue<br/>JobQueue&lt;T&gt; 抽象 + BullMQ 実装"]
+        Schema["schema<br/>Zod スキーマ"]
+        Domain["domain<br/>共有ドメイン型"]
+        DB["db<br/>Prisma"]
+        Logger["logger"]
+        Errors["errors<br/>Result&lt;T&gt;"]
+        RedisPkg["redis"]
+        Queue["queue<br/>JobQueue 抽象"]
+        Events["events<br/>行動イベント"]
+        DWH["data-warehouse<br/>ClickHouse"]
+        Storage["storage<br/>local / S3"]
     end
 
-    subgraph Infra
-        Terraform["infra/terraform<br/>AWS IaC"]
-    end
-
-    subgraph Infrastructure
+    subgraph Middleware
         PostgreSQL[(PostgreSQL 16)]
         Redis[(Redis 7)]
+        ClickHouse[(ClickHouse)]
     end
 
     Web --> API
     Admin --> API
     Mobile --> API
-    API --> PostgreSQL
-    API --> Redis
-    API -->|enqueue| Queue
-    Cron --> PostgreSQL
-    Worker --> PostgreSQL
-    Worker --> Redis
-    Queue --> Redis
+
     Schema --> Web
     Schema --> Admin
     Schema --> Mobile
     Schema --> API
-    DB --> API
-    DB --> Cron
-    DB --> Worker
-    Logger --> API
-    Logger --> Cron
-    Logger --> Worker
-    Errors --> API
-    Errors --> Cron
-    Errors --> Worker
-    RedisPkg --> API
-    RedisPkg --> Worker
-    RedisPkg --> Queue
-    Queue --> Worker
+
+    API --> Domain
+    API --> DB
+    API --> Errors
+    API --> Events
+    API --> Queue
+    Cron --> DB
+    Cron --> Errors
+    Worker --> Domain
+    Worker --> DB
+    Worker --> Queue
+    Worker --> DWH
+
+    Events --> Queue
+    Queue --> RedisPkg
+    DB --> PostgreSQL
+    RedisPkg --> Redis
+    DWH --> ClickHouse
 ```
 
-## 技術スタック
+矢印は「左が右を使う」の向きです。`logger` はすべての server-side app と大半の package が使うため省略しています。`storage` は現時点ではどの app からも使われていません（必要になった app で DI して使います）。
+
+| パッケージ | 役割 |
+|---|---|
+| [packages/schema](packages/schema/README.md) | API のリクエスト / レスポンスの Zod スキーマ（`@repo/api-schema`）。フロントと API で共有する |
+| [packages/domain](packages/domain/README.md) | api / cron / worker が共有するドメイン型と純粋関数 |
+| [packages/db](packages/db/README.md) | Prisma schema / migration / `createPrismaClient` |
+| [packages/logger](packages/logger/README.md) | `ILogger` と pino / winston / console / silent 実装 |
+| [packages/errors](packages/errors/README.md) | `Result<T>` / `ApiError` / 業務エラー生成ヘルパ |
+| [packages/redis](packages/redis/README.md) | `createRedisClient` |
+| [packages/queue](packages/queue/README.md) | `JobQueue` / `JobConsumer` の抽象と BullMQ 実装 |
+| [packages/events](packages/events/README.md) | 行動イベントの型と `EventTracker`（fire-and-forget で送出） |
+| [packages/data-warehouse](packages/data-warehouse/README.md) | `DataWarehouse` 抽象と ClickHouse 実装 |
+| [packages/storage](packages/storage/README.md) | `createStorage` と local / S3 実装 |
+| [packages/eslint-config](packages/eslint-config/README.md) / [packages/typescript-config](packages/typescript-config/README.md) | 共有 lint / tsconfig |
+
+### 技術スタック
 
 #### モノレポ・ビルド
 ![Turborepo](https://img.shields.io/badge/Turborepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)
@@ -93,6 +224,7 @@ graph TB
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma%207-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
 ![Zod](https://img.shields.io/badge/Zod-3E67B1?style=for-the-badge&logo=zod&logoColor=white)
+![BullMQ](https://img.shields.io/badge/BullMQ-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 
 #### フロントエンド
 ![Next.js](https://img.shields.io/badge/Next.js%2016-000000?style=for-the-badge&logo=next.js&logoColor=white)
@@ -107,9 +239,10 @@ graph TB
 ![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 ![Google OAuth](https://img.shields.io/badge/Google%20OAuth-4285F4?style=for-the-badge&logo=google&logoColor=white)
 
-#### データベース・キャッシュ
+#### データベース・キャッシュ・分析
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL%2016-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis%207-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![ClickHouse](https://img.shields.io/badge/ClickHouse-FFCC01?style=for-the-badge&logo=clickhouse&logoColor=black)
 
 #### テスト
 ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)
@@ -125,191 +258,78 @@ graph TB
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
-## クイックリファレンス
+## ドキュメント案内
 
-### アーキテクチャ & コーディング規約のキャッチアップ (まずここから)
+### アーキテクチャと規約（まずここから）
 
-初めて参加する人が **既存のアーキテクチャとコーディング規約を最短でキャッチアップする**ための、トピック別ドキュメントです。まずは [docs/onboarding/README.md](docs/onboarding/README.md) から。
-
-| ドキュメント | 内容 |
-|---|---|
-| [docs/onboarding/README.md](docs/onboarding/README.md) | 入口ハブ（読む順番 + 各トピックへの目次） |
-| [docs/onboarding/architecture.md](docs/onboarding/architecture.md) | **アーキテクチャ**: ディレクトリ構成（モノレポ全体 / API レイヤード / フロント features 分離） |
-| [docs/onboarding/infrastructure.md](docs/onboarding/infrastructure.md) | **アーキテクチャ**: インフラ構成（AWS / ECS / RDS / Terraform 3 層 / デプロイフロー） |
-| [docs/onboarding/naming.md](docs/onboarding/naming.md) | **規約**: ファイル名 / 変数名 / 関数名 |
-| [docs/onboarding/error-handling.md](docs/onboarding/error-handling.md) | **規約**: エラーハンドリング（`Result<T>` / 業務エラー vs 想定外） |
-| [docs/onboarding/imports.md](docs/onboarding/imports.md) | **規約**: import 順序 / バレルエクスポート / パッケージ間 import の方向 |
-| [docs/onboarding/testing.md](docs/onboarding/testing.md) | **規約**: テスト戦略 / 正常系・異常系分類 / モック方針 |
-| [docs/onboarding/auth.md](docs/onboarding/auth.md) | **規約**: 認証まわり（JWT / httpOnly cookie / middleware ガード） |
-
-### セットアップ手順
+初めて参加する人が、アーキテクチャとコーディング規約を最短でキャッチアップするためのドキュメントです。[docs/onboarding/README.md](docs/onboarding/README.md) から読む順番に沿って進めてください。
 
 | ドキュメント | 内容 |
 |---|---|
-| [docs/setup/api.md](docs/setup/api.md) | API サーバーのローカル起動 (依存インストール / .env.keys / Postgres+Redis / Prisma / dev サーバー / テスト) |
-| [docs/setup/infra.md](docs/setup/infra.md) | AWS インフラ初回セットアップ (bootstrap → account → GitHub Environments → env apply → DNS 委任 → seed-secrets → image push) |
+| [architecture.md](docs/onboarding/architecture.md) | ディレクトリ構成（モノレポ全体 / API レイヤード / フロントの features 分離） |
+| [infrastructure.md](docs/onboarding/infrastructure.md) | インフラ構成（AWS / ECS / RDS / Terraform 3 層 / デプロイフロー） |
+| [naming.md](docs/onboarding/naming.md) | ファイル名 / 変数名 / 関数名の命名規則 |
+| [error-handling.md](docs/onboarding/error-handling.md) | エラーハンドリング（`Result<T>` / 業務エラーと想定外エラー） |
+| [imports.md](docs/onboarding/imports.md) | import 順序 / バレルエクスポート / パッケージ間 import の方向 |
+| [testing.md](docs/onboarding/testing.md) | テスト戦略 / 正常系・異常系の分類 / モック方針 |
+| [auth.md](docs/onboarding/auth.md) | 認証（JWT / httpOnly cookie / middleware ガード） |
 
-設計や運用方針は各 README:
-
-| ドキュメント | 内容 |
-|---|---|
-| [apps/api/README.md](apps/api/README.md) | API サーバーの設計思想 (レイヤード / Result 型 / DI / テスト戦略) |
-| [infra/README.md](infra/README.md) | インフラ構成 / dev・prd の差分 / デプロイフロー / 日常運用コマンド |
-
-### 仕様 / 設計
+### セットアップ・運用
 
 | ドキュメント | 内容 |
 |---|---|
-| [docs/spec/README.md](docs/spec/README.md) | 機能仕様クイックリファレンス（dev-login 等） |
+| [docs/setup/api.md](docs/setup/api.md) | API のローカル起動・テスト実行の詳細 |
+| [docs/setup/infra.md](docs/setup/infra.md) | AWS インフラの初回セットアップ |
+| [infra/README.md](infra/README.md) | インフラ構成 / dev と prd の差分 / デプロイフロー / 日常運用コマンド |
+
+### 各 app
+
+設計と運用方針は各 app の README、実装時の規約は各 app の `CLAUDE.md` にあります。
+
+| app | 内容 |
+|---|---|
+| [apps/api](apps/api/README.md) | レイヤードアーキテクチャ / Result 型 / DI / テスト戦略 |
+| [apps/web](apps/web/README.md) | Web アプリ |
+| [apps/admin](apps/admin/README.md) | 管理画面 |
+| [apps/mobile](apps/mobile/README.md) | モバイルアプリ |
+| [apps/cron](apps/cron/README.md) | 定期実行タスク（本番は EventBridge 等で起動） |
+| [apps/worker](apps/worker/README.md) | Queue を処理する常駐 worker |
+
+### 仕様・設計
+
+| ドキュメント | 内容 |
+|---|---|
+| [docs/spec/README.md](docs/spec/README.md) | 機能仕様の一覧。新機能は実装前にここへ設計書を作る |
+
+### Claude Code
+
+| ドキュメント | 内容 |
+|---|---|
+| [CLAUDE.md](CLAUDE.md) | Claude Code 向けのプロジェクト全体ガイド |
+| [.claude/README.md](.claude/README.md) | Agents / Commands / Skills の設定 |
 | [docs/mcp.md](docs/mcp.md) | MCP サーバーの一覧・使い方・追加方法 |
-| [.claude/README.md](.claude/README.md) | Claude Code の設定（Agents・Commands・Skills） |
 
----
+MCP サーバーの設定はルートの `.mcp.json` にあります。起動時に読み込ませるには `claude --mcp-config=./.mcp.json` を使います。
 
-## テンプレートの使い方
+## 開発のルール
 
-### 1. プロジェクトのコピー
+### env は dotenvx で管理する
 
-`scripts/copy-template.sh` を実行して、テンプレートを新しいプロジェクトとしてコピーします。
+env を必要とする app / package は、例外なく [dotenvx](https://dotenvx.com/) で管理します。
 
-```bash
-# 例: プロジェクト名を明示的に指定
-./scripts/copy-template.sh ../my-new-app my-new-app
+- 値は各 app の `.env.local` に置き、ルートの `.env.keys` で暗号化してコミットする
+- 起動スクリプトは `dotenvx run -f .env.local -- <command>` を経由する。スクリプトに `DATABASE_URL=...` のように env を直書きしたり、独自の env ローダを持ち込まない
+- 本番はコンテナ / CI 側が env を渡す。dotenvx は既にセットされた env を上書きしないため、`dotenvx run` を経由したままでも本番の値が優先される
 
-# 例: 絶対パスで指定 ⚠️ プロジェクト名を省略した場合、コピー先ディレクトリ名が使用される
-./scripts/copy-template.sh ~/workspace/my-new-app
-```
-
-### 2. 環境変数の設定
-
-各アプリの `.env.local` は [dotenvx](https://dotenvx.com/) で暗号化されています。復号に必要な `.env.keys` を管理者から受け取り、プロジェクトルートに配置してください。
-
-各アプリ (`apps/api`, `apps/web`, `apps/admin`, `apps/mobile`, `apps/cron`, `apps/worker`) にはルートへのシンボリックリンクが git に含まれているため、ルートに置くだけで全アプリから参照されます。
-
-> **方針: env は全 app / package で dotenvx に統一する**
->
-> env を必要とする app / package は、フロント系 (web / admin)・バックエンド (api)・バックグラウンド系 (cron / worker) を問わず **例外なく dotenvx で管理する**。値は `.env.local`（共有 `.env.keys` で暗号化してコミット）に置き、起動スクリプトは `dotenvx run -f .env.local -- <command>` 経由にする。
->
-> - スクリプトに `DATABASE_URL=...` のように env を直書きしたり、独自の env ローダを持ち込まない
-> - 新しく env を必要とする app / package を追加したら、`.env.keys` の symlink を張り（上図と同様）、`.env.local` を作成して `dotenvx run` 経由で起動する
-> - 本番はコンテナ / CI 側が env を渡す。dotenvx は **既にセット済みの env を上書きしない**ため、`dotenvx run` を噛ませたままでも本番の値が優先される
-
-```
-<project-root>/
-├── .env.keys                        ← ここに配置
-├── apps/
-│   ├── api/.env.keys    → ../../.env.keys   (シンボリックリンク)
-│   ├── web/.env.keys    → ../../.env.keys   (シンボリックリンク)
-│   ├── admin/.env.keys  → ../../.env.keys   (シンボリックリンク)
-│   ├── mobile/.env.keys → ../../.env.keys   (シンボリックリンク)
-│   ├── cron/.env.keys   → ../../.env.keys   (シンボリックリンク)
-│   └── worker/.env.keys → ../../.env.keys   (シンボリックリンク)
-```
-
-<details>
-<summary>（管理者向け）.env.keys の作成方法とシンボリックリンクの貼り方</summary>
-
-ゼロからプロジェクトをセットアップする管理者向けの手順です。既に `.env.keys` を受け取っている開発者は実施不要です。
+値の追加・更新は **必ずプロジェクトルートで** 実行します。app のディレクトリに `cd` して実行すると、symlink の `.env.keys` が実体ファイルで上書きされ、app ごとに別の鍵が生成されてしまいます。
 
 ```bash
-# 1. ルートで .env.keys を生成（初回 set でついでに鍵が作られる）
-npx dotenvx set _BOOTSTRAP "x" -f .env.local
-rm .env.local                          # ← ルートに .env.local は要らないので削除
-
-# 2. 各アプリにルートを指すシンボリックリンクを張る
-ln -s ../../.env.keys apps/api/.env.keys
-ln -s ../../.env.keys apps/web/.env.keys
-ln -s ../../.env.keys apps/admin/.env.keys
-ln -s ../../.env.keys apps/mobile/.env.keys
-ln -s ../../.env.keys apps/cron/.env.keys
-ln -s ../../.env.keys apps/worker/.env.keys
+npx dotenvx set KEY "value" -f apps/<app>/.env.local   # 値を追加・更新する
+npx dotenvx get -f apps/<app>/.env.local               # 復号した値を確認する
 ```
 
-以降は **必ずプロジェクトルートから** `npx dotenvx set KEY "value" -f apps/<app>/.env.local` を実行すること（各アプリで `cd` して直接叩くと、シンボリックリンクが実体ファイルで上書きされ、アプリごとに別の鍵ペアが生成されてしまう）。
+新しく env を必要とする app / package を追加したら、`ln -s ../../.env.keys <dir>/.env.keys` で symlink を張り、`.env.local` を作って `dotenvx run` 経由で起動します。
 
-</details>
+### コーディング規約
 
-## Claude Code（MCP設定）
-
-このプロジェクトでは MCP サーバーの設定ファイル（`.mcp.json`）をリポジトリルートに配置しています。Claude Code 起動時に MCP サーバーを認識させるには、以下のコマンドを使用してください:
-
-```bash
-claude --mcp-config=./.mcp.json
-```
-
-MCP サーバーの詳細は [docs/mcp.md](docs/mcp.md) を参照してください。
-
-## 開発ルール
-
-### 1. 命名規則
-
-| 対象 | 規則 | 例 |
-|---|---|---|
-| ディレクトリ | kebab-case | `user-profile/`, `api-schema/` |
-| 一般ファイル（hooks, utils, lib等） | kebab-case | `use-auth.ts`, `api-client.ts`, `format-date.ts` |
-| Componentをexportするファイル | PascalCase | `UserProfile.tsx`, `LoginForm.tsx`, `Button.tsx` |
-| テストファイル | テスト対象の関数名 + `.test.ts` | `getUserById.test.ts`, `authenticateWithGoogle.test.ts` |
-
-### 2. 基本コマンド
-
-```bash
-pnpm dev          # 全アプリを開発モードで起動
-pnpm build        # 全アプリをビルド
-pnpm lint         # ESLint 実行
-pnpm lint:fix     # ESLint 自動修正
-pnpm test         # テスト実行
-```
-
-### 3. pnpm ワークスペースコマンド
-
-```bash
-# 特定のワークスペースでコマンドを実行
-pnpm --filter <workspace-name> <command>
-
-# 例: webアプリのみ起動
-pnpm --filter web dev
-
-# すべてのワークスペースに依存関係を追加
-pnpm add -w <package-name>
-
-# 特定のワークスペースに依存関係を追加
-pnpm --filter <workspace-name> add <package-name>
-
-# 特定のワークスペースのdevDependenciesに依存関係を追加
-pnpm --filter web add -D @types/node
-
-# 依存関係を削除
-pnpm --filter <workspace-name> remove <package-name>
-
-# すべての node_modules を削除して再インストール
-pnpm clean && pnpm install
-```
-
-### 4. 環境変数の管理コマンド
-
-```bash
-# .env.local の暗号化
-cd apps/api && pnpm exec dotenvx encrypt -f .env.local
-
-# .env.local の復号化
-cd apps/api && pnpm exec dotenvx decrypt -f .env.local
-```
-
-### 5. Docker環境の起動コマンド
-
-```bash
-# Dockerコンテナを起動
-docker compose up -d
-
-# コンテナの状態を確認
-docker compose ps
-
-# ログを確認
-docker compose logs -f
-
-# コンテナを停止
-docker compose down
-
-# データを含めて完全に削除
-docker compose down -v
-```
+命名・コメント・関数の書き方など、lint で強制できない規約は [CLAUDE.md](CLAUDE.md#code-style) と [docs/onboarding/](docs/onboarding/README.md) にまとめています。ファイルを変更したら `pnpm lint:fix` を実行してください。

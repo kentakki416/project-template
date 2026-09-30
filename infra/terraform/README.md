@@ -2,6 +2,11 @@
 
 本プロジェクトの Terraform IaC ディレクトリ。**初回セットアップ手順は [`docs/setup/infra.md`](../../docs/setup/infra.md) を参照**。本ドキュメントは構成と日常運用コマンドのみまとめる。
 
+## 目次
+
+- [外部ツール](#外部ツール)
+- [関連ドキュメント](#関連ドキュメント)
+
 ## 外部ツール
 
 - **[Trivy](https://trivy.dev/)**: Aqua Security 製の OSS セキュリティスキャナ。Terraform 設定ファイルのミスコンフィグや脆弱性を検出する

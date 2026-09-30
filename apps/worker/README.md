@@ -2,6 +2,12 @@
 
 BullMQ ベースの常駐 worker。`packages/queue` の Queue 抽象を介してジョブを処理するため、別の Queue 実装 (SQS / Cloud Tasks / pg-boss 等) に乗り換える際もハンドラ側のコードは変更不要 (詳細は [`CLAUDE.md`](./CLAUDE.md) 参照)。
 
+## 目次
+
+- [サンプルジョブ](#サンプルジョブ)
+- [セットアップ](#セットアップ)
+- [enqueue する側のサンプル (api 等から)](#enqueue-する側のサンプル-api-等から)
+
 ## サンプルジョブ
 
 | Queue 名 | ペイロード | 処理内容 |

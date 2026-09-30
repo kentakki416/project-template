@@ -233,7 +233,7 @@ hooks設定を定義。現在は以下のイベントで通知音を鳴らす:
 
 ## MCP Server
 
-MCP の設定・一覧はルートの [README.md](../README.md#mcp-サーバー) を参照。
+MCP の設定・一覧は [docs/mcp.md](../docs/mcp.md) を参照。
 
 Commands の `allowed-tools` で MCP ツールを許可すると、特定コマンド内でのみ使用できる:
 
