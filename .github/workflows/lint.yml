@@ -7,7 +7,7 @@ on:
     branches: [main]
   # paths フィルタは付けない。required status check にした場合、対象外の変更で
   # skip されると「保留 / 失敗」表示のまま merge がブロックされるため、常に実行して
-  # 必ず結果を報告する（lint は turbo の ...[HEAD^] で変更パッケージのみ走り軽量）。
+  # 必ず結果を報告する（lint は PR の base との差分で変更パッケージのみ走り軽量）。
   pull_request:
   workflow_dispatch:
 
@@ -31,7 +31,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2 # HEAD^とHEADのコミットまで取得
+          # PR の base との差分で対象を絞るため全履歴が必要。
+          # 浅い clone だと base の commit が無く diff が取れない。
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -55,5 +57,40 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile # pnpm-lock.yamlを固定
 
+      # 変更されたパッケージとそれに依存するパッケージだけを lint する。
+      #
+      # base に `HEAD^` を使わないこと。直前のコミットとの差分しか見ないため
+      # **複数コミットの PR で最後のコミット以外の変更を取りこぼす。**
+      #
+      # また turbo の `--filter=...[ref]` は **パッケージに属さないファイルの
+      # 変更で 0 件を返す**。lint 設定やワークスペース定義を変えたときに
+      # 1 件も lint されないまま緑になるため、それらの変更は全実行に倒す。
       - name: Run lint on changed packages
-        run: pnpm turbo run lint --filter="...[HEAD^]" # commitの差分の中で変更されたパッケージとその依存パッケージを対象
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+
+          # パッケージ外だが全 lint に影響しうるパス
+          GLOBAL_PATHS='^(\.github/|turbo\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)'
+
+          if [ -z "$BASE" ]; then
+            echo "::notice::main への push / 手動実行のため全パッケージを lint する"
+            pnpm turbo run lint
+            exit 0
+          fi
+
+          # `git diff | grep -q` にしないこと。grep -q はマッチ時点で終了するため
+          # 差分が大きいと git diff が SIGPIPE で 141 を返し、pipefail によって
+          # 条件全体が偽になる（マッチしているのに影響範囲のみに倒れる）。
+          CHANGED="$RUNNER_TEMP/changed-files.txt"
+          git diff --name-only "$BASE...HEAD" > "$CHANGED"
+          echo "変更ファイル ($(wc -l < "$CHANGED") 件):"
+          cat "$CHANGED"
+
+          if grep -qE "$GLOBAL_PATHS" "$CHANGED"; then
+            echo "::notice::パッケージ外の変更を検出したため全パッケージを lint する"
+            pnpm turbo run lint
+          else
+            echo "::notice::影響範囲のみ lint する (base=$BASE)"
+            pnpm turbo run lint --filter="...[$BASE]"
+          fi
