@@ -5,14 +5,9 @@
 declare const transactionContextBrand: unique symbol
 
 /**
- * トランザクションコンテキスト。
- *
- * Service 層は中身を一切知らず、Repository へ受け渡すだけの**不透明トークン**として扱う。
- * 実体を解決するのは Repository 実装（現状は Prisma）だけで、
- * `resolvePrismaClient` がその唯一の出入口になっている。
- *
- * あえて構造を持たない brand 型にしているのは、`Prisma.TransactionClient` を
- * そのまま公開すると service / controller が永続化技術に型付けされてしまうため。
+ * Service から見て中身の無い**不透明トークン**。構造を持たない brand 型にしているのは、
+ * `Prisma.TransactionClient` を公開すると service / controller が永続化技術に
+ * 型付けされてしまうため。実体を解決するのは Repository 実装だけ。
  */
 export type TransactionContext = {
   readonly [transactionContextBrand]: true

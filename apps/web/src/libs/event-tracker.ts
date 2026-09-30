@@ -14,12 +14,7 @@ const EVENTS_ENDPOINT = "/api/events"
 let buffer: EventInput[] = []
 let timer: ReturnType<typeof setTimeout> | null = null
 
-/**
- * バッファのイベントを送信する。
- *
- * 離脱時は通常の fetch が中断されうるため sendBeacon を優先する。
- * 送信に失敗しても握りつぶす（行動イベントは欠落を許容する方針）。
- */
+/** 離脱時は通常の fetch が中断されうるため sendBeacon を優先する */
 const flushEvents = (): void => {
   if (buffer.length === 0) return
 
@@ -43,13 +38,7 @@ const flushEvents = (): void => {
   })
 }
 
-/**
- * 行動イベントをバッファに積む。
- *
- * **await しない前提で呼ぶ。** 分析のためにユーザー操作を待たせない。
- * 1 件ずつ送ると 1 セッションで数十回 API を叩くため、
- * 10 件 / 5 秒 / タブが hidden のいずれかで flush する。
- */
+/** **await しない前提で呼ぶ。** 10 件 / 5 秒 / タブが hidden のいずれかで flush する */
 export const trackEvent = (event: Omit<EventInput, "occurredAt">): void => {
   buffer.push({ ...event, occurredAt: new Date().toISOString() })
 
@@ -61,16 +50,11 @@ export const trackEvent = (event: Omit<EventInput, "occurredAt">): void => {
 }
 
 /**
- * ページが隠れる / 破棄されるタイミングで flush する。
+ * アプリのルートで 1 回呼ぶ。これが無いとタブを閉じた瞬間のバッファが失われる。
  *
- * アプリのルートで 1 回呼び、返り値をクリーンアップに使う。
- * これが無いとタブを閉じた瞬間のバッファが失われる。
- *
- * **visibilitychange と pagehide の両方を購読する。** iOS Safari は
- * アプリ切り替えやタブ破棄で visibilitychange が発火しないことがあり、
- * これだけに頼るとモバイル閲覧のバッファを取りこぼす。
- * flushEvents はバッファが空なら即 return するので、両方発火しても
- * 二重送信にはならない。
+ * **pagehide も購読する。** iOS Safari は visibilitychange が発火しないことがあり、
+ * それだけではモバイル閲覧を取りこぼす。flushEvents はバッファが空なら即 return
+ * するので二重送信にはならない。
  */
 export const setupEventFlushOnHide = (): (() => void) => {
   const flushWhenHidden = (): void => {

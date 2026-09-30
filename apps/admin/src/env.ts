@@ -17,9 +17,6 @@ const adminEnvSchema = z.object({
    */
   API_URL: z.string().url().default("http://localhost:8080"),
 
-  /**
-   * 実行環境
-   */
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 })
 

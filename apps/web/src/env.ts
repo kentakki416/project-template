@@ -17,9 +17,6 @@ const webEnvSchema = z.object({
    */
   API_URL: z.string().url().default("http://localhost:8080"),
 
-  /**
-   * Google OAuth クライアント ID
-   */
   GOOGLE_CLIENT_ID: z.string().default("dummy"),
 
   /**
@@ -27,9 +24,6 @@ const webEnvSchema = z.object({
    */
   NEXT_PUBLIC_APP_URL: z.string().url(),
 
-  /**
-   * 実行環境
-   */
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 })
 
