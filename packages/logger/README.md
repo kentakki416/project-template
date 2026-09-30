@@ -6,10 +6,9 @@ server-side app 共通のロガー。**ILogger インターフェース + 複数
 
 - [設計の意図](#設計の意図)
 - [役割](#役割)
-- [公開 API](#公開-api)
 - [使い方](#使い方)
-- [環境変数](#環境変数)
 - [実装の選び方](#実装の選び方)
+
 ## 設計の意図
 
 **singleton（`LoggerFactory`）+ デフォルト `logger` を `Proxy` で遅延生成。** logger は middleware / test / 各層で使い回すので毎回 new したくない → singleton で 1 つに固定する。
@@ -38,26 +37,6 @@ export const logger: ILogger = new Proxy({} as ILogger, {
 - `password` / `token` / `authorization` 等の機密キーを **自動マスク（`[REDACTED]`）** し、平文流出を防ぐ（pino は native redact、console / winston は `redactMetadata` で再帰的に置換）
 - Express / Next.js に依存しないため cron / worker からも使える
 
-## 公開 API
-
-```ts
-import {
-  logger,
-  LoggerFactory,
-  logContext,
-  type ILogger,
-  type LogMetadata,
-  type LogContext,
-} from "@repo/logger"
-```
-
-| Export | 用途 |
-| --- | --- |
-| `logger` | app 全体で共有するデフォルト logger（`LoggerFactory.getLogger()` の結果） |
-| `LoggerFactory.getLogger()` | `LOGGER_TYPE` に応じた logger を返す singleton |
-| `logContext` | AsyncLocalStorage。`run({ requestId, userId }, fn)` でスコープを張る |
-| `ILogger` | logger の interface（`debug` / `info` / `warn` / `error`） |
-
 ## 使い方
 
 ### 通常のログ出力
@@ -69,41 +48,6 @@ logger.info("user created", { userId: 42 })
 logger.warn("rate limit close", { remaining: 5 })
 logger.error("payment failed", { orderId: 100, error: e })
 ```
-
-### リクエストコンテキストの伝播
-
-```ts
-// apps/api の middleware
-import { logContext } from "@repo/logger"
-import { randomUUID } from "node:crypto"
-
-app.use((req, res, next) => {
-  logContext.run({ requestId: randomUUID(), userId: req.user?.id }, next)
-})
-
-// 以降、任意の関数内で logger.info("...") を呼ぶと
-// 自動で { requestId, userId } がログに付与される
-```
-
-### cron / worker での利用
-
-```ts
-import { logContext, logger } from "@repo/logger"
-
-await logContext.run({ requestId: jobId }, async () => {
-  logger.info("job started")
-  // ...
-})
-```
-
-## 環境変数
-
-各 app の `src/env.ts` で宣言・検証する（本パッケージは `process.env` を直接読む）。
-
-| 変数 | デフォルト | 説明 |
-| --- | --- | --- |
-| `LOGGER_TYPE` | `pino` | `pino` / `winston` / `console` / `silent` |
-| `LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
 
 ## 実装の選び方
 

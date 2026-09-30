@@ -11,43 +11,6 @@
 brew install terraform tflint trivy
 ```
 
-## ディレクトリ構成
-
-```
-terraform/
-├── aws/
-│   ├── bootstrap/        # S3 バックエンド（state lock は S3 ネイティブの use_lockfile、初回のみ apply、local state）
-│   ├── account/          # OIDC provider・GitHub Actions IAM role・ECR（AWS アカウント単位で共有）
-│   ├── env/
-│   │   ├── dev/          # 開発環境の設定
-│   │   └── prd/          # 本番環境の設定
-│   └── modules/          # 再利用可能なモジュール群（alb / ecs-cluster / ecs-workload / vpc 等）
-├── .tflint.hcl           # TFLint 設定
-└── README.md
-```
-
-層構造の詳細（apply 頻度・state の所在・CI 運用ルール・OIDC role 復旧手順）は [`CLAUDE.md`](CLAUDE.md) を参照。
-
-## コマンド集
-
-```bash
-# --- デプロイ関連 ---
-cd aws/env/<dev|prd>
-terraform plan      # 差分検知
-terraform apply     # デプロイ
-terraform destroy   # 削除
-
-# --- リント・バリデーション ---
-terraform fmt -check -recursive -diff                                    # フォーマットチェック
-terraform validate                                                       # バリデーション（aws/env/<env> 内で実行）
-tflint --init                                                            # TFLint 初期化（初回のみ）
-tflint --chdir=aws/env/dev --config=$(pwd)/.tflint.hcl --recursive       # TFLint チェック
-
-# --- セキュリティスキャン ---
-trivy config aws/env/dev -c aws/env/dev/.trivy.yml                       # dev (.trivyignore で一部チェックを除外)
-trivy config aws/env/prd -c aws/env/dev/.trivy.yml                       # prd
-```
-
 ## 関連ドキュメント
 
 | ドキュメント | 内容 |

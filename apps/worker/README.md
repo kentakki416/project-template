@@ -16,13 +16,6 @@ pnpm install
 pnpm --filter @repo/db db:generate
 ```
 
-## 開発
-
-```bash
-# 起動 (tsx watch)
-DATABASE_URL=postgres://... REDIS_URL=redis://localhost:6380 pnpm dev
-```
-
 ## enqueue する側のサンプル (api 等から)
 
 ```ts
@@ -38,20 +31,3 @@ await queue.enqueue(
 )
 ```
 
-## ビルド & 本番起動
-
-```bash
-pnpm build
-DATABASE_URL=... REDIS_URL=... node dist/index.js
-```
-
-Dockerfile はマルチステージで用意済み:
-
-```bash
-docker build -f apps/worker/Dockerfile -t project-template-worker .
-docker run --rm -e DATABASE_URL=... -e REDIS_URL=... project-template-worker
-```
-
-## 環境変数
-
-詳細は [`CLAUDE.md`](./CLAUDE.md) を参照。`DATABASE_URL` / `REDIS_URL` が NODE_ENV !== "test" のとき必須。

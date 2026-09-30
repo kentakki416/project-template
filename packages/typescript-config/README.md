@@ -5,7 +5,6 @@
 ## 目次
 
 - [役割](#役割)
-- [公開 API](#公開-api)
 - [主な設定（base.json）](#主な設定basejson)
 - [使い方（新規 package / app 追加時）](#使い方新規-package--app-追加時)
 - [`tsconfig.json` と `tsconfig.build.json` の使い分け](#tsconfigjson-と-tsconfigbuildjson-の使い分け)
@@ -14,21 +13,6 @@
 
 - 全 apps / packages で **同じ TS コンパイラ設定** を強制（`strict: true` / `target` / `module` 等）
 - `outDir` / `include` / `exclude` も `${configDir}` で base に集約済み（TS 5.5+）。標準的な package は **`extends` 1 行**で済む
-
-## 公開 API
-
-`base.json` は compiler 設定に加え、`${configDir}`（= 継承先のディレクトリに解決される変数。TS 5.5+）を使って **`outDir` / `include` / `exclude` も提供**する。そのため標準的な package は **1 行で extends するだけ**でよい。
-
-```jsonc
-// packages/<pkg>/tsconfig.json
-{
-  "extends": "@repo/typescript-config/base.json"
-}
-```
-
-| Export | 内容 |
-| --- | --- |
-| `@repo/typescript-config/base.json` | 全 apps / packages 共通の base 設定（compiler 設定 + `outDir` / `include` / `exclude`） |
 
 ## 主な設定（base.json）
 

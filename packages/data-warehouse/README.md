@@ -21,7 +21,7 @@
   - [ホスティング](#ホスティング)
   - [CDC の実装](#cdc-の実装)
   - [運用上の注意](#運用上の注意)
-- [公開 API](#公開-api)
+- [エラーの扱い](#エラーの扱い)
 - [関連](#関連)
 
 ## 役割
@@ -186,30 +186,7 @@ catalog Postgres / Temporal / MinIO を含む **11 サービス**が増え、ダ
 - ローカルで `pg_cdc` を消すときは `DROP DATABASE pg_cdc`。slot と publication も一緒に消える。
   手で消さずに放置すると docker volume が WAL で膨らみ続ける
 
-## 公開 API
-
-```typescript
-import { createDataWarehouse, type DataWarehouse } from "@repo/data-warehouse"
-
-/** ClickHouse に書く */
-const dataWarehouse = createDataWarehouse({
-  database: env.DATA_WAREHOUSE_DATABASE,
-  password: env.DATA_WAREHOUSE_PASSWORD,
-  type: "clickhouse",
-  url: env.DATA_WAREHOUSE_URL,
-  username: env.DATA_WAREHOUSE_USER,
-})
-
-/** 何も書かない（ClickHouse を持たない環境） */
-const noop = createDataWarehouse({ type: "none" })
-```
-
-| export | 役割 |
-| --- | --- |
-| `DataWarehouse` | `insertAll(table, rows)` / `close()` のみを持つ interface |
-| `createDataWarehouse` | `type` で実装を選ぶ factory |
-| `ClickHouseDataWarehouse` | ClickHouse 実装。`async_insert` + `wait_for_async_insert` で確定を待つ |
-| `NoopDataWarehouse` | 何も書かない実装。debug ログだけ出す |
+## エラーの扱い
 
 `insertAll` は失敗を `logger.error` に出してから re-throw する。リトライは呼び出し側
 （worker / BullMQ）の責務で、ここでログを出さないと queue の汎用的なジョブ失敗としか残らない。

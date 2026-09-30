@@ -6,12 +6,9 @@ Express.js + TypeScript による API サーバー
 
 - [プロジェクト概要](#プロジェクト概要)
 - [セットアップ](#セットアップ)
-- [ディレクトリ構成](#ディレクトリ構成)
 - [設計思想](#設計思想)
 - [エラーハンドリング（Result 型）](#エラーハンドリングresult-型)
 - [テスト戦略](#テスト戦略)
-- [開発コマンド](#開発コマンド)
-- [Prisma コマンド](#prisma-コマンド)
 
 ## プロジェクト概要
 
@@ -20,31 +17,6 @@ Express.js + TypeScript による API サーバー
 ## セットアップ
 
 ローカル開発環境の構築手順（前提ツール / 依存インストール / `.env.keys` / Postgres+Redis / Prisma migration / dev サーバ起動 / テスト実行）は [`docs/setup/api.md`](../../docs/setup/api.md) を参照。
-
-## ディレクトリ構成
-
-```
-apps/api/
-├── src/
-│   ├── index.ts                         # エントリーポイント（DI、サーバー起動）
-│   ├── client/                          # 外部APIクライアント（OAuth等）
-│   ├── const/                           # 定数定義
-│   ├── controller/                      # リクエスト/レスポンスハンドリング
-│   │   └── auth/                        # 認証関連のコントローラー
-│   ├── lib/                             # ユーティリティ（JWT等）
-│   ├── log/                             # ロギング設定
-│   ├── middleware/                      # 共通ミドルウェア
-│   ├── prisma/                          # Prisma設定、マイグレーション
-│   ├── repository/prisma/               # データアクセス層（Prisma）
-│   │   └── aggregate/                   # 複数テーブルを跨ぐ操作
-│   ├── routes/                          # ルーティング定義
-│   ├── service/                         # ビジネスロジック（関数型）
-│   └── types/                           # 型定義
-│       └── domain/                      # ドメインモデルの型定義
-├── .env.local                           # 環境変数
-├── package.json
-└── tsconfig.json
-```
 
 ## 設計思想
 
@@ -194,7 +166,6 @@ Controller で `Result.err` を HTTP レスポンスとして返却する共通�
 |---|---|---|
 | **副次処理の意図的握りつぶし** | 通知送信の失敗等、メイン処理を成功扱いにしたい副次処理 | `try { ... } catch (err) { logger.warn(...) }` の後そのまま処理を続行。**catch 内で再 throw しない** |
 | **エラーを値に変換する必要** | `health-service` のサービスチェック（個別失敗を `status: "error"` に集約して両方の status を必ず返す） | `try { ... } catch (err) { return { status: "error", ... } }` |
-
 
 ## テスト戦略
 
@@ -401,38 +372,3 @@ pnpm test:watch
 pnpm test:coverage
 ```
 
-## 開発コマンド
-
-```bash
-# 開発サーバー起動（ホットリロード）
-pnpm dev
-
-# ビルド
-pnpm build
-
-# 本番サーバー起動
-pnpm start
-
-# リント
-pnpm lint
-pnpm lint:fix
-```
-
-## Prisma コマンド
-
-```bash
-# マイグレーションファイルの作成・実行
-cd src/prisma
-npx prisma migrate dev --name <migration名>
-
-# クライアントの生成
-cd src/prisma
-npx prisma generate
-
-# シードの実行
-cd src/prisma
-npx prisma db seed
-
-# Studio の起動
-npx prisma studio --url postgresql://postgres:password@localhost:5433/project-template_dev
-```
