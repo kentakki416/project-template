@@ -103,7 +103,19 @@ jobs:
           if [ -z "$BASE" ]; then
             echo "::notice::main への push / 手動実行のため全テストを実行する"
             pnpm turbo run test:ci
-          elif git diff --name-only "$BASE...HEAD" | grep -qE "$GLOBAL_PATHS"; then
+            exit 0
+          fi
+
+          # `git diff | grep -q` にしないこと。grep -q はマッチ時点で終了するため
+          # 差分が大きいと git diff が SIGPIPE で 141 を返し、pipefail によって
+          # 条件全体が偽になる。**マッチしているのに影響範囲のみに倒れる**
+          # （ファイル 2 万件で再現確認済み）。ファイルに落としてパイプを挟まない。
+          CHANGED="$RUNNER_TEMP/changed-files.txt"
+          git diff --name-only "$BASE...HEAD" > "$CHANGED"
+          echo "変更ファイル ($(wc -l < "$CHANGED") 件):"
+          cat "$CHANGED"
+
+          if grep -qE "$GLOBAL_PATHS" "$CHANGED"; then
             echo "::notice::パッケージ外の変更を検出したため全テストを実行する"
             pnpm turbo run test:ci
           else
