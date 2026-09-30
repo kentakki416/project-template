@@ -65,32 +65,9 @@ jobs:
       # また turbo の `--filter=...[ref]` は **パッケージに属さないファイルの
       # 変更で 0 件を返す**。lint 設定やワークスペース定義を変えたときに
       # 1 件も lint されないまま緑になるため、それらの変更は全実行に倒す。
+      # 影響範囲の判定は scripts/ci-turbo-scope.sh に共通化している（test.yml と共用）。
+      # docker-compose / infra は lint に影響しないので追加のグローバルパスは渡さない。
       - name: Run lint on changed packages
-        run: |
-          set -euo pipefail
-          BASE="${{ github.event.pull_request.base.sha }}"
-
-          # パッケージ外だが全 lint に影響しうるパス
-          GLOBAL_PATHS='^(\.github/|turbo\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)'
-
-          if [ -z "$BASE" ]; then
-            echo "::notice::main への push / 手動実行のため全パッケージを lint する"
-            pnpm turbo run lint
-            exit 0
-          fi
-
-          # `git diff | grep -q` にしないこと。grep -q はマッチ時点で終了するため
-          # 差分が大きいと git diff が SIGPIPE で 141 を返し、pipefail によって
-          # 条件全体が偽になる（マッチしているのに影響範囲のみに倒れる）。
-          CHANGED="$RUNNER_TEMP/changed-files.txt"
-          git diff --name-only "$BASE...HEAD" > "$CHANGED"
-          echo "変更ファイル ($(wc -l < "$CHANGED") 件):"
-          cat "$CHANGED"
-
-          if grep -qE "$GLOBAL_PATHS" "$CHANGED"; then
-            echo "::notice::パッケージ外の変更を検出したため全パッケージを lint する"
-            pnpm turbo run lint
-          else
-            echo "::notice::影響範囲のみ lint する (base=$BASE)"
-            pnpm turbo run lint --filter="...[$BASE]"
-          fi
+        run: scripts/ci-turbo-scope.sh lint
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
