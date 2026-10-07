@@ -270,7 +270,6 @@ graph TB
 | [infrastructure.md](docs/onboarding/infrastructure.md) | インフラ構成（AWS / ECS / RDS / Terraform 3 層 / デプロイフロー） |
 | [naming.md](docs/onboarding/naming.md) | ファイル名 / 変数名 / 関数名の命名規則 |
 | [error-handling.md](docs/onboarding/error-handling.md) | エラーハンドリング（`Result<T>` / 業務エラーと想定外エラー） |
-| [imports.md](docs/onboarding/imports.md) | import 順序 / バレルエクスポート / パッケージ間 import の方向 |
 | [testing.md](docs/onboarding/testing.md) | テスト戦略 / 正常系・異常系の分類 / モック方針 |
 | [auth.md](docs/onboarding/auth.md) | 認証（JWT / httpOnly cookie / middleware ガード） |
 

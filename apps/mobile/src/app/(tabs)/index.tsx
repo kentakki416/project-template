@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 
 import EmptyView from "@/components/features/memo/EmptyView"
 import MemoListItem from "@/components/features/memo/MemoListItem"
-import { COLORS } from "@/constants/color"
+import { COLORS } from "@/const/color"
 import { memoApi } from "@/features/memo/memo.api"
 import { useMemoStore } from "@/features/memo/memo.store"
 

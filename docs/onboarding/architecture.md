@@ -59,7 +59,7 @@ server-side app（api / cron / worker）を横断して使う共通基盤。**Pr
 | **errors** | `@repo/errors` | `Result<T>` + `ApiError` + 業務エラー生成ヘルパ |
 | **redis** | `@repo/redis` | `createRedisClient` factory（BullMQ / Pub-Sub 対応） |
 | **queue** | `@repo/queue` | `JobQueue<T>` / `JobProcessor<T>` / `JobConsumer` 抽象 + BullMQ 実装 + Job 型 |
-| **domain** | `@repo/domain` | api / cron / worker が共有するドメイン型（`Memo` / `User` / `AuthAccount`）。型と純粋関数のみで依存ゼロ |
+| **domain** | `@repo/domain` | api / cron / worker が共有するドメイン型（`Memo` / `User` / `AuthAccount`）。型・定数・純粋関数のみで依存ゼロ。値の集合（enum 的な定数）の単一情報源で、api-schema / DB はここを参照する |
 
 > **ビルド順の注意**: スキーマパッケージは依存アプリより先にビルドする。スキーマ変更時は `cd packages/schema && pnpm build`。
 
@@ -79,7 +79,7 @@ Router → Controller → Service → Repository → (Prisma / Redis)
 | **Controller** | `src/controller/{feature}/` | `class` + `execute(req, res)`。API と 1 対 1 | Zod で入出力を検証し、Service を呼ぶ。**try-catch は書かない** |
 | **Service** | `src/service/` | `export const` のアロー関数 | 業務ロジック。戻り値は必ず `Promise<Result<T>>` |
 | **Repository** | interface: `src/repository/`／実装: `src/repository/prisma/`・`repository/redis/` | `interface` + `class Prisma{X}Repository implements` | DB / Redis アクセスを集約。`_toDomain()` でドメイン型へ変換。Service / Controller は `src/repository` バレルから interface だけを import する |
-| **Domain 型** | `packages/domain`（`@repo/domain`） | 機能ごとにファイル + `index.ts` バレル | Repository / Service が参照する型。api / cron / worker で共有する。`@repo/api-schema` にも Prisma にも依存しない |
+| **Domain 型** | `packages/domain`（`@repo/domain`） | `src/const/`（定数）・`src/types/`（型）・`src/rules/`（純粋関数）に機能ごとのファイル + `index.ts` バレル | Repository / Service が参照する型。api / cron / worker で共有する。`@repo/api-schema` にも Prisma にも依存しない |
 
 - **DI**: `src/index.ts` で Repository → Controller → Router の順にインスタンス化して組み立てる。
 - **Service の引数**: Repository は単一でも複数でも必ず `repo: { xxxRepository }` というオブジェクト引数にまとめる（将来 Repository が増えてもシグネチャを変えずに済む）。

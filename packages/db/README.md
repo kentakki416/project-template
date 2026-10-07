@@ -5,6 +5,7 @@ Prisma schema / migrations / generated client を一元管理する共有パッ�
 ## 目次
 
 - [設計の意図と役割](#設計の意図と役割)
+- [enum 的な列は String 列にする](#enum-的な列は-string-列にする)
 - [リードレプリカの仕様](#リードレプリカの仕様)
   - [自動振り分けルール](#自動振り分けルール)
   - [強整合性が必要な read（read-after-write）](#強整合性が必要な-readread-after-write)
@@ -35,6 +36,21 @@ process.on("SIGTERM", async () => {
   await prisma.$disconnect()
 })
 ```
+
+## enum 的な列は String 列にする
+
+会員種別のような値の集合は `@repo/domain` が唯一の定義元（`packages/domain/README.md`）。`schema.prisma` は TS の定数を参照できないため、Prisma の `enum` は使わず `String` 列にして、値を `schema.prisma` に書き写さない。
+
+```prisma
+model User {
+    /// 値の集合は @repo/domain の MEMBERSHIP_TIERS
+    membershipTier String @map("membership_tier")
+}
+```
+
+- 値の検証は Repository の `_toDomain()` で行う。domain の type guard（例: `isMembershipTier`）で検証し、未知の値は `as` でキャストせずエラーにする
+- DB 側では値を保証しない。手動 SQL や seed などアプリを経由しない書き込みで不正な値を入れないよう注意する
+- 値の追加は domain の変更だけで済む（Postgres の `enum` で必要になる `ALTER TYPE` のマイグレーションは不要）
 
 ## リードレプリカの仕様
 

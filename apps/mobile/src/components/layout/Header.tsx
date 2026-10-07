@@ -2,7 +2,7 @@ import type { NativeStackNavigationOptions } from "@react-navigation/native-stac
 import { Text, TouchableOpacity, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { COLORS } from "@/constants/color"
+import { COLORS } from "@/const/color"
 
 type Props = {
   navigation: { goBack: () => void }

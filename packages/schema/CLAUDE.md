@@ -9,7 +9,7 @@ pnpm build        # TypeScript をコンパイル
 pnpm dev          # Watch モード
 ```
 
-**スキーマ変更後は必ず `pnpm build` を実行**してから依存アプリを起動する。
+**スキーマ変更後は必ず `pnpm build` を実行**してから依存アプリを起動する。`@repo/domain` の定数を変更したときは `packages/domain` → `packages/schema` の順に build する（`pnpm build` を root で実行すれば turbo が順序を解決する）。
 
 ## ファイル構成
 
@@ -57,3 +57,20 @@ export const getCategoryListResponseSchema = z.object({ ... })
 - **query string**: 必ず Zod 検証（`z.coerce.number()` で coerce、`.min().max()` で範囲制約、`.optional()` / `.default()` で省略対応）
 
 一貫性のため例外を作らない。簡単な 1 フィールドでも Zod を通す。
+
+## 値の集合（enum）は `@repo/domain` から作る
+
+会員種別のような enum 的な値の集合は `@repo/domain` が唯一の定義元。`z.enum([...])` に値を書き写さず、domain の定数から作る（方針は `packages/domain/README.md`）。
+
+```typescript
+import { MEMBERSHIP_TIERS } from "@repo/domain"
+
+/**
+ * 会員種別のスキーマ
+ */
+export const membershipTierSchema = z.enum(MEMBERSHIP_TIERS)
+```
+
+- domain から import してよいのは **定数だけ**。`Memo` などの型や関数は import しない（API 契約は `created_at: string` のように domain 型と形が違うので独立定義する）
+- API 契約にしか存在しない値（health の `"ok" | "degraded"` など）は domain に置かず、ここに直接書いてよい
+- 初めて domain を参照するときに `package.json` の `dependencies` へ `"@repo/domain": "workspace:^"` を追加する

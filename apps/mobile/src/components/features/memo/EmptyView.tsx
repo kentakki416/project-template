@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native"
 
-import { COLORS } from "@/constants/color"
+import { COLORS } from "@/const/color"
 
 export default function EmptyView() {
   return (

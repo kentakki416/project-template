@@ -10,7 +10,7 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { COLORS } from "@/constants/color"
+import { COLORS } from "@/const/color"
 import { useNotification } from "@/hooks/use-notification"
 
 const STORAGE_KEY = "notificatoin_settings"

@@ -10,7 +10,7 @@ import {
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-import { COLORS } from "@/constants/color"
+import { COLORS } from "@/const/color"
 import { Memo } from "@/features/memo/memo.entity"
 
 type Props = {

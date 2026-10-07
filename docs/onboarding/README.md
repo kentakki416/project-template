@@ -18,9 +18,8 @@
 | 2 | [infrastructure.md](./infrastructure.md) | AWS (ECS Fargate / RDS / ElastiCache) を Terraform 3 層で管理。dev は rolling / prd は Blue/Green |
 | 3 | [naming.md](./naming.md) | ファイル名は kebab-case（Component だけ PascalCase）。変数・関数・型の命名規則 |
 | 4 | [error-handling.md](./error-handling.md) | API は `Result<T>`。業務エラー(4xx)は `err()` で返し、想定外は `throw` して分離する |
-| 5 | [imports.md](./imports.md) | import は builtin → external → `@repo` → 相対 の順。バレルエクスポートとパッケージ間 import の方向 |
-| 6 | [testing.md](./testing.md) | Service はユニット / Controller は実 DB・Redis を使う統合テスト。`正常系` / `異常系` で分類 |
-| 7 | [auth.md](./auth.md) | Google OAuth + 自前 JWT (access 15分 / refresh 7日)。httpOnly cookie + middleware ガード |
+| 5 | [testing.md](./testing.md) | Service はユニット / Controller は実 DB・Redis を使う統合テスト。`正常系` / `異常系` で分類 |
+| 6 | [auth.md](./auth.md) | Google OAuth + 自前 JWT (access 15分 / refresh 7日)。httpOnly cookie + middleware ガード |
 
 ## このドキュメント群の位置づけ
 

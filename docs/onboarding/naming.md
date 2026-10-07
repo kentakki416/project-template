@@ -87,4 +87,3 @@ zustand store のアクション関数名には **`Store` を含める**（例: 
 |---|---|
 | [`../../CLAUDE.md`](../../CLAUDE.md) | Code Style and Linting / Class member style / 命名規則（正典） |
 | [`../../packages/schema/CLAUDE.md`](../../packages/schema/CLAUDE.md) | スキーマの命名規則の詳細 |
-| [naming の隣: imports.md](./imports.md) | import 順序・バレルエクスポートのファイル名順ルール |

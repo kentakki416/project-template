@@ -7,7 +7,7 @@ import { StatusBar } from "expo-status-bar"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 
 import Header from "@/components/layout/Header"
-import { COLORS } from "@/constants/color"
+import { COLORS } from "@/const/color"
 import { useColorScheme } from "@/hooks/use-color-scheme"
 
 Notifications.setNotificationHandler({

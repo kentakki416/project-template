@@ -23,7 +23,7 @@ Turborepo + pnpm モノレポ。
 - **packages/errors**: `Result<T>` + `ApiError` + 業務エラー生成ヘルパ (`@repo/errors`)
 - **packages/redis**: `createRedisClient` factory（BullMQ / Pub/Sub 対応）(`@repo/redis`)
 - **packages/queue**: Queue 抽象 (`JobQueue<T>` / `JobProcessor<T>` / `JobConsumer`) + BullMQ 実装 (`@repo/queue`)。ハンドラ側は実装を知らないため、SQS / Cloud Tasks 等への差し替えが可能
-- **packages/domain**: api / cron / worker が共有するドメイン型 (`@repo/domain`)。型と純粋関数のみ・依存ゼロ。**Repository interface と Prisma 型は置かない**（`packages/domain/README.md` 参照）
+- **packages/domain**: api / cron / worker が共有するドメイン型 (`@repo/domain`)。型・定数・純粋関数のみ・依存ゼロ。**Repository interface と Prisma 型は置かない**。enum 的な値の集合はここが SSOT で、api-schema は `z.enum` をここの定数から作り、DB は Prisma の `enum` を使わず `String` 列にする（`packages/domain/README.md` 参照）
 - **packages/data-warehouse**: `DataWarehouse` 抽象 + ClickHouse 実装 + `createDataWarehouse` factory (`@repo/data-warehouse`)。分析イベントの書き込み先
 - **packages/events**: 行動イベントの型定義 + `EventTracker` 抽象 + Queue 実装 (`@repo/events`)。送出は fire-and-forget で、失敗を呼び出し元に伝播させない
 - **packages/storage**: `createStorage` factory + local / S3 実装 (`@repo/storage`)
