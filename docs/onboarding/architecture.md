@@ -26,7 +26,7 @@ project-template/
 │   └── worker/    # BullMQ ベースの常駐 worker
 ├── packages/
 │   ├── schema/    # @repo/api-schema : Zod による API 契約
-│   ├── db/        # @repo/db : Prisma schema + createPrismaClient factory
+│   ├── db/        # @repo/db : Drizzle schema / migrations + client factory（Prisma も併存）
 │   ├── logger/    # @repo/logger : ILogger + pino/winston/console/silent
 │   ├── errors/    # @repo/errors : Result<T> + ApiError
 │   ├── redis/     # @repo/redis : createRedisClient factory
@@ -49,12 +49,12 @@ project-template/
 
 ## packages（共有パッケージ）
 
-server-side app（api / cron / worker）を横断して使う共通基盤。**Prisma / Redis は factory のみを export** し、各 app の `src/index.ts` で 1 回だけ生成して Repository に DI する。
+server-side app（api / cron / worker）を横断して使う共通基盤。**DB / Redis の client は factory のみを export** し、各 app の `src/index.ts` で 1 回だけ生成して Repository に DI する。
 
 | package | import 名 | 提供するもの |
 |---|---|---|
 | **schema** | `@repo/api-schema` | API のリクエスト/レスポンス Zod スキーマ。フロント・API で共有する型契約の単一情報源 |
-| **db** | `@repo/db` | Prisma schema / migrations / 生成 client + `createPrismaClient` factory |
+| **db** | `@repo/db` | Drizzle schema / migrations + `createDrizzleClient` factory。Prisma（`createPrismaClient`）は repository 実装の切り替え先として併存 |
 | **logger** | `@repo/logger` | `ILogger` インターフェース + pino/winston/console/silent 実装 + AsyncLocalStorage コンテキスト |
 | **errors** | `@repo/errors` | `Result<T>` + `ApiError` + 業務エラー生成ヘルパ |
 | **redis** | `@repo/redis` | `createRedisClient` factory（BullMQ / Pub-Sub 対応） |
@@ -68,7 +68,7 @@ server-side app（api / cron / worker）を横断して使う共通基盤。**Pr
 `apps/api/src/` は「1 リクエストが上から下へ流れる」レイヤードで構成する。新機能は必ず既存実装（例: `memo`, `health`）を読んでパターンを合わせる。
 
 ```
-Router → Controller → Service → Repository → (Prisma / Redis)
+Router → Controller → Service → Repository → (Drizzle / Redis)
                          ↓
                    @repo/domain（ドメイン型）
 ```
@@ -78,8 +78,8 @@ Router → Controller → Service → Repository → (Prisma / Redis)
 | **Router** | `src/routes/` | `export const {feature}Router = (controllers) => Router` | エンドポイントを登録。controllers はオプショナルオブジェクト |
 | **Controller** | `src/controller/{feature}/` | `class` + `execute(req, res)`。API と 1 対 1 | Zod で入出力を検証し、Service を呼ぶ。**try-catch は書かない** |
 | **Service** | `src/service/` | `export const` のアロー関数 | 業務ロジック。戻り値は必ず `Promise<Result<T>>` |
-| **Repository** | interface: `src/repository/`／実装: `src/repository/prisma/`・`repository/redis/` | `interface` + `class Prisma{X}Repository implements` | DB / Redis アクセスを集約。`_toDomain()` でドメイン型へ変換。Service / Controller は `src/repository` バレルから interface だけを import する |
-| **Domain 型** | `packages/domain`（`@repo/domain`） | `src/const/`（定数）・`src/types/`（型）・`src/rules/`（純粋関数）に機能ごとのファイル + `index.ts` バレル | Repository / Service が参照する型。api / cron / worker で共有する。`@repo/api-schema` にも Prisma にも依存しない |
+| **Repository** | interface: `src/repository/`／実装: `src/repository/drizzle/`（DI で使う）・`repository/prisma/`（切り替え先）・`repository/redis/` | `interface` + `class Drizzle{X}Repository implements` | DB / Redis アクセスを集約。`_toDomain()` でドメイン型へ変換。Service / Controller は `src/repository` バレルから interface だけを import する |
+| **Domain 型** | `packages/domain`（`@repo/domain`） | `src/const/`（定数）・`src/types/`（型）・`src/rules/`（純粋関数）に機能ごとのファイル + `index.ts` バレル | Repository / Service が参照する型。api / cron / worker で共有する。`@repo/api-schema` にも Drizzle / Prisma にも依存しない |
 
 - **DI**: `src/index.ts` で Repository → Controller → Router の順にインスタンス化して組み立てる。
 - **Service の引数**: Repository は単一でも複数でも必ず `repo: { xxxRepository }` というオブジェクト引数にまとめる（将来 Repository が増えてもシグネチャを変えずに済む）。
@@ -95,18 +95,18 @@ index.ts              # 起動確認用エントリ（本番では使わない�
 env.ts                # Zod で env 検証（safeParse → process.exit(1)）
 task/<name>.ts        # 1 ファイル = 1 cron。env 組み立て → Repository 生成 → service を呼ぶだけ
 service/<domain>/     # 業務ロジック（アロー関数 + repo: オブジェクト引数）
-repository/prisma/     # DB アクセス
-runtime/graceful-shutdown.ts  # SIGTERM/SIGINT で Prisma を切断して exit
+repository/            # interface。実装は drizzle/（DI で使う）と prisma/（切り替え先）
+runtime/graceful-shutdown.ts  # SIGTERM/SIGINT で DB を切断して exit
 ```
 
 **worker**（`apps/worker/src/`）:
 ```
-index.ts              # Prisma/Redis 生成 → 各 startXxxWorker 起動 → graceful shutdown 登録
+index.ts              # DB/Redis 生成 → 各 startXxxWorker 起動 → graceful shutdown 登録
 env.ts                # Zod で env 検証
 workers/<name>-worker.ts  # Queue 実装（startBullMQWorker）とハンドラを結線する層
 jobs/<name>.ts        # 純粋なジョブハンドラ。BullMQ / ioredis を直接 import しない
-repository/prisma/     # DB アクセス
-runtime/graceful-shutdown.ts  # consumers.close() → Prisma/Redis 切断
+repository/            # interface。DB の実装は drizzle/（DI で使う）と prisma/（切り替え先）
+runtime/graceful-shutdown.ts  # consumers.close() → DB/Redis 切断
 ```
 
 - **Repository の interface は app ごとに分離**する。api は CRUD、cron は batch 削除など操作セットが違うため、共有 interface を作ると不要なメソッドが漏れる。

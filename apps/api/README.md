@@ -30,11 +30,11 @@ Express.js + TypeScript による API サーバー
 
 ## プロジェクト概要
 
-レイヤードアーキテクチャに基づいた REST API サーバー。Prisma による型安全なデータアクセス、依存性注入による疎結合な設計を採用。
+レイヤードアーキテクチャに基づいた REST API サーバー。Drizzle による型安全なデータアクセス、依存性注入による疎結合な設計を採用（Prisma 実装も切り替え先として併存。`packages/db/README.md` 参照）。
 
 ## セットアップ
 
-ローカル開発環境の構築手順（前提ツール / 依存インストール / `.env.keys` / Postgres+Redis / Prisma migration / dev サーバ起動 / テスト実行）は [`docs/setup/api.md`](../../docs/setup/api.md) を参照。
+ローカル開発環境の構築手順（前提ツール / 依存インストール / `.env.keys` / Postgres+Redis / DB migration / dev サーバ起動 / テスト実行）は [`docs/setup/api.md`](../../docs/setup/api.md) を参照。
 
 ## 設計思想
 
@@ -58,7 +58,7 @@ Express.js + TypeScript による API サーバー
 
 - `@repo/domain`（`packages/domain`）にドメインモデルの型だけ定義している。api / cron / worker で共有する。
 - 実装はドメインロジックが必要になるまでしない（おそらく必要になるケースが少ないので対応しない）
-- Repository層でPrisma -> ドメインモデル型に変化することでInterfaceを差し替え可能なものにしている
+- Repository層でDrizzle / Prisma の行 -> ドメインモデル型に変換することでInterfaceを差し替え可能なものにしている
 - ビジネス上の区分・列挙型もここに定義する（例: `RegistrationPeriod`）
 - Repository / Service は `@repo/domain` から型をインポートする（`@repo/api-schema` には依存しない）
 
@@ -81,7 +81,7 @@ Service 層は **業務エラー（4xx 系で返すべきエラー）は `Result
 | 経路 | 例 | ログ | ステータス |
 |---|---|---|---|
 | Service の `Result.err` | NotFound / Conflict / Unauthorized 等 | `sendError` が `logger.warn` | `result.error.statusCode`（4xx）|
-| ルート内の throw（想定外） | DB 障害 / Prisma 例外 | `unhandledExceptionHandler` が `logger.error` + スタック | 500 |
+| ルート内の throw（想定外） | DB 障害 / Drizzle・pg の例外 | `unhandledExceptionHandler` が `logger.error` + スタック | 500 |
 | リクエストスキーマ違反 | `RequestSchemaMismatchError` | `unhandledExceptionHandler` が `logger.warn` | 400 |
 | レスポンススキーマ違反 | `ResponseSchemaMismatchError` | `unhandledExceptionHandler` が `logger.error` | 500 |
 | アクセスログ | 全リクエスト | `requestLogger` が `info` / `warn` | - |
@@ -344,7 +344,7 @@ expect(res.body).toEqual({
 })
 
 // ✅ 良い例: DB 行は toMatchObject で内部詳細を省略
-const createdUser = await testPrisma.user.findUnique({ where: { email: "new@example.com" } })
+const [createdUser] = await testDb.select().from(users).where(eq(users.email, "new@example.com"))
 expect(createdUser).toMatchObject({
   email: "new@example.com",
   name: "New User",

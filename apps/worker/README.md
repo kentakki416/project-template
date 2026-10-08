@@ -19,7 +19,7 @@ BullMQ ベースの常駐 worker。`packages/queue` の Queue 抽象を介して
 ```bash
 # ルートで一度だけ
 pnpm install
-pnpm --filter @repo/db db:generate
+pnpm --filter @repo/db prisma:generate
 ```
 
 ## enqueue する側のサンプル (api 等から)

@@ -1,7 +1,8 @@
 /* eslint-disable no-console */
-import { createPrismaClient } from "../src/client"
+import { createDrizzleClient } from "../src/drizzle/client"
+import { authAccounts, users } from "../src/drizzle/schema"
 
-const prisma = createPrismaClient()
+const db = createDrizzleClient()
 
 /**
  * dev-login で使う開発用ユーザー
@@ -21,30 +22,24 @@ const devUsers: DevUserSeed[] = [
 
 const seedDevUsers = async () => {
   for (const devUser of devUsers) {
-    const user = await prisma.user.upsert({
-      create: { email: devUser.email, name: devUser.name },
-      update: { name: devUser.name },
-      where: { email: devUser.email },
-    })
+    const [user] = await db
+      .insert(users)
+      .values({ email: devUser.email, name: devUser.name })
+      .onConflictDoUpdate({
+        set: { name: devUser.name, updatedAt: new Date() },
+        target: users.email,
+      })
+      .returning()
+    if (!user) throw new Error(`Failed to upsert dev user: ${devUser.email}`)
 
     /**
      * AuthAccount(provider: "dev") を upsert して
      * Google アカウントと衝突しない形で dev ユーザーを識別できるようにする
      */
-    await prisma.authAccount.upsert({
-      create: {
-        provider: "dev",
-        providerAccountId: devUser.email,
-        userId: user.id,
-      },
-      update: {},
-      where: {
-        provider_providerAccountId: {
-          provider: "dev",
-          providerAccountId: devUser.email,
-        },
-      },
-    })
+    await db
+      .insert(authAccounts)
+      .values({ provider: "dev", providerAccountId: devUser.email, userId: user.id })
+      .onConflictDoNothing({ target: [authAccounts.provider, authAccounts.providerAccountId] })
     console.log(`Seeded dev user: ${devUser.email} (id=${user.id})`)
   }
 }
@@ -64,5 +59,5 @@ main()
     process.exit(1)
   })
   .finally(async () => {
-    await prisma.$disconnect()
+    await db.$disconnect()
   })

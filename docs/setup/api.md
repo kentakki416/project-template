@@ -8,7 +8,7 @@
 - [2. 依存パッケージのインストール](#2-依存パッケージのインストール)
 - [3. 環境変数 (.env.keys) の配置](#3-環境変数-envkeys-の配置)
 - [4. Postgres / Redis を起動](#4-postgres--redis-を起動)
-- [5. Prisma クライアント生成とマイグレーション](#5-prisma-クライアント生成とマイグレーション)
+- [5. マイグレーションとシードデータ](#5-マイグレーションとシードデータ)
 - [6. 開発サーバー起動](#6-開発サーバー起動)
 - [7. テスト実行](#7-テスト実行)
 
@@ -65,18 +65,22 @@ docker compose ps           # postgres / redis が healthy か確認
 
 接続情報は `apps/api/.env.local` の `DATABASE_URL` / `REDIS_HOST` と一致している前提。
 
-## 5. Prisma クライアント生成とマイグレーション
+## 5. マイグレーションとシードデータ
 
-Prisma schema は `packages/db` に置かれており、`apps/api` 側のスクリプトから委譲して実行する。
+スキーマとマイグレーションは `packages/db` にあり（Drizzle）、`apps/api` 側のスクリプトから `.env.local` を読み込んで委譲する。詳細は [`packages/db/README.md`](../../packages/db/README.md)。
 
 ```bash
+pnpm --filter @repo/db prisma:generate   # 併存している Prisma の Client を生成（build に必要）
+
 cd apps/api
-pnpm db:generate            # Prisma Client を生成
-pnpm db:migrate             # 開発用 migration を作成・適用 (--name <名前> はプロンプトで聞かれる)
+pnpm db:migrate             # 未適用の migration を適用
 pnpm db:seed                # シードデータ投入 (任意)
+pnpm db:studio              # Drizzle Studio で DB を見る (任意)
 ```
 
-CI 環境やテスト用 DB に対しては `pnpm db:migrate:deploy` (既存 migration のみ適用、新規作成しない) を使う。
+スキーマを変えたときは `pnpm db:generate` で migration を作ってから `pnpm db:migrate` で適用する。
+
+Prisma で migration していた頃から使っているローカル DB は、一度だけ作り直しが要る（[`packages/db/README.md`](../../packages/db/README.md#prisma-で作ったローカル-db-の作り直し一度だけ)）。
 
 ## 6. 開発サーバー起動
 
@@ -94,13 +98,13 @@ curl http://localhost:8080/api/health
 
 ```bash
 cd apps/api
-pnpm test                   # 全テスト (DB_NAME=project-template_test に対して migrate:deploy 後に実行)
+pnpm test                   # 全テスト (DB_NAME=project-template_test に対して db:migrate 後に実行)
 pnpm test test/service      # Service ユニットテストのみ (DB 不要)
 pnpm test test/controller   # Controller インテグレーションテストのみ (DB 必要)
 pnpm test:watch             # watch モード
 pnpm test:coverage          # カバレッジ計測 (coverage/ に出力)
 ```
 
-> インテグレーションテストはテスト用 DB (`project-template_test`) を Postgres コンテナ内に作成して使う。`pnpm test` が自動で migrate:deploy を流す。
+> インテグレーションテストはテスト用 DB (`project-template_test`) を使う。DB は Postgres コンテナの初回起動時に `infra/postgres/init/` が作り、`pnpm test` が毎回 `db:migrate` を流す。
 
 テストの設計方針（mock の使い分け、describe の分類ルール、最終状態アサーション等）は [`apps/api/README.md`](../../apps/api/README.md) の「テスト戦略」を参照。

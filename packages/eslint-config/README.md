@@ -6,7 +6,7 @@
 
 - [役割](#役割)
 - [formatting ルールは @stylistic](#formatting-ルールは-stylistic)
-- [Prisma 型の import 境界](#prisma-型の-import-境界)
+- [@repo/db の import 境界](#repodb-の-import-境界)
   - [このルールの限界](#このルールの限界)
 - [フロントの @repo import 境界](#フロントの-repo-import-境界)
   - [client bundle への混入は lint だけでは防げない](#client-bundle-への混入は-lint-だけでは防げない)
@@ -48,28 +48,28 @@ ESLint 本体の formatting ルールは v8.53.0 で deprecated、v11.0.0 で削
 なお `react/jsx-indent` / `react/jsx-indent-props` / `react/jsx-tag-spacing` は
 eslint-plugin-react 7.37.5 で deprecated ではないため `react/*` のまま使う。
 
-## Prisma 型の import 境界
+## @repo/db の import 境界
 
-`@repo/db` を依存に持つ server-side app（api / cron / worker）は、Prisma の型が業務ロジックへ漏れないように本フラグメントを spread する。
+`@repo/db` を依存に持つ server-side app（api / cron / worker）は、Prisma の型や Drizzle のテーブル定義が業務ロジックへ漏れないように本フラグメントを spread する。
 
 ```js
 // apps/worker/eslint.config.js
 const baseConfig = require("@repo/eslint-config")
-const prismaBoundary = require("@repo/eslint-config/prisma-boundary")
+const dbBoundary = require("@repo/eslint-config/db-boundary")
 
-module.exports = [...baseConfig, ...prismaBoundary]
+module.exports = [...baseConfig, ...dbBoundary]
 ```
 
 | 項目 | 内容 |
 | --- | --- |
-| 許可する export | `createPrismaClient` / `CreatePrismaClientOptions` / `PrismaClient` の 3 つ**のみ** |
-| 制限する export | 上記以外すべて。Prisma のモデル型（`Memo` / `User` / `AuthAccount` …）と型ユーティリティ `Prisma` が対象。`import type` と `import * as` も検出する。モデルが増えても設定変更は不要 |
+| 許可する export | client の factory / その options 型 / client 型のみ（`createDrizzleClient` / `CreateDrizzleClientOptions` / `DrizzleClient` と、Prisma の同名 3 つ） |
+| 制限する export | 上記以外すべて。Prisma のモデル型（`Memo` / `User` / `AuthAccount` …）と型ユーティリティ `Prisma`、Drizzle のテーブル定義（`memos` / `users` …）と演算子（`eq` / `and` …）が対象。`import type` と `import * as` も検出する。テーブルが増えても設定変更は不要 |
 | 許可する層 | `src/repository/**/*.ts` のみ。Repository 実装だけが「DB row → domain 型」の変換責務を持つ |
 | 業務ロジックが使う型 | `@repo/domain`（`packages/domain`） |
 
 ### このルールの限界
 
-**検出できるのは `@repo/db` からの直接 import だけ。** repository 層の `interface` が戻り値に Prisma 型を使った場合、その型は推論で service / jobs へ伝播するが lint では検出できない（実際に `apps/worker` で起きた）。
+**検出できるのは `@repo/db` からの直接 import だけ。** repository 層の `interface` が戻り値に Prisma / Drizzle の型を使った場合、その型は推論で service / jobs へ伝播するが lint では検出できない（実際に `apps/worker` で起きた）。
 
 ```ts
 /** ✗ lint は通るが Prisma 型が jobs へ伝播する */

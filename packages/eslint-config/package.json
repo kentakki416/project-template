@@ -6,14 +6,14 @@
   "exports": {
     ".": "./index.js",
     "./common-rules": "./common-rules.js",
-    "./frontend-boundary": "./frontend-boundary.js",
-    "./prisma-boundary": "./prisma-boundary.js"
+    "./db-boundary": "./db-boundary.js",
+    "./frontend-boundary": "./frontend-boundary.js"
   },
   "files": [
     "common-rules.js",
+    "db-boundary.js",
     "frontend-boundary.js",
-    "index.js",
-    "prisma-boundary.js"
+    "index.js"
   ],
   "dependencies": {
     "@stylistic/eslint-plugin": "^5.10.0",

@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@repo/db"
+import type { DrizzleClient } from "@repo/db"
 import { logger } from "@repo/logger"
 
 export type ShutdownHandle = {
@@ -16,7 +16,7 @@ const SIGNAL_EXIT_CODES: Record<string, number> = {
 
 /**
  * SIGTERM (ECS Scheduled Task の停止シグナル) / SIGINT (Ctrl-C) を受けたとき
- * Prisma を disconnect してから process.exit する graceful shutdown を登録する。
+ * DB を disconnect してから process.exit する graceful shutdown を登録する。
  *
  * このプロセスは「タスク 1 回実行で exit する」run-once モデルのため、処理の
  * 途中でシグナルを受けて終了する場合は **タスクが未完了** であることを意味する。
@@ -28,17 +28,17 @@ const SIGNAL_EXIT_CODES: Record<string, number> = {
  * 読むためのハンドル。進行中の処理自体は中断しないので、長時間ループや batch では
  * 各 iteration の頭でこれをチェックして自発的に break すること。
  */
-export const setupGracefulShutdown = (prisma: PrismaClient): ShutdownHandle => {
+export const setupGracefulShutdown = (db: DrizzleClient): ShutdownHandle => {
   let shuttingDown = false
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     if (shuttingDown) return
     shuttingDown = true
     logger.warn("shutdown initiated", { signal })
     try {
-      await prisma.$disconnect()
+      await db.$disconnect()
     } catch (err) {
       logger.error(
-        "prisma disconnect failed during shutdown",
+        "db disconnect failed during shutdown",
         err instanceof Error ? err : new Error(String(err)),
       )
     }

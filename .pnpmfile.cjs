@@ -17,7 +17,7 @@
  *   @prisma/client の peerDependencies / peerDependenciesMeta から prisma を消すと、
  *   pnpm が「peer 要求なし」と認識し、deploy 出力から prisma CLI 等が除外される。
  *   packages/db の devDependencies はそのまま残せるので、開発時の
- *   `pnpm --filter @repo/db db:generate` 等の CLI 利用には影響しない。
+ *   `pnpm --filter @repo/db prisma:generate` 等の CLI 利用には影響しない。
  */
 function readPackage(pkg) {
   if (pkg.name === "@prisma/client") {

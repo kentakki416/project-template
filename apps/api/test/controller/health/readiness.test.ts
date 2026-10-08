@@ -1,13 +1,13 @@
 import request from "supertest"
 
 import { HealthReadinessController } from "../../../src/controller/health/readiness"
-import { PrismaDatabaseHealthRepository } from "../../../src/repository/prisma/healthcheck-repository"
+import { DrizzleDatabaseHealthRepository } from "../../../src/repository/drizzle/healthcheck-repository"
 import { IoRedisHealthRepository } from "../../../src/repository/redis/healthcheck-repository"
 import { healthRouter } from "../../../src/routes/health-router"
 import { attachUnhandledExceptionHandler, createTestApp } from "../helper"
-import { disconnectTestDb, disconnectTestRedis, testPrisma, testRedis } from "../setup"
+import { disconnectTestDb, disconnectTestRedis, testDb, testRedis } from "../setup"
 
-const databaseHealthRepository = new PrismaDatabaseHealthRepository(testPrisma)
+const databaseHealthRepository = new DrizzleDatabaseHealthRepository(testDb)
 const redisHealthRepository = new IoRedisHealthRepository(testRedis)
 
 const app = createTestApp()

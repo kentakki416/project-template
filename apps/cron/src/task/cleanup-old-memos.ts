@@ -1,8 +1,8 @@
-import { createPrismaClient } from "@repo/db"
+import { createDrizzleClient } from "@repo/db"
 import { logger } from "@repo/logger"
 
 import { env } from "../env"
-import { PrismaMemoRepository } from "../repository/prisma"
+import { DrizzleMemoRepository } from "../repository/drizzle"
 import { setupGracefulShutdown } from "../runtime/graceful-shutdown"
 import * as service from "../service"
 
@@ -13,15 +13,21 @@ import * as service from "../service"
  * まとめて削除する。本番では EventBridge → ECS Scheduled Task で日次 / 週次
  * 起動する想定。
  *
- * task 自身は Prisma client / Repository を組み立てて service に DI するだけ。
+ * task 自身は DB client / Repository を組み立てて service に DI するだけ。
+ * DB は Drizzle 実装を使う（Prisma 実装も repository/prisma に残してあり、ここを差し替えれば切り替えられる）。
  * 削除ロジック（閾値計算 / 件数取得）は `service.memo.cleanupOldMemos` に集約してある。
  * 失敗時は throw でプロセスを exit code 1 で終わらせ、外側のスケジューラに通知する。
  */
 const main = async (): Promise<void> => {
-  const prisma = createPrismaClient({ url: env.DATABASE_URL })
-  setupGracefulShutdown(prisma)
+  const db = createDrizzleClient({
+    onError: (error) => {
+      logger.error("db idle client error", error)
+    },
+    url: env.DATABASE_URL,
+  })
+  setupGracefulShutdown(db)
 
-  const memoRepository = new PrismaMemoRepository(prisma)
+  const memoRepository = new DrizzleMemoRepository(db)
 
   logger.info("cleanup-old-memos started", {
     olderThanDays: env.CLEANUP_MEMO_OLDER_THAN_DAYS,
@@ -37,7 +43,7 @@ const main = async (): Promise<void> => {
       threshold: threshold.toISOString(),
     })
   } finally {
-    await prisma.$disconnect()
+    await db.$disconnect()
   }
 }
 

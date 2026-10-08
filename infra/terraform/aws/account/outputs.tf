@@ -14,7 +14,7 @@ output "ecr_worker_repository_url" {
 }
 
 output "ecr_migration_repository_url" {
-  description = "Prisma migration 用 ECR リポジトリ URL"
+  description = "DB migration 用 ECR リポジトリ URL"
   value       = aws_ecr_repository.migration.repository_url
 }
 

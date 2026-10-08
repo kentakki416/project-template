@@ -22,7 +22,6 @@ export default defineConfig({
   },
   migrations: {
     path: "./migrations",
-    seed: "npx tsx ./prisma/seed.ts"
   },
   schema: "./schema.prisma",
 })

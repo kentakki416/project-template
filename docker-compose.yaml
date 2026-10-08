@@ -19,6 +19,8 @@ services:
       - '${POSTGRES_PORT:-5433}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # テスト用 DB（project-template_test）を作る。volume が空のときだけ実行される
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s

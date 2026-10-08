@@ -1,15 +1,16 @@
 import request from "supertest"
 
+import { memos } from "@repo/db"
 import { FakeEventTracker } from "@repo/events"
 
 import { MemoDetailController } from "../../../src/controller/memo/detail"
 import { MemoUpdateController } from "../../../src/controller/memo/update"
-import { PrismaMemoRepository } from "../../../src/repository/prisma/memo-repository"
+import { DrizzleMemoRepository } from "../../../src/repository/drizzle/memo-repository"
 import { memoRouter } from "../../../src/routes/memo-router"
 import { attachUnhandledExceptionHandler, createTestApp } from "../helper"
-import { cleanupTestData, disconnectTestDb, disconnectTestRedis, testPrisma } from "../setup"
+import { cleanupTestData, disconnectTestDb, disconnectTestRedis, testDb } from "../setup"
 
-const memoRepository = new PrismaMemoRepository(testPrisma)
+const memoRepository = new DrizzleMemoRepository(testDb)
 
 const app = createTestApp()
 
@@ -31,9 +32,10 @@ afterAll(async () => {
 
 describe("PUT /api/memo/:id", () => {
   it("200 と更新されたメモを返す", async () => {
-    const memo = await testPrisma.memo.create({
-      data: { body: "Old Body", title: "Old Title" },
-    })
+    const [memo] = await testDb
+      .insert(memos)
+      .values({ body: "Old Body", title: "Old Title" })
+      .returning()
 
     const res = await request(app)
       .put(`/api/memo/${memo.id}`)

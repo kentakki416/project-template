@@ -616,12 +616,12 @@ module "ecs_worker" {
 }
 
 # =============================================================================
-# ECS Workload: Prisma migration (one-shot task definition、Service なし)
+# ECS Workload: DB migration (one-shot task definition、Service なし)
 # =============================================================================
 # - GHA から `aws ecs run-task --task-definition <family>` で起動する想定
 # - 本番 API イメージに devDependencies が混入するのを避けるため、専用 ECR
 #   (project-template-migration) + 専用 Dockerfile (packages/db/Dockerfile.migration) を使う
-# - Dockerfile の CMD = `prisma migrate deploy --schema=prisma/schema.prisma` を
+# - Dockerfile の CMD = `pnpm --filter @repo/db db:migrate` (drizzle-kit migrate) を
 #   そのまま使うので command override は不要
 
 module "ecs_migration" {

@@ -19,7 +19,7 @@ SQS / Cloud Tasks / pg-boss 等へ乗り換えるときは `packages/queue` に�
 
 ```bash
 pnpm dev    # tsx watch で起動
-pnpm test   # Vitest（Prisma / Redis を mock するので DB / Redis 不要）
+pnpm test   # Vitest（DB / Redis を mock するので DB / Redis 不要）
 ```
 
 ## レイヤード設計のルール
@@ -28,7 +28,7 @@ pnpm test   # Vitest（Prisma / Redis を mock するので DB / Redis 不要）
 
 - **`jobs/<name>.ts`**: 純粋関数（`(deps) => JobProcessor<T>` の factory）。**BullMQ や ioredis を直接 import しない**
 - **`workers/<name>-worker.ts`**: Queue 実装とジョブハンドラを結線するだけ。Queue 実装を切り替えるときの唯一の差分対象
-- **`repository/`**: interface の引数・戻り値は `@repo/domain` の型にする。Prisma の型は実装クラスの内側に閉じる（`@repo/eslint-config/prisma-boundary` が lint で強制。限界は `packages/eslint-config/README.md`）
+- **`repository/`**: interface は `repository/<name>.ts`、DB の実装は `repository/drizzle/`（DI で使う）と `repository/prisma/`（切り替え先）。interface の引数・戻り値は `@repo/domain` の型にする。Drizzle / Prisma の型は実装クラスの内側に閉じる（`@repo/eslint-config/db-boundary` が lint で強制。限界は `packages/eslint-config/README.md`）
 - **`src/index.ts`**: 接続生成 → Repository インスタンス化 → Worker 起動 → graceful shutdown 登録。**どのデータウェアハウスを使うかを決めるのはここだけ**（`createDataWarehouse({ type: "clickhouse", ... })`）
 
 Repository の interface は api / cron と意図的に分離する（各 app が必要な操作だけを持つ。共有すると不要なメソッドが漏れる）。一方ドメイン型は `@repo/domain` で共有する。
@@ -41,13 +41,13 @@ BullMQ の stalled 検出 / リトライ / ECS deploy 時の SIGKILL で **同�
 - write は upsert / 既処理フラグ / 決定的キーでの dedupe で冪等化する
 - exactly-once が必要なら DB 側で transactional outbox を組む（worker 単体では実現できない）
 
-`src/runtime/graceful-shutdown.ts` は SIGTERM/SIGINT で全 `JobConsumer.close()`（in-flight ジョブの完了を待つ）→ Prisma/Redis 切断 → exit 0。1 ジョブの最大処理時間が ECS の `stop_timeout_seconds` を超えないよう設計する。
+`src/runtime/graceful-shutdown.ts` は SIGTERM/SIGINT で全 `JobConsumer.close()`（in-flight ジョブの完了を待つ）→ DB/Redis 切断 → exit 0。1 ジョブの最大処理時間が ECS の `stop_timeout_seconds` を超えないよう設計する。
 
 ## 環境変数
 
 | 変数 | 必須 | デフォルト | 説明 |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | `NODE_ENV !== "test"` で必須 | - | Prisma の接続文字列 |
+| `DATABASE_URL` | `NODE_ENV !== "test"` で必須 | - | DB の接続文字列 |
 | `DATA_WAREHOUSE_TYPE` | no | `clickhouse` | `clickhouse` / `none`。`none` は何も書き込まない実装になる |
 | `DATA_WAREHOUSE_URL` | `DATA_WAREHOUSE_TYPE === "clickhouse"` かつ `NODE_ENV !== "test"` で必須 | - | データウェアハウスの接続 URL。**技術名を入れていない**のはバックエンドを差し替えても env を変えずに済ませるため |
 | `DATA_WAREHOUSE_DATABASE` | no | `project_template` | DB 名 |

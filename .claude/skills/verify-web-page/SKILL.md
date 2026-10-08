@@ -86,7 +86,7 @@ curl -s http://localhost:8080/api/health
 
 #### 3-1. テスト用ユーザーの id を確認
 
-dev DB のユーザー一覧を Prisma Studio または DB 直結で確認する:
+dev DB のユーザー一覧を Drizzle Studio（`pnpm --filter api db:studio`）または DB 直結で確認する:
 
 ```bash
 docker exec -i project-template-postgres psql -U postgres -d "project-template_dev" -At -c \

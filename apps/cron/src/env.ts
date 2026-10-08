@@ -15,7 +15,7 @@ const cronEnvSchema = z
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    /** Prisma の接続文字列。NODE_ENV !== "test" のときは必須 */
+    /** DB の接続文字列。NODE_ENV !== "test" のときは必須 */
     DATABASE_URL: z.string().url().optional(),
     /** ロガー実装の選択（pino / winston / console / silent） */
     LOGGER_TYPE: z

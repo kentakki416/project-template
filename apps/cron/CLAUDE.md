@@ -13,16 +13,16 @@
 ```bash
 pnpm dev               # tsx watch で起動
 pnpm cleanup:old-memos # タスクを 1 回実行
-pnpm test              # Vitest（Prisma を mock するので DB 不要）
+pnpm test              # Vitest（DB client を mock するので DB 不要）
 ```
 
 ## レイヤード設計のルール
 
-参考実装: `src/task/cleanup-old-memos.ts` / `src/service/memo/cleanup-old-memos.ts` / `src/repository/prisma/memo-repository.ts`。
+参考実装: `src/task/cleanup-old-memos.ts` / `src/service/memo/cleanup-old-memos.ts` / `src/repository/drizzle/memo-repository.ts`。
 
-- **`task/<name>.ts`**: cron 1 本 = 1 ファイル。env を読んで Prisma client と Repository を生成し service に DI するだけ。**閾値計算や件数集計などのドメインロジックを書かない**。サブディレクトリは切らない
+- **`task/<name>.ts`**: cron 1 本 = 1 ファイル。env を読んで DB client（Drizzle）と Repository を生成し service に DI するだけ。**閾値計算や件数集計などのドメインロジックを書かない**。サブディレクトリは切らない
 - **`service/<domain>/`**: 業務ロジック。`export const` のアロー関数で、Repository は単一でも `repo: { xxxRepository }` のオブジェクト引数で受ける（将来増えてもシグネチャを変えずに済む）。**Repository class を service の中に書かない**
-- **`repository/`**: interface の引数・戻り値は `@repo/domain` の型か素の値にする。Prisma の型は実装クラスの内側に閉じる（`@repo/eslint-config/prisma-boundary` が lint で強制）
+- **`repository/`**: interface は `repository/<name>.ts`、実装は `repository/drizzle/`（DI で使う）と `repository/prisma/`（切り替え先）。interface の引数・戻り値は `@repo/domain` の型か素の値にする。Drizzle / Prisma の型は実装クラスの内側に閉じる（`@repo/eslint-config/db-boundary` が lint で強制）
 - **`lib/`**（任意）: env も DB も知らない純関数のみ
 - **`client/<service>/`**（任意）: 外部 API クライアント。env を直接 import せずコンストラクタ DI
 
@@ -42,7 +42,7 @@ run-once モデルなので、**処理の途中でシグナルを受けて終了
 
 | 変数 | 必須 | デフォルト | 説明 |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | `NODE_ENV !== "test"` で必須 | - | Prisma の接続文字列 |
+| `DATABASE_URL` | `NODE_ENV !== "test"` で必須 | - | DB の接続文字列 |
 | `CLEANUP_MEMO_OLDER_THAN_DAYS` | no | `90` | 削除対象とする経過日数 |
 | `NODE_ENV` | no | `development` | `development` / `test` / `production` |
 | `LOGGER_TYPE` | no | `pino` | `pino` / `winston` / `console` / `silent` |
@@ -50,6 +50,6 @@ run-once モデルなので、**処理の途中でシグナルを受けて終了
 
 ## テスト戦略
 
-- **Repository / Service の unit test のみ**。Prisma は `vi.fn()` で mock するので DB 不要
+- **Repository / Service の unit test のみ**。DB client は `vi.fn()` で mock するので DB 不要
 - 統合テストは無い（task はエントリポイントから直接 service を呼ぶフラットな構造のため）
 - テストケースは `describe` を「正常系」「異常系」で分類する（`apps/api` と同じ）

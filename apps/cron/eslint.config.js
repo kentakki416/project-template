@@ -1,8 +1,8 @@
 const baseConfig = require("@repo/eslint-config")
-const prismaBoundary = require("@repo/eslint-config/prisma-boundary")
+const dbBoundary = require("@repo/eslint-config/db-boundary")
 
 /**
- * Prisma 型の import 境界（prisma-boundary）を有効にする。
- * 詳細と限界は packages/eslint-config/prisma-boundary.js を参照。
+ * @repo/db（Prisma / Drizzle）の import 境界（db-boundary）を有効にする。
+ * 詳細と限界は packages/eslint-config/db-boundary.js を参照。
  */
-module.exports = [...baseConfig, ...prismaBoundary]
+module.exports = [...baseConfig, ...dbBoundary]

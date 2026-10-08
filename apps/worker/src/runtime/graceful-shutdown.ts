@@ -1,5 +1,5 @@
 import type { DataWarehouse } from "@repo/data-warehouse"
-import type { PrismaClient } from "@repo/db"
+import type { DrizzleClient } from "@repo/db"
 import { logger } from "@repo/logger"
 import type { JobConsumer } from "@repo/queue"
 import type { Redis } from "@repo/redis"
@@ -7,7 +7,7 @@ import type { Redis } from "@repo/redis"
 export type ShutdownDeps = {
   consumers: JobConsumer[]
   dataWarehouse: DataWarehouse
-  prisma: PrismaClient
+  db: DrizzleClient
   redis: Redis
 }
 
@@ -16,7 +16,7 @@ export type ShutdownDeps = {
  *
  *   1. 全 `JobConsumer.close()` を並列で呼ぶ
  *      → 新規ジョブ取得停止 + in-flight ジョブの完了を待機
- *   2. Prisma を $disconnect、Redis を quit
+ *   2. DB を $disconnect、Redis を quit
  *   3. process.exit(0)
  *
  * ECS は `stop_timeout_seconds` 以内に終了しなければ SIGKILL を送るため、
@@ -33,7 +33,7 @@ export const setupGracefulShutdown = (deps: ShutdownDeps): void => {
       await Promise.all(deps.consumers.map(async (c) => c.close()))
       await Promise.all([
         deps.dataWarehouse.close(),
-        deps.prisma.$disconnect(),
+        deps.db.$disconnect(),
         deps.redis.quit(),
       ])
       logger.info("worker shutdown completed")

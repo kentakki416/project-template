@@ -168,7 +168,7 @@ CHANGED_UI_APPS=$(git diff --name-only "$BASE"..HEAD \
    - dev サーバーが起動していない → `docker compose up -d` + `pnpm --filter <app> dev` を background で起動
    - **Playwright MCP のブラウザがロックされていて操作できない** / 前のセッションが残っている → `mcp__playwright__browser_close` で閉じる。それでも掴めない場合は OS 側で `lsof -i :3000 -i :8080` / `ps aux | grep playwright` で残プロセスを特定して `kill -9 <pid>` で終了する。**「ブラウザが取れないから諦めた」は禁止**
    - port が埋まっている → `lsof -i :<port>` でプロセスを特定して `kill` してから再起動
-   - DB が空 / migration 未適用 → `pnpm --filter @repo/db db:migrate:deploy` + 必要なら seed を流す
+   - DB が空 / migration 未適用 → `pnpm --filter @repo/db db:migrate` + 必要なら seed を流す
 2. **認証が必要な画面** は dev 用トークンを cookie に注入する（プロジェクトの dev-login スクリプト / `issue-test-token` 等）。`verify-web-page` skill があれば従う
 3. **再現条件が複雑** な画面（例: 「TOP 10 入賞時にだけ出るポップアップ」「特定の DB 状態でだけ出るバナー」「複雑なゲームを完走しないと到達しないリザルト画面」）でも諦めない。次のいずれかで撮る:
    - **NODE_ENV !== "production" の debug page を一時的に作る**。例: `apps/web/src/app/debug/<feature>-preview/page.tsx` を作って、対象コンポーネントを mock data 付きで単独 render する。proxy / middleware が認証必須にしているなら public path にも追加する。スクショ取得後に削除して working tree をクリーンに戻す（コミットしない）
@@ -263,7 +263,7 @@ PR 本文の末尾（test plan の前）に「スクリーンショット」セ�
     - [ ] UserService の各メソッドを網羅
   - Controller テスト: 5 件
 - Repository を追加
-  - UserRepository（Prisma 経由で CRUD）
+  - UserRepository（Drizzle 経由で CRUD）
     - [ ] DI 対象として `src/index.ts` で組み立てる
 ```
 

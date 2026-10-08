@@ -243,7 +243,7 @@ MVP 対象外の機能・将来課題が出てきたら、本体 README では�
 
 テスト可能な最小単位で分割:
 
-- `step1-db-{topic}.md` — Prisma スキーマ + マイグレーション
+- `step1-db-{topic}.md` — Drizzle スキーマ + マイグレーション
 - `step2-api-{endpoint}.md` — Controller / Service / Repository / Router + テスト
 - `step3-web-{page}.md` — Next.js ページ実装（本実装。モックとは別）
 - `step4-mobile-{screen}.md` — Expo 画面実装（必要なら）

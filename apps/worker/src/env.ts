@@ -8,7 +8,7 @@ import { z } from "zod"
  */
 const workerEnvSchema = z
   .object({
-    /** Prisma の接続文字列。NODE_ENV !== "test" のときは必須 */
+    /** DB の接続文字列。NODE_ENV !== "test" のときは必須 */
     DATABASE_URL: z.string().url().optional(),
     /** データウェアハウスの DB 名 */
     DATA_WAREHOUSE_DATABASE: z.string().default("project_template"),
