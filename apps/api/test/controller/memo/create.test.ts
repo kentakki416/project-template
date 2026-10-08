@@ -1,14 +1,15 @@
 import request from "supertest"
 
+import { eq, memos } from "@repo/db"
 import { FakeEventTracker } from "@repo/events"
 
 import { MemoCreateController } from "../../../src/controller/memo/create"
-import { PrismaMemoRepository } from "../../../src/repository/prisma/memo-repository"
+import { DrizzleMemoRepository } from "../../../src/repository/drizzle/memo-repository"
 import { memoRouter } from "../../../src/routes/memo-router"
 import { attachUnhandledExceptionHandler, createTestApp } from "../helper"
-import { cleanupTestData, disconnectTestDb, disconnectTestRedis, testPrisma } from "../setup"
+import { cleanupTestData, disconnectTestDb, disconnectTestRedis, testDb } from "../setup"
 
-const memoRepository = new PrismaMemoRepository(testPrisma)
+const memoRepository = new DrizzleMemoRepository(testDb)
 
 const app = createTestApp()
 
@@ -37,9 +38,9 @@ describe("POST /api/memo", () => {
     expect(res.body.id).toBeDefined()
 
     // DBに実際に保存されていることを確認
-    const memo = await testPrisma.memo.findUnique({ where: { id: res.body.id } })
-    expect(memo).not.toBeNull()
-    expect(memo!.title).toBe("New Title")
+    const [memo] = await testDb.select().from(memos).where(eq(memos.id, res.body.id))
+    expect(memo).toBeDefined()
+    expect(memo.title).toBe("New Title")
   })
 
   it("リクエストボディが不正な場合、400 を返す", async () => {

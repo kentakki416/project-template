@@ -1,12 +1,12 @@
 import { createDataWarehouse } from "@repo/data-warehouse"
-import { createPrismaClient } from "@repo/db"
+import { createDrizzleClient } from "@repo/db"
 import { logger } from "@repo/logger"
 import { PROCESS_MEMO_QUEUE_NAME, TRACK_EVENT_QUEUE_NAME } from "@repo/queue"
 import { createRedisClient } from "@repo/redis"
 
 import { env } from "./env"
 import { DataWarehouseEventRepository } from "./repository/data-warehouse"
-import { PrismaMemoRepository } from "./repository/prisma"
+import { DrizzleMemoRepository } from "./repository/drizzle"
 import { setupGracefulShutdown } from "./runtime/graceful-shutdown"
 import { startProcessMemoWorker } from "./workers/process-memo-worker"
 import { startTrackEventWorker } from "./workers/track-event-worker"
@@ -22,7 +22,15 @@ import { startTrackEventWorker } from "./workers/track-event-worker"
  *   4. ここで `startXxxWorker(...)` を呼んで `consumers` に push
  */
 const main = (): void => {
-  const prisma = createPrismaClient({ url: env.DATABASE_URL })
+  /**
+   * DB は Drizzle 実装を使う（Prisma 実装も repository/prisma に残してあり、ここを差し替えれば切り替えられる）
+   */
+  const db = createDrizzleClient({
+    onError: (error) => {
+      logger.error("db idle client error", error)
+    },
+    url: env.DATABASE_URL,
+  })
   /**
    * BullMQ Worker は `maxRetriesPerRequest: null` の Redis 接続が必須 (BullMQ 5.x 要件)
    */
@@ -51,7 +59,7 @@ const main = (): void => {
       username: env.DATA_WAREHOUSE_USER,
     })
 
-  const memoRepository = new PrismaMemoRepository(prisma)
+  const memoRepository = new DrizzleMemoRepository(db)
   const eventRepository = new DataWarehouseEventRepository(dataWarehouse)
 
   const consumers = [
@@ -67,7 +75,7 @@ const main = (): void => {
     }),
   ]
 
-  setupGracefulShutdown({ consumers, dataWarehouse, prisma, redis })
+  setupGracefulShutdown({ consumers, dataWarehouse, db, redis })
 
   logger.info("worker started", {
     concurrency: env.WORKER_CONCURRENCY,

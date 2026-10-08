@@ -2,7 +2,7 @@ import cors from "cors"
 import express from "express"
 import helmet from "helmet"
 
-import { createPrismaClient } from "@repo/db"
+import { createDrizzleClient } from "@repo/db"
 import { QueueEventTracker } from "@repo/events"
 import { logger } from "@repo/logger"
 import { BullMQJobQueue, TRACK_EVENT_QUEUE_NAME } from "@repo/queue"
@@ -28,12 +28,12 @@ import { apiRateLimiter } from "./middleware/rate-limit"
 import { requestLogger } from "./middleware/request-logger"
 import { unhandledExceptionHandler } from "./middleware/unhandled-exception-handler"
 import {
-  PrismaAuthAccountRepository,
-  PrismaDatabaseHealthRepository,
-  PrismaMemoRepository,
-  PrismaTransactionRunner,
-  PrismaUserRepository,
-} from "./repository/prisma"
+  DrizzleAuthAccountRepository,
+  DrizzleDatabaseHealthRepository,
+  DrizzleMemoRepository,
+  DrizzleTransactionRunner,
+  DrizzleUserRepository,
+} from "./repository/drizzle"
 import { IoRedisHealthRepository, IoRedisRefreshTokenRepository } from "./repository/redis"
 import { authRouter } from "./routes/auth-router"
 import { eventRouter } from "./routes/event-router"
@@ -41,8 +41,15 @@ import { healthRouter } from "./routes/health-router"
 import { memoRouter } from "./routes/memo-router"
 import { userRouter } from "./routes/user-router"
 
-/** インフラ client はプロセス起動時に 1 回だけ生成する */
-const prisma = createPrismaClient()
+/**
+ * インフラ client はプロセス起動時に 1 回だけ生成する。
+ * DB は Drizzle 実装を使う（Prisma 実装も repository/prisma に残してあり、ここを差し替えれば切り替えられる）。
+ */
+const db = createDrizzleClient({
+  onError: (error) => {
+    logger.error("db idle client error", error)
+  },
+})
 /**
  * onError を渡さないと factory 既定の console.error に落ち、構造化ログに乗らない。
  * Redis は refresh token と queue の両方を載せているため、障害は error として残す。
@@ -56,11 +63,11 @@ const redis = createRedisClient({
 /**
  * Repository の DI assembly
  */
-const userRepository = new PrismaUserRepository(prisma)
-const authAccountRepository = new PrismaAuthAccountRepository(prisma)
-const transactionRunner = new PrismaTransactionRunner(prisma)
-const memoRepository = new PrismaMemoRepository(prisma)
-const databaseHealthRepository = new PrismaDatabaseHealthRepository(prisma)
+const userRepository = new DrizzleUserRepository(db)
+const authAccountRepository = new DrizzleAuthAccountRepository(db)
+const transactionRunner = new DrizzleTransactionRunner(db)
+const memoRepository = new DrizzleMemoRepository(db)
+const databaseHealthRepository = new DrizzleDatabaseHealthRepository(db)
 const redisHealthRepository = new IoRedisHealthRepository(redis)
 const refreshTokenRepository = new IoRedisRefreshTokenRepository(redis)
 
@@ -231,7 +238,7 @@ const shutdown = async (signal: string): Promise<void> => {
   logger.info("Shutdown initiated", { signal })
   server.close(async () => {
     await Promise.all([
-      prisma.$disconnect(),
+      db.$disconnect(),
       redis.quit(),
     ])
     logger.info("Shutdown completed")

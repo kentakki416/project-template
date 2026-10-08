@@ -3,6 +3,12 @@
 #
 # 設計: packages/data-warehouse/README.md
 #
+# **初回の docker compose up では view は作られない。** Postgres のテーブルは
+# db:migrate（drizzle-kit migrate）で作るので、ClickHouse の初期化時点ではまだ無く、
+# アタッチ待ちがタイムアウトする。テーブルは migrate 後に自動でアタッチされるので、
+# migrate の後にこのスクリプトを再実行して view を作る（何度実行してもよい）:
+#   docker exec project-template-clickhouse bash /docker-entrypoint-initdb.d/03-postgres-cdc-views.sh
+#
 # **なぜ .sql ではなく .sh なのか**
 # 02-postgres-cdc.sql の MaterializedPostgreSQL は CREATE DATABASE が即座に返り、
 # テーブルは非同期にアタッチされる。同じ .sql の中で CREATE VIEW すると
@@ -44,7 +50,7 @@ for table in $CDC_TABLES; do
   waited=0
   until clickhouse_query "EXISTS TABLE pg_cdc.${table}" | grep -q '^1$'; do
     if [ "$waited" -ge "$MAX_WAIT_SECONDS" ]; then
-      echo "pg_cdc.${table} が ${MAX_WAIT_SECONDS} 秒でアタッチされなかった" >&2
+      echo "pg_cdc.${table} が ${MAX_WAIT_SECONDS} 秒でアタッチされなかった。Postgres に ${table} テーブルが無い可能性がある（初回起動時は正常）。db:migrate の後にこのスクリプトを再実行する" >&2
       exit 1
     fi
     sleep 1

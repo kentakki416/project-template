@@ -23,7 +23,7 @@ ioredis の接続クライアントを生成する **factory + 型 re-export** �
 
 > 💡 **なぜ factory が必ず `error` リスナを張るか（ioredis 固有の事情）**
 > ioredis は常駐接続を保ち、瞬断・再接続失敗時に `error` イベントを emit する。Node の EventEmitter 規約で `error` にリスナが 1 つも無いと throw され、常駐プロセスが落ちる。そのため factory 内で必ず `error` リスナを登録する（`onError` 省略時も `console.error` でフォールバック）。
-> Prisma はエラーをクエリの Promise reject で返すのでこの対策は不要。**Redis（ioredis）固有の事情**。
+> DB も同じ事情がある（pg の Pool がアイドル中の接続の切断で `error` を emit する）ため、`@repo/db` の `createDrizzleClient` も `onError` を受け取って必ずリスナを張る。
 
 ```ts
 /** factory 内部（抜粋）: onError 省略時も必ず error リスナを張る */

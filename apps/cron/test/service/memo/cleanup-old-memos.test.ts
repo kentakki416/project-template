@@ -1,4 +1,4 @@
-import type { MemoRepository } from "../../../src/repository/prisma"
+import type { MemoRepository } from "../../../src/repository"
 import { cleanupOldMemos } from "../../../src/service/memo/cleanup-old-memos"
 
 describe("cleanupOldMemos", () => {

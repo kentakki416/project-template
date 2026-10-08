@@ -2,7 +2,7 @@ import { type JobConsumer, PROCESS_MEMO_QUEUE_NAME, startBullMQWorker } from "@r
 import type { Redis } from "@repo/redis"
 
 import { processMemo } from "../jobs/process-memo"
-import type { MemoRepository } from "../repository/prisma"
+import type { MemoRepository } from "../repository"
 
 /**
  * `process-memo` Worker の組み立て。

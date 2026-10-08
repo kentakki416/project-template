@@ -33,15 +33,15 @@
 - **`private` なクラスメンバー（メソッド・プロパティ・constructor parameter property）は `_` プレフィックス必須**。`constructor` 以外のメンバーは `public` / `private` を明示する。
 
 ```typescript
-class PrismaUserRepository implements UserRepository {
-  constructor(private readonly _prisma: PrismaClient) {}
+class DrizzleUserRepository implements UserRepository {
+  constructor(private readonly _db: DrizzleClient) {}
 
   public async findById(id: number): Promise<User | null> {
-    const row = await this._prisma.user.findUnique({ where: { id } })
+    const [row] = await this._db.select().from(users).where(eq(users.id, id))
     return row ? this._toDomain(row) : null
   }
 
-  private _toDomain(row: PrismaUser): User {
+  private _toDomain(row: UserRow): User {
     return { id: row.id, name: row.name }
   }
 }

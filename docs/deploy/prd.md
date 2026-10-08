@@ -186,7 +186,7 @@ export FRONTEND_URL='https://<your-domain>'           # フロント(apex)
 ```
 
 - 自動構築される（export 不要）: `DATABASE_URL` / `REDIS_HOST` / `REDIS_URL`(prd は `rediss://` = TLS)
-  - ⚠️ `DATABASE_URL` は **`?sslmode=no-verify`** で構築する（`require` だと Prisma の pg アダプタが TLS で落ちる。[落とし穴 9](#落とし穴-9-db-の-tls-が-pg-アダプタで-verify-full-扱いになり-rds-で落ちる)）
+  - ⚠️ `DATABASE_URL` は **`?sslmode=no-verify`** で構築する（`require` だと pg が TLS で落ちる。[落とし穴 9](#落とし穴-9-db-の-tls-が-pg-で-verify-full-扱いになり-rds-で落ちる)）
 - スクリプトは **merge 方式**（何度でも再実行可。値だけ上書き）
 - 確認:
 
@@ -207,7 +207,7 @@ Actions → **「Deploy to AWS prd」** を workflow_dispatch。
 
 フロー（`prd` ゲートを外していれば自動で流れる）:
 1. **build**: api / worker / cron / **migration** の4イメージを ECR へ push
-2. **migrate**: prod RDS に `prisma migrate deploy`（migration イメージ = `packages/db/Dockerfile.migration`）
+2. **migrate**: prod RDS に `drizzle-kit migrate`（migration イメージ = `packages/db/Dockerfile.migration`）
 3. **deploy-worker / deploy-cron**: 承認なしで完走
 4. **deploy-api**: Blue/Green の green を待機 TG に投入 → テストトラフィックを green に
 5. **`prd-api-approval` で承認待ち** ← ここで承認
@@ -222,10 +222,10 @@ green が 200 を返すのを確認 → Actions の「Review pending deployments
 
 ### マスタデータ（seed）の扱い
 
-本番のマスタデータ（マスタテーブルの初期行など）は **seed スクリプトではなく migration で管理**する（`migrations/*_seed_xxx/migration.sql` に `INSERT ... ON CONFLICT DO NOTHING` を置く）。これにより上記 **migrate ステップで自動・冪等・バージョン管理**され、別ステップが不要になる。
+本番のマスタデータ（マスタテーブルの初期行など）は **seed スクリプトではなく migration で管理**する（`packages/db/drizzle/migrations/*_seed_xxx/migration.sql` に `INSERT ... ON CONFLICT DO NOTHING` を置く）。これにより上記 **migrate ステップで自動・冪等・バージョン管理**され、別ステップが不要になる。
 
-- `seed.ts` は **dev 専用データ**（dev users / fixtures）のみを扱い、`NODE_ENV=production` では何もしない
-- 新しいマスタを足すときは migration を 1 本追加する（`prisma migrate dev --create-only --name seed_xxx` → `migration.sql` に冪等 INSERT を記述）
+- `packages/db/drizzle/seed.ts` は **dev 専用データ**（dev users / fixtures）のみを扱い、`NODE_ENV=production` では何もしない
+- 新しいマスタを足すときは migration を 1 本追加する（`pnpm --filter @repo/db db:generate --custom --name=seed_xxx` で空の `migration.sql` を作り、冪等 INSERT を記述）
 
 ---
 
@@ -324,8 +324,8 @@ dev ロールは `AdministratorAccess` 付きだが、prd ロールを scoped po
 → `RUN npx turbo run build --filter=<app>`（turbo.json の `dependsOn: ["^build", ...]` で依存を先にビルド）。
 
 ### 落とし穴 6: migration Dockerfile は packages/db に置く（欠落しやすい）
-Prisma schema/migrations は `@repo/db`（packages/db）にあるのに、migration の Dockerfile が `apps/api/Dockerfile.migration`（旧構成の名残）を参照していると、ファイル欠落で build が `failed to read dockerfile` で落ちる。
-→ **`packages/db/Dockerfile.migration`** を使い、workflow の `-f` パスもそこに向ける。`CMD = pnpm --filter @repo/db db:migrate:deploy`。
+DB の schema / migrations は `@repo/db`（packages/db）にあるのに、migration の Dockerfile が `apps/api/Dockerfile.migration`（旧構成の名残）を参照していると、ファイル欠落で build が `failed to read dockerfile` で落ちる。
+→ **`packages/db/Dockerfile.migration`** を使い、workflow の `-f` パスもそこに向ける。`CMD = pnpm --filter @repo/db db:migrate`（`drizzle-kit migrate`）。
 → **migration は単一スキーマ(@repo/db)を migrate するので、api/cron/worker いずれが触るテーブルも一括で反映される**（DB は1つ・スキーマは1つの共有設計）。
 
 ### 落とし穴 7: HTTPS は deploy より先に（ECS Blue/Green のルール紐付け）
@@ -349,16 +349,16 @@ terraform apply -replace="module.ecs_api.aws_ecs_service.this[0]"
 `prd` 環境に Required reviewers を付けると、build/migrate/deploy/Plan すべてが毎回承認待ちになり、キャンセルした run も `reject-api`(environment=prd) で詰まってデッドロックする。
 → **`prd` 環境のゲートは外し、承認は `prd-api-approval`（api 本番切替）だけ**にする。
 
-### 落とし穴 9: DB の TLS が pg アダプタで verify-full 扱いになり RDS で落ちる
-`createPrismaClient` は `new PrismaPg(DATABASE_URL)` を使う（Prisma 7 ドライバアダプタ）。
-DATABASE_URL が **`?sslmode=require`** だと、pg アダプタ（`@prisma/adapter-pg` / pg-connection-string）が
+### 落とし穴 9: DB の TLS が pg で verify-full 扱いになり RDS で落ちる
+`createDrizzleClient` / `drizzle-kit migrate`（と併存している `createPrismaClient` の `@prisma/adapter-pg`）は、いずれも node-postgres（`pg`）で接続する。
+DATABASE_URL が **`?sslmode=require`** だと、pg（pg-connection-string）が
 これを **`verify-full` 扱い**にし、RDS の CA（公的 CA ではない自己署名チェーン）を弾いて
-`Error opening a TLS connection: self-signed certificate in certificate chain`（**P1011 / TlsConnectionError**）で落ちる。
+`self-signed certificate in certificate chain` で落ちる。
 
 ハマりどころ:
-- **migration（`migrate deploy`）は通るのに、ランタイム / seed だけ落ちる**。migration は Rust 製エンジンで `require` を libpq 流（暗号化のみ・CA 検証なし）に解釈するため。pg アダプタだけ verify-full になる。
+- Prisma で migration していた頃は、migration だけ Rust 製エンジンで `require` を libpq 流（暗号化のみ・CA 検証なし）に解釈して通り、ランタイム / seed だけが落ちていた。Drizzle は migration も pg で接続するので、migrate ステップで先に落ちる。
 - api の shallow な `/health`（`{"status":"ok"}`）は DB を見ないので、**DB アクセスが壊れていても 200 を返してしまう**（気づきにくい）。
 
 → **`DATABASE_URL` を `?sslmode=no-verify`** にする（暗号化はするが CA 検証しない。RDS は VPC 内通信なので実用上のリスクは低い）。`seed-secrets.sh` がこの値で構築する。
 secret を直して **api/worker を再デプロイ**（ECS は secret をタスク起動時に注入するため、既存タスクは再起動するまで旧 URL のまま）。
-より厳格にするなら RDS CA を同梱して `verify-full` にする（`createPrismaClient` の改修が必要・将来の hardening）。
+より厳格にするなら RDS CA を同梱して `verify-full` にする（`createDrizzleClient` の Pool に `ssl.ca` を渡す改修が必要・将来の hardening）。

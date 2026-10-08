@@ -1,13 +1,15 @@
 import request from "supertest"
 
+import { users } from "@repo/db"
+
 import { UserGetController } from "../../../src/controller/user/get"
 import { generateAccessToken } from "../../../src/lib/jwt"
-import { PrismaUserRepository } from "../../../src/repository/prisma/user-repository"
+import { DrizzleUserRepository } from "../../../src/repository/drizzle/user-repository"
 import { userRouter } from "../../../src/routes/user-router"
 import { attachUnhandledExceptionHandler, createTestApp } from "../helper"
-import { cleanupTestData, disconnectTestDb, disconnectTestRedis, testPrisma } from "../setup"
+import { cleanupTestData, disconnectTestDb, disconnectTestRedis, testDb } from "../setup"
 
-const userRepository = new PrismaUserRepository(testPrisma)
+const userRepository = new DrizzleUserRepository(testDb)
 
 const app = createTestApp()
 
@@ -28,13 +30,14 @@ afterAll(async () => {
 
 describe("GET /api/user", () => {
   it("認証済みユーザーの場合、200 とユーザー情報を返す", async () => {
-    const user = await testPrisma.user.create({
-      data: {
+    const [user] = await testDb
+      .insert(users)
+      .values({
         avatarUrl: "https://example.com/avatar.jpg",
         email: "test@example.com",
         name: "Test User",
-      },
-    })
+      })
+      .returning()
 
     const token = generateAccessToken(user.id)
 

@@ -110,8 +110,8 @@ resource "aws_ecr_lifecycle_policy" "worker" {
 }
 
 /**
- * Prisma migration 専用コンテナイメージ用 ECR。
- * 本番 API イメージに Prisma CLI / devDependencies が混入するのを避けるため、
+ * DB migration (Drizzle) 専用コンテナイメージ用 ECR。
+ * 本番 API イメージに drizzle-kit / devDependencies が混入するのを避けるため、
  * migration は独立した最小イメージ (packages/db/Dockerfile.migration) を別 ECR に push する。
  */
 resource "aws_ecr_repository" "migration" {

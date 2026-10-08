@@ -1,12 +1,14 @@
 import request from "supertest"
 
+import { memos } from "@repo/db"
+
 import { MemoListController } from "../../../src/controller/memo/list"
-import { PrismaMemoRepository } from "../../../src/repository/prisma/memo-repository"
+import { DrizzleMemoRepository } from "../../../src/repository/drizzle/memo-repository"
 import { memoRouter } from "../../../src/routes/memo-router"
 import { attachUnhandledExceptionHandler, createTestApp } from "../helper"
-import { cleanupTestData, disconnectTestDb, disconnectTestRedis, testPrisma } from "../setup"
+import { cleanupTestData, disconnectTestDb, disconnectTestRedis, testDb } from "../setup"
 
-const memoRepository = new PrismaMemoRepository(testPrisma)
+const memoRepository = new DrizzleMemoRepository(testDb)
 
 const app = createTestApp()
 
@@ -25,12 +27,10 @@ afterAll(async () => {
 
 describe("GET /api/memo", () => {
   it("200 とメモ一覧を返す", async () => {
-    await testPrisma.memo.createMany({
-      data: [
-        { body: "Body 1", title: "Title 1" },
-        { body: "Body 2", title: "Title 2" },
-      ],
-    })
+    await testDb.insert(memos).values([
+      { body: "Body 1", title: "Title 1" },
+      { body: "Body 2", title: "Title 2" },
+    ])
 
     const res = await request(app).get("/api/memo")
 

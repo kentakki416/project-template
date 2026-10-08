@@ -1,12 +1,13 @@
 import express from "express"
 
+import { users } from "@repo/db"
 import { User } from "@repo/domain"
 
 import { generateAccessToken } from "../../src/lib/jwt"
 import { authMiddleware } from "../../src/middleware/auth"
 import { unhandledExceptionHandler } from "../../src/middleware/unhandled-exception-handler"
 
-import { testPrisma } from "./setup"
+import { testDb } from "./setup"
 
 /**
  * テスト用Expressアプリを構築する
@@ -39,21 +40,22 @@ export const createTestUser = async (overrides?: {
   email?: string
   name?: string
 }): Promise<{ token: string; user: User }> => {
-  const prismaUser = await testPrisma.user.create({
-    data: {
+  const [row] = await testDb
+    .insert(users)
+    .values({
       avatarUrl: overrides?.avatarUrl ?? "https://example.com/avatar.jpg",
       email: overrides?.email ?? `test-${Date.now()}@example.com`,
       name: overrides?.name ?? "Test User",
-    },
-  })
+    })
+    .returning()
 
   const user: User = {
-    avatarUrl: prismaUser.avatarUrl,
-    createdAt: prismaUser.createdAt,
-    email: prismaUser.email,
-    id: prismaUser.id,
-    name: prismaUser.name,
-    updatedAt: prismaUser.updatedAt,
+    avatarUrl: row.avatarUrl,
+    createdAt: row.createdAt,
+    email: row.email,
+    id: row.id,
+    name: row.name,
+    updatedAt: row.updatedAt,
   }
 
   const token = generateAccessToken(user.id)

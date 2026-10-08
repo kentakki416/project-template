@@ -18,7 +18,8 @@
 |---|---|---|---|
 | **Service** | ユニットテスト | `apps/api/test/service/` | DB 不要。`vi.fn()` で Repository をモック。高速・並列 |
 | **Controller** | 統合テスト | `apps/api/test/controller/` | 自前インフラ（Postgres / Redis）は**本物**、`supertest` で HTTP から検証 |
-| cron / worker | ユニットテスト | 各 `test/` | Prisma / Redis を mock（DB / Redis 不要） |
+| **Repository**（DB） | 契約テスト | `apps/api/test/repository/` | Postgres は**本物**。Drizzle / Prisma の両実装を `describe.each` で同じケースにかけ、振る舞いが揃っていることを検証 |
+| cron / worker | ユニットテスト | 各 `test/` | DB client / Redis を mock（DB / Redis 不要） |
 
 - **Service ユニットテスト**は「何が起きたか（呼び出し・戻り値）」を検証する責務。
 - **Controller 統合テスト**は「実際に永続層が意図通り変化したか」を検証する責務。
@@ -67,7 +68,7 @@ describe("getMemoById", () => {
 
 ```typescript
 /** ✅ Postgres の最終状態を確認 */
-const created = await testPrisma.user.findUnique({ where: { email: "new@example.com" } })
+const [created] = await testDb.select().from(users).where(eq(users.email, "new@example.com"))
 expect(created).toMatchObject({ email: "new@example.com", name: "New User" })
 
 /** ✅ API レスポンスは toEqual で全フィールド完全一致（契約変更を検出） */
@@ -113,14 +114,12 @@ expect(res.body.error).toBeDefined()  // 文言は照合しない
 日付フィルタや条件分岐を含む API では**境界値のテストを必ず追加**する。月フィルタなら **前月末日・当月初日・当月末日・翌月初日** の 4 点をデータに含め、当月分だけが返ることを検証する。
 
 ```typescript
-await testPrisma.transaction.createMany({
-  data: [
-    { transactionDate: new Date("2026-02-28"), description: "前月末" },  // 含まれない
-    { transactionDate: new Date("2026-03-01"), description: "当月初" },  // 含まれる
-    { transactionDate: new Date("2026-03-31"), description: "当月末" },  // 含まれる
-    { transactionDate: new Date("2026-04-01"), description: "翌月初" },  // 含まれない
-  ],
-})
+await testDb.insert(transactions).values([
+  { transactionDate: new Date("2026-02-28"), description: "前月末" },  // 含まれない
+  { transactionDate: new Date("2026-03-01"), description: "当月初" },  // 含まれる
+  { transactionDate: new Date("2026-03-31"), description: "当月末" },  // 含まれる
+  { transactionDate: new Date("2026-04-01"), description: "翌月初" },  // 含まれない
+])
 const res = await request(app).get("/api/transactions").query({ month: 3, year: 2026 })
 expect(res.body.transactions).toHaveLength(2)
 ```

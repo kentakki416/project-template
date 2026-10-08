@@ -1,11 +1,13 @@
 import request from "supertest"
 
+import { and, authAccounts, eq, users } from "@repo/db"
+
 import { GoogleUserInfo, IGoogleOAuthClient } from "../../../src/client/google-oauth"
 import { AuthGoogleController } from "../../../src/controller/auth/google"
 import { verifyRefreshToken } from "../../../src/lib/jwt"
-import { PrismaAuthAccountRepository } from "../../../src/repository/prisma/auth-account-repository"
-import { PrismaTransactionRunner } from "../../../src/repository/prisma/transaction-runner"
-import { PrismaUserRepository } from "../../../src/repository/prisma/user-repository"
+import { DrizzleAuthAccountRepository } from "../../../src/repository/drizzle/auth-account-repository"
+import { DrizzleTransactionRunner } from "../../../src/repository/drizzle/transaction-runner"
+import { DrizzleUserRepository } from "../../../src/repository/drizzle/user-repository"
 import { IoRedisRefreshTokenRepository } from "../../../src/repository/redis"
 import { authRouter } from "../../../src/routes/auth-router"
 import { attachUnhandledExceptionHandler, createTestApp } from "../helper"
@@ -14,7 +16,7 @@ import {
   cleanupTestRedis,
   disconnectTestDb,
   disconnectTestRedis,
-  testPrisma,
+  testDb,
   testRedis,
 } from "../setup"
 
@@ -23,9 +25,9 @@ const mockGoogleOAuthClient: IGoogleOAuthClient = {
   getUserInfo: mockGetUserInfo,
 }
 
-const authAccountRepository = new PrismaAuthAccountRepository(testPrisma)
-const userRepository = new PrismaUserRepository(testPrisma)
-const transactionRunner = new PrismaTransactionRunner(testPrisma)
+const authAccountRepository = new DrizzleAuthAccountRepository(testDb)
+const userRepository = new DrizzleUserRepository(testDb)
+const transactionRunner = new DrizzleTransactionRunner(testDb)
 const refreshTokenRepository = new IoRedisRefreshTokenRepository(testRedis)
 
 const app = createTestApp()
@@ -85,9 +87,7 @@ describe("POST /api/auth/google", () => {
     })
 
     /** Postgres に User が作成されている（id/timestamp は省略） */
-    const createdUser = await testPrisma.user.findUnique({
-      where: { email: "new@example.com" },
-    })
+    const [createdUser] = await testDb.select().from(users).where(eq(users.email, "new@example.com"))
     expect(createdUser).toMatchObject({
       avatarUrl: "https://example.com/new-avatar.jpg",
       email: "new@example.com",
@@ -95,35 +95,35 @@ describe("POST /api/auth/google", () => {
     })
 
     /** Postgres に AuthAccount が作成され、User と同じトランザクションで紐付いている */
-    const createdAuthAccount = await testPrisma.authAccount.findFirst({
-      where: { provider: "google", providerAccountId: "google-456" },
-    })
+    const [createdAuthAccount] = await testDb
+      .select()
+      .from(authAccounts)
+      .where(and(eq(authAccounts.provider, "google"), eq(authAccounts.providerAccountId, "google-456")))
     expect(createdAuthAccount).toMatchObject({
       provider: "google",
       providerAccountId: "google-456",
-      userId: createdUser!.id,
+      userId: createdUser.id,
     })
 
     /** Redis に Refresh Token が保存され、userId が紐付いている */
     const payload = verifyRefreshToken(res.body.refresh_token)
     expect(payload).not.toBeNull()
-    expect(await refreshTokenRepository.findUserId(payload!.jti)).toBe(createdUser!.id)
+    expect(await refreshTokenRepository.findUserId(payload!.jti)).toBe(createdUser.id)
   })
 
   it("既存ユーザーの場合、200 と is_new_user=false で Token を返し Redis に新しい Refresh Token が保存される", async () => {
-    const user = await testPrisma.user.create({
-      data: {
+    const [user] = await testDb
+      .insert(users)
+      .values({
         avatarUrl: "https://example.com/avatar.jpg",
         email: "test@example.com",
         name: "Test User",
-      },
-    })
-    await testPrisma.authAccount.create({
-      data: {
-        provider: "google",
-        providerAccountId: "google-123",
-        userId: user.id,
-      },
+      })
+      .returning()
+    await testDb.insert(authAccounts).values({
+      provider: "google",
+      providerAccountId: "google-123",
+      userId: user.id,
     })
 
     mockGetUserInfo.mockResolvedValue({

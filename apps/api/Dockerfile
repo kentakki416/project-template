@@ -42,10 +42,10 @@ RUN pnpm install --frozen-lockfile
 COPY --from=pruner /app/out/full/ ./
 
 # Step 3: Prisma Client を生成
-RUN pnpm --filter @repo/db db:generate
+RUN pnpm --filter @repo/db prisma:generate
 
 # Step 4: API をビルド。turbo 経由で実行することで turbo.json の build.dependsOn
-# (^build + @repo/db#db:generate) により packages/* (@repo/*) が先にビルドされる。
+# (^build + @repo/db#prisma:generate) により packages/* (@repo/*) が先にビルドされる。
 # pnpm --filter api build だと api の tsc しか走らず @repo/* の dist が無く TS2307 になる。
 RUN npx -y turbo@2.6.1 run build --filter=api
 

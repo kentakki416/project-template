@@ -82,7 +82,7 @@ output "ecs_worker_service_name" {
 }
 
 output "ecs_migration_task_definition_family" {
-  description = "Prisma migration task definition family (RunTask 引数で使用)"
+  description = "DB migration task definition family (RunTask 引数で使用)"
   value       = module.ecs_migration.task_definition_family
 }
 

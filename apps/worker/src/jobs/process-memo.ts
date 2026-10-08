@@ -1,7 +1,7 @@
 import { logger } from "@repo/logger"
 import type { JobProcessor, ProcessMemoJobData } from "@repo/queue"
 
-import type { MemoRepository } from "../repository/prisma"
+import type { MemoRepository } from "../repository"
 
 /**
  * `process-memo` ジョブハンドラ。

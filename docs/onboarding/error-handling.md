@@ -25,7 +25,7 @@ flowchart TD
 ```
 
 - **業務エラー**（NotFound / Conflict / Unauthorized 等）は値 = `Result.err` として扱い、`sendError` ヘルパ経由で返す。
-- **想定外エラー**（TCP 切断 / Prisma 例外等）は catch せず throw し、`unhandledExceptionHandler` に委譲する。
+- **想定外エラー**（TCP 切断 / DB 例外等）は catch せず throw し、`unhandledExceptionHandler` に委譲する。
 - Controller / Service では原則 **try-catch を書かない**（throw の伝播を壊さない）。
 
 ## Result 型
@@ -104,7 +104,7 @@ async execute(req: Request, res: Response) {
 | 経路 | 例 | ログ | ステータス |
 |---|---|---|---|
 | Service の `Result.err` | NotFound / Conflict / Unauthorized 等の業務エラー | `sendError` が `logger.warn` | `result.error.statusCode`（4xx） |
-| ルート内の throw（想定外） | TCP 切断 / Prisma 例外 | `unhandledExceptionHandler` が `logger.error` + stack | 500 |
+| ルート内の throw（想定外） | TCP 切断 / DB 例外 | `unhandledExceptionHandler` が `logger.error` + stack | 500 |
 | リクエストスキーマ違反 | `RequestSchemaMismatchError` | `logger.warn` | 400 |
 | レスポンススキーマ違反 | `ResponseSchemaMismatchError` | `logger.error` | 500 |
 | アクセスログ | 全リクエスト | `requestLogger` が `info` / `warn` | - |
