@@ -1,10 +1,8 @@
-# step3-api-event-flush-and-lwa
+# step1-api-event-flush-and-lwa
 
 api を Lambda で動かすための仕上げ。`EventTracker` に `flush()` を足し、レスポンスを返す前に送出中のイベントを送り切る middleware を `FLUSH_EVENTS_BEFORE_RESPONSE=true` のときだけ登録する。あわせて api の Dockerfile に Lambda Web Adapter（LWA）を入れる。既定値は `false` で、LWA は ECS では起動しないため、prd / dev の挙動は変わらない。
 
 設計: [`../README.md`](../README.md#lambda-の凍結とイベント送出) / [api を Lambda で動かす](../README.md#api-を-lambda-で動かす)
-
-前提: [step2-api-queue-type](./step2-api-queue-type.md)
 
 ## 対応内容
 
@@ -187,4 +185,4 @@ curl -s localhost:8080/api/health
 
 - [ ] `/opt/extensions/lambda-adapter` が存在する
 - [ ] Lambda の外（docker run = ECS と同じ状況）で、従来どおり起動して `/api/health` が `200` を返す（LWA が何もしないことの確認）
-- [ ] Lambda 上での動作は [step6](./step6-ci-deploy-min.md) の動作確認で行う
+- [ ] Lambda 上での動作は [step4](./step4-ci-deploy-min.md) の動作確認で行う

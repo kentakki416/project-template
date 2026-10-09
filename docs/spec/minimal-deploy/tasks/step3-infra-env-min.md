@@ -1,10 +1,10 @@
-# step5-infra-env-min
+# step3-infra-env-min
 
-minimal 環境の Terraform を作る。`infra/terraform/aws/env/min/` を新設し、Lambda / API Gateway / SQS 用の module を追加する。`account/` には GitHub Actions 用の IAM role を足す。**`env/prd` / `env/dev` と既存の module の挙動には手を入れない。**
+minimal 環境の Terraform を作る。`infra/terraform/aws/env/min/` を新設し、Lambda / API Gateway 用の module を追加する。worker（ECS Fargate Spot）を作るかどうかは `enable_worker` で切り替える。既存の `ecs-cluster` / `ecs-workload` には Fargate Spot を使うための変数を足し、`account/` には GitHub Actions 用の IAM role を足す。**`env/prd` / `env/dev` と既存の module の挙動には手を入れない**（足す変数の既定値は現在の挙動）。
 
 設計: [`../README.md`](../README.md#iac-の構成)
 
-前提: [step3-api-event-flush-and-lwa](./step3-api-event-flush-and-lwa.md) / [step4-worker-lambda-entry](./step4-worker-lambda-entry.md)（LWA 入りのイメージが必要）
+前提: [step1-api-event-flush-and-lwa](./step1-api-event-flush-and-lwa.md)（LWA 入りの api イメージが必要）/ [step2-api-event-tracker-type](./step2-api-event-tracker-type.md)（worker を作らないときに `EVENT_TRACKER_TYPE=none` を使う）
 
 ## 対応内容
 
@@ -25,16 +25,17 @@ minimal 環境の Terraform を作る。`infra/terraform/aws/env/min/` を新設
 
 ### Upstash Redis（Terraform の管理外）
 
-refresh token の保存先。PlanetScale と同じくコンソールで作る（Upstash を使う理由は [refresh token の保存先](../README.md#refresh-token-の保存先)）。
+refresh token と、worker を作る場合は BullMQ の保存先。PlanetScale と同じくコンソールで作る（Upstash を使う理由は [Redis（Upstash）](../README.md#redisupstash)）。
 
-1. Redis のデータベースを作る。リージョン `AWS ap-northeast-1 (Tokyo)`、read region は付けない、プラン `Pay as You Go`
-2. Eviction が無効になっていることを確認する。有効だと、容量の上限に近づいたときに期限前の refresh token が消され、ユーザーがログアウトされる
-3. 月の予算（Budget）を設定する。予算に達すると Upstash が rate limit をかけ、ログインと refresh が失敗するため、想定の使用量より十分大きくする（目安は [refresh token の保存先](../README.md#refresh-token-の保存先)）
-4. TLS 付きの接続文字列（`rediss://default:<password>@<endpoint>:6379`）を控える
-5. 接続できるか確認する
+1. Redis のデータベースを作る。リージョン `AWS ap-northeast-1 (Tokyo)`、read region は付けない
+2. プランを選ぶ。worker を作らない（`enable_worker = false`）なら `Pay as You Go`、作るなら `Fixed`（最小の 250MB、$10/月）。BullMQ はジョブが無くても Redis に定期的にアクセスするため、Pay as You Go ではコマンド課金が積み上がる（Upstash の推奨）。プランは後からコンソールで切り替えられる
+3. Eviction が無効になっていることを確認する。有効だと、容量の上限に近づいたときに期限前の refresh token や未処理のジョブが消される（BullMQ も eviction しない設定が前提）
+4. `Pay as You Go` の場合は月の予算（Budget）を設定する。予算に達すると Upstash が rate limit をかけ、ログインと refresh が失敗するため、想定の使用量より十分大きくする（目安は [Redis（Upstash）](../README.md#redisupstash)）
+5. TLS 付きの接続文字列（`rediss://default:<password>@<endpoint>:6379`）を控える
+6. 接続できるか確認する
 
     ```bash
-    redis-cli --tls -u '<4 で控えた接続文字列>' PING
+    redis-cli --tls -u '<5 で控えた接続文字列>' PING
     ```
 
     `PONG` が返れば OK
@@ -46,7 +47,7 @@ refresh token の保存先。PlanetScale と同じくコンソールで作る（
 | attach する policy | 用途 |
 | --- | --- |
 | `ecr_push`（既存） | イメージの push |
-| `ecs_deploy`（既存） | migration の RunTask / cron の task definition 登録 |
+| `ecs_deploy`（既存） | migration の RunTask / cron の task definition 登録 / worker の service 更新 |
 | `lambda_deploy_min`（新規） | Lambda のコードと環境変数の更新、version の発行、alias の切り替え、secret の読み取り |
 | `AdministratorAccess` | `env/min` の terraform plan / apply（dev / prd と同じ運用。既存の TODO の対象に含める） |
 
@@ -85,7 +86,7 @@ resource "aws_iam_policy" "lambda_deploy_min" {
 
 `outputs.tf` に `github_actions_min_role_arn` を足す。初回はローカルから apply し、GitHub の Environment `min` の Secrets に `AWS_ROLE_ARN` を登録する（`infra/terraform/CLAUDE.md`「account の初回 apply はローカルから実行」と同じ手順）。
 
-**ECR の repository policy**（`ecr.tf`）: api / worker の repository に、Lambda サービスからの pull を許可する。Lambda は関数の作成時に自分で repository policy を書き足すが、IaC の外で policy が変わるのを避けるため明示しておく。
+**ECR の repository policy**（`ecr.tf`）: api の repository に、Lambda サービスからの pull を許可する。Lambda は関数の作成時に自分で repository policy を書き足すが、IaC の外で policy が変わるのを避けるため明示しておく。
 
 ```hcl
 data "aws_iam_policy_document" "api_lambda_pull" {
@@ -113,44 +114,6 @@ resource "aws_ecr_repository_policy" "api_lambda_pull" {
 }
 ```
 
-worker の repository にも同じものを `worker_lambda_pull` として足す。
-
-### `modules/sqs-queue`（新規）
-
-queue 本体と DLQ を作る。`maxReceiveCount` は `packages/queue` の `SQS_MAX_RECEIVE_COUNT`（3）と揃える。
-
-```hcl
-resource "aws_sqs_queue" "dlq" {
-  name                      = "${var.name}-dlq"
-  message_retention_seconds = 1209600 # 14 日（最大値）。最終失敗したジョブを調べて redrive するための猶予
-  sqs_managed_sse_enabled   = true
-
-  tags = var.tags
-}
-
-resource "aws_sqs_queue" "this" {
-  name                       = var.name
-  sqs_managed_sse_enabled    = true
-  visibility_timeout_seconds = var.visibility_timeout_seconds
-
-  # packages/queue の SQS_MAX_RECEIVE_COUNT と揃える（BullMQ 実装の attempts: 3 と同じ回数）
-  redrive_policy = jsonencode({
-    deadLetterTargetArn = aws_sqs_queue.dlq.arn
-    maxReceiveCount     = var.max_receive_count
-  })
-
-  tags = var.tags
-}
-```
-
-| 変数 | 既定値 | 説明 |
-| --- | --- | --- |
-| `name` | - | queue 名（`project-template-min-track-event` 等） |
-| `visibility_timeout_seconds` | `360` | consumer の Lambda タイムアウトの 6 倍（AWS の推奨値）。再試行の間隔にもなる |
-| `max_receive_count` | `3` | DLQ に移すまでの受信回数 |
-| `tags` | `{}` | |
-
-outputs: `arn` / `url` / `name` / `dlq_arn`。
 
 ### `modules/lambda-container`（新規）
 
@@ -188,15 +151,6 @@ resource "aws_iam_role_policy_attachment" "basic_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# 関数ごとに必要な権限（SQS の送受信など）は env 側で policy document を作って渡す
-resource "aws_iam_role_policy" "additional" {
-  count = var.additional_policy_json == null ? 0 : 1
-
-  name   = "${var.name}-additional"
-  role   = aws_iam_role.lambda.id
-  policy = var.additional_policy_json
-}
-
 resource "aws_lambda_function" "this" {
   function_name = var.name
   package_type  = "Image"
@@ -206,13 +160,6 @@ resource "aws_lambda_function" "this" {
   memory_size   = var.memory_size
   timeout       = var.timeout
   publish       = true
-
-  dynamic "image_config" {
-    for_each = var.command == null ? [] : [var.command]
-    content {
-      command = image_config.value
-    }
-  }
 
   logging_config {
     log_format = "Text"
@@ -244,10 +191,8 @@ resource "aws_lambda_alias" "live" {
 | --- | --- | --- |
 | `name` | - | 関数名 |
 | `image_uri` | - | **作成時だけ**使うイメージ。以降は deploy workflow が更新する |
-| `command` | `null` | イメージの `CMD` を上書きする場合に指定（worker は `["node", "dist/lambda-server.js"]`） |
 | `memory_size` | `512` | MB |
 | `timeout` | `30` | 秒 |
-| `additional_policy_json` | `null` | 実行ロールに足す権限 |
 | `log_retention_in_days` | `3` | prd の `log_retention_days` と同じ |
 | `tags` | `{}` | |
 
@@ -328,6 +273,53 @@ CORS は API Gateway では設定しない（設定すると API Gateway が pre
 
 outputs: `api_id` / `target_domain_name` / `hosted_zone_id`（`aws_apigatewayv2_domain_name.this.domain_name_configuration[0]` の値）。
 
+### `modules/ecs-cluster`（変数の追加）
+
+cluster に capacity provider を関連付けられるようにする。既定値（空）では何も作らないので、prd / dev の plan に差分は出ない。
+
+```hcl
+variable "capacity_providers" {
+  description = "cluster に関連付ける capacity provider（例: [\"FARGATE\", \"FARGATE_SPOT\"]）。空なら関連付けない（launch_type で起動する workload だけの cluster）"
+  type        = list(string)
+  default     = []
+}
+```
+
+```hcl
+resource "aws_ecs_cluster_capacity_providers" "this" {
+  count = length(var.capacity_providers) > 0 ? 1 : 0
+
+  cluster_name       = aws_ecs_cluster.this.name
+  capacity_providers = var.capacity_providers
+}
+```
+
+### `modules/ecs-workload`（変数の追加）
+
+service を capacity provider（Fargate Spot）で起動できるようにする。既定値（`null`）では従来どおり `launch_type = "FARGATE"` で起動するので、prd / dev の plan に差分は出ない。
+
+```hcl
+variable "capacity_provider" {
+  description = "service を起動する capacity provider（例: FARGATE_SPOT）。null なら launch_type = FARGATE で起動する。cluster 側で関連付けておくこと"
+  type        = string
+  default     = null
+}
+```
+
+`aws_ecs_service.this` の `launch_type` を次のように変える（`launch_type` と `capacity_provider_strategy` は同時に指定できない）。
+
+```hcl
+  launch_type = var.capacity_provider == null ? "FARGATE" : null
+
+  dynamic "capacity_provider_strategy" {
+    for_each = var.capacity_provider == null ? [] : [var.capacity_provider]
+    content {
+      capacity_provider = capacity_provider_strategy.value
+      weight            = 1
+    }
+  }
+```
+
 ### `env/min/`（新規）
 
 `env/prd` と同じファイル構成にする（`backend.tf` / `provider.tf` / `variables.tf` / `main.tf` / `outputs.tf` / `.trivy.yml` / `.trivyignore`）。
@@ -338,10 +330,10 @@ outputs: `api_id` / `target_domain_name` / `hosted_zone_id`（`aws_apigatewayv2_
 
 | 変数 | 既定値 | 説明 |
 | --- | --- | --- |
-| `bootstrap_image_tag` | `"initial"` | Lambda を**作成するときだけ**使うイメージのタグ。初回の手順は step6 |
+| `enable_worker` | `false` | worker（BullMQ の常駐 worker）を作るか。CI の apply は変数を渡さないので、切り替えはこの既定値を変えてコミットする |
+| `bootstrap_image_tag` | `"initial"` | api の Lambda と worker の ECS Service を**作成するときだけ**使うイメージのタグ。初回の手順は step4 |
 | `api_throttling_burst_limit` | `100` | API Gateway のバースト上限 |
 | `api_throttling_rate_limit` | `50` | API Gateway の 1 秒あたりの上限 |
-| `worker_maximum_concurrency` | `2` | SQS イベントソースの同時実行数（設定できる最小値）。DB の接続数を抑える |
 
 `main.tf` の構成（prd と同じ module はパラメータの差分だけを書く）:
 
@@ -359,20 +351,14 @@ locals {
     var.additional_tags
   )
 
-  /**
-   * SQS の queue 名。packages/queue の *_QUEUE_NAME と一致させること
-   * （worker の Lambda は queue 名でジョブハンドラを選ぶ）
-   */
-  queue_names = ["process-memo", "track-event"]
-
   public_subnet_cidrs = [for i in range(2) : cidrsubnet(var.vpc_cidr, 8, i + 1)]
   public_subnet_keys  = [for az in var.availability_zones : "public${substr(az, length(az) - 2, 1)}-${substr(az, length(az) - 1, 1)}"]
 }
 
 /**
- * VPC: cron / migration（ECS RunTask）のためだけに持つ。public subnet のみで NAT は作らない。
- * タスクには public IP を付けて ECR / Secrets Manager / PlanetScale へ直接出る。
- * inbound は一切開けない。
+ * VPC: worker（ECS Service）と cron / migration（ECS RunTask）のためだけに持つ。
+ * public subnet のみで NAT は作らない。タスクには public IP を付けて
+ * ECR / Secrets Manager / PlanetScale / Upstash / ClickHouse Cloud へ直接出る。inbound は一切開けない。
  */
 module "vpc" {
   source = "../../modules/vpc"
@@ -393,7 +379,7 @@ module "vpc" {
 
   security_groups = {
     ecs = {
-      description = "Security group for ECS run-once tasks (cron / migration)"
+      description = "Security group for ECS tasks (worker / cron / migration)"
       name        = "${local.name_prefix}-ecs"
     }
   }
@@ -401,7 +387,7 @@ module "vpc" {
   security_group_rules = [
     {
       cidr_blocks         = ["0.0.0.0/0"]
-      description         = "All outbound traffic (ECR / Secrets Manager / PlanetScale)"
+      description         = "All outbound traffic (ECR / Secrets Manager / external services)"
       from_port           = 0
       protocol            = "-1"
       security_group_name = "ecs"
@@ -440,75 +426,57 @@ module "app_secrets" {
   tags = local.common_tags
 }
 
-module "queues" {
-  source   = "../../modules/sqs-queue"
-  for_each = toset(local.queue_names)
-
-  name = "${local.name_prefix}-${each.key}"
-  tags = local.common_tags
-}
-
-/** api: 同じ api イメージを LWA で動かす */
-data "aws_iam_policy_document" "api_lambda" {
-  statement {
-    sid       = "SendJobMessages"
-    effect    = "Allow"
-    actions   = ["sqs:SendMessage"]
-    resources = [for q in module.queues : q.arn]
-  }
-}
-
 module "lambda_api" {
   source = "../../modules/lambda-container"
 
-  name                   = "${local.name_prefix}-api"
-  image_uri              = "${data.aws_ecr_repository.api.repository_url}:${var.bootstrap_image_tag}"
-  memory_size            = 1024 # コールドスタートを縮めるため（CPU はメモリに比例して割り当てられる）
-  timeout                = 29   # API Gateway の統合タイムアウト（30 秒）より短くする
-  additional_policy_json = data.aws_iam_policy_document.api_lambda.json
-  log_retention_in_days  = var.log_retention_days
-  tags                   = local.common_tags
+  name                  = "${local.name_prefix}-api"
+  image_uri             = "${data.aws_ecr_repository.api.repository_url}:${var.bootstrap_image_tag}"
+  memory_size           = 1024 # コールドスタートを縮めるため（CPU はメモリに比例して割り当てられる）
+  timeout               = 29   # API Gateway の統合タイムアウト（30 秒）より短くする
+  log_retention_in_days = var.log_retention_days
+  tags                  = local.common_tags
 }
 
-/** worker: 同じ worker イメージを、起動コマンドだけ Lambda 用の入口に変えて動かす */
-data "aws_iam_policy_document" "worker_lambda" {
-  statement {
-    sid    = "ConsumeJobMessages"
-    effect = "Allow"
-    actions = [
-      "sqs:ChangeMessageVisibility",
-      "sqs:DeleteMessage",
-      "sqs:GetQueueAttributes",
-      "sqs:ReceiveMessage",
-    ]
-    resources = [for q in module.queues : q.arn]
+/**
+ * worker: BullMQ の常駐 worker を Fargate Spot で 1 タスク動かす。enable_worker = false なら作らない
+ * （そのとき api は EVENT_TRACKER_TYPE=none でイベントを捨てる。deploy workflow が切り替える）。
+ * ALB は付けない（inbound が要らない）。Spot の中断は SIGTERM で通知され、graceful shutdown で
+ * 処理中のジョブを終えるか、BullMQ が止まったジョブを拾い直す。
+ */
+module "ecs_worker" {
+  source = "../../modules/ecs-workload"
+  count  = var.enable_worker ? 1 : 0
+
+  name   = "${local.name_prefix}-worker"
+  image  = "${data.aws_ecr_repository.worker.repository_url}:${var.bootstrap_image_tag}"
+  cpu    = 256
+  memory = 512
+
+  cluster_arn        = module.ecs_cluster.cluster_arn
+  execution_role_arn = module.ecs_cluster.task_execution_role_arn
+  subnets            = [for k in local.public_subnet_keys : module.vpc.subnets[k].id]
+  security_groups    = [module.vpc.security_groups["ecs"].id]
+  assign_public_ip   = true
+  capacity_provider  = "FARGATE_SPOT"
+
+  secrets_arn = module.app_secrets.secret_arn
+  secret_keys = [
+    "DATABASE_URL", "REDIS_URL", "NODE_ENV",
+    "DATA_WAREHOUSE_URL", "DATA_WAREHOUSE_USER",
+    "DATA_WAREHOUSE_PASSWORD", "DATA_WAREHOUSE_DATABASE",
+  ]
+
+  /** prd と同じ（ClickHouse Cloud の接続先は secret。実値に差し替えるまでは insert が失敗する） */
+  environment = {
+    DATA_WAREHOUSE_TYPE = "clickhouse"
   }
-}
 
-module "lambda_worker" {
-  source = "../../modules/lambda-container"
+  desired_count         = 1
+  log_retention_in_days = var.log_retention_days
+  tags                  = local.common_tags
 
-  name                   = "${local.name_prefix}-worker"
-  image_uri              = "${data.aws_ecr_repository.worker.repository_url}:${var.bootstrap_image_tag}"
-  command                = ["node", "dist/lambda-server.js"]
-  memory_size            = 512
-  timeout                = 60 # sqs-queue の visibility_timeout_seconds（360）はこの 6 倍
-  additional_policy_json = data.aws_iam_policy_document.worker_lambda.json
-  log_retention_in_days  = var.log_retention_days
-  tags                   = local.common_tags
-}
-
-resource "aws_lambda_event_source_mapping" "worker" {
-  for_each = module.queues
-
-  event_source_arn        = each.value.arn
-  function_name           = module.lambda_worker.alias_arn
-  batch_size              = 10
-  function_response_types = ["ReportBatchItemFailures"]
-
-  scaling_config {
-    maximum_concurrency = var.worker_maximum_concurrency
-  }
+  /** service は cluster に capacity provider が関連付けられた後に作る */
+  depends_on = [module.ecs_cluster]
 }
 
 module "http_api" {
@@ -549,12 +517,12 @@ resource "aws_route53_record" "api" {
 | --- | --- |
 | `random_password.jwt_*` | 同じ。`db_master` は作らない |
 | `data.aws_ecr_repository.*` / `data.aws_route53_zone.primary` / `module.acm` | 同じ |
-| `module.ecs_cluster` | `container_insights_enabled = false` |
+| `module.ecs_cluster` | `container_insights_enabled = false`、`capacity_providers = ["FARGATE", "FARGATE_SPOT"]` |
 | `module.ecs_migration` / `module.ecs_cron` | `subnets` を public subnet に。`secret_keys` は migration が `["DATABASE_URL"]`、cron が `["DATABASE_URL", "NODE_ENV"]` |
 | `module.cron_schedule` | `subnets` を public subnet に、`assign_public_ip = true` |
-| ALB / RDS / ElastiCache / ECS Service | **作らない** |
+| ALB / RDS / ElastiCache / api の ECS Service | **作らない** |
 
-`outputs.tf`: `api_url` / `lambda_api_function_name` / `lambda_worker_function_name` / `sqs_queue_url_prefix`（`https://sqs.<region>.amazonaws.com/<account>/${local.name_prefix}-`）/ `ecs_cluster_name` / `ecs_migration_task_definition_family` / `ecs_cron_task_definition_family` / `public_subnet_ids` / `ecs_security_group_id` / `app_secret_name`。
+`outputs.tf`: `api_url` / `lambda_api_function_name` / `ecs_worker_service_name`（`enable_worker = false` なら `null`）/ `ecs_cluster_name` / `ecs_migration_task_definition_family` / `ecs_cron_task_definition_family` / `public_subnet_ids` / `ecs_security_group_id` / `app_secret_name`。
 
 ### `scripts/seed-secrets.sh`
 
@@ -589,9 +557,10 @@ terraform plan
 ```
 
 - [ ] `account/` の plan に、既存リソースの変更・削除が無い（追加だけ）
-- [ ] `env/dev` / `env/prd` の plan に差分が出ない（module を追加しただけで既存 module は変えていない）
-- [ ] `env/min` の plan に NAT Gateway / ALB / RDS / ElastiCache / ECS Service が無い
+- [ ] `env/dev` / `env/prd` の plan に差分が出ない（`ecs-cluster` / `ecs-workload` に足した変数は既定値が現在の挙動）
+- [ ] `env/min` の plan に NAT Gateway / ALB / RDS / ElastiCache が無い。`enable_worker = false`（既定）では ECS Service も無い
+- [ ] `terraform plan -var enable_worker=true` で、worker の ECS Service が `FARGATE_SPOT` の capacity provider strategy で作られ、`assign_public_ip = true` になっている
 - [ ] trivy の指摘は、意図したもの（public subnet の ECS タスクに public IP を付ける等）だけを理由付きで `.trivyignore` に入れる
 - [ ] PlanetScale の port 6432（PgBouncer）に `PGOPTIONS='-c TimeZone=UTC'` 付きで接続でき、`SHOW TimeZone` が `UTC` を返す。接続できなければ [リスク](../README.md#リスクと実装時の確認事項)の「だめだった場合」に従う
-- [ ] Upstash に `redis-cli --tls` で接続でき、`PING` が `PONG` を返す。Eviction が無効で、月の予算が設定されている
-- [ ] apply と初回デプロイは step6 の手順で行う
+- [ ] Upstash に `redis-cli --tls` で接続でき、`PING` が `PONG` を返す。Eviction が無効で、プランが `enable_worker` と合っている（Pay as You Go なら月の予算も設定されている）
+- [ ] apply と初回デプロイは step4 の手順で行う

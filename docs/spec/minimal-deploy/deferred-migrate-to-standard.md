@@ -18,7 +18,7 @@ minimal で始めた本番を、成長に合わせて prd 構成（ECS + ALB + R
 | prd 構成の Terraform / deploy workflow | 既存のまま使える | 変更なし。そのまま apply する |
 | アプリのコード | env で切り替え可能にする | **変更なし**（env の値を変えるだけ） |
 | DB のデータ | PlanetScale | RDS へ移す |
-| Queue | SQS | BullMQ へ切り替える（未処理メッセージを流し切る） |
+| Queue | BullMQ（Upstash） | BullMQ（ElastiCache）へ切り替える（Upstash の未処理ジョブを流し切る） |
 | refresh token | Upstash（Redis） | **移さない**。prd は ElastiCache を使い、全ユーザーが一度再ログインする（下記） |
 | DNS | `api.<domain>` → API Gateway | `api.<domain>` → ALB に切り替える |
 
@@ -30,7 +30,7 @@ minimal で始めた本番を、成長に合わせて prd 構成（ECS + ALB + R
 flowchart TD
     A[env/prd を terraform apply<br/>prd の ECS / RDS / ElastiCache を作る] --> B[seed-secrets.sh prd]
     B --> C[メンテナンス開始<br/>minimal の api を 503 にする]
-    C --> D[SQS の未処理メッセージが<br/>0 になるまで待つ]
+    C --> D[Upstash の未処理ジョブが<br/>0 になるまで待つ]
     D --> E[PlanetScale → RDS へ<br/>pg_dump / pg_restore]
     E --> F[deploy-aws-prd.yml で<br/>prd にデプロイ]
     F --> G[Route53 の api.domain を<br/>ALB に向ける]
@@ -51,15 +51,16 @@ minimal は refresh token を Upstash に、prd は ElastiCache に保存する�
 
 ### Queue の切り替え
 
-- メンテナンス中に SQS の `ApproximateNumberOfMessagesVisible` と `ApproximateNumberOfMessagesNotVisible` が 0 になるのを待ってから切り替える
-- DLQ に残っているメッセージは、移行前に redrive して処理し切るか、内容を確認して捨てる
-- prd に切り替えた後に SQS へ届くメッセージは無い（api が BullMQ に enqueue するため）
+Queue の実装は minimal も prd も BullMQ なので、アプリの設定は変わらない。Redis が Upstash から ElastiCache に変わるだけ。
+
+- worker を作っている（`enable_worker = true`）場合: メンテナンス中に、Upstash の BullMQ のキューに待ち（wait）・遅延（delayed）・実行中（active）のジョブが無くなるのを待ってから切り替える。最終失敗した（failed）ジョブは、内容を確認してから捨てる
+- worker を作っていない場合: Queue にジョブは入っていない（api は `EVENT_TRACKER_TYPE=none`）ので、待つものは無い。prd では api が既定値の `queue` に戻り、行動イベントの記録が始まる
 
 ## 既存仕様との差分（着手時のチェックリスト）
 
 - [ ] メンテナンスの告知に、移行後に再ログインが必要になることを含めた
 - [ ] prd の RDS に PlanetScale のデータと `drizzle.__drizzle_migrations` が移っている
-- [ ] SQS（本体と DLQ）が空になっている
+- [ ] Upstash の BullMQ のキューが空になっている（worker を作っていた場合）
 - [ ] Route53 の `api.<domain>` の alias が ALB を指している
 - [ ] `env/min` の destroy 前に、PlanetScale の最終バックアップを取得した
 - [ ] PlanetScale のデータベースを削除し、課金が止まったことを確認した
