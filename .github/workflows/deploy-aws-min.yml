@@ -65,7 +65,7 @@ env:
   PUBLIC_SUBNET_NAME_PREFIX: project-template-min-public # `${prefix}*` で wildcard 検索する
 
   APP_SECRET_NAME: /project-template-min/app
-  API_URL: https://api.project-template.com # TODO: 実ドメインに変更してください
+  # API の URL は GitHub Environment `min` の variable `API_URL` から受け取る (deploy-api で検証する)
 
 jobs:
   build:
@@ -306,8 +306,20 @@ jobs:
     needs: [build, migrate, detect]
     if: ${{ !inputs.push_only }}
     runs-on: ubuntu-latest
+    # Lambda の wait や smoke test が想定外に長引いても、job が無期限に残らないようにする
+    timeout-minutes: 20
     environment: min
+    env:
+      API_URL: ${{ vars.API_URL }}
     steps:
+      # Lambda を更新する前に止める。誤った URL のまま smoke test すると、正常なデプロイでも切り戻してしまう
+      - name: Validate API_URL
+        run: |
+          if [[ ! "${API_URL}" =~ ^https://[^/]+$ ]]; then
+            echo "::error::GitHub Environment 'min' の variable API_URL を https://<host> の形で設定してください (現在値: '${API_URL}')"
+            exit 1
+          fi
+
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -395,7 +407,11 @@ jobs:
           FUNCTION: ${{ env.LAMBDA_API_FUNCTION }}
           PREVIOUS: ${{ steps.deploy.outputs.previous_version }}
         run: |
-          if ! curl -fsS --retry 3 --retry-delay 5 --retry-all-errors "${API_URL}/api/health/ready"; then
+          # DNS / TLS / API Gateway が応答しないときに待ち続けて切り戻しが走らない、ということが無いよう
+          # 接続 (5 秒)・1 回のリクエスト (10 秒)・リトライ全体 (60 秒) のすべてに上限を付ける
+          if ! curl -fsS --connect-timeout 5 --max-time 10 \
+            --retry 3 --retry-delay 5 --retry-max-time 60 --retry-all-errors \
+            "${API_URL}/api/health/ready"; then
             echo "::error::smoke test failed, rolling back to version ${PREVIOUS}"
             aws lambda update-alias \
               --function-name "${FUNCTION}" --name live --function-version "${PREVIOUS}" > /dev/null

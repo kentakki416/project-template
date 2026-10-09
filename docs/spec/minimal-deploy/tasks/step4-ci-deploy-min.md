@@ -26,7 +26,7 @@ flowchart LR
 - `on: workflow_dispatch`、入力は `push_only`（boolean、既定 `false`）。初回だけ `true` で実行し、Lambda と worker の ECS Service の作成に使うイメージを用意する
 - `concurrency: { group: deploy-aws-min, cancel-in-progress: false }`（prd と同じく並列デプロイを禁止する）
 - GitHub Environment は `min`。Secrets の `AWS_ROLE_ARN` は step3 で登録した deploy 用の `github_actions_min` role（必要な権限だけ。Terraform 用の admin role は使わない）
-- API の URL は GitHub Environment `min` の **variable `API_URL`** から受け取る（ドメインはプロダクトごとに違うため、workflow に書かない）。未設定、または `https://` で始まらない値なら、Lambda を更新する前に job を止める
+- API の URL は GitHub Environment `min` の **variable `API_URL`** から受け取る（ドメインはプロダクトごとに違うため、workflow に書かない）。未設定、または `https://<host>` の形でない値（末尾の `/` やパス付きも含む）なら、Lambda を更新する前に job を止める
 - 環境ごとの値は prd の workflow と同じく先頭の `env:` に並べる
 
 ```yaml
