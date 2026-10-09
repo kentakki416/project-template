@@ -153,7 +153,9 @@ jobs:
     # PR: 自動 plan + PR コメント投稿。workflow_dispatch: 手動 plan-only（apply 前の事前確認用）。
     # main / develop への push では plan を走らせない（コメント先が無く、apply は terraform-aws-env-apply.yml で別管理）
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    environment: ${{ matrix.environment }} # GitHub Environments で AWS_ROLE_ARN を環境ごとに分離
+    # GitHub Environments で AWS_ROLE_ARN を環境ごとに分離する。
+    # min は deploy 用 (min) と terraform 用 (min-terraform) で role を分けているため、terraform 用を使う
+    environment: ${{ matrix.environment == 'min' && 'min-terraform' || matrix.environment }}
     permissions:
       id-token: write       # OIDC
       contents: read

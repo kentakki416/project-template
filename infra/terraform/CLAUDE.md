@@ -52,6 +52,8 @@ GitHub Actions で apply を管理する:
 | `account` | `terraform-aws-account-ci.yml` | `terraform-aws-account-apply.yml`（workflow_dispatch） |
 | `env/dev` / `env/min` | `terraform-aws-env-ci.yml`（validate / trivy / plan は env ごとの matrix） | `terraform-aws-env-apply.yml`（workflow_dispatch） |
 
+min は GitHub Actions の IAM role を deploy 用（Environment `min`、`deploy-aws-min.yml` が使う。admin なし）と terraform 用（Environment `min-terraform`、admin）に分けている。Terraform の workflow は対象が min のとき `min-terraform` を使う。
+
 リリース頻度が大きく違うため env/dev と account でワークフローを分離している。fmt と tflint は `terraform-aws-env-ci.yml` 側で aws/ 配下を recursive にチェックするため、`terraform-aws-account-ci.yml` 側は validate / trivy / plan のみ実施する。
 
 ### account の初回 apply はローカルから実行
