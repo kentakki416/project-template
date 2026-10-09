@@ -19,7 +19,7 @@ minimal で始めた本番を、成長に合わせて prd 構成（ECS + ALB + R
 | アプリのコード | env で切り替え可能にする | **変更なし**（env の値を変えるだけ） |
 | DB のデータ | PlanetScale | RDS へ移す |
 | Queue | SQS | BullMQ へ切り替える（未処理メッセージを流し切る） |
-| refresh token | Postgres | **Postgres のまま使い続けられる**（下記） |
+| refresh token | Upstash（Redis） | **移さない**。prd は ElastiCache を使い、全ユーザーが一度再ログインする（下記） |
 | DNS | `api.<domain>` → API Gateway | `api.<domain>` → ALB に切り替える |
 
 ## 設計案
@@ -34,7 +34,7 @@ flowchart TD
     D --> E[PlanetScale → RDS へ<br/>pg_dump / pg_restore]
     E --> F[deploy-aws-prd.yml で<br/>prd にデプロイ]
     F --> G[Route53 の api.domain を<br/>ALB に向ける]
-    G --> H[動作確認後、env/min を destroy]
+    G --> H[動作確認後、env/min を destroy<br/>PlanetScale / Upstash を削除]
 ```
 
 - **データの移し替えは停止時間を取って `pg_dump` / `pg_restore` で行う。** minimal の規模ならデータ量は小さく、数分の停止で済む想定。停止できない規模になっていたら、Postgres の論理レプリケーションで差分を流し続けてから切り替える方式を検討する（PlanetScale が publication を作れるかを確認する）
@@ -42,11 +42,12 @@ flowchart TD
 - **migration の履歴（`drizzle.__drizzle_migrations`）も一緒に移す。** 移さないと prd の migration が初期マイグレーションから流れて `relation already exists` で失敗する
 - **DNS を切り替えるまでは minimal が本番。** prd の ALB には先に独自ドメインの証明書を付け、ALB の DNS 名で動作確認してから Route53 を切り替える
 
-### refresh token は Postgres のまま移せる
+### refresh token は移さない（全員が一度再ログインする）
 
-prd の既定値は `REFRESH_TOKEN_STORE=redis` だが、**移行時は prd でも `database` のままにしておく。** `refresh_tokens` テーブルは DB と一緒に RDS へ移るので、ユーザーは移行でログアウトされない。
+minimal は refresh token を Upstash に、prd は ElastiCache に保存する。**移行では refresh token を移さず、DNS を切り替えた後に全ユーザーが一度ログインし直す。** メンテナンスの告知に、再ログインが必要になることを含める。
 
-Redis に戻したい場合は、`REFRESH_TOKEN_STORE=redis` に変えた時点で既存の refresh token が無効になり、**全ユーザーが一度ログアウトされる**（access token の有効期限 15 分の後）。戻すかどうかはプロダクトの判断にする。
+- JWT の署名鍵（`JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`）も minimal と prd で別々に生成しているため、切り替えた直後から access token も refresh token も検証に失敗し、クライアントはログイン画面に戻る
+- 再ログインを避けたくなった場合は、JWT の署名鍵を minimal から prd の secret に移し、Upstash の `refresh_token:*` を TTL ごと ElastiCache にコピーする（本ドキュメントでは採らない）
 
 ### Queue の切り替え
 
@@ -56,10 +57,11 @@ Redis に戻したい場合は、`REFRESH_TOKEN_STORE=redis` に変えた時点�
 
 ## 既存仕様との差分（着手時のチェックリスト）
 
-- [ ] `env/prd/main.tf` の `secret_keys.api` に `REFRESH_TOKEN_STORE` を足し、Secrets Manager の `/project-template-prd/app` に `database` を入れる（refresh token を Postgres のまま使う場合）
+- [ ] メンテナンスの告知に、移行後に再ログインが必要になることを含めた
 - [ ] prd の RDS に PlanetScale のデータと `drizzle.__drizzle_migrations` が移っている
 - [ ] SQS（本体と DLQ）が空になっている
 - [ ] Route53 の `api.<domain>` の alias が ALB を指している
 - [ ] `env/min` の destroy 前に、PlanetScale の最終バックアップを取得した
 - [ ] PlanetScale のデータベースを削除し、課金が止まったことを確認した
+- [ ] Upstash のデータベースを削除し、課金が止まったことを確認した
 - [ ] GitHub Environment `min` と `deploy-aws-min.yml` を残すかを決めた（再び minimal に戻す可能性が無ければ削除する）

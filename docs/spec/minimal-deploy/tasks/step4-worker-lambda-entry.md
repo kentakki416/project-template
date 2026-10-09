@@ -1,10 +1,10 @@
-# step6-worker-lambda-entry
+# step4-worker-lambda-entry
 
 worker に Lambda 用の入口（`src/lambda-server.ts`）を追加する。Lambda Web Adapter（LWA）が SQS のイベントを `POST /events` として渡すので、`handleSqsEvent()` に流して `batchItemFailures` を返す。ジョブハンドラ（`src/jobs/*.ts`）は変更しない。常駐用の入口（`src/index.ts`）は既定値のまま BullMQ で動くので、prd / dev の挙動は変わらない。
 
 設計: [`../README.md`](../README.md#worker-を-sqs-と-lambda-で動かす)
 
-前提: [step3-queue-sqs](./step3-queue-sqs.md)
+前提: [step1-queue-sqs](./step1-queue-sqs.md)
 
 ## 対応内容
 
@@ -212,7 +212,7 @@ main()
 
 ### Dockerfile に LWA を入れる（`apps/worker/Dockerfile`）
 
-api と同じく runner ステージに 1 行足す（バージョンは api と揃える）。`CMD` は変えない。Lambda 側で起動コマンドを `node dist/lambda-server.js` に上書きする（Terraform の `image_config.command`。step7）。
+api と同じく runner ステージに 1 行足す（バージョンは api と揃える）。`CMD` は変えない。Lambda 側で起動コマンドを `node dist/lambda-server.js` に上書きする（Terraform の `image_config.command`。step5）。
 
 ```dockerfile
 # Lambda Web Adapter: minimal 構成（Lambda）で SQS のイベントを HTTP（POST /events）として受けるための extension。

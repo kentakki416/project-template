@@ -2,7 +2,7 @@
 
 リクエストが無いときのインフラ費用をほぼゼロにした本番構成（以下 **minimal**）を用意し、初期リリースをこの構成で行えるようにする。
 
-現在の prd 構成（ECS Fargate + ALB + NAT Gateway + RDS + ElastiCache）は、トラフィックが無くても 1 環境あたり月 $140 前後（約 2.1 万円）の固定費がかかる。常時起動しているコンテナと、それを支えるネットワーク（NAT / ALB / Public IPv4）が費用の大半を占めるためである。minimal では api と worker を Lambda に載せ、Redis を廃止し、DB を外部の安価な Postgres に置くことで、固定費を月 $7 前後に抑える。
+現在の prd 構成（ECS Fargate + ALB + NAT Gateway + RDS + ElastiCache）は、トラフィックが無くても 1 環境あたり月 $140 前後（約 2.1 万円）の固定費がかかる。常時起動しているコンテナと、それを支えるネットワーク（NAT / ALB / Public IPv4）が費用の大半を占めるためである。minimal では api と worker を Lambda に載せ、Queue を SQS に、Redis を従量課金の Upstash に、DB を外部の安価な Postgres（PlanetScale）に置き換えることで、固定費を月 $7 前後に抑える。
 
 **アプリケーションは 1 つのまま、minimal と prd の両方にデプロイできるようにする。** 実装の違いは環境変数で切り替え、同じコミット・同じ Dockerfile から作ったイメージをそのまま両方に載せる。既存の prd / dev は、新しい環境変数の既定値が現在の挙動になるため何も変わらない。
 
@@ -31,7 +31,6 @@
   - [worker を SQS と Lambda で動かす](#worker-を-sqs-と-lambda-で動かす)
   - [refresh token の保存先](#refresh-token-の保存先)
   - [Lambda の凍結とイベント送出](#lambda-の凍結とイベント送出)
-  - [readiness チェック](#readiness-チェック)
   - [DB（PlanetScale Postgres）](#dbplanetscale-postgres)
   - [secret と環境変数の注入](#secret-と環境変数の注入)
   - [cron と migration](#cron-と-migration)
@@ -66,10 +65,9 @@
 - **アプリのコードは minimal と prd で同じ。** 環境ごとのコード分岐やブランチは作らない。違いは環境変数だけで表現する
 - **同じコミットから同じ Dockerfile でイメージを作る。** api / worker / cron / migration のどのイメージも、minimal 用の別 Dockerfile は作らない
 - **API の外部契約は変えない。** URL、リクエスト / レスポンスの形、認証フロー（Google OAuth → JWT → refresh token）は minimal でも prd と同じ
-  - 例外: `GET /api/health/ready` の `services.redis` は、Redis を使わない構成（minimal）では省略される。prd のレスポンスは変わらない（項目を optional にするだけの追加的な変更）
+- **DB のスキーマは変えない。** minimal のためのテーブルやカラムは追加しない
 - **既存の prd / dev は何も変わらない。** 新しく追加する環境変数はすべて既定値が現在の挙動で、`env/prd` / `env/dev` の Terraform・deploy workflow・Secrets Manager には手を入れない
   - 環境をまたいで共有する `account/` には、minimal 用の IAM role と ECR の pull 許可を**追加するだけ**で、既存のリソースは変えない
-  - `refresh_tokens` テーブルはマイグレーションで prd / dev の DB にも作られるが、使われない（`REFRESH_TOKEN_STORE=redis` の間）
 
 ### コスト目標
 
@@ -81,11 +79,11 @@
 | 入口 | ALB ~$19 + Public IPv4 ~$11 | API Gateway（従量）~$0 |
 | 外向き通信 | NAT Gateway ~$45 | 不要（Lambda は VPC 外） |
 | DB | RDS db.t4g.micro ~$21 | PlanetScale PS-5 ~$5 |
-| Queue | ElastiCache ~$18 | SQS（無料枠内）~$0 |
+| Queue / refresh token | ElastiCache ~$18 | SQS（無料枠内）~$0 + Upstash（従量）~$0 |
 | その他 | Container Insights / Logs / Secrets 等 ~$5–10 | Secrets / Logs / Route53 ~$1–2 |
 | **合計** | **~$140（約 2.1 万円）** | **~$7（約 1,000 円）** |
 
-トラフィックが増えると minimal は従量で増える（API Gateway は 100 万リクエストあたり ~$1.3、Lambda は無料枠を超えた分）。月数百万リクエストを超える、または下記の制約が問題になったら prd への移行を検討する。
+トラフィックが増えると minimal は従量で増える（API Gateway は 100 万リクエストあたり ~$1.3、Lambda は無料枠を超えた分、Upstash は 10 万コマンドあたり $0.2）。月数百万リクエストを超える、または下記の制約が問題になったら prd への移行を検討する。
 
 ### minimal で変わること（制約）
 
@@ -98,6 +96,7 @@
 | バックグラウンドジョブの再試行間隔 | 5 秒から指数バックオフ（最大 3 回） | **一定間隔（6 分）**で最大 3 回 |
 | ジョブの重複排除（`jobId`） | 同じ `jobId` の enqueue は捨てられる | **効かない**（best-effort の契約どおり。ハンドラは元々冪等） |
 | DB | RDS（AWS 東京、単一 AZ） | PlanetScale（東京、単一ノード） |
+| Redis（refresh token） | ElastiCache（AWS 東京、VPC 内） | Upstash（東京、インターネット越しの TLS） |
 
 ### スコープ外
 
@@ -128,6 +127,7 @@ flowchart LR
         M_API --> M_SQS[SQS<br/>track-event / process-memo]
         M_SQS --> M_WORKER[Lambda worker<br/>同じ worker イメージ]
         M_API --> M_PS[(PlanetScale<br/>Postgres)]
+        M_API --> M_UP[(Upstash<br/>Redis / refresh token)]
         M_WORKER --> M_PS
         M_CRON[ECS RunTask<br/>cron / migration] --> M_PS
     end
@@ -138,10 +138,10 @@ flowchart LR
 
 | 構成要素 | prd | minimal | アプリの変更 |
 | --- | --- | --- | --- |
-| api | ECS Service + ALB | Lambda + API Gateway HTTP API | Dockerfile に Lambda Web Adapter を追加（ECS 上では何もしない）。Queue / refresh token / イベントの flush を env で切り替える |
+| api | ECS Service + ALB | Lambda + API Gateway HTTP API | Dockerfile に Lambda Web Adapter を追加（ECS 上では何もしない）。Queue / イベントの flush を env で切り替える |
 | worker | ECS Service（BullMQ 常駐） | Lambda（SQS イベントソース） | Lambda 用の入口ファイルを追加。ジョブハンドラは共通 |
 | Queue | BullMQ（ElastiCache） | SQS + DLQ | `packages/queue` に SQS 実装を追加 |
-| refresh token | Redis | Postgres（`refresh_tokens` テーブル） | DB 実装を追加 |
+| refresh token | Redis（ElastiCache） | Redis（Upstash） | なし（`REDIS_URL` を差し替えるだけ） |
 | cron / migration | ECS RunTask（private subnet + NAT） | ECS RunTask（public subnet、NAT なし） | なし |
 | DB | RDS | PlanetScale Postgres（PS-5） | なし（`DATABASE_URL` を差し替えるだけ） |
 | secret | Secrets Manager → ECS の `valueFrom` | Secrets Manager → deploy workflow が Lambda の環境変数に注入 | なし |
@@ -154,9 +154,8 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | `QUEUE_TYPE` | api / worker | `bullmq` | `sqs` | Queue の実装 |
 | `SQS_QUEUE_URL_PREFIX` | api / worker | なし | `https://sqs.ap-northeast-1.amazonaws.com/<account>/project-template-min-` | queue 名を後ろに付けると queue の URL になる。`QUEUE_TYPE=sqs` のとき必須 |
-| `REFRESH_TOKEN_STORE` | api | `redis` | `database` | refresh token の保存先 |
 | `FLUSH_EVENTS_BEFORE_RESPONSE` | api | `false` | `true` | レスポンスを返す前にイベント送出の完了を待つ（[後述](#lambda-の凍結とイベント送出)） |
-| `REDIS_URL` | api / worker | 現状どおり | 設定しない | `QUEUE_TYPE=bullmq` か `REFRESH_TOKEN_STORE=redis` のときだけ Redis に接続する |
+| `REDIS_URL` | api / worker | 現状どおり | api: Upstash の URL / worker: 設定しない | api は refresh token のために常に使う。worker は `QUEUE_TYPE=bullmq` のときだけ使う |
 | `PORT` | worker | `8080` | `8080` | Lambda 用の入口が待ち受けるポート（常駐の入口は使わない） |
 | `AWS_LWA_*` | api / worker（Lambda のみ） | - | [後述](#api-を-lambda-で動かす) | Lambda Web Adapter の設定。アプリは読まない |
 
@@ -181,11 +180,13 @@ flowchart LR
 
 **レート制限**: `express-rate-limit` は in-memory のカウンタなので、短命で並列に増える Lambda では実質効かない。コードは変えずに残し、**API Gateway のステージ全体のスロットリング**（burst 100 / rate 50 req/s）で上限をかける。IP 単位の制限が必要になったら WAF（固定費 ~$6/月）か prd への移行を検討する。
 
-**デプロイと切り戻し**: API Gateway は Lambda の alias `live` を呼ぶ。デプロイは「新しいイメージで version を発行 → `live` を新 version に向ける」で、切り戻しは `live` を前の version に戻すだけ。prd の Blue/Green と承認ゲートに相当するものは minimal では持たないが、切り替え直後に readiness を叩き、失敗したら自動で前の version に戻す（step8）。
+**デプロイと切り戻し**: API Gateway は Lambda の alias `live` を呼ぶ。デプロイは「新しいイメージで version を発行 → `live` を新 version に向ける」で、切り戻しは `live` を前の version に戻すだけ。prd の Blue/Green と承認ゲートに相当するものは minimal では持たないが、切り替え直後に readiness を叩き、失敗したら自動で前の version に戻す（step6）。
 
 ### worker を SQS と Lambda で動かす
 
 **ジョブハンドラ（`apps/worker/src/jobs/*.ts`）は変更しない。** `packages/queue` の抽象（`JobQueue<T>` / `JobProcessor<T>`）は元々 SQS への差し替えを想定した作りなので、実装を足すだけで済む。
+
+**BullMQ を Upstash の上で動かす案は採らない。** BullMQ の worker は常駐して Redis を待ち受ける前提で、Lambda では動かない。常駐させるなら ECS Service が要り、待ち受けのコマンドも Upstash の従量課金に積み上がる。
 
 - **producer（api）**: `packages/queue` に `SqsJobQueue<T>` を追加し、`createJobQueue()` で `QUEUE_TYPE` に応じて BullMQ / SQS を選ぶ
 - **consumer（worker）**: SQS のバッチを `JobProcessor` に渡すアダプタ `handleSqsEvent()` を `packages/queue` に置き、worker に Lambda 用の入口 `src/lambda-server.ts` を足す
@@ -210,14 +211,15 @@ flowchart LR
 
 ### refresh token の保存先
 
-prd は refresh token を Redis に保存している（`IoRedisRefreshTokenRepository`）。minimal では Redis を持たないため、**Postgres に保存する実装を足し、`REFRESH_TOKEN_STORE` で選ぶ。**
+**prd と同じく Redis に保存し、実装（`IoRedisRefreshTokenRepository`）も変えない。** minimal では Redis に [Upstash](https://upstash.com/)（Redis 互換のサーバーレス Redis）を使い、`REDIS_URL` を Upstash に向けるだけにする。
 
-- interface（`RefreshTokenRepository`: `save` / `findUserId` / `delete`）は変えない。service 以降は無変更
-- Redis の TTL は `expires_at` 列で表す。`findUserId` は期限切れの行を返さない
-- **期限切れの行は `save` のたびに消す。** 掃除用の cron とスケジュールを増やさずに済ませるため。`expires_at` に index を張るので、minimal の規模なら負荷は無視できる
-- `apps/api/CLAUDE.md` の規約どおり Drizzle / Prisma の両方に実装し、契約テスト（`test/repository/`）では **Redis 実装も含めた 3 実装**が同じ振る舞いをすることを確かめる
-- `refresh_tokens` テーブルは prd の DB にもマイグレーションで作られるが、`REFRESH_TOKEN_STORE=redis` の間は使われない
-- Upstash（外部の Redis）を使えばアプリ変更なしで済むが、外部サービスが 1 つ増えるうえ、Redis を使うのが refresh token だけになるため採らない
+- ElastiCache は VPC の中にしか置けず、使うには Lambda を VPC に入れて NAT（~$45）か VPC endpoint を足す必要がある。Upstash はインターネット越しの TLS（`rediss://`）で接続できるので、Lambda を VPC の外に置いたまま使える
+- **プランは Pay-as-you-go**（10 万コマンドあたり $0.2、最低料金なし、ストレージは 1 GB まで無料）。リクエストが無ければ $0。Free プランは 14 日間アクセスが無いと停止されるため、本番には使わない
+- **使用量の目安**: ログインで 1、refresh で 3（読み取り・削除・保存）、ログアウトで 1 コマンド。access token の有効期限は 15 分なので、1 日 1 時間使うユーザー 1 人で 1 日約 13 コマンド。1 日 1,000 人で月 ~$0.8、1 万人で月 ~$8
+- **月の予算を設定する。** 予算に達すると Upstash が rate limit をかけ、ログインと refresh が失敗する。見積もりより十分大きくする
+- **Eviction は無効にする。** 有効だと、容量の上限に近づいたときに期限前の refresh token が消され、ユーザーがログアウトされる
+- リージョンは東京（`ap-northeast-1`）。read region は付けない
+- 検討した他の案: Postgres に `refresh_tokens` テーブルを作る案は、外部サービスが増えず、prd に移るときもユーザーをログアウトさせずに済む。ただしテーブル・2 実装（Drizzle / Prisma）・契約テストの追加に見合うメリットが薄いため採らない。prd へ移るときの再ログインは、移行のメンテナンス時の 1 回で済む（[`./deferred-migrate-to-standard.md`](./deferred-migrate-to-standard.md#refresh-token-は移さない全員が一度再ログインする)）
 
 ### Lambda の凍結とイベント送出
 
@@ -229,14 +231,6 @@ prd は refresh token を Redis に保存している（`IoRedisRefreshTokenRepo
 - api に「レスポンスを返す前に `flush()` を待つ」middleware を足し、`FLUSH_EVENTS_BEFORE_RESPONSE=true` のときだけ登録する。待つ時間には上限（3 秒）を設け、SQS が遅くてもレスポンスを止めすぎない
 - prd は `false`（既定値）なので、レスポンスの速さは今と変わらない
 - service 側の「送出は `await` しない」（`apps/api/CLAUDE.md`）という規約は変えない。待つのは middleware だけ
-
-### readiness チェック
-
-`GET /api/health/ready` は DB と Redis の両方を ping している。Redis を使わない構成では Redis の確認を省き、レスポンスの `services.redis` を省略する。
-
-- `healthReadinessResponseSchema` の `services.redis` を optional にする（prd は従来どおり含まれる）
-- 全体の `status` は「存在するサービスがすべて ok なら ok」
-- Lambda では LB のヘルスチェックが無いため、このエンドポイントを定期的に叩くものは無い。LWA の起動判定には DB に依存しない liveness（`/api/health`）を使う
 
 ### DB（PlanetScale Postgres）
 
@@ -255,7 +249,7 @@ prd は refresh token を Redis に保存している（`IoRedisRefreshTokenRepo
   - 凍結された Lambda の実行環境は DB 接続を握ったまま残るが、PgBouncer 経由なら PgBouncer の client 枠（既定 100）を使うだけで、Postgres の接続は消費しない
   - Lambda は 1 実行環境 = 1 リクエストなので、1 環境が張る接続は数本で済む。Lambda の同時実行数の上限（新規アカウントは 10）× 数本なら client 枠に収まる
   - PgBouncer は transaction pooling 固定で、トランザクションをまたいで状態を持つ機能（セッション単位の `SET`、`LISTEN` / `NOTIFY`、一時テーブル、advisory lock）は使えない。api / worker / cron / `packages/db` はいずれも使っていない
-  - `packages/db` の Pool は接続時に `options=-c TimeZone=UTC` を送る。PgBouncer は 1.20 以降この `options` を受け付け、`TimeZone` は既定でクライアントごとに引き継ぐので、接続を使い回しても UTC のまま。PS-5 での実機確認は step7 で行う（[リスク](#リスクと実装時の確認事項)参照）
+  - `packages/db` の Pool は接続時に `options=-c TimeZone=UTC` を送る。PgBouncer は 1.20 以降この `options` を受け付け、`TimeZone` は既定でクライアントごとに引き継ぐので、接続を使い回しても UTC のまま。PS-5 での実機確認は step5 で行う（[リスク](#リスクと実装時の確認事項)参照）
   - migration（drizzle-kit）も同じ接続文字列で流す。Drizzle は migration 全体を 1 トランザクションで実行するため、transaction pooling でも問題ない
 - **バックアップ**: PlanetScale の自動バックアップに任せる（保持期間は実装時に確認して README に追記する）
 - **リージョン**: アプリ（Lambda）も DB も東京。ClickHouse Cloud は prd と同じ接続先
@@ -289,6 +283,7 @@ ECS は Secrets Manager のキーを `valueFrom` で直接環境変数にでき�
 | `modules/`（追加） | `lambda-container`（コンテナイメージの Lambda + alias `live` + ロググループ）/ `http-api`（API Gateway HTTP API + 独自ドメイン）/ `sqs-queue`（queue + DLQ） |
 | `modules/`（既存の流用） | `vpc` / `ecs-cluster` / `ecs-workload`（`create_service = false`）/ `ecs-schedule-task` / `acm` / `secrets` |
 
+- PlanetScale と Upstash はコンソールで作り、Terraform では管理しない（AWS の外のサービスのため。手順は step5）
 - 命名は `project-template-min-*`。prd（`project-template-prd-*`）と衝突しないので、移行期間に両方が同時に存在できる
 - `api.<domain>` の Route53 レコードは `env/min` に直接書く。`modules/route53` は ALB 向け（`evaluate_target_health = true` 固定）なので使わない
 - Lambda の `image_uri` / `environment` / alias の `function_version` は deploy workflow が更新するため `ignore_changes` にする
@@ -307,23 +302,24 @@ flowchart LR
 
 - **イメージは `--provenance=false` で build する。** buildx が既定で付ける provenance は OCI image index になり、Lambda はこれを受け付けない
 - 切り戻しは `aws lambda update-alias --function-version <前の version>`。ECR の lifecycle（`account/ecr.tf`）は `v` で始まるタグと untagged しか消さないため、コミット SHA タグのイメージは残り、過去の version に戻せる。`--provenance=false` で build するので、untagged の子 manifest が消されて version が壊れることもない
-- 初回は Lambda の作成にイメージが必要なため、「イメージだけ push → `terraform apply` → 通常デプロイ」の順にする（手順は step8）
+- 初回は Lambda の作成にイメージが必要なため、「イメージだけ push → `terraform apply` → 通常デプロイ」の順にする（手順は step6）
 
 ### ローカル開発とテスト
 
 - **ローカルは変えない。** 新しい env の既定値は現在の挙動（BullMQ + Redis）なので、`docker compose` も `.env.local` もそのまま
 - SQS 実装は `packages/queue` のユニットテストで、AWS SDK の client をモックして検証する。`apps/api/CLAUDE.md` の「モックしてよいのは外部 SaaS だけ」に照らすと、SQS は S3 と同じく AWS のマネージドサービスで、ローカルに実体を持たないため対象に含める
-- refresh token の DB 実装は、既存の契約テスト（実 Postgres / 実 Redis）に乗せて検証する
-- Lambda 上での動作（LWA、凍結、SQS イベントソース）は minimal 環境へのデプロイ後に確認する（step8 の動作確認）
+- Lambda 上での動作（LWA、凍結、SQS イベントソース）は minimal 環境へのデプロイ後に確認する（step6 の動作確認）
 
 ### リスクと実装時の確認事項
 
 | リスク | 確認方法 | だめだった場合 |
 | --- | --- | --- |
-| PS-5 で内蔵 PgBouncer が使えない、または `packages/db` の Pool が送る `options=-c TimeZone=UTC` を PgBouncer が拒否する | step7 で port 6432 に `PGOPTIONS='-c TimeZone=UTC'` 付きで接続し、拒否されず `SHOW TimeZone` が `UTC` を返すか確認する | port 5432 に直接つなぐ。その場合は `SHOW max_connections` が「Lambda の同時実行数の上限 × 1 実行環境あたりの接続数」を上回っているかも確認する |
-| 凍結から戻った Lambda が、切れた DB 接続を使って 1 リクエスト失敗する | step8 で、30 分以上アクセスしなかった後の初回リクエストが成功するか確認する | `packages/db` の Pool に `idleTimeoutMillis` を設定する（ECS でも無害な変更） |
-| Lambda が LWA 経由で worker の `POST /events` のレスポンス（`batchItemFailures`）を正しく SQS に返さない | step8 で、わざと失敗させたメッセージだけが再試行されることを確認する | worker を zip + esbuild の Lambda ハンドラにする（代案） |
-| 既存の api / worker イメージが Lambda でそのまま起動しない（`ENTRYPOINT` の tini、`USER node`、`/tmp` 以外が読み取り専用） | step8 の初回デプロイで、両方の関数が起動して readiness / `/healthz` が通るか確認する | Lambda の `image_config` で `entry_point` を `["node"]` に上書きする（イメージは変えない） |
+| PS-5 で内蔵 PgBouncer が使えない、または `packages/db` の Pool が送る `options=-c TimeZone=UTC` を PgBouncer が拒否する | step5 で port 6432 に `PGOPTIONS='-c TimeZone=UTC'` 付きで接続し、拒否されず `SHOW TimeZone` が `UTC` を返すか確認する | port 5432 に直接つなぐ。その場合は `SHOW max_connections` が「Lambda の同時実行数の上限 × 1 実行環境あたりの接続数」を上回っているかも確認する |
+| 凍結から戻った Lambda が、切れた DB 接続を使って 1 リクエスト失敗する | step6 で、30 分以上アクセスしなかった後の初回リクエストが成功するか確認する | `packages/db` の Pool に `idleTimeoutMillis` を設定する（ECS でも無害な変更） |
+| 凍結から戻った Lambda が、切れた Redis（Upstash）接続を使って refresh が失敗する、または遅れる | step6 で、30 分以上アクセスしなかった後の初回の `POST /api/auth/refresh` が成功するか確認する | api の `src/index.ts` で `createRedisClient` に ioredis のオプション（`commandTimeout` 等）を渡し、切れた接続を早く捨てて再接続させる（ECS でも無害な変更） |
+| Upstash の月の予算に達し、ログインと refresh が止まる | step6 のコスト確認で、Upstash のコマンド数が見積もりから外れていないか見る | 予算を引き上げる。恒常的に大きいなら prd への移行を検討する |
+| Lambda が LWA 経由で worker の `POST /events` のレスポンス（`batchItemFailures`）を正しく SQS に返さない | step6 で、わざと失敗させたメッセージだけが再試行されることを確認する | worker を zip + esbuild の Lambda ハンドラにする（代案） |
+| 既存の api / worker イメージが Lambda でそのまま起動しない（`ENTRYPOINT` の tini、`USER node`、`/tmp` 以外が読み取り専用） | step6 の初回デプロイで、両方の関数が起動して readiness / `/healthz` が通るか確認する | Lambda の `image_config` で `entry_point` を `["node"]` に上書きする（イメージは変えない） |
 
 ### MVP 対象外（将来検討）
 
@@ -343,43 +339,11 @@ flowchart LR
 
 ## 必要な API
 
-新しいエンドポイントは無い。既存エンドポイントの変更は次の 1 つだけ。
-
-| メソッド | パス | 変更 |
-| --- | --- | --- |
-| GET | `/api/health/ready` | `services.redis` を optional にする。Redis を使わない構成（minimal）では省略され、全体の `status` は存在するサービスだけで判定する |
+なし（新しいエンドポイントも、既存エンドポイントの変更も無い）。
 
 ## 必要な DB 設計
 
-`REFRESH_TOKEN_STORE=database` のときに使う `refresh_tokens` テーブルを追加する。prd でもマイグレーションで作られるが、`REFRESH_TOKEN_STORE=redis` の間は使われない。
-
-| テーブル | 主要カラム | 説明 |
-| --- | --- | --- |
-| `refresh_tokens` | `jti(PK)`, `expires_at`, `user_id(FK)`, `created_at`, `updated_at` | refresh token の jti と userId の対応。Redis 実装の `refresh_token:{jti}` キーと同じ役割で、TTL を `expires_at` で表す |
-
-```mermaid
-erDiagram
-    users ||--o{ refresh_tokens : has
-    users {
-        int id PK
-        string email
-        string name
-    }
-    refresh_tokens {
-        string jti PK
-        timestamp expires_at
-        int user_id FK
-        timestamp created_at
-        timestamp updated_at
-    }
-```
-
-| カラム | 型 | 制約 | 説明 |
-| --- | --- | --- | --- |
-| `jti` | `text` | PK | JWT ID |
-| `expires_at` | `timestamp(3)` | NOT NULL、index | 有効期限（UTC）。これを過ぎた行は無効 |
-| `user_id` | `integer` | NOT NULL、FK → `users.id`（ON DELETE CASCADE）、index | トークンの持ち主 |
-| `created_at` / `updated_at` | `timestamp(3)` | NOT NULL | 共通の `timestamps` |
+なし（スキーマは変えない）。
 
 ## フロー図
 
@@ -413,35 +377,17 @@ sequenceDiagram
     W-->>Q: batchItemFailures（失敗分だけ再試行）
 ```
 
-### refresh token のローテーション（REFRESH_TOKEN_STORE=database）
-
-```mermaid
-sequenceDiagram
-    participant C as クライアント
-    participant API as api
-    participant DB as Postgres
-
-    C->>API: POST /api/auth/refresh（refresh token）
-    API->>DB: SELECT user_id FROM refresh_tokens<br/>WHERE jti = 旧 jti AND expires_at > now
-    DB-->>API: userId
-    API->>DB: DELETE 旧 jti
-    API->>DB: DELETE 期限切れの行 → INSERT 新 jti
-    API-->>C: 新しい access token / refresh token
-```
-
 ---
 
 ## 実装ステップ
 
-1 step = 1 PR を想定。step1〜6 はアプリの変更で、**マージしても prd / dev の挙動は変わらない**（既定値が現在の挙動のため）。step7〜8 で minimal 環境を作ってデプロイする。
+1 step = 1 PR を想定。step1〜4 はアプリの変更で、**マージしても prd / dev の挙動は変わらない**（既定値が現在の挙動のため）。step5〜6 で minimal 環境を作ってデプロイする。
 
 | step | 内容 |
 | --- | --- |
-| [step1-db-refresh-tokens](./tasks/step1-db-refresh-tokens.md) | `refresh_tokens` テーブル（Drizzle スキーマ + マイグレーション + Prisma モデル） |
-| [step2-api-refresh-token-store](./tasks/step2-api-refresh-token-store.md) | refresh token の DB 実装（Drizzle / Prisma）と契約テスト、`REFRESH_TOKEN_STORE` |
-| [step3-queue-sqs](./tasks/step3-queue-sqs.md) | `packages/queue` の SQS 実装（`SqsJobQueue` / `createJobQueue` / `handleSqsEvent`） |
-| [step4-api-queue-type-and-readiness](./tasks/step4-api-queue-type-and-readiness.md) | api の `QUEUE_TYPE`、Redis 無しでの起動、readiness の `services.redis` を optional に |
-| [step5-api-event-flush-and-lwa](./tasks/step5-api-event-flush-and-lwa.md) | `EventTracker.flush()` と flush middleware、api の Dockerfile に LWA |
-| [step6-worker-lambda-entry](./tasks/step6-worker-lambda-entry.md) | worker の Lambda 用入口（`lambda-server.ts`）と env、worker の Dockerfile に LWA |
-| [step7-infra-env-min](./tasks/step7-infra-env-min.md) | Terraform（`account/` の追加、新 module、`env/min`）、`seed-secrets.sh` の min 対応 |
-| [step8-ci-deploy-min](./tasks/step8-ci-deploy-min.md) | `deploy-aws-min.yml`、初回デプロイ手順、Lambda 上での動作確認 |
+| [step1-queue-sqs](./tasks/step1-queue-sqs.md) | `packages/queue` の SQS 実装（`SqsJobQueue` / `createJobQueue` / `handleSqsEvent`） |
+| [step2-api-queue-type](./tasks/step2-api-queue-type.md) | api の `QUEUE_TYPE` による Queue 実装の切り替え |
+| [step3-api-event-flush-and-lwa](./tasks/step3-api-event-flush-and-lwa.md) | `EventTracker.flush()` と flush middleware、api の Dockerfile に LWA |
+| [step4-worker-lambda-entry](./tasks/step4-worker-lambda-entry.md) | worker の Lambda 用入口（`lambda-server.ts`）と env、worker の Dockerfile に LWA |
+| [step5-infra-env-min](./tasks/step5-infra-env-min.md) | PlanetScale / Upstash の作成、Terraform（`account/` の追加、新 module、`env/min`）、`seed-secrets.sh` の min 対応 |
+| [step6-ci-deploy-min](./tasks/step6-ci-deploy-min.md) | `deploy-aws-min.yml`、初回デプロイ手順、Lambda 上での動作確認 |

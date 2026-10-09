@@ -1,10 +1,10 @@
-# step8-ci-deploy-min
+# step6-ci-deploy-min
 
 minimal 環境へのデプロイ workflow（`.github/workflows/deploy-aws-min.yml`）を作り、初回デプロイと Lambda 上での動作確認を行う。prd の `deploy-aws-prd.yml` には手を入れない。
 
 設計: [`../README.md`](../README.md#デプロイ) / [secret と環境変数の注入](../README.md#secret-と環境変数の注入)
 
-前提: [step7-infra-env-min](./step7-infra-env-min.md)
+前提: [step5-infra-env-min](./step5-infra-env-min.md)
 
 ## 対応内容
 
@@ -23,7 +23,7 @@ flowchart LR
 
 - `on: workflow_dispatch`、入力は `push_only`（boolean、既定 `false`）。初回だけ `true` で実行し、Lambda の作成に使うイメージを用意する
 - `concurrency: { group: deploy-aws-min, cancel-in-progress: false }`（prd と同じく並列デプロイを禁止する）
-- GitHub Environment は `min`（`AWS_ROLE_ARN` は step7 で登録した `github_actions_min` role）
+- GitHub Environment は `min`（`AWS_ROLE_ARN` は step5 で登録した `github_actions_min` role）
 - 環境ごとの値は prd の workflow と同じく先頭の `env:` に並べる
 
 ```yaml
@@ -88,14 +88,14 @@ Lambda ごとに「環境変数の設定 → 新しいイメージで version �
 
 | 関数 | secret から渡すキー |
 | --- | --- |
-| api | `DATABASE_URL` / `FRONTEND_URL` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `JWT_ACCESS_EXPIRATION` / `JWT_ACCESS_SECRET` / `JWT_REFRESH_EXPIRATION` / `JWT_REFRESH_SECRET` / `NODE_ENV` / `PORT` |
+| api | `DATABASE_URL` / `FRONTEND_URL` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `JWT_ACCESS_EXPIRATION` / `JWT_ACCESS_SECRET` / `JWT_REFRESH_EXPIRATION` / `JWT_REFRESH_SECRET` / `NODE_ENV` / `PORT` / `REDIS_URL` |
 | worker | `DATABASE_URL` / `DATA_WAREHOUSE_DATABASE` / `DATA_WAREHOUSE_PASSWORD` / `DATA_WAREHOUSE_URL` / `DATA_WAREHOUSE_USER` / `NODE_ENV` |
 
 **固定値**（minimal で実装を切り替える値。workflow に直書きする）:
 
 | 関数 | 固定値 |
 | --- | --- |
-| api | `QUEUE_TYPE=sqs` / `REFRESH_TOKEN_STORE=database` / `FLUSH_EVENTS_BEFORE_RESPONSE=true` / `SQS_QUEUE_URL_PREFIX` / `AWS_LWA_PORT=8080` / `AWS_LWA_READINESS_CHECK_PATH=/api/health` |
+| api | `QUEUE_TYPE=sqs` / `FLUSH_EVENTS_BEFORE_RESPONSE=true` / `SQS_QUEUE_URL_PREFIX` / `AWS_LWA_PORT=8080` / `AWS_LWA_READINESS_CHECK_PATH=/api/health` |
 | worker | `QUEUE_TYPE=sqs` / `SQS_QUEUE_URL_PREFIX` / `DATA_WAREHOUSE_TYPE=clickhouse` / `PORT=8080` / `AWS_LWA_PORT=8080` / `AWS_LWA_READINESS_CHECK_PATH=/healthz` / `AWS_LWA_PASS_THROUGH_PATH=/events` |
 
 `SQS_QUEUE_URL_PREFIX` は命名規則から組み立てる（prd の workflow が VPC をタグから引くのと同じく、Terraform の output に依存しない）。
@@ -174,14 +174,15 @@ prd の deploy-cron job と同じ（task definition の image を差し替えて
 
 Lambda は作成時にイメージが必要なので、次の順で行う。
 
-1. step7 の `account/` をローカルから apply し、GitHub の Environment `min` を作って `AWS_ROLE_ARN` を登録する
-2. PlanetScale のデータベースを作る（step7）
+1. step5 の `account/` をローカルから apply し、GitHub の Environment `min` を作って `AWS_ROLE_ARN` を登録する
+2. PlanetScale のデータベースと Upstash の Redis を作る（step5）
 3. `deploy-aws-min.yml` を `push_only: true` で実行する（SHA と `initial` のタグでイメージが push される）
 4. `terraform-aws-env-apply.yml` を `environment: min` で実行する（または `cd infra/terraform/aws/env/min && terraform apply`）。ACM の DNS 検証が終わるまで数分かかる
 5. secret を投入する
 
     ```bash
     EXTERNAL_DATABASE_URL='postgresql://<user>:<password>@<host>:6432/<db>?sslmode=verify-full' \
+    EXTERNAL_REDIS_URL='rediss://default:<password>@<endpoint>:6379' \
     GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... \
     FRONTEND_URL=https://<web のドメイン> \
       ./scripts/seed-secrets.sh min
@@ -196,14 +197,15 @@ minimal 環境にデプロイした状態で、Lambda 上でしか確認でき�
 ### api
 
 - [ ] `curl https://api.<domain>/api/health` が `200`
-- [ ] `curl https://api.<domain>/api/health/ready` が `200` で、`services` に `redis` が無い
-- [ ] Google ログイン → `POST /api/auth/refresh` → `POST /api/auth/logout` が成功し、PlanetScale の `refresh_tokens` の行が増減する
+- [ ] `curl https://api.<domain>/api/health/ready` が `200` で、`services` の `database` と `redis` がどちらも `ok`
+- [ ] Google ログイン → `POST /api/auth/refresh` → `POST /api/auth/logout` が成功し、Upstash の `refresh_token:*` のキーが増減する（`redis-cli --tls -u '<接続文字列>' --scan --pattern 'refresh_token:*'`）。キーに TTL が付いている（`TTL refresh_token:<jti>` が正の値）
 - [ ] メモの作成・更新・削除が成功する
 - [ ] API Gateway の execute-api の URL（`https://<api-id>.execute-api...`）では呼べない（`disable_execute_api_endpoint`）
 
 ### コールドスタートと凍結
 
 - [ ] 30 分以上アクセスしなかった後の初回リクエストが成功し、応答時間が 3 秒以内（[リスク](../README.md#リスクと実装時の確認事項)の「切れた DB 接続」の確認を兼ねる）
+- [ ] 30 分以上アクセスしなかった後の初回の `POST /api/auth/refresh` が成功し、応答時間が 3 秒以内（[リスク](../README.md#リスクと実装時の確認事項)の「切れた Redis 接続」の確認）
 - [ ] メモを 10 回作成した直後にアクセスを止め、30 分後に SQS の `NumberOfMessagesSent`（CloudWatch）が 10 になっている（flush middleware により、凍結の前に送り切れている）
 
 ### worker
@@ -225,5 +227,6 @@ minimal 環境にデプロイした状態で、Lambda 上でしか確認でき�
 
 ### コスト
 
-- [ ] デプロイから数日後、Cost Explorer をタグ `Environment = min` で絞り込み、1 日あたりの費用が想定（月 ~$2 = 1 日 ~$0.07。PlanetScale の $5 は AWS の外）に収まっている
+- [ ] デプロイから数日後、Cost Explorer をタグ `Environment = min` で絞り込み、1 日あたりの費用が想定（月 ~$2 = 1 日 ~$0.07。PlanetScale の $5 と Upstash の従量は AWS の外）に収まっている
+- [ ] Upstash のコンソールで、1 日あたりのコマンド数が [refresh token の保存先](../README.md#refresh-token-の保存先) の見積もりから大きく外れていない
 - [ ] 想定を超えていたら、内訳（API Gateway / Lambda / CloudWatch Logs）を `../README.md` の「コスト目標」に追記する

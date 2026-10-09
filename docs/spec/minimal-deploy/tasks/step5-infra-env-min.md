@@ -1,10 +1,10 @@
-# step7-infra-env-min
+# step5-infra-env-min
 
 minimal 環境の Terraform を作る。`infra/terraform/aws/env/min/` を新設し、Lambda / API Gateway / SQS 用の module を追加する。`account/` には GitHub Actions 用の IAM role を足す。**`env/prd` / `env/dev` と既存の module の挙動には手を入れない。**
 
 設計: [`../README.md`](../README.md#iac-の構成)
 
-前提: [step5-api-event-flush-and-lwa](./step5-api-event-flush-and-lwa.md) / [step6-worker-lambda-entry](./step6-worker-lambda-entry.md)（LWA 入りのイメージが必要）
+前提: [step3-api-event-flush-and-lwa](./step3-api-event-flush-and-lwa.md) / [step4-worker-lambda-entry](./step4-worker-lambda-entry.md)（LWA 入りのイメージが必要）
 
 ## 対応内容
 
@@ -22,6 +22,22 @@ minimal 環境の Terraform を作る。`infra/terraform/aws/env/min/` を新設
 
     `unsupported startup parameter: options` で拒否されず、`UTC` が返れば OK
 4. 自動バックアップの保持期間を確認し、`../README.md` の「DB（PlanetScale Postgres）」に追記する
+
+### Upstash Redis（Terraform の管理外）
+
+refresh token の保存先。PlanetScale と同じくコンソールで作る（Upstash を使う理由は [refresh token の保存先](../README.md#refresh-token-の保存先)）。
+
+1. Redis のデータベースを作る。リージョン `AWS ap-northeast-1 (Tokyo)`、read region は付けない、プラン `Pay as You Go`
+2. Eviction が無効になっていることを確認する。有効だと、容量の上限に近づいたときに期限前の refresh token が消され、ユーザーがログアウトされる
+3. 月の予算（Budget）を設定する。予算に達すると Upstash が rate limit をかけ、ログインと refresh が失敗するため、想定の使用量より十分大きくする（目安は [refresh token の保存先](../README.md#refresh-token-の保存先)）
+4. TLS 付きの接続文字列（`rediss://default:<password>@<endpoint>:6379`）を控える
+5. 接続できるか確認する
+
+    ```bash
+    redis-cli --tls -u '<4 で控えた接続文字列>' PING
+    ```
+
+    `PONG` が返れば OK
 
 ### `account/`
 
@@ -322,7 +338,7 @@ outputs: `api_id` / `target_domain_name` / `hosted_zone_id`（`aws_apigatewayv2_
 
 | 変数 | 既定値 | 説明 |
 | --- | --- | --- |
-| `bootstrap_image_tag` | `"initial"` | Lambda を**作成するときだけ**使うイメージのタグ。初回の手順は step8 |
+| `bootstrap_image_tag` | `"initial"` | Lambda を**作成するときだけ**使うイメージのタグ。初回の手順は step6 |
 | `api_throttling_burst_limit` | `100` | API Gateway のバースト上限 |
 | `api_throttling_rate_limit` | `50` | API Gateway の 1 秒あたりの上限 |
 | `worker_maximum_concurrency` | `2` | SQS イベントソースの同時実行数（設定できる最小値）。DB の接続数を抑える |
@@ -396,8 +412,8 @@ module "vpc" {
 }
 
 /**
- * アプリの secret。RDS / Redis が無いので DB_PASSWORD / REDIS_* は持たない。
- * DATABASE_URL（PlanetScale）は scripts/seed-secrets.sh min で投入する。
+ * アプリの secret。RDS / ElastiCache が無いので DB_PASSWORD / REDIS_PORT / REDIS_DB は持たない。
+ * DATABASE_URL（PlanetScale）と REDIS_URL（Upstash）は scripts/seed-secrets.sh min で投入する。
  */
 module "app_secrets" {
   source = "../../modules/secrets"
@@ -542,16 +558,17 @@ resource "aws_route53_record" "api" {
 
 ### `scripts/seed-secrets.sh`
 
-min は RDS / ElastiCache の output が無いので、既存の「terraform output から組み立てる」処理は自動で skip される。PlanetScale の接続文字列を環境変数から受け取る処理を足す。
+min は RDS / ElastiCache の output が無いので、既存の「terraform output から組み立てる」処理は自動で skip される。PlanetScale と Upstash の接続文字列を環境変数から受け取る処理を足す。
 
 ```bash
-# 外部 DB（minimal 構成の PlanetScale 等）。RDS を持たない環境でだけ使う。
-# 変数名を DATABASE_URL にしないのは、ローカルのシェルに入っている DATABASE_URL を
+# 外部の DB / Redis（minimal 構成の PlanetScale / Upstash 等）。RDS / ElastiCache を持たない環境でだけ使う。
+# 変数名を DATABASE_URL / REDIS_URL にしないのは、ローカルのシェルに入っている値を
 # 誤って本番の secret に書き込まないため。
 add_kv "DATABASE_URL"           "${EXTERNAL_DATABASE_URL:-}"  "env"
+add_kv "REDIS_URL"              "${EXTERNAL_REDIS_URL:-}"     "env"
 ```
 
-RDS がある環境（dev / prd）では、後段の RDS の処理が `DATABASE_URL` を上書きするので影響しない。ヘッダーコメントの環境変数一覧にも `EXTERNAL_DATABASE_URL` を足す。
+RDS / ElastiCache がある環境（dev / prd）では、後段の処理が `DATABASE_URL` / `REDIS_URL` を上書きするので影響しない。ヘッダーコメントの環境変数一覧にも `EXTERNAL_DATABASE_URL` / `EXTERNAL_REDIS_URL` を足す。
 
 ### CI / ドキュメント
 
@@ -576,4 +593,5 @@ terraform plan
 - [ ] `env/min` の plan に NAT Gateway / ALB / RDS / ElastiCache / ECS Service が無い
 - [ ] trivy の指摘は、意図したもの（public subnet の ECS タスクに public IP を付ける等）だけを理由付きで `.trivyignore` に入れる
 - [ ] PlanetScale の port 6432（PgBouncer）に `PGOPTIONS='-c TimeZone=UTC'` 付きで接続でき、`SHOW TimeZone` が `UTC` を返す。接続できなければ [リスク](../README.md#リスクと実装時の確認事項)の「だめだった場合」に従う
-- [ ] apply と初回デプロイは step8 の手順で行う
+- [ ] Upstash に `redis-cli --tls` で接続でき、`PING` が `PONG` を返す。Eviction が無効で、月の予算が設定されている
+- [ ] apply と初回デプロイは step6 の手順で行う

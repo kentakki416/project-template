@@ -1,4 +1,4 @@
-# step3-queue-sqs
+# step1-queue-sqs
 
 `packages/queue` に SQS 実装を追加する。producer 用の `SqsJobQueue<T>` と `QUEUE_TYPE` で実装を選ぶ `createJobQueue()`、consumer（Lambda）用に SQS のバッチを `JobProcessor` へ渡す `handleSqsEvent()` を作る。この step ではどの app からも使わない（prd / dev の挙動は変わらない）。
 
