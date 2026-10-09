@@ -12,15 +12,16 @@ minimal 環境へのデプロイ workflow（`.github/workflows/deploy-aws-min.ym
 
 ```mermaid
 flowchart LR
-    B[build] --> M[migrate]
+    D[detect<br/>worker の有無] --> B[build<br/>worker は有効なときだけ]
+    B --> M[migrate]
     B -. push_only=true なら<br/>ここで終わる .-> X((終了))
     M --> A[deploy-api]
     M --> W[deploy-worker<br/>worker があるときだけ]
     M --> C[deploy-cron]
-    D[detect<br/>worker の有無] --> A
+    D --> A
     D --> W
     A --> S{smoke test<br/>/api/health/ready}
-    S -- 失敗 --> R[alias を<br/>前の version に戻す]
+    S -- 失敗 / キャンセル --> R[alias を<br/>前の version に戻す]
 ```
 
 - `on: workflow_dispatch`、入力は `push_only`（boolean、既定 `false`）。初回だけ `true` で実行し、Lambda と worker の ECS Service の作成に使うイメージを用意する
@@ -67,14 +68,15 @@ else
 fi
 ```
 
-`push_only=true` の初回は Terraform を apply する前なので、cluster が無く `describe-services` が失敗する。detect にも `if: ${{ !inputs.push_only }}` を付ける。
+`push_only=true` の初回は Terraform を apply する前なので、cluster が無く `describe-services` が失敗する。そのときは調べないよう、detect の step に `if: ${{ !inputs.push_only }}` を付ける（build が detect を待つので、job ごとは skip しない。`worker_enabled` は空になる）。
 
 ### build
 
-prd の build job と同じく、4 つのイメージをコミット SHA（12 桁）のタグで push する。worker のイメージは `enable_worker` に関係なく毎回作る（後から worker を有効にしたときに、すぐ使えるイメージを ECR に置いておくため）。prd との違いは 2 点。
+prd の build job と同じく、イメージをコミット SHA（12 桁）のタグで push する。prd との違いは 3 点。
 
 - **`--provenance=false` を付ける。** buildx の既定の provenance は OCI image index になり、Lambda はこれを受け付けない（api 以外も揃えて付ける）
 - `push_only=true` のときは api / worker に `initial` タグも付ける（`env/min` の `bootstrap_image_tag` の既定値。Lambda と worker の ECS Service の作成時だけ使う）
+- **worker のイメージは、worker があるとき（detect の `worker_enabled` が `true`）と `push_only=true` のときだけ作る**（step に `if: ${{ inputs.push_only || needs.detect.outputs.worker_enabled == 'true' }}`）。worker を有効にするときは、apply で `initial` タグのイメージから Service が作られ、続く deploy が最新のイメージを build して差し替える。無効な間に作っても使われず、ECR の保管料だけが増える
 
 ```bash
 IMAGE="${{ steps.ecr.outputs.registry }}/${{ env.ECR_API_REPO }}"
@@ -91,7 +93,7 @@ docker buildx build \
   .
 ```
 
-build 以外の job にはすべて `if: ${{ !inputs.push_only }}` を付ける。
+build と detect 以外の job にはすべて `if: ${{ !inputs.push_only }}` を付ける。
 
 ### migrate
 
@@ -122,13 +124,20 @@ FIXED_ENV_JSON=$(jq -n --arg tracker "${EVENT_TRACKER_TYPE}" '{
 }')
 ```
 
-job の各 step で使う値は、step の `env:` で定義する（job の `env:` からは workflow の `env` を参照できないため）。
+job の各 step で使う値は、step の `env:` で定義する（job の `env:` からは workflow の `env` を参照できないため）。`API_URL` は検証・デプロイ・smoke test の各 step で使うので、job の `env:` に置く（`vars` は job の `env:` から参照できる）。
 
 ```yaml
+  deploy-api:
+    # ...
+    timeout-minutes: 20
+    environment: min
+    env:
+      API_URL: ${{ vars.API_URL }}
+    steps:
+      # ...
       - name: Deploy Lambda function
         id: deploy
         env:
-          API_URL: ${{ vars.API_URL }}
           FUNCTION: ${{ env.LAMBDA_API_FUNCTION }}
           IMAGE: ${{ needs.build.outputs.registry }}/${{ env.ECR_API_REPO }}:${{ needs.build.outputs.image_tag }}
           SECRET_KEYS_JSON: >-
@@ -190,20 +199,29 @@ echo "previous_version=${PREVIOUS}" >> "$GITHUB_OUTPUT"
 
 初回デプロイの `PREVIOUS` は Terraform が作成時に発行した version（`initial` イメージで、環境変数が無い）なので、切り戻し先としては使えない。2 回目以降のデプロイから切り戻しが意味を持つ。
 
-**smoke test と自動の切り戻し**: alias の切り替え後に `${API_URL}/api/health/ready` を叩き、`200` 以外なら alias を `PREVIOUS` に戻して job を失敗させる。prd の Blue/Green + 承認ゲートの代わりに、最低限「壊れたまま公開し続けない」ことを保証する。
+**smoke test と自動の切り戻し**: alias の切り替え後に `${API_URL}/api/health/ready` を叩く。`200` 以外で smoke test が失敗したとき、または alias の切り替え後に run がキャンセルされたときは、別の step で alias を `PREVIOUS` に戻す（prd の `reject-api` と同じく `failure() || cancelled()` で動かす）。prd の Blue/Green + 承認ゲートの代わりに、最低限「壊れたまま公開し続けない」ことを保証する。
 
 DNS / TLS / API Gateway が応答しないときに待ち続けて切り戻しが走らない、ということが無いよう、接続（5 秒）・1 回のリクエスト（10 秒）・リトライ全体（60 秒）のすべてに上限を付ける。job にも `timeout-minutes: 20` を付ける。
 
-```bash
-if ! curl -fsS --connect-timeout 5 --max-time 10 \
-  --retry 3 --retry-delay 5 --retry-max-time 60 --retry-all-errors \
-  "${API_URL}/api/health/ready"; then
-  echo "::error::smoke test failed, rolling back to version ${PREVIOUS}"
-  aws lambda update-alias \
-    --function-name "${FUNCTION}" --name live --function-version "${PREVIOUS}" > /dev/null
-  exit 1
-fi
+```yaml
+      - name: Smoke test
+        run: |
+          curl -fsS --connect-timeout 5 --max-time 10 \
+            --retry 3 --retry-delay 5 --retry-max-time 60 --retry-all-errors \
+            "${API_URL}/api/health/ready"
+
+      - name: Roll back to previous version
+        if: ${{ (failure() || cancelled()) && steps.deploy.outputs.previous_version != '' }}
+        env:
+          FUNCTION: ${{ env.LAMBDA_API_FUNCTION }}
+          PREVIOUS: ${{ steps.deploy.outputs.previous_version }}
+        run: |
+          echo "::error::rolling back to version ${PREVIOUS}"
+          aws lambda update-alias \
+            --function-name "${FUNCTION}" --name live --function-version "${PREVIOUS}" > /dev/null
 ```
+
+`previous_version` は alias を切り替えた後に output するので、切り替える前に失敗・キャンセルした場合は戻さない（alias は前の version のまま）。
 
 ### deploy-worker
 
@@ -275,6 +293,7 @@ minimal 環境にデプロイした状態で、AWS 上でしか確認できな�
 ### worker なし（`enable_worker = false`）
 
 - [ ] Lambda の環境変数が `EVENT_TRACKER_TYPE=none` になっている
+- [ ] build job の worker のイメージの step が skip され、ECR の worker のリポジトリにその run の SHA タグが増えていない
 - [ ] メモを作成しても、Upstash に `bull:track-event:*` のキーが増えない
 
 ### worker あり（`enable_worker = true`）
@@ -296,6 +315,7 @@ minimal 環境にデプロイした状態で、AWS 上でしか確認できな�
 - [ ] Step Summary のコマンドで前の version に戻せ、戻した後も api が `200` を返す
 - [ ] Environment の variable `API_URL` をわざと誤った値にして実行すると、smoke test が失敗して alias が前の version に戻る（確認後に値を戻す）
 - [ ] variable `API_URL` を消して実行すると、Lambda を更新する前に job が止まる（確認後に値を戻す）
+- [ ] variable `API_URL` を誤った値にして実行し、smoke test のリトライ中に run をキャンセルすると、Roll back の step が動いて alias が前の version に戻る（確認後に値を戻す）
 
 ### コスト
 
