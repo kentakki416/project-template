@@ -4,7 +4,9 @@ import request from "supertest"
 import type { EventTracker } from "@repo/events"
 import { LoggerFactory } from "@repo/logger"
 
-import { FLUSH_TIMEOUT_MS, flushEventsBeforeResponse, waitForFlush } from "../../src/middleware/flush-events"
+import { flushEventsBeforeResponse, forTesting } from "../../src/middleware/flush-events"
+
+const { FLUSH_TIMEOUT_MS, waitForFlush } = forTesting
 
 /**
  * flush の挙動だけを差し替えられる EventTracker
