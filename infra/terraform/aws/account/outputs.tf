@@ -35,6 +35,11 @@ output "github_actions_prd_role_arn" {
 }
 
 output "github_actions_min_role_arn" {
-  description = "GitHub Actions min 環境用 IAM ロールの ARN (GitHub Environments の min → AWS_ROLE_ARN に登録)"
+  description = "GitHub Actions min 環境の deploy 用 IAM ロールの ARN (GitHub Environments の min → AWS_ROLE_ARN に登録)"
   value       = aws_iam_role.github_actions_min.arn
+}
+
+output "github_actions_min_terraform_role_arn" {
+  description = "GitHub Actions min 環境の terraform 用 IAM ロールの ARN (GitHub Environments の min-terraform → AWS_ROLE_ARN に登録)"
+  value       = aws_iam_role.github_actions_min_terraform.arn
 }

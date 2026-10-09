@@ -99,9 +99,12 @@ resource "aws_iam_role" "github_actions_prd" {
 }
 
 /**
- * minimal 環境用 GitHub Actions IAM ロール。
+ * minimal 環境用 GitHub Actions IAM ロール（deploy 用）。
  *
  * minimal は初期リリースの本番（api は Lambda、worker は必要なときだけ Fargate Spot）。
+ * deploy-aws-min.yml はアプリのコードを build し外部の action も動かすため、侵害されたときに
+ * AWS アカウント全体を変更できないよう、admin は付けずデプロイに必要な権限だけを持たせる。
+ * terraform plan / apply は別の role（github_actions_min_terraform）を使う。
  * GitHub Environment が min のワークフローからのみ assume できるよう sub claim を限定する。
  * 設計: docs/spec/minimal-deploy/README.md
  */
@@ -133,6 +136,43 @@ data "aws_iam_policy_document" "github_actions_min_trust" {
 resource "aws_iam_role" "github_actions_min" {
   name               = "${var.project_name}-github-actions-min"
   assume_role_policy = data.aws_iam_policy_document.github_actions_min_trust.json
+}
+
+/**
+ * minimal 環境用 GitHub Actions IAM ロール（terraform plan / apply 用）。
+ *
+ * dev / prd と同じく AdministratorAccess で運用する（下の TODO と共通）。deploy workflow から
+ * 使われないよう、GitHub Environment が min-terraform のワークフローからのみ assume できるようにする。
+ * terraform-aws-env-ci.yml / terraform-aws-env-apply.yml は対象が min のとき min-terraform を使う。
+ */
+data "aws_iam_policy_document" "github_actions_min_terraform_trust" {
+  statement {
+    sid     = "GitHubOIDCMinTerraformEnvironment"
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_repository}:environment:min-terraform"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_actions_min_terraform" {
+  name               = "${var.project_name}-github-actions-min-terraform"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_min_terraform_trust.json
 }
 
 # ECR プッシュポリシー
@@ -296,13 +336,15 @@ resource "aws_iam_role_policy_attachment" "github_actions_admin_prd" {
 }
 
 # =============================================================================
-# min role への policy attachment
+# min role (deploy 用) への policy attachment
 # =============================================================================
+# admin は付けず、deploy-aws-min.yml に必要な権限だけにする (ecr_push / ecs_deploy / deploy_min)。
 
-# minimal の api（Lambda）のデプロイ用ポリシー（min 専用）。
-# deploy-aws-min.yml が環境変数の設定 → version の発行 → alias live の切り替えを行い、
-# 環境変数に入れる値を app secret から読む。
-data "aws_iam_policy_document" "lambda_deploy_min" {
+# deploy-aws-min.yml 専用のポリシー (min 専用)。
+# - api (Lambda) の環境変数の設定 → version の発行 → alias live の切り替え
+# - Lambda の環境変数に入れる値を app secret から読む
+# - migration の run-task に渡す VPC / subnet / security group をタグから引く
+data "aws_iam_policy_document" "deploy_min" {
   statement {
     sid    = "DeployLambdaFunctions"
     effect = "Allow"
@@ -325,12 +367,26 @@ data "aws_iam_policy_document" "lambda_deploy_min" {
     actions   = ["secretsmanager:GetSecretValue"]
     resources = ["arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:/${var.project_name}-min/app-*"]
   }
+
+  /**
+   * EC2 の Describe 系は resource を絞れない (resource-level permission 非対応) ため "*"。読み取りのみ
+   */
+  statement {
+    sid    = "ResolveNetwork"
+    effect = "Allow"
+    actions = [
+      "ec2:DescribeSecurityGroups",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeVpcs",
+    ]
+    resources = ["*"]
+  }
 }
 
-resource "aws_iam_policy" "lambda_deploy_min" {
-  name        = "${var.project_name}-lambda-deploy-min"
-  description = "Policy for deploying Lambda functions of the minimal environment"
-  policy      = data.aws_iam_policy_document.lambda_deploy_min.json
+resource "aws_iam_policy" "deploy_min" {
+  name        = "${var.project_name}-deploy-min"
+  description = "Policy for deploy-aws-min.yml (Lambda deploy, app secret read, network resolution)"
+  policy      = data.aws_iam_policy_document.deploy_min.json
 }
 
 resource "aws_iam_role_policy_attachment" "ecr_push_min" {
@@ -343,14 +399,18 @@ resource "aws_iam_role_policy_attachment" "ecs_deploy_min" {
   policy_arn = aws_iam_policy.ecs_deploy.arn
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_deploy_min" {
+resource "aws_iam_role_policy_attachment" "deploy_min" {
   role       = aws_iam_role.github_actions_min.name
-  policy_arn = aws_iam_policy.lambda_deploy_min.arn
+  policy_arn = aws_iam_policy.deploy_min.arn
 }
+
+# =============================================================================
+# min-terraform role (terraform plan / apply 用) への policy attachment
+# =============================================================================
 
 # env/min の terraform plan / apply 用。dev / prd と同じ理由で当面 admin で運用する
 # (TODO は github_actions_admin_dev / github_actions_admin_prd と共通)。
-resource "aws_iam_role_policy_attachment" "github_actions_admin_min" {
-  role       = aws_iam_role.github_actions_min.name
+resource "aws_iam_role_policy_attachment" "github_actions_admin_min_terraform" {
+  role       = aws_iam_role.github_actions_min_terraform.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
