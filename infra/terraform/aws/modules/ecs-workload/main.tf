@@ -98,7 +98,18 @@ resource "aws_ecs_service" "this" {
   cluster         = var.cluster_arn
   task_definition = data.aws_ecs_task_definition.current[0].arn
   desired_count   = var.desired_count
-  launch_type     = "FARGATE"
+
+  # launch_type と capacity_provider_strategy は同時に指定できない。
+  # capacity_provider が null (既定) なら従来どおり launch_type = FARGATE で起動する。
+  launch_type = var.capacity_provider == null ? "FARGATE" : null
+
+  dynamic "capacity_provider_strategy" {
+    for_each = var.capacity_provider == null ? [] : [var.capacity_provider]
+    content {
+      capacity_provider = capacity_provider_strategy.value
+      weight            = 1
+    }
+  }
 
   network_configuration {
     subnets          = var.subnets

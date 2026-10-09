@@ -98,6 +98,43 @@ resource "aws_iam_role" "github_actions_prd" {
   assume_role_policy = data.aws_iam_policy_document.github_actions_prd_trust.json
 }
 
+/**
+ * minimal 環境用 GitHub Actions IAM ロール。
+ *
+ * minimal は初期リリースの本番（api は Lambda、worker は必要なときだけ Fargate Spot）。
+ * GitHub Environment が min のワークフローからのみ assume できるよう sub claim を限定する。
+ * 設計: docs/spec/minimal-deploy/README.md
+ */
+data "aws_iam_policy_document" "github_actions_min_trust" {
+  statement {
+    sid     = "GitHubOIDCMinEnvironment"
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_repository}:environment:min"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_actions_min" {
+  name               = "${var.project_name}-github-actions-min"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_min_trust.json
+}
+
 # ECR プッシュポリシー
 data "aws_iam_policy_document" "ecr_push" {
   statement {
@@ -255,5 +292,65 @@ resource "aws_iam_role_policy_attachment" "ssm_deploy_approval_prd" {
 #       dev / prd 共通の scoped policy に切り替えて本 attachment は両方剥がす。
 resource "aws_iam_role_policy_attachment" "github_actions_admin_prd" {
   role       = aws_iam_role.github_actions_prd.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
+# =============================================================================
+# min role への policy attachment
+# =============================================================================
+
+# minimal の api（Lambda）のデプロイ用ポリシー（min 専用）。
+# deploy-aws-min.yml が環境変数の設定 → version の発行 → alias live の切り替えを行い、
+# 環境変数に入れる値を app secret から読む。
+data "aws_iam_policy_document" "lambda_deploy_min" {
+  statement {
+    sid    = "DeployLambdaFunctions"
+    effect = "Allow"
+    actions = [
+      "lambda:GetAlias",
+      "lambda:GetFunction",
+      "lambda:GetFunctionConfiguration",
+      "lambda:ListVersionsByFunction",
+      "lambda:PublishVersion",
+      "lambda:UpdateAlias",
+      "lambda:UpdateFunctionCode",
+      "lambda:UpdateFunctionConfiguration",
+    ]
+    resources = ["arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:${var.project_name}-min-*"]
+  }
+
+  statement {
+    sid       = "ReadAppSecret"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = ["arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:/${var.project_name}-min/app-*"]
+  }
+}
+
+resource "aws_iam_policy" "lambda_deploy_min" {
+  name        = "${var.project_name}-lambda-deploy-min"
+  description = "Policy for deploying Lambda functions of the minimal environment"
+  policy      = data.aws_iam_policy_document.lambda_deploy_min.json
+}
+
+resource "aws_iam_role_policy_attachment" "ecr_push_min" {
+  role       = aws_iam_role.github_actions_min.name
+  policy_arn = aws_iam_policy.ecr_push.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_deploy_min" {
+  role       = aws_iam_role.github_actions_min.name
+  policy_arn = aws_iam_policy.ecs_deploy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_deploy_min" {
+  role       = aws_iam_role.github_actions_min.name
+  policy_arn = aws_iam_policy.lambda_deploy_min.arn
+}
+
+# env/min の terraform plan / apply 用。dev / prd と同じ理由で当面 admin で運用する
+# (TODO は github_actions_admin_dev / github_actions_admin_prd と共通)。
+resource "aws_iam_role_policy_attachment" "github_actions_admin_min" {
+  role       = aws_iam_role.github_actions_min.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
