@@ -7,13 +7,15 @@
     ".": "./index.js",
     "./common-rules": "./common-rules.js",
     "./db-boundary": "./db-boundary.js",
-    "./frontend-boundary": "./frontend-boundary.js"
+    "./frontend-boundary": "./frontend-boundary.js",
+    "./test-only-exports": "./test-only-exports.js"
   },
   "files": [
     "common-rules.js",
     "db-boundary.js",
     "frontend-boundary.js",
-    "index.js"
+    "index.js",
+    "test-only-exports.js"
   ],
   "dependencies": {
     "@stylistic/eslint-plugin": "^5.10.0",

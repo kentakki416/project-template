@@ -6,6 +6,7 @@ const vitestPlugin = require("@vitest/eslint-plugin")
 
 const { commonPlugins, commonRules } = require("@repo/eslint-config/common-rules")
 const dbBoundary = require("@repo/eslint-config/db-boundary")
+const testOnlyExports = require("@repo/eslint-config/test-only-exports")
 
 module.exports = defineConfig([
   {
@@ -43,6 +44,11 @@ module.exports = defineConfig([
    * packages/eslint-config/db-boundary.js を参照。
    */
   ...dbBoundary,
+  /**
+   * テストからだけ使う export（forTesting）をテスト以外から使わせない。
+   * 詳細は packages/eslint-config/test-only-exports.js を参照。
+   */
+  ...testOnlyExports,
   {
     files: ["test/**/*.ts"],
     plugins: {
