@@ -1,6 +1,8 @@
 import { UnrecoverableError } from "bullmq"
 
-import { isTerminalJobFailure } from "../src/bullmq-queue"
+import { forTesting } from "../src/bullmq-queue"
+
+const { isTerminalJobFailure } = forTesting
 
 /**
  * 失敗が「終局（もうリトライされない）」かの判定。

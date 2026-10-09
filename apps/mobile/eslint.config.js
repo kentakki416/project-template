@@ -5,6 +5,7 @@ const tailwindcss = require("eslint-plugin-tailwindcss")
 
 const { commonNamingConvention, commonPlugins, commonRules } = require("@repo/eslint-config/common-rules")
 const frontendBoundary = require("@repo/eslint-config/frontend-boundary")
+const testOnlyExports = require("@repo/eslint-config/test-only-exports")
 
 /**
  * mobile では Expo Router の `unstable_*` 変数を許容するため、
@@ -70,6 +71,11 @@ module.exports = defineConfig([
    * 詳細は packages/eslint-config/frontend-boundary.js を参照。
    */
   ...frontendBoundary,
+  /**
+   * テストからだけ使う export（forTesting）をテスト以外から使わせない。
+   * 詳細は packages/eslint-config/test-only-exports.js を参照。
+   */
+  ...testOnlyExports,
   /**
    * `EXPO_PUBLIC_*` の参照は src/env.ts に閉じる。
    *

@@ -8,6 +8,7 @@ import tailwindcss from "eslint-plugin-tailwindcss"
 
 import eslintConfigCommonRules from "@repo/eslint-config/common-rules"
 import frontendBoundary from "@repo/eslint-config/frontend-boundary"
+import testOnlyExports from "@repo/eslint-config/test-only-exports"
 
 const { commonPlugins, commonRules } = eslintConfigCommonRules
 
@@ -75,6 +76,11 @@ const eslintConfig = defineConfig([
    * 詳細は packages/eslint-config/frontend-boundary.js を参照。
    */
   ...frontendBoundary,
+  /**
+   * テストからだけ使う export（forTesting）をテスト以外から使わせない。
+   * 詳細は packages/eslint-config/test-only-exports.js を参照。
+   */
+  ...testOnlyExports,
 ])
 
 export default eslintConfig

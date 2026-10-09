@@ -80,6 +80,9 @@ lint で強制できていない規約は以下。
 - **Function style**: api / cron / worker は `const` + アロー関数、web / admin / mobile のコンポーネントは `function`
 - **ブロックコメントは `/** */`**（`//` は使わない）。1 行の内容でも複数行形式で書く
 - **web / admin で server 側の処理（API 呼び出し・env 参照）を書くモジュールは先頭に `import "server-only"` を置く**。client component から import されたらビルドが落ちるようにするため（lint では検出できない）
+- **テストのためだけに export する関数・定数は、ファイル末尾の `export const forTesting = { ... }` にまとめる**。個別に `export` しない。テスト側は `const { xxx } = forTesting` で取り出す
+  - `forTesting` を持つファイルを `index.ts` で `export *` しない（名前を列挙して re-export する）。`export *` だと公開 API に漏れ、同じ index で 2 つ以上あると TS2308 で衝突する
+  - テスト以外から `forTesting` を使うと lint エラーになる（`packages/eslint-config/test-only-exports.js`）
 
 lint 設定自体を触るときの注意:
 

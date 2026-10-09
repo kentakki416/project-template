@@ -17,6 +17,7 @@ const typescriptParser = require("@typescript-eslint/parser")
 const importPlugin = require("eslint-plugin-import")
 
 const { commonPlugins, commonRules } = require("./common-rules")
+const testOnlyExports = require("./test-only-exports")
 
 module.exports = defineConfig([
   {
@@ -44,6 +45,7 @@ module.exports = defineConfig([
     },
     rules: commonRules,
   },
+  ...testOnlyExports,
   {
     ignores: ["node_modules/**", "dist/**"],
   },

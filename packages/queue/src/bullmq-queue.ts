@@ -74,7 +74,7 @@ export class BullMQJobQueue<T> implements JobQueue<T> {
  * 投げた場合、BullMQ は `attempts` の上限を待たず即 failed set に移すため、
  * 回数だけで見ると初回失敗が「リトライされる」に誤判定される。
  */
-export const isTerminalJobFailure = (params: {
+const isTerminalJobFailure = (params: {
   attemptsMade: number
   error: Error
   maxAttempts: number
@@ -154,3 +154,8 @@ export const startBullMQWorker = <T>(
     },
   }
 }
+
+/**
+ * テストからだけ使う
+ */
+export const forTesting = { isTerminalJobFailure }

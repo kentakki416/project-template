@@ -10,6 +10,7 @@
 - [アサーションの書き方](#アサーションの書き方)
 - [テストの耐久性（文言に依存しない）](#テストの耐久性文言に依存しない)
 - [境界値テスト](#境界値テスト)
+- [テストのためだけの export](#テストのためだけの-export)
 - [関連ドキュメント](#関連ドキュメント)
 
 ## レイヤー別のテスト種別
@@ -123,6 +124,30 @@ await testDb.insert(transactions).values([
 const res = await request(app).get("/api/transactions").query({ month: 3, year: 2026 })
 expect(res.body.transactions).toHaveLength(2)
 ```
+
+## テストのためだけの export
+
+テストから直接呼びたい内部の関数・定数は、個別に `export` せず、**ファイル末尾の `forTesting` にまとめる**。export している側でも import している側でも、テスト用だとすぐ分かるようにするため。
+
+```typescript
+/** src/bullmq-queue.ts */
+const isTerminalJobFailure = (params: { ... }): boolean => ...  // export しない
+
+/**
+ * テストからだけ使う
+ */
+export const forTesting = { isTerminalJobFailure }
+```
+
+```typescript
+/** test/is-terminal-job-failure.test.ts */
+import { forTesting } from "../src/bullmq-queue"
+
+const { isTerminalJobFailure } = forTesting
+```
+
+- テスト以外のコードから `forTesting` を import・参照すると lint エラーになる（`packages/eslint-config/test-only-exports.js`）
+- `forTesting` を持つファイルは、`index.ts` で `export *` せず名前を列挙して re-export する。`export *` だとパッケージの公開 API に漏れ、同じ index で 2 つ以上あると TS2308 で衝突する（lint では検出できない）
 
 ## 関連ドキュメント
 
