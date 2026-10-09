@@ -57,6 +57,35 @@ resource "aws_ecr_lifecycle_policy" "api" {
 }
 
 /**
+ * api の repository に Lambda サービスからの pull を許可する（minimal 構成の api は Lambda で動く）。
+ * Lambda は関数の作成時に自分で repository policy を書き足すが、IaC の外で policy が
+ * 変わるのを避けるため明示しておく。
+ */
+data "aws_iam_policy_document" "api_lambda_pull" {
+  statement {
+    sid     = "AllowLambdaPull"
+    effect  = "Allow"
+    actions = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "aws:sourceArn"
+      values   = ["arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:${var.project_name}-*"]
+    }
+  }
+}
+
+resource "aws_ecr_repository_policy" "api_lambda_pull" {
+  repository = aws_ecr_repository.api.name
+  policy     = data.aws_iam_policy_document.api_lambda_pull.json
+}
+
+/**
  * worker (BullMQ ジョブ消化用) のコンテナイメージ用 ECR
  */
 resource "aws_ecr_repository" "worker" {

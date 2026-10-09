@@ -106,6 +106,12 @@ variable "assign_public_ip" {
   default     = false
 }
 
+variable "capacity_provider" {
+  description = "service を起動する capacity provider (例: FARGATE_SPOT)。null なら launch_type = FARGATE で起動する。cluster 側で関連付けておくこと (ecs-cluster の capacity_providers)"
+  type        = string
+  default     = null
+}
+
 variable "log_retention_in_days" {
   description = "CloudWatch Logs 保持日数"
   type        = number

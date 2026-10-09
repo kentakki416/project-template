@@ -6,6 +6,8 @@ name: Terraform AWS Env Apply
 #
 # 運用ルール:
 # - dev: workflow_dispatch から実行。承認ゲートなし
+# - min: workflow_dispatch から実行。承認ゲートなし（minimal 構成。docs/spec/minimal-deploy/README.md）。
+#        GitHub Environment は terraform 用の min-terraform を使う（deploy 用の min とは role を分けている）
 # - prd: workflow_dispatch から実行。`prd` Environment の Required reviewers で承認ゲート（将来）
 #
 # 使い方:
@@ -24,6 +26,7 @@ on:
         type: choice
         options:
           - dev
+          - min
           # TODO: prd 環境が追加されたら以下のコメントを外す。prd Environment には Required reviewers を設定すること
           # - prd
 
@@ -49,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Environment 経由で AWS_ROLE_ARN を取得し、prd の場合は Required reviewers の承認ゲートが効く
-    environment: ${{ inputs.environment }}
+    environment: ${{ inputs.environment == 'min' && 'min-terraform' || inputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -13,6 +13,15 @@ resource "aws_ecs_cluster" "this" {
   tags = var.tags
 }
 
+# capacity provider で起動する workload (Fargate Spot 等) がある cluster だけ関連付ける。
+# 空 (既定) なら作らないので、launch_type = FARGATE だけの cluster には差分が出ない。
+resource "aws_ecs_cluster_capacity_providers" "this" {
+  count = length(var.capacity_providers) > 0 ? 1 : 0
+
+  cluster_name       = aws_ecs_cluster.this.name
+  capacity_providers = var.capacity_providers
+}
+
 # =============================================================================
 # Task Execution Role (cluster 共通)
 # =============================================================================

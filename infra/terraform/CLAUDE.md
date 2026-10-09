@@ -10,7 +10,7 @@ AWS デプロイ用の Infrastructure as Code (Terraform)。
 | --- | --- | --- |
 | `bootstrap/` | S3 backend のみ。一度きり apply | **local**（chicken-and-egg のため） |
 | `account/` | OIDC provider / GitHub Actions IAM role / ECR。env をまたいで共有 | remote |
-| `env/` | 環境ごとに分離するリソース（VPC / ECS / RDS / ALB） | remote |
+| `env/` | 環境ごとに分離するリソース。`dev` / `prd` は VPC / ECS / RDS / ALB、`min` は固定費を抑えた本番構成（Lambda + API Gateway、DB / Redis は外部サービス、worker は `enable_worker` のときだけ Fargate Spot。設計は `docs/spec/minimal-deploy/README.md`） | remote |
 
 ## Commands
 
@@ -50,7 +50,9 @@ GitHub Actions で apply を管理する:
 |---|---|---|
 | `bootstrap` | なし（local state、CI 対象外） | ローカルで `terraform apply` |
 | `account` | `terraform-aws-account-ci.yml` | `terraform-aws-account-apply.yml`（workflow_dispatch） |
-| `env/dev` | `terraform-aws-env-ci.yml` | `terraform-aws-env-apply.yml`（workflow_dispatch） |
+| `env/dev` / `env/min` | `terraform-aws-env-ci.yml`（validate / trivy / plan は env ごとの matrix） | `terraform-aws-env-apply.yml`（workflow_dispatch） |
+
+min は GitHub Actions の IAM role を deploy 用（Environment `min`、`deploy-aws-min.yml` が使う。admin なし）と terraform 用（Environment `min-terraform`、admin）に分けている。Terraform の workflow は対象が min のとき `min-terraform` を使う。
 
 リリース頻度が大きく違うため env/dev と account でワークフローを分離している。fmt と tflint は `terraform-aws-env-ci.yml` 側で aws/ 配下を recursive にチェックするため、`terraform-aws-account-ci.yml` 側は validate / trivy / plan のみ実施する。
 

@@ -22,6 +22,8 @@
 #   LIVEKIT_API_KEY
 #   LIVEKIT_API_SECRET
 #   FRONTEND_URL
+#   EXTERNAL_DATABASE_URL  (min のみ。PlanetScale の接続文字列 → DATABASE_URL)
+#   EXTERNAL_REDIS_URL     (min のみ。Upstash の接続文字列 → REDIS_URL)
 #
 # シェルで上記を export しておくと毎回入力不要。
 # =============================================================================
@@ -86,6 +88,13 @@ add_kv "LIVEKIT_HOST"           "${LIVEKIT_HOST:-}"           "env"
 add_kv "LIVEKIT_API_KEY"        "${LIVEKIT_API_KEY:-}"        "env"
 add_kv "LIVEKIT_API_SECRET"     "${LIVEKIT_API_SECRET:-}"     "env"
 add_kv "FRONTEND_URL"           "${FRONTEND_URL:-}"           "env"
+
+# 外部の DB / Redis (minimal 構成の PlanetScale / Upstash 等)。RDS / ElastiCache を持たない環境でだけ使う。
+# RDS / ElastiCache がある環境 (dev / prd) では、後段の terraform output からの組み立てが上書きする。
+# 変数名を DATABASE_URL / REDIS_URL にしないのは、ローカルのシェルに入っている値を
+# 誤って本番の secret に書き込まないため。
+add_kv "DATABASE_URL"           "${EXTERNAL_DATABASE_URL:-}"  "env"
+add_kv "REDIS_URL"              "${EXTERNAL_REDIS_URL:-}"     "env"
 
 # ============================================================================
 # 3. RDS: terraform output + app secret の DB_PASSWORD から DATABASE_URL を構築
