@@ -28,10 +28,33 @@ resource "aws_apigatewayv2_route" "default" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 }
 
+resource "aws_cloudwatch_log_group" "access" {
+  name              = "/aws/apigateway/${var.name}"
+  retention_in_days = var.log_retention_in_days
+
+  tags = var.tags
+}
+
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.this.id
   name        = "$default"
   auto_deploy = true
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.access.arn
+    format = jsonencode({
+      httpMethod       = "$context.httpMethod"
+      integrationError = "$context.integrationErrorMessage"
+      ip               = "$context.identity.sourceIp"
+      path             = "$context.path"
+      protocol         = "$context.protocol"
+      requestId        = "$context.requestId"
+      requestTime      = "$context.requestTime"
+      responseLatency  = "$context.responseLatency"
+      responseLength   = "$context.responseLength"
+      status           = "$context.status"
+    })
+  }
 
   # express-rate-limit (in-memory) は Lambda では実質効かないため、ステージ全体で上限をかける
   default_route_settings {

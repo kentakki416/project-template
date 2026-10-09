@@ -20,6 +20,12 @@ variable "timeout" {
   default     = 30
 }
 
+variable "reserved_concurrent_executions" {
+  description = "同時実行数の上限 (予約)。null なら予約しない (アカウントの上限まで並ぶ)"
+  type        = number
+  default     = null
+}
+
 variable "log_retention_in_days" {
   description = "CloudWatch Logs 保持日数"
   type        = number

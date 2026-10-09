@@ -2,7 +2,7 @@
 # CI/CD設定 (GitHub Actions OIDC)
 # =============================================================================
 # GitHub Actions から OIDC 認証で AWS リソースにアクセス
-# AWS アカウントに 1 つだけ OIDC provider を作成し、IAM role は env (dev / prd) ごとに分離する。
+# AWS アカウントに 1 つだけ OIDC provider を作成し、IAM role は env ごとに分離する。
 # 各 role の trust policy は `environment:<env>` の OIDC sub claim でのみ assume を許可する。
 
 data "aws_caller_identity" "current" {}

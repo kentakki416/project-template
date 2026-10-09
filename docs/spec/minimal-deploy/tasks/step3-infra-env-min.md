@@ -128,9 +128,9 @@ resource "aws_ecr_repository_policy" "api_lambda_pull" {
 ```
 
 
-### `modules/lambda-container`（新規）
+### `modules/lambda-function`（新規）
 
-コンテナイメージの Lambda 関数、alias `live`、ロググループ、実行ロールを作る。**`image_uri` / `environment` / alias の `function_version` は deploy workflow が更新するので `ignore_changes` にする。**
+コンテナイメージの Lambda 関数、alias `live`、ロググループ、実行ロールを作る。同時実行数の上限（予約）も変数で指定できる。**`image_uri` / `environment` / alias の `function_version` は deploy workflow が更新するので `ignore_changes` にする。**
 
 ```hcl
 resource "aws_cloudwatch_log_group" "this" {
@@ -206,14 +206,15 @@ resource "aws_lambda_alias" "live" {
 | `image_uri` | - | **作成時だけ**使うイメージ。以降は deploy workflow が更新する |
 | `memory_size` | `512` | MB |
 | `timeout` | `30` | 秒 |
+| `reserved_concurrent_executions` | `null` | 同時実行数の上限（予約）。`null` なら予約しない |
 | `log_retention_in_days` | `3` | prd の `log_retention_days` と同じ |
 | `tags` | `{}` | |
 
 outputs: `function_name` / `function_arn` / `alias_name` / `alias_arn` / `alias_invoke_arn` / `role_arn`。
 
-### `modules/http-api`（新規）
+### `modules/api-gateway`（新規）
 
-API Gateway HTTP API、`$default` ルート、Lambda 統合、スロットリング、独自ドメインを作る。
+API Gateway HTTP API、`$default` ルート、Lambda 統合、スロットリング、アクセスログ（CloudWatch Logs）、独自ドメインを作る。
 
 ```hcl
 resource "aws_apigatewayv2_api" "this" {
@@ -244,6 +245,11 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.this.id
   name        = "$default"
   auto_deploy = true
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.access.arn
+    format          = jsonencode({ /** requestId / ip / httpMethod / path / status などの $context 変数 */ })
+  }
 
   # express-rate-limit（in-memory）が Lambda では実質効かないため、ステージ全体で上限をかける
   default_route_settings {
@@ -285,6 +291,12 @@ resource "aws_apigatewayv2_api_mapping" "this" {
 CORS は API Gateway では設定しない（設定すると API Gateway が preflight に自分で応答し、Express の `cors` と二重になる）。
 
 outputs: `api_id` / `target_domain_name` / `hosted_zone_id`（`aws_apigatewayv2_domain_name.this.domain_name_configuration[0]` の値）。
+
+### `modules/acm`（変数の追加）
+
+ワイルドカードではなく、1 つの FQDN だけの証明書を発行できるようにする。`fqdn`（既定 `null`）を指定すると `domain_name` にその FQDN を使う。既定値では従来どおりワイルドカードなので、prd / dev の plan に差分は出ない。
+
+min は `fqdn = "api.<domain>"` にする。ACM は同じアカウント・同じドメインなら同じ検証用 CNAME を使うため、prd と同じ `*.<domain>` にすると検証レコードを 2 つの state で取り合い、env/min を destroy したときに prd の証明書の更新に必要なレコードまで消える。対象を `api.<domain>` にすれば検証用 CNAME が別になる。
 
 ### `modules/ecs-cluster`（変数の追加）
 
@@ -345,6 +357,7 @@ variable "capacity_provider" {
 | --- | --- | --- |
 | `enable_worker` | `false` | worker（BullMQ の常駐 worker）を作るか。CI の apply は変数を渡さないので、切り替えはこの既定値を変えてコミットする |
 | `bootstrap_image_tag` | `"initial"` | api の Lambda と worker の ECS Service を**作成するときだけ**使うイメージのタグ。初回の手順は step4 |
+| `api_reserved_concurrency` | `20` | api の Lambda の同時実行数の上限。PlanetScale の内蔵 PgBouncer の client 枠（既定 100）を超えないように絞る。アカウントの同時実行数の上限が 10 のまま（新規アカウント）だと予約できず apply が失敗するので、その場合は `null` にする |
 | `api_throttling_burst_limit` | `100` | API Gateway のバースト上限 |
 | `api_throttling_rate_limit` | `50` | API Gateway の 1 秒あたりの上限 |
 
@@ -440,14 +453,15 @@ module "app_secrets" {
 }
 
 module "lambda_api" {
-  source = "../../modules/lambda-container"
+  source = "../../modules/lambda-function"
 
-  name                  = "${local.name_prefix}-api"
-  image_uri             = "${data.aws_ecr_repository.api.repository_url}:${var.bootstrap_image_tag}"
-  memory_size           = 1024 # コールドスタートを縮めるため（CPU はメモリに比例して割り当てられる）
-  timeout               = 29   # API Gateway の統合タイムアウト（30 秒）より短くする
-  log_retention_in_days = var.log_retention_days
-  tags                  = local.common_tags
+  name                           = "${local.name_prefix}-api"
+  image_uri                      = "${data.aws_ecr_repository.api.repository_url}:${var.bootstrap_image_tag}"
+  memory_size                    = 1024 # コールドスタートを縮めるため（CPU はメモリに比例して割り当てられる）
+  timeout                        = 29   # API Gateway の統合タイムアウト（30 秒）より短くする
+  reserved_concurrent_executions = var.api_reserved_concurrency
+  log_retention_in_days          = var.log_retention_days
+  tags                           = local.common_tags
 }
 
 /**
@@ -492,8 +506,8 @@ module "ecs_worker" {
   depends_on = [module.ecs_cluster]
 }
 
-module "http_api" {
-  source = "../../modules/http-api"
+module "api_gateway" {
+  source = "../../modules/api-gateway"
 
   name                    = "${local.name_prefix}-api"
   domain_name             = "${var.api_subdomain}.${var.domain_name}"
@@ -518,8 +532,8 @@ resource "aws_route53_record" "api" {
 
   alias {
     evaluate_target_health = false
-    name                   = module.http_api.target_domain_name
-    zone_id                = module.http_api.hosted_zone_id
+    name                   = module.api_gateway.target_domain_name
+    zone_id                = module.api_gateway.hosted_zone_id
   }
 }
 ```
@@ -529,7 +543,8 @@ resource "aws_route53_record" "api" {
 | リソース | prd との差分 |
 | --- | --- |
 | `random_password.jwt_*` | 同じ。`db_master` は作らない |
-| `data.aws_ecr_repository.*` / `data.aws_route53_zone.primary` / `module.acm` | 同じ |
+| `data.aws_ecr_repository.*` / `data.aws_route53_zone.primary` | 同じ |
+| `module.acm` | `fqdn = "api.<domain>"`（ワイルドカードにしない。理由は上の `modules/acm`） |
 | `module.ecs_cluster` | `container_insights_enabled = false`、`capacity_providers = ["FARGATE", "FARGATE_SPOT"]` |
 | `module.ecs_migration` / `module.ecs_cron` | `subnets` を public subnet に。`secret_keys` は migration が `["DATABASE_URL"]`、cron が `["DATABASE_URL", "NODE_ENV"]` |
 | `module.cron_schedule` | `subnets` を public subnet に、`assign_public_ip = true` |
@@ -570,7 +585,7 @@ terraform plan
 ```
 
 - [ ] `account/` の plan に、既存リソースの変更・削除が無い（追加だけ）
-- [ ] `env/dev` / `env/prd` の plan に差分が出ない（`ecs-cluster` / `ecs-workload` に足した変数は既定値が現在の挙動）
+- [ ] `env/dev` / `env/prd` の plan に差分が出ない（`acm` / `ecs-cluster` / `ecs-workload` に足した変数は既定値が現在の挙動）
 - [ ] `env/min` の plan に NAT Gateway / ALB / RDS / ElastiCache が無い。`enable_worker = false`（既定）では ECS Service も無い
 - [ ] `terraform plan -var enable_worker=true` で、worker の ECS Service が `FARGATE_SPOT` の capacity provider strategy で作られ、`assign_public_ip = true` になっている
 - [ ] trivy の指摘は、意図したもの（public subnet の ECS タスクに public IP を付ける等）だけを理由付きで `.trivyignore` に入れる

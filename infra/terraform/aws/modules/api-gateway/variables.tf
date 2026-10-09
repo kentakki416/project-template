@@ -40,6 +40,12 @@ variable "throttling_rate_limit" {
   default     = 50
 }
 
+variable "log_retention_in_days" {
+  description = "アクセスログ (CloudWatch Logs) の保持日数"
+  type        = number
+  default     = 3
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

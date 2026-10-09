@@ -250,7 +250,7 @@ worker（バックグラウンドジョブ）を最初から使うプロダク�
 - **接続はインターネット越しの TLS**（`sslmode=verify-full`）。Lambda を VPC 外に置くので NAT は要らない
 - **接続は PlanetScale に内蔵の PgBouncer（port 6432）経由にする。** 料金は PS-5 の $5 に含まれる。別料金の dedicated PgBouncer は replica への振り分けやリサイズ中の接続維持のためのもので、単一ノードの minimal では使わない
   - 凍結された Lambda の実行環境は DB 接続を握ったまま残るが、PgBouncer 経由なら PgBouncer の client 枠（既定 100）を使うだけで、Postgres の接続は消費しない
-  - Lambda は 1 実行環境 = 1 リクエストなので、1 環境が張る接続は数本で済む。Lambda の同時実行数の上限（新規アカウントは 10）× 数本なら client 枠に収まる
+  - Lambda は 1 実行環境 = 1 リクエストなので、1 環境が張る接続は数本で済む。api の Lambda は同時実行数を 20 に絞る（予約する）ので、20 × 数本で client 枠に収まる
   - PgBouncer は transaction pooling 固定で、トランザクションをまたいで状態を持つ機能（セッション単位の `SET`、`LISTEN` / `NOTIFY`、一時テーブル、advisory lock）は使えない。api / worker / cron / `packages/db` はいずれも使っていない
   - `packages/db` の Pool は接続時に `options=-c TimeZone=UTC` を送る。PgBouncer は 1.20 以降この `options` を受け付け、`TimeZone` は既定でクライアントごとに引き継ぐので、接続を使い回しても UTC のまま。PS-5 での実機確認は step3 で行う（[リスク](#リスクと実装時の確認事項)参照）
   - migration（drizzle-kit）も同じ接続文字列で流す。Drizzle は migration 全体を 1 トランザクションで実行するため、transaction pooling でも問題ない
@@ -283,9 +283,9 @@ ECS は Secrets Manager のキーを `valueFrom` で直接環境変数にでき�
 | --- | --- |
 | `account/` | GitHub Actions 用 IAM role を deploy 用（`github_actions_min`、必要な権限だけ）と Terraform 用（`github_actions_min_terraform`、`environment:min-terraform` からのみ assume 可）に分けて追加。ECR の repository policy に Lambda からの pull を許可する statement を追加 |
 | `env/min/`（新設） | VPC（public subnet のみ）/ ECS cluster（worker・cron・migration 用）/ worker の ECS Service（`enable_worker` のときだけ）/ Lambda / API Gateway / ACM / Route53 / Secrets Manager |
-| `modules/`（追加） | `lambda-container`（コンテナイメージの Lambda + alias `live` + ロググループ）/ `http-api`（API Gateway HTTP API + 独自ドメイン） |
+| `modules/`（追加） | `lambda-function`（コンテナイメージの Lambda + alias `live` + ロググループ）/ `api-gateway`（API Gateway HTTP API + アクセスログ + 独自ドメイン） |
 | `modules/`（既存の流用） | `vpc` / `ecs-cluster` / `ecs-workload` / `ecs-schedule-task` / `acm` / `secrets` |
-| `modules/`（既存に変数を追加） | `ecs-cluster`（`capacity_providers`）/ `ecs-workload`（`capacity_provider`）。既定値は現在の挙動で、prd / dev の plan に差分は出ない |
+| `modules/`（既存に変数を追加） | `acm`（`fqdn`）/ `ecs-cluster`（`capacity_providers`）/ `ecs-workload`（`capacity_provider`）。既定値は現在の挙動で、prd / dev の plan に差分は出ない |
 
 - PlanetScale と Upstash はコンソールで作り、Terraform では管理しない（AWS の外のサービスのため。手順は step3）
 - 命名は `project-template-min-*`。prd（`project-template-prd-*`）と衝突しないので、移行期間に両方が同時に存在できる
