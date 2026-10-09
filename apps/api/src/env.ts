@@ -32,6 +32,13 @@ const apiEnvSchema = z.object({
   DB_NAME: z.string().optional(),
 
   /**
+   * 行動イベントの送出先。queue は Queue に enqueue し、apps/worker が ClickHouse に書き込む。
+   * none はイベントを捨てる（worker を動かさない環境で使う。minimal 構成で worker を作らない場合）。
+   * 既定値の queue は prd / dev の現在の挙動。
+   */
+  EVENT_TRACKER_TYPE: z.enum(["none", "queue"]).default("queue"),
+
+  /**
    * レスポンスを返す前にイベント送出の完了を待つか。
    * レスポンス後に実行環境が凍結される Lambda（minimal 構成）でだけ true にする。
    */

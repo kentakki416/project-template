@@ -1,6 +1,6 @@
 # @repo/events
 
-ユーザー行動イベントの **送出抽象** を提供する共通パッケージ。イベントの型（`EventName` / `TrackEventInput`）と `EventTracker` interface を定義し、実装として Queue 経由の `QueueEventTracker` とテスト用の `FakeEventTracker` を持つ。
+ユーザー行動イベントの **送出抽象** を提供する共通パッケージ。イベントの型（`EventName` / `TrackEventInput`）と `EventTracker` interface を定義し、実装として Queue 経由の `QueueEventTracker`、イベントを捨てる `NoopEventTracker`（worker を動かさない環境用。api の `EVENT_TRACKER_TYPE=none`）、テスト用の `FakeEventTracker` を持つ。
 
 書き込み先（ClickHouse）は knows しない。それは `@repo/data-warehouse` と `apps/worker` の責務。
 

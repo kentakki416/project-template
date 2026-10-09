@@ -3,7 +3,7 @@ import express from "express"
 import helmet from "helmet"
 
 import { createDrizzleClient } from "@repo/db"
-import { QueueEventTracker } from "@repo/events"
+import { type EventTracker, NoopEventTracker, QueueEventTracker } from "@repo/events"
 import { logger } from "@repo/logger"
 import { BullMQJobQueue, TRACK_EVENT_QUEUE_NAME } from "@repo/queue"
 import { createRedisClient } from "@repo/redis"
@@ -114,10 +114,13 @@ const authDevLoginController = process.env.NODE_ENV !== "production"
  */
 const memoListController = new MemoListController(memoRepository)
 const memoDetailController = new MemoDetailController(memoRepository)
-/** enqueue するだけ。ClickHouse への書き込みは apps/worker が行う */
-const eventTracker = new QueueEventTracker(
-  new BullMQJobQueue(redis, TRACK_EVENT_QUEUE_NAME),
-)
+/**
+ * 行動イベントの送出先は EVENT_TRACKER_TYPE で選ぶ。
+ * queue なら enqueue するだけで、ClickHouse への書き込みは apps/worker が行う
+ */
+const eventTracker: EventTracker = env.EVENT_TRACKER_TYPE === "queue"
+  ? new QueueEventTracker(new BullMQJobQueue(redis, TRACK_EVENT_QUEUE_NAME))
+  : new NoopEventTracker()
 
 const eventCreateController = new EventCreateController(eventTracker)
 
