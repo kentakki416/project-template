@@ -4,12 +4,12 @@ import type { EventTracker } from "@repo/events"
 import { logger } from "@repo/logger"
 
 /** flush を待つ上限。Queue が遅くてもレスポンスを止めすぎないため */
-export const FLUSH_TIMEOUT_MS = 3000
+const FLUSH_TIMEOUT_MS = 3000
 
 /**
  * flush を上限付きで待つ。上限に達したら warn を残して先に進む（送出中のイベントは失われうる）
  */
-export const waitForFlush = async (eventTracker: EventTracker): Promise<void> => {
+const waitForFlush = async (eventTracker: EventTracker): Promise<void> => {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<"timeout">((resolve) => {
     timer = setTimeout(() => resolve("timeout"), FLUSH_TIMEOUT_MS)
@@ -51,3 +51,8 @@ export const flushEventsBeforeResponse = (eventTracker: EventTracker) =>
     }) as Response["end"]
     next()
   }
+
+/**
+ * テストからだけ使う
+ */
+export const forTesting = { FLUSH_TIMEOUT_MS, waitForFlush }
