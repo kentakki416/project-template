@@ -25,7 +25,8 @@ flowchart LR
 
 - `on: workflow_dispatch`、入力は `push_only`（boolean、既定 `false`）。初回だけ `true` で実行し、Lambda と worker の ECS Service の作成に使うイメージを用意する
 - `concurrency: { group: deploy-aws-min, cancel-in-progress: false }`（prd と同じく並列デプロイを禁止する）
-- GitHub Environment は `min`（`AWS_ROLE_ARN` は step3 で登録した `github_actions_min` role）
+- GitHub Environment は `min`。Secrets の `AWS_ROLE_ARN` は step3 で登録した deploy 用の `github_actions_min` role（必要な権限だけ。Terraform 用の admin role は使わない）
+- API の URL は GitHub Environment `min` の **variable `API_URL`** から受け取る（ドメインはプロダクトごとに違うため、workflow に書かない）。未設定、または `https://` で始まらない値なら、Lambda を更新する前に job を止める
 - 環境ごとの値は prd の workflow と同じく先頭の `env:` に並べる
 
 ```yaml
@@ -48,7 +49,6 @@ env:
   PUBLIC_SUBNET_NAME_PREFIX: project-template-min-public
 
   APP_SECRET_NAME: /project-template-min/app
-  API_URL: https://api.project-template.com # TODO: 実ドメインに変更してください
 ```
 
 ### detect
@@ -122,7 +122,25 @@ FIXED_ENV_JSON=$(jq -n --arg tracker "${EVENT_TRACKER_TYPE}" '{
 }')
 ```
 
-**デプロイの手順**:
+job の各 step で使う値は、step の `env:` で定義する（job の `env:` からは workflow の `env` を参照できないため）。
+
+```yaml
+      - name: Deploy Lambda function
+        id: deploy
+        env:
+          API_URL: ${{ vars.API_URL }}
+          FUNCTION: ${{ env.LAMBDA_API_FUNCTION }}
+          IMAGE: ${{ needs.build.outputs.registry }}/${{ env.ECR_API_REPO }}:${{ needs.build.outputs.image_tag }}
+          SECRET_KEYS_JSON: >-
+            ["DATABASE_URL","FRONTEND_URL","GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET",
+            "JWT_ACCESS_EXPIRATION","JWT_ACCESS_SECRET","JWT_REFRESH_EXPIRATION","JWT_REFRESH_SECRET",
+            "NODE_ENV","PORT","REDIS_URL"]
+          WORKER_ENABLED: ${{ needs.detect.outputs.worker_enabled }}
+```
+
+`registry` / `image_tag` は build job の output、`worker_enabled` は detect job の output。
+
+**デプロイの手順**（`API_URL` の検証の後に行う）:
 
 ```bash
 set -euo pipefail
@@ -174,8 +192,12 @@ echo "previous_version=${PREVIOUS}" >> "$GITHUB_OUTPUT"
 
 **smoke test と自動の切り戻し**: alias の切り替え後に `${API_URL}/api/health/ready` を叩き、`200` 以外なら alias を `PREVIOUS` に戻して job を失敗させる。prd の Blue/Green + 承認ゲートの代わりに、最低限「壊れたまま公開し続けない」ことを保証する。
 
+DNS / TLS / API Gateway が応答しないときに待ち続けて切り戻しが走らない、ということが無いよう、接続（5 秒）・1 回のリクエスト（10 秒）・リトライ全体（60 秒）のすべてに上限を付ける。job にも `timeout-minutes: 20` を付ける。
+
 ```bash
-if ! curl -fsS --retry 3 --retry-delay 5 --retry-all-errors "${API_URL}/api/health/ready"; then
+if ! curl -fsS --connect-timeout 5 --max-time 10 \
+  --retry 3 --retry-delay 5 --retry-max-time 60 --retry-all-errors \
+  "${API_URL}/api/health/ready"; then
   echo "::error::smoke test failed, rolling back to version ${PREVIOUS}"
   aws lambda update-alias \
     --function-name "${FUNCTION}" --name live --function-version "${PREVIOUS}" > /dev/null
@@ -195,7 +217,7 @@ prd の deploy-cron job と同じ（task definition の image を差し替えて
 
 Lambda（と worker の ECS Service）は作成時にイメージが必要なので、次の順で行う。
 
-1. step3 の `account/` をローカルから apply し、GitHub の Environment `min` を作って `AWS_ROLE_ARN` を登録する
+1. step3 の `account/` をローカルから apply し、GitHub の Environment `min` と `min-terraform` を作って、それぞれの Secrets に `AWS_ROLE_ARN`（`github_actions_min_role_arn` / `github_actions_min_terraform_role_arn`）を登録する。`min` には variable `API_URL`（例: `https://api.<domain>`）も登録する
 2. PlanetScale のデータベースと Upstash の Redis を作る（step3。Upstash のプランは `enable_worker` に合わせる）
 3. `deploy-aws-min.yml` を `push_only: true` で実行する（SHA と `initial` のタグでイメージが push される）
 4. `terraform-aws-env-apply.yml` を `environment: min` で実行する（または `cd infra/terraform/aws/env/min && terraform apply`）。ACM の DNS 検証が終わるまで数分かかる
@@ -223,10 +245,10 @@ Lambda（と worker の ECS Service）は作成時にイメージが必要なの
 
 1. `enable_worker` の既定値を `false` にしてコミットし、apply する。worker の ECS Service が消える
 2. すぐに `deploy-aws-min.yml` を実行する。api が `EVENT_TRACKER_TYPE=none` に切り替わる
-3. 1〜2 の間に enqueue されて処理されないジョブを捨てる
+3. 1〜2 の間に enqueue されて処理されないジョブを捨てる。対象は api が enqueue する `track-event` のキューだけにする（BullMQ の既定の prefix `bull` + キュー名 `track-event`。`packages/queue` の `TRACK_EVENT_QUEUE_NAME`）。`bull:*` だと他のキューまで消える
 
     ```bash
-    redis-cli --tls -u '<接続文字列>' --scan --pattern 'bull:*' \
+    redis-cli --tls -u '<接続文字列>' --scan --pattern 'bull:track-event:*' \
       | xargs redis-cli --tls -u '<接続文字列>' DEL
     ```
 
@@ -272,7 +294,8 @@ minimal 環境にデプロイした状態で、AWS 上でしか確認できな�
 
 - [ ] 2 回目のデプロイで alias `live` の version が 1 つ進み、Step Summary に切り戻しのコマンドが出る
 - [ ] Step Summary のコマンドで前の version に戻せ、戻した後も api が `200` を返す
-- [ ] `API_URL` をわざと誤った値にして実行すると、smoke test が失敗して alias が前の version に戻る（確認後に値を戻す）
+- [ ] Environment の variable `API_URL` をわざと誤った値にして実行すると、smoke test が失敗して alias が前の version に戻る（確認後に値を戻す）
+- [ ] variable `API_URL` を消して実行すると、Lambda を更新する前に job が止まる（確認後に値を戻す）
 
 ### コスト
 
