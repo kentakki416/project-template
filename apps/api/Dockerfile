@@ -70,6 +70,11 @@ COPY --chown=node:node --from=installer-builder /app/deploy/node_modules ./node_
 COPY --chown=node:node --from=installer-builder /app/deploy/package.json ./package.json
 COPY --chown=node:node --from=installer-builder /app/apps/api/dist ./dist
 
+# Lambda Web Adapter: minimal 構成（Lambda）で Express をそのまま動かすための extension。
+# Lambda の実行環境だけが /opt/extensions を読むので、ECS では起動せず何もしない。
+# 設計: docs/spec/minimal-deploy/README.md「api を Lambda で動かす」
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0 /lambda-adapter /opt/extensions/lambda-adapter
+
 EXPOSE 8080
 
 # ENTRYPOINT: コンテナ起動時に必ず実行されるコマンド。CMD の内容が引数として渡される。

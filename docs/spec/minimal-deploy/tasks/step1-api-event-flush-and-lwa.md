@@ -146,7 +146,7 @@ runner ステージに 1 行足す。**バージョンはタグで固定する**
 # Lambda Web Adapter: minimal 構成（Lambda）で Express をそのまま動かすための extension。
 # Lambda の実行環境だけが /opt/extensions を読むので、ECS では起動せず何もしない。
 # 設計: docs/spec/minimal-deploy/README.md「api を Lambda で動かす」
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0 /lambda-adapter /opt/extensions/lambda-adapter
 ```
 
 `ENTRYPOINT` / `CMD` / `USER` は変えない（Lambda でも `tini -- node dist/index.js` で起動し、LWA が `localhost:8080` に転送する）。

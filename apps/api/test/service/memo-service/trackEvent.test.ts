@@ -94,6 +94,7 @@ describe("memo-service の行動イベント送出", () => {
      */
     it("EventTracker の実装が throw するとリクエストまで失敗する（契約違反の場合）", async () => {
       const contractViolatingTracker = {
+        flush: async () => undefined,
         track: () => {
           throw new Error("tracker exploded")
         },

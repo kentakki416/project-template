@@ -12,6 +12,14 @@ import type { TrackEventInput } from "./event"
  * 詳細は docs/spec/user-behavior-events/deferred-event-delivery.md を参照。
  */
 export interface EventTracker {
+  /**
+   * 送出中のイベントがすべて終わるまで待つ。失敗は実装側で catch 済みなので reject しない。
+   *
+   * Lambda はレスポンスを返した時点で実行環境を凍結するため、await していない送出が
+   * 止まったまま失われうる。レスポンスの前にこれを待つことで取りこぼしを防ぐ
+   * （docs/spec/minimal-deploy/README.md「Lambda の凍結とイベント送出」）。
+   */
+  flush(): Promise<void>
   track(input: TrackEventInput): void
   trackAll(inputs: TrackEventInput[]): void
 }

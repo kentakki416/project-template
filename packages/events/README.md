@@ -23,10 +23,14 @@
 ```ts
 /** tracker.ts ── 戻り値が void なのは意図的 */
 export interface EventTracker {
+  flush(): Promise<void>
   track(input: TrackEventInput): void
   trackAll(inputs: TrackEventInput[]): void
 }
 ```
+
+> 💡 **`flush()` は service から呼ばない**
+> 送出中のイベントが終わるまで待つメソッドで、reject しない。レスポンスを返した時点で実行環境が凍結される Lambda で、送出が途中で止まらないようにするためのもの。api の middleware（`FLUSH_EVENTS_BEFORE_RESPONSE=true` のときだけ登録）がレスポンスの直前に待つ。service の「await しない」は変わらない（[minimal-deploy](../../docs/spec/minimal-deploy/README.md#lambda-の凍結とイベント送出)）。
 
 > 💡 **なぜ interface を挟むのか**
 > service 層を transport から切り離すため。現状は Queue 経由だが、「アプリケーションログに吐いてログ基盤で ClickHouse に流す」方式へ切り替えても **service 層は無変更**で済む。検討の経緯は [deferred-event-delivery.md](../../docs/spec/user-behavior-events/deferred-event-delivery.md) を参照。

@@ -24,6 +24,7 @@ import { MemoUpdateController } from "./controller/memo/update"
 import { UserGetController } from "./controller/user/get"
 import { env } from "./env"
 import { authMiddleware } from "./middleware/auth"
+import { flushEventsBeforeResponse } from "./middleware/flush-events"
 import { apiRateLimiter } from "./middleware/rate-limit"
 import { requestLogger } from "./middleware/request-logger"
 import { unhandledExceptionHandler } from "./middleware/unhandled-exception-handler"
@@ -163,6 +164,13 @@ app.use(authMiddleware)
  * リクエストのロギングミドルウェア
  */
 app.use(requestLogger)
+
+/**
+ * Lambda ではレスポンス後に実行環境が凍結されるため、送出中のイベントを先に送り切る
+ */
+if (env.FLUSH_EVENTS_BEFORE_RESPONSE) {
+  app.use(flushEventsBeforeResponse(eventTracker))
+}
 
 /**
  * ルーティング
