@@ -281,7 +281,7 @@ ECS は Secrets Manager のキーを `valueFrom` で直接環境変数にでき�
 
 | 層 | 変更 |
 | --- | --- |
-| `account/` | GitHub Actions 用 IAM role `github_actions_min`（`environment:min` からのみ assume 可）を追加。ECR の repository policy に Lambda からの pull を許可する statement を追加 |
+| `account/` | GitHub Actions 用 IAM role を deploy 用（`github_actions_min`、必要な権限だけ）と Terraform 用（`github_actions_min_terraform`、`environment:min-terraform` からのみ assume 可）に分けて追加。ECR の repository policy に Lambda からの pull を許可する statement を追加 |
 | `env/min/`（新設） | VPC（public subnet のみ）/ ECS cluster（worker・cron・migration 用）/ worker の ECS Service（`enable_worker` のときだけ）/ Lambda / API Gateway / ACM / Route53 / Secrets Manager |
 | `modules/`（追加） | `lambda-container`（コンテナイメージの Lambda + alias `live` + ロググループ）/ `http-api`（API Gateway HTTP API + 独自ドメイン） |
 | `modules/`（既存の流用） | `vpc` / `ecs-cluster` / `ecs-workload` / `ecs-schedule-task` / `acm` / `secrets` |
