@@ -17,10 +17,16 @@ import type { EventTracker } from "./tracker"
  * ClickHouse の ReplacingMergeTree が重複を畳めなくなる。
  */
 export class QueueEventTracker implements EventTracker {
+  /** 送出中の enqueue。flush() で待つために保持する（失敗は catch 済み） */
+  private readonly _pending = new Set<Promise<void>>()
   private readonly _queue: JobQueue<TrackEventJobData>
 
   constructor(queue: JobQueue<TrackEventJobData>) {
     this._queue = queue
+  }
+
+  public async flush(): Promise<void> {
+    await Promise.all(this._pending)
   }
 
   public track(input: TrackEventInput): void {
@@ -31,7 +37,7 @@ export class QueueEventTracker implements EventTracker {
     if (inputs.length === 0) return
 
     const occurredAt = new Date().toISOString()
-    void this._queue
+    const pending = this._queue
       .enqueue({
         events: inputs.map((input) => ({
           eventId: randomUUID(),
@@ -53,5 +59,7 @@ export class QueueEventTracker implements EventTracker {
           { count: inputs.length },
         )
       })
+    this._pending.add(pending)
+    void pending.finally(() => this._pending.delete(pending))
   }
 }

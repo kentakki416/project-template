@@ -32,6 +32,15 @@ const apiEnvSchema = z.object({
   DB_NAME: z.string().optional(),
 
   /**
+   * レスポンスを返す前にイベント送出の完了を待つか。
+   * レスポンス後に実行環境が凍結される Lambda（minimal 構成）でだけ true にする。
+   */
+  FLUSH_EVENTS_BEFORE_RESPONSE: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true")
+    .default("false"),
+
+  /**
    * フロントエンドの origin（OAuth callback redirect 等で使用）
    */
   FRONTEND_URL: z.string().url().default("http://localhost:3000"),
