@@ -42,17 +42,17 @@ refresh token と、worker を作る場合は BullMQ の保存先。PlanetScale 
 
 ### `account/`
 
-**GitHub Actions 用 role**（`github_oidc.tf`）: prd の role と同じ形で `github_actions_min` を足す。trust policy は `repo:<owner>/<repo>:environment:min` だけを許可する。
+**GitHub Actions 用 role**（`github_oidc.tf`）: min は **deploy 用と Terraform 用で role を分ける。** deploy workflow はアプリのコードを build し、外部の action も動かすため、侵害されたときに AWS アカウント全体を変更できないよう、必要な権限だけを持たせる。Terraform 用は dev / prd と同じく `AdministratorAccess`（既存の TODO の対象）だが、別の GitHub Environment からしか assume できないようにする。
 
-| attach する policy | 用途 |
-| --- | --- |
-| `ecr_push`（既存） | イメージの push |
-| `ecs_deploy`（既存） | migration の RunTask / cron の task definition 登録 / worker の service 更新 |
-| `lambda_deploy_min`（新規） | Lambda のコードと環境変数の更新、version の発行、alias の切り替え、secret の読み取り |
-| `AdministratorAccess` | `env/min` の terraform plan / apply（dev / prd と同じ運用。既存の TODO の対象に含める） |
+| role | trust policy（OIDC の sub） | attach する policy | 使う workflow |
+| --- | --- | --- | --- |
+| `github_actions_min` | `repo:<owner>/<repo>:environment:min` | `ecr_push`（既存）/ `ecs_deploy`（既存）/ `deploy_min`（新規） | `deploy-aws-min.yml` |
+| `github_actions_min_terraform` | `repo:<owner>/<repo>:environment:min-terraform` | `AdministratorAccess` | `terraform-aws-env-ci.yml` / `terraform-aws-env-apply.yml`（min のとき） |
+
+`deploy_min` は Lambda のデプロイ、secret の読み取り、migration を起動するためのネットワークの解決（VPC / subnet / security group の参照。EC2 の Describe 系は resource を絞れないので `*`）を許可する。
 
 ```hcl
-data "aws_iam_policy_document" "lambda_deploy_min" {
+data "aws_iam_policy_document" "deploy_min" {
   statement {
     sid    = "DeployLambdaFunctions"
     effect = "Allow"
@@ -75,16 +75,29 @@ data "aws_iam_policy_document" "lambda_deploy_min" {
     actions   = ["secretsmanager:GetSecretValue"]
     resources = ["arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:/${var.project_name}-min/app-*"]
   }
+
+  statement {
+    sid    = "ResolveNetwork"
+    effect = "Allow"
+    actions = [
+      "ec2:DescribeSecurityGroups",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeVpcs",
+    ]
+    resources = ["*"]
+  }
 }
 
-resource "aws_iam_policy" "lambda_deploy_min" {
-  name        = "${var.project_name}-lambda-deploy-min"
-  description = "Policy for deploying Lambda functions of the minimal environment"
-  policy      = data.aws_iam_policy_document.lambda_deploy_min.json
+resource "aws_iam_policy" "deploy_min" {
+  name        = "${var.project_name}-deploy-min"
+  description = "Policy for deploy-aws-min.yml (Lambda deploy, app secret read, network resolution)"
+  policy      = data.aws_iam_policy_document.deploy_min.json
 }
 ```
 
-`outputs.tf` に `github_actions_min_role_arn` を足す。初回はローカルから apply し、GitHub の Environment `min` の Secrets に `AWS_ROLE_ARN` を登録する（`infra/terraform/CLAUDE.md`「account の初回 apply はローカルから実行」と同じ手順）。
+`outputs.tf` に `github_actions_min_role_arn` と `github_actions_min_terraform_role_arn` を足す。初回はローカルから apply し、GitHub の Environment `min` と `min-terraform` の Secrets にそれぞれの ARN を `AWS_ROLE_ARN` として登録する（`infra/terraform/CLAUDE.md`「account の初回 apply はローカルから実行」と同じ手順）。
+
+Terraform の workflow は、対象の env が `min` のときだけ GitHub Environment を `min-terraform` に読み替える（`terraform-aws-env-ci.yml` の plan job と `terraform-aws-env-apply.yml`）。
 
 **ECR の repository policy**（`ecr.tf`）: api の repository に、Lambda サービスからの pull を許可する。Lambda は関数の作成時に自分で repository policy を書き足すが、IaC の外で policy が変わるのを避けるため明示しておく。
 
