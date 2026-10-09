@@ -46,6 +46,8 @@ resource "aws_lambda_function" "this" {
   timeout       = var.timeout
   publish       = true
 
+  reserved_concurrent_executions = var.reserved_concurrent_executions
+
   logging_config {
     log_format = "Text"
     log_group  = aws_cloudwatch_log_group.this.name

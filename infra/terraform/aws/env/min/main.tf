@@ -152,12 +152,13 @@ data "aws_route53_zone" "primary" {
   private_zone = false
 }
 
-# *.<domain> のワイルドカード証明書 (prd と同じ。検証用 CNAME は allow_overwrite で共存できる)
+# api.<domain> だけの証明書 (ワイルドカードにしない)。
+# prd の *.<domain> とは ACM の検証用 CNAME が別になり、env/min を destroy しても prd の証明書の更新に影響しない
 module "acm" {
   source = "../../modules/acm"
 
   domain_name = var.domain_name
-  subdomain   = ""
+  fqdn        = "${var.api_subdomain}.${var.domain_name}"
   zone_id     = data.aws_route53_zone.primary.zone_id
 
   tags = local.common_tags
@@ -169,18 +170,19 @@ module "acm" {
 # 同じ api イメージを Lambda で動かす。環境変数・イメージ・alias の向き先は deploy workflow が更新する。
 
 module "lambda_api" {
-  source = "../../modules/lambda-container"
+  source = "../../modules/lambda-function"
 
-  name                  = "${local.name_prefix}-api"
-  image_uri             = "${data.aws_ecr_repository.api.repository_url}:${var.bootstrap_image_tag}"
-  memory_size           = 1024 # コールドスタートを縮めるため (CPU はメモリに比例して割り当てられる)
-  timeout               = 29   # API Gateway の統合タイムアウト (30 秒) より短くする
-  log_retention_in_days = var.log_retention_days
-  tags                  = local.common_tags
+  name                           = "${local.name_prefix}-api"
+  image_uri                      = "${data.aws_ecr_repository.api.repository_url}:${var.bootstrap_image_tag}"
+  memory_size                    = 1024 # コールドスタートを縮めるため (CPU はメモリに比例して割り当てられる)
+  timeout                        = 29   # API Gateway の統合タイムアウト (30 秒) より短くする
+  reserved_concurrent_executions = var.api_reserved_concurrency
+  log_retention_in_days          = var.log_retention_days
+  tags                           = local.common_tags
 }
 
-module "http_api" {
-  source = "../../modules/http-api"
+module "api_gateway" {
+  source = "../../modules/api-gateway"
 
   name                    = "${local.name_prefix}-api"
   domain_name             = "${var.api_subdomain}.${var.domain_name}"
@@ -190,6 +192,7 @@ module "http_api" {
   lambda_function_name    = module.lambda_api.function_name
   throttling_burst_limit  = var.api_throttling_burst_limit
   throttling_rate_limit   = var.api_throttling_rate_limit
+  log_retention_in_days   = var.log_retention_days
   tags                    = local.common_tags
 }
 
@@ -203,8 +206,8 @@ resource "aws_route53_record" "api" {
 
   alias {
     evaluate_target_health = false
-    name                   = module.http_api.target_domain_name
-    zone_id                = module.http_api.hosted_zone_id
+    name                   = module.api_gateway.target_domain_name
+    zone_id                = module.api_gateway.hosted_zone_id
   }
 }
 

@@ -68,6 +68,12 @@ variable "bootstrap_image_tag" {
   default     = "initial"
 }
 
+variable "api_reserved_concurrency" {
+  description = "api の Lambda の同時実行数の上限。PlanetScale の内蔵 PgBouncer の client 枠 (既定 100) を超えないように絞る。アカウントの同時実行数の上限が 10 のまま (新規アカウント) だと予約できず apply が失敗するので、その場合は null にする"
+  type        = number
+  default     = 20
+}
+
 variable "api_throttling_burst_limit" {
   description = "API Gateway のバースト上限（リクエスト数）"
   type        = number

@@ -9,6 +9,12 @@ variable "subdomain" {
   default     = ""
 }
 
+variable "fqdn" {
+  description = "指定すると、ワイルドカードではなくこの FQDN (例: api.project-template.com) だけの証明書を発行する。subdomain は使われない"
+  type        = string
+  default     = null
+}
+
 variable "zone_id" {
   description = "DNS 検証レコードを書き込む Route 53 hosted zone ID"
   type        = string
