@@ -7,8 +7,8 @@ set -euo pipefail
 #
 # 注意:
 #   新規プロジェクト作成用のスクリプトです。
+#   git 管理のファイルのうち、コミット済みの内容（HEAD）だけをコピーします。
 #   コピー先に同名ファイルが存在する場合は上書きされます。
-#   (必要な場合は --ignore-existing や --update オプションを検討してください)
 # ============================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -53,42 +53,21 @@ if [ -d "$DEST" ] && [ "$(ls -A "$DEST" 2>/dev/null)" ]; then
   fi
 fi
 
+# コミットされていない変更はコピーされないため警告する
+if [ -n "$(git -C "$TEMPLATE_DIR" status --porcelain)" ]; then
+  echo -e "${YELLOW}Warning: テンプレートにコミットされていない変更があります。コピーされるのはコミット済みの内容（HEAD）だけです。${NC}"
+fi
+
 echo -e "${GREEN}Copying template to: $DEST${NC}"
 echo "Project name: $PROJECT_NAME"
 echo ""
 
-rsync -av \
-  --exclude='.git' \
-  --exclude='node_modules' \
-  --exclude='.turbo' \
-  --exclude='dist' \
-  --exclude='.next' \
-  --exclude='.expo' \
-  --exclude='.terraform' \
-  --exclude='*.tfstate' \
-  --exclude='*.tfstate.backup' \
-  --exclude='*.tfvars' \
-  --exclude='modules/*/lambda/*.zip' \
-  --exclude='.env.keys' \
-  --exclude='secret' \
-  --exclude='.secret' \
-  --exclude='.DS_Store' \
-  --exclude='*.tsbuildinfo' \
-  --exclude='next-env.d.ts' \
-  --exclude='expo-env.d.ts' \
-  --exclude='coverage' \
-  --exclude='build' \
-  --exclude='web-build' \
-  --exclude='*.log' \
-  --exclude='pnpm-lock.yaml' \
-  --exclude='.vercel' \
-  --exclude='.vscode' \
-  --exclude='.idea' \
-  --exclude='.serena' \
-  --exclude='.playwright-mcp' \
-  --exclude='.claude/settings.local.json' \
-  --exclude='.claude/worktrees' \
-  "$TEMPLATE_DIR/" "$DEST/"
+mkdir -p "$DEST"
+git -C "$TEMPLATE_DIR" archive HEAD -- . \
+  ':(exclude)pnpm-lock.yaml' \
+  ':(exclude).serena' \
+  ':(exclude,glob)**/.env.keys' \
+  | tar -x -C "$DEST"
 
 # package.json のプロジェクト名を置換
 if [ -f "$DEST/package.json" ]; then

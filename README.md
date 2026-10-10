@@ -44,7 +44,7 @@ Web / Admin / Mobile のフロントエンド、Express の API、定期実行�
 ./scripts/copy-template.sh ~/workspace/my-new-app
 ```
 
-`.git` / `node_modules` / ビルド成果物 / `.env.keys`（各 app の symlink を含む）を除いてコピーし、ルート `package.json` の `name` を置換します。
+git 管理のファイルのうちコミット済みの内容（HEAD）だけを、`.env.keys`（各 app の symlink）/ `pnpm-lock.yaml` / `.serena` を除いてコピーし、ルート `package.json` の `name` を置換します。コミットしていない変更はコピーされません。
 
 ### 2. プロジェクト名を置き換える
 
