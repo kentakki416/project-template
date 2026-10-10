@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# scripts/seed-secrets.sh
+# scripts/deploy/seed-secrets.sh
 # =============================================================================
 # Application secret (/project-template-<env>/app) に以下を投入する:
 #   1. RDS / ElastiCache の接続情報 (terraform output から自動構築)
@@ -10,10 +10,10 @@
 # (modules/secrets の ignore_changes により Terraform は secret_string 更新を見ない)
 #
 # Usage:
-#   ./scripts/seed-secrets.sh <env>
+#   ./scripts/deploy/seed-secrets.sh <env>
 #
 # Example:
-#   ./scripts/seed-secrets.sh dev
+#   ./scripts/deploy/seed-secrets.sh dev
 #
 # 環境変数 (どれも未設定なら skip + warn、後で再実行で OK):
 #   GOOGLE_CLIENT_ID
@@ -38,7 +38,7 @@ if [ -z "$ENV" ]; then
 fi
 
 SECRET_NAME="/project-template-${ENV}/app"
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TF_DIR="${REPO_ROOT}/infra/terraform/aws/env/${ENV}"
 
 if [ ! -d "$TF_DIR" ]; then

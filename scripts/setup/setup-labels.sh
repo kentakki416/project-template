@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# scripts/setup-labels.sh
+# scripts/setup/setup-labels.sh
 # =============================================================================
 # .github/labeler.yml が付与する PR ラベルを GitHub リポジトリに作成する。
 #
@@ -11,11 +11,11 @@
 # `gh label create --force` を使うため冪等（既存ラベルは色/説明を更新）。
 #
 # Usage:
-#   ./scripts/setup-labels.sh [<owner>/<repo>]
+#   ./scripts/setup/setup-labels.sh [<owner>/<repo>]
 #
 # Example:
-#   ./scripts/setup-labels.sh                 # カレントリポジトリ
-#   ./scripts/setup-labels.sh foo/bar         # 明示指定
+#   ./scripts/setup/setup-labels.sh                 # カレントリポジトリ
+#   ./scripts/setup/setup-labels.sh foo/bar         # 明示指定
 #
 # 依存: gh (認証済み)
 # =============================================================================

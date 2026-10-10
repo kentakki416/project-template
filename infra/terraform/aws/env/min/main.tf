@@ -80,7 +80,7 @@ module "vpc" {
 # =============================================================================
 # 方針は prd と同じ (箱と JWT の初回投入だけを Terraform が持ち、以降は ignore_changes)。
 # RDS / ElastiCache が無いので DB_PASSWORD / REDIS_PORT / REDIS_DB は持たない。
-# DATABASE_URL (PlanetScale) と REDIS_URL (Upstash) は scripts/seed-secrets.sh min で投入する。
+# DATABASE_URL (PlanetScale) と REDIS_URL (Upstash) は scripts/deploy/seed-secrets.sh min で投入する。
 
 resource "random_password" "jwt_access_secret" {
   length  = 64

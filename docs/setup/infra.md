@@ -131,7 +131,7 @@ terraform output api_url
 
 ### 8. seed-secrets.sh で外部 Secret を投入
 
-- [ ] Terraform は「箱」（Secrets Manager の secret）と JWT 鍵だけ作る方針。`DATABASE_URL` / `REDIS_HOST` / `FRONTEND_URL` 等の環境変数は `scripts/seed-secrets.sh` でローカルから投入する。スクリプトは terraform output から RDS / Redis のエンドポイントを引いて `DATABASE_URL` / `REDIS_HOST` を組み立てる。
+- [ ] Terraform は「箱」（Secrets Manager の secret）と JWT 鍵だけ作る方針。`DATABASE_URL` / `REDIS_HOST` / `FRONTEND_URL` 等の環境変数は `scripts/deploy/seed-secrets.sh` でローカルから投入する。スクリプトは terraform output から RDS / Redis のエンドポイントを引いて `DATABASE_URL` / `REDIS_HOST` を組み立てる。
 
 ```bash
 export GOOGLE_CLIENT_ID=...
@@ -141,8 +141,8 @@ export LIVEKIT_API_KEY=...
 export LIVEKIT_API_SECRET=...
 export FRONTEND_URL=https://my-app.com
 
-./scripts/seed-secrets.sh dev
-./scripts/seed-secrets.sh prd
+./scripts/deploy/seed-secrets.sh dev
+./scripts/deploy/seed-secrets.sh prd
 ```
 
 ### 9. deploy workflow で ECR にイメージを push

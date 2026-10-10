@@ -182,7 +182,7 @@ export GITHUB_CLIENT_ID='<本番 OAuth App の Client ID>'
 export GITHUB_CLIENT_SECRET='<本番 OAuth App の Client secret>'
 export FRONTEND_URL='https://<your-domain>'           # フロント(apex)
 # 例: crawler 等を使うなら export GITHUB_PAT='ghp_...'（dev のを流用可）
-./scripts/seed-secrets.sh prd
+./scripts/deploy/seed-secrets.sh prd
 ```
 
 - 自動構築される（export 不要）: `DATABASE_URL` / `REDIS_HOST` / `REDIS_URL`(prd は `rediss://` = TLS)

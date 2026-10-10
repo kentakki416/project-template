@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# ci-turbo-scope.sh のテスト。判定を誤ると必要なタスクが走らないまま緑になるため、
+# turbo-scope.sh のテスト。判定を誤ると必要なタスクが走らないまま緑になるため、
 # ローカルで判定を変えたときに実行する。CI では動かしていない。
 #
-# Usage: scripts/ci-turbo-scope.test.sh
+# Usage: scripts/ci/turbo-scope.test.sh
 set -uo pipefail
 
-cd "$(cd "$(dirname "$0")/.." && pwd)"
+cd "$(cd "$(dirname "$0")/../.." && pwd)"
 
-SCRIPT="scripts/ci-turbo-scope.sh"
+SCRIPT="scripts/ci/turbo-scope.sh"
 PASS=0
 FAIL=0
 WORK="$(mktemp -d)"
@@ -84,9 +84,14 @@ assert_full_run "ワークフロー" ".github/workflows/test.yml" lint
 assert_full_run "turbo.json" "turbo.json" lint
 assert_full_run "lockfile" "pnpm-lock.yaml" lint
 assert_full_run "workspace 定義" "pnpm-workspace.yaml" lint
-assert_full_run "判定スクリプト自身" "scripts/ci-turbo-scope.sh" lint
+assert_full_run "判定スクリプト自身" "scripts/ci/turbo-scope.sh" lint
 assert_full_run "ルートの package.json" "package.json" lint
 assert_full_run ".pnpmfile.cjs" ".pnpmfile.cjs" lint
+
+echo
+echo "== ci/ 以外の scripts → 影響範囲のみ =="
+assert_scoped_run "deploy 用スクリプト" "scripts/deploy/seed-secrets.sh" lint
+assert_scoped_run "setup 用スクリプト" "scripts/setup/copy-template.sh" lint
 
 echo
 echo "== タスク固有のグローバルパス =="

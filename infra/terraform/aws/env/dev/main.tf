@@ -232,7 +232,7 @@ resource "random_password" "db_master" {
 # 「箱だけ Terraform で管理 + JWT のみ初回投入」方針:
 # - 初回 apply で JWT (random_password) と基本定数のみ Secrets Manager に書く
 # - 以降は modules/secrets 側の ignore_changes で Terraform は secret_string に触らない
-# - DATABASE_URL / REDIS_HOST / GOOGLE_* / LIVEKIT_* / FRONTEND_URL は scripts/seed-secrets.sh で投入
+# - DATABASE_URL / REDIS_HOST / GOOGLE_* / LIVEKIT_* / FRONTEND_URL は scripts/deploy/seed-secrets.sh で投入
 # - JWT を rotate するときは `terraform taint random_password.jwt_xxx` 後、
 #   Secrets Manager Console で JWT_ACCESS_SECRET / JWT_REFRESH_SECRET を新値で上書き
 #
@@ -253,7 +253,7 @@ module "app_secrets" {
     /**
      * DB マスターパスワード。module.rds が ephemeral で読む唯一の情報源。
      * 初回 apply でのみこの random 初期値が入り、以降の変更は secret 側で直接行う。
-     * DATABASE_URL は同じパスワードから scripts/seed-secrets.sh が構築する。
+     * DATABASE_URL は同じパスワードから scripts/deploy/seed-secrets.sh が構築する。
      */
     DB_PASSWORD = random_password.db_master.result
 
@@ -273,7 +273,7 @@ module "app_secrets" {
 # - isolated subnet に配置、SG は ECS のみから 5432 許可 (step1 で定義済み)
 # - master password は app secret の DB_PASSWORD を唯一の情報源とし、ephemeral 経由で
 #   password_wo (write-only) に渡す。tfstate / plan に平文は残らない
-# - DATABASE_URL は apply 後に scripts/seed-secrets.sh で /project-template-dev/app に追加する
+# - DATABASE_URL は apply 後に scripts/deploy/seed-secrets.sh で /project-template-dev/app に追加する
 #   (modules/secrets の ignore_changes により Terraform からは触れないため)
 
 # app secret から DB マスターパスワードを読む。ephemeral resource なので
@@ -325,7 +325,7 @@ module "rds" {
 # =============================================================================
 # - isolated subnet に配置、SG は ECS のみから 6379 許可
 # - dev は 1 ノード / Multi-AZ なし / snapshot なし / TLS なしで最小コスト
-# - REDIS_HOST は apply 後に scripts/seed-secrets.sh で Secrets Manager に投入する
+# - REDIS_HOST は apply 後に scripts/deploy/seed-secrets.sh で Secrets Manager に投入する
 
 module "elasticache" {
   source = "../../modules/elasticache"
@@ -494,7 +494,7 @@ locals {
   #
   # **ここに足すキーは Secrets Manager 側に値が存在していること。** ECS は存在
   # しないキーを valueFrom で参照するとタスクの起動自体に失敗する
-  # (ResourceInitializationError)。値は scripts/seed-secrets.sh か
+  # (ResourceInitializationError)。値は scripts/deploy/seed-secrets.sh か
   # module.app_secrets の initial_values で投入する。
   secret_keys = {
     api = [

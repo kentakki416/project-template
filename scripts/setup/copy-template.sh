@@ -12,7 +12,7 @@ set -euo pipefail
 # ============================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TEMPLATE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+TEMPLATE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # 色付き出力
 RED='\033[0;31m'

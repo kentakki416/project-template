@@ -17,10 +17,19 @@
 
 ## 一覧
 
+誰がいつ実行するかでディレクトリを分けている。新しいスクリプトもこのどれかに置く。
+
+- `setup/`: プロジェクト作成時に 1 回だけ人が実行する
+- `deploy/`: `terraform apply` の後など、デプロイ作業で人が繰り返し実行する
+- `ci/`: GitHub Actions から呼ばれる（人は直接実行しない）
+
 | スクリプト | 用途 |
 |---|---|
-| [seed-secrets.sh](#seed-secretssh) | apply 後に AWS Secrets Manager へ外部 secret と RDS / Redis 接続情報を投入 |
-| [setup-labels.sh](#setup-labelssh) | `.github/labeler.yml` が付与する PR ラベルを GitHub リポジトリに作成 |
+| `setup/copy-template.sh` | テンプレートから新規プロジェクトを作成（手順はルートの [README](../README.md#新規プロジェクトを作る)） |
+| [setup/setup-labels.sh](#setup-labelssh) | `.github/labeler.yml` が付与する PR ラベルを GitHub リポジトリに作成 |
+| [deploy/seed-secrets.sh](#seed-secretssh) | apply 後に AWS Secrets Manager へ外部 secret と RDS / Redis 接続情報を投入 |
+| `ci/turbo-scope.sh` | lint / test を変更の影響範囲だけ実行（`lint.yml` / `test.yml` から呼ばれる） |
+| `ci/turbo-scope.test.sh` | `turbo-scope.sh` の判定のテスト。判定を変えたらローカルで実行する |
 
 ---
 
@@ -117,7 +126,7 @@ FRONTEND_URL
 ##### (a) dotenvx 経由で `apps/api/.env.local` を流す（推奨）
 
 ```bash
-npx dotenvx run -f apps/api/.env.local -- ./scripts/seed-secrets.sh dev
+npx dotenvx run -f apps/api/.env.local -- ./scripts/deploy/seed-secrets.sh dev
 ```
 
 - `apps/api/.env.local` で既に管理している GOOGLE / LIVEKIT 等の値がそのまま使われる
@@ -125,7 +134,7 @@ npx dotenvx run -f apps/api/.env.local -- ./scripts/seed-secrets.sh dev
 
   ```bash
   FRONTEND_URL="https://project-template-xxx.vercel.app" \
-    npx dotenvx run -f apps/api/.env.local -- ./scripts/seed-secrets.sh dev
+    npx dotenvx run -f apps/api/.env.local -- ./scripts/deploy/seed-secrets.sh dev
   ```
 
 - `LIVEKIT_WEBHOOK_SECRET` のように `.env.local` に未登録の値は skip + warn が出る（後で `npx dotenvx set` で追加して再実行）
@@ -136,17 +145,17 @@ npx dotenvx run -f apps/api/.env.local -- ./scripts/seed-secrets.sh dev
 export GOOGLE_CLIENT_ID="..."
 export GOOGLE_CLIENT_SECRET="..."
 # ... 略
-./scripts/seed-secrets.sh dev
+./scripts/deploy/seed-secrets.sh dev
 ```
 
 ### 使い方
 
 ```bash
 # 基本形
-./scripts/seed-secrets.sh <env>
+./scripts/deploy/seed-secrets.sh <env>
 
 # 推奨: dotenvx 経由
-npx dotenvx run -f apps/api/.env.local -- ./scripts/seed-secrets.sh dev
+npx dotenvx run -f apps/api/.env.local -- ./scripts/deploy/seed-secrets.sh dev
 ```
 
 実行イメージ:
@@ -180,7 +189,7 @@ terraform apply
 
 # secret 投入 (10 秒、dotenvx で apps/api/.env.local の値を流す)
 cd /Users/.../project-template
-npx dotenvx run -f apps/api/.env.local -- ./scripts/seed-secrets.sh dev
+npx dotenvx run -f apps/api/.env.local -- ./scripts/deploy/seed-secrets.sh dev
 ```
 
 これで dev 環境がフル復活する。
@@ -237,10 +246,10 @@ PR の変更パスに応じて以下のラベルが自動付与される:
 
 ```bash
 # カレントリポジトリに対して実行
-./scripts/setup-labels.sh
+./scripts/setup/setup-labels.sh
 
 # owner/repo を明示指定
-./scripts/setup-labels.sh foo/bar
+./scripts/setup/setup-labels.sh foo/bar
 ```
 
 実行イメージ:

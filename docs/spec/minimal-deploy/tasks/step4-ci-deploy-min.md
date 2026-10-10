@@ -246,7 +246,7 @@ Lambda（と worker の ECS Service）は作成時にイメージが必要なの
     EXTERNAL_REDIS_URL='rediss://default:<password>@<endpoint>:6379' \
     GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... \
     FRONTEND_URL=https://<web のドメイン> \
-      ./scripts/seed-secrets.sh min
+      ./scripts/deploy/seed-secrets.sh min
     ```
 
 6. `deploy-aws-min.yml` を通常（`push_only: false`）で実行する。migrate → api / worker（あれば）/ cron の順にデプロイされる

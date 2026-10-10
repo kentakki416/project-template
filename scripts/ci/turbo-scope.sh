@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # turbo タスクを影響範囲だけ実行する。
 #
-# Usage: CI_BASE_SHA=<sha> scripts/ci-turbo-scope.sh <task> [追加グローバルパス正規表現...]
+# Usage: CI_BASE_SHA=<sha> scripts/ci/turbo-scope.sh <task> [追加グローバルパス正規表現...]
 # Env:   CI_SCOPE_DRY_RUN=1            turbo を実行せずコマンドを表示（検証用）
 #        CI_SCOPE_CHANGED_FILES_FILE   変更ファイル一覧を差し替え（テスト用）
 set -euo pipefail
@@ -18,7 +18,7 @@ BASE="${CI_BASE_SHA:-}"
 # turbo の --filter=...[ref] はパッケージに属さないファイルの変更で 0 件を返すため、
 # ここに挙げたパスが変わったら全実行に倒す。
 # **列挙漏れはタスク 0 件のまま緑になる。** ルート直下にファイルを足したら追記する。
-GLOBAL_PATHS='\.github/|scripts/|turbo\.json$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.pnpmfile\.cjs$'
+GLOBAL_PATHS='\.github/|scripts/ci/|turbo\.json$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.pnpmfile\.cjs$'
 for extra in "$@"; do
   GLOBAL_PATHS="${GLOBAL_PATHS}|${extra}"
 done

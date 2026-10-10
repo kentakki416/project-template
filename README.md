@@ -38,10 +38,10 @@ Web / Admin / Mobile のフロントエンド、Express の API、定期実行�
 
 ```bash
 # プロジェクト名を指定する
-./scripts/copy-template.sh ../my-new-app my-new-app
+./scripts/setup/copy-template.sh ../my-new-app my-new-app
 
 # プロジェクト名を省略すると、コピー先のディレクトリ名が使われる
-./scripts/copy-template.sh ~/workspace/my-new-app
+./scripts/setup/copy-template.sh ~/workspace/my-new-app
 ```
 
 git 管理のファイルのうちコミット済みの内容（HEAD）だけを、`.env.keys`（各 app の symlink）/ `pnpm-lock.yaml` / `.serena` を除いてコピーし、ルート `package.json` の `name` を置換します。コミットしていない変更はコピーされません。

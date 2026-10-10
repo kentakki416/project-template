@@ -425,7 +425,7 @@ module "vpc" {
 
 /**
  * アプリの secret。RDS / ElastiCache が無いので DB_PASSWORD / REDIS_PORT / REDIS_DB は持たない。
- * DATABASE_URL（PlanetScale）と REDIS_URL（Upstash）は scripts/seed-secrets.sh min で投入する。
+ * DATABASE_URL（PlanetScale）と REDIS_URL（Upstash）は scripts/deploy/seed-secrets.sh min で投入する。
  */
 module "app_secrets" {
   source = "../../modules/secrets"
@@ -552,7 +552,7 @@ resource "aws_route53_record" "api" {
 
 `outputs.tf`: `api_url` / `lambda_api_function_name` / `ecs_worker_service_name`（`enable_worker = false` なら `null`）/ `ecs_cluster_name` / `ecs_migration_task_definition_family` / `ecs_cron_task_definition_family` / `public_subnet_ids` / `ecs_security_group_id` / `app_secret_name`。
 
-### `scripts/seed-secrets.sh`
+### `scripts/deploy/seed-secrets.sh`
 
 min は RDS / ElastiCache の output が無いので、既存の「terraform output から組み立てる」処理は自動で skip される。PlanetScale と Upstash の接続文字列を環境変数から受け取る処理を足す。
 
