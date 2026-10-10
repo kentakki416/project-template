@@ -67,8 +67,8 @@ rsync -av \
   --exclude='.terraform' \
   --exclude='*.tfstate' \
   --exclude='*.tfstate.backup' \
-  --exclude='.terraform.lock.hcl' \
   --exclude='*.tfvars' \
+  --exclude='modules/*/lambda/*.zip' \
   --exclude='.env.keys' \
   --exclude='secret' \
   --exclude='.secret' \
@@ -85,6 +85,9 @@ rsync -av \
   --exclude='.vscode' \
   --exclude='.idea' \
   --exclude='.serena' \
+  --exclude='.playwright-mcp' \
+  --exclude='.claude/settings.local.json' \
+  --exclude='.claude/worktrees' \
   "$TEMPLATE_DIR/" "$DEST/"
 
 # package.json のプロジェクト名を置換
