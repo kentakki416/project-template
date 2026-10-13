@@ -51,13 +51,15 @@
 
 ## ホスティング
 
-| | ローカル | dev | prd |
+| | ローカル | dev / min | prd |
 | --- | --- | --- | --- |
-| ClickHouse | docker-compose（8124 / 9003） | **持たない** | ClickHouse Cloud |
-| `DATA_WAREHOUSE_TYPE` | `clickhouse` | `none` | `clickhouse` |
+| ClickHouse | docker-compose（8124 / 9003） | `enable_data_warehouse` で選ぶ（既定は**持たない**） | ClickHouse Cloud（`enable_data_warehouse` の既定が `true`） |
+| `DATA_WAREHOUSE_TYPE` | `clickhouse` | フラグに合わせて `clickhouse` / `none` | `clickhouse` |
 
-**dev は ClickHouse をホスティングしない。** dev の行動ログに分析価値が無く、そのために
-インスタンスを常駐させるのはコストに見合わないため。
+**AWS の環境が ClickHouse を持つかは、Terraform の `enable_data_warehouse` で選ぶ。**
+`true` の環境にだけ ClickHouse Cloud のサービスと接続情報の secret、migration 用のタスク定義を作る。
+dev の行動ログに分析価値は薄く、そのためにインスタンスを持つのはコストに見合わないので、既定では持たない。
+切り替え方は [`docs/spec/clickhouse-migration/README.md`](../../../docs/spec/clickhouse-migration/README.md)。
 
 ClickHouse Cloud を選んだのは、**月額最低額が無くアイドル時に compute がゼロへスケールダウン**
 するため。この規模ではストレージ費用が支配的で、それも年数 GB に収まる。

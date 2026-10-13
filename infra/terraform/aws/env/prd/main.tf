@@ -274,19 +274,6 @@ module "app_secrets" {
     REDIS_PORT = "6379"
     REDIS_DB   = "0"
 
-    /**
-     * ClickHouse Cloud の接続情報。**dummy の placeholder。**
-     * initial_values は初回 apply でのみ投入され、以降は secret 側で直接書き換える。
-     *
-     * ここに値を置いているのは、ECS が Secrets Manager に存在しないキーを
-     * valueFrom で参照するとタスクの起動自体に失敗するため。Cloud のサービスは
-     * Terraform の管理外なので、terraform output からは組み立てられない。
-     */
-    DATA_WAREHOUSE_URL      = "https://dummy.clickhouse.cloud:8443"
-    DATA_WAREHOUSE_USER     = "default"
-    DATA_WAREHOUSE_PASSWORD = "dummy"
-    DATA_WAREHOUSE_DATABASE = "project_template"
-
     NODE_ENV = "production"
     PORT     = "8080"
   }
@@ -382,6 +369,40 @@ module "elasticache" {
   maintenance_window = "mon:19:00-mon:20:00"
 
   tags = local.common_tags
+}
+
+# =============================================================================
+# ClickHouse Cloud (enable_data_warehouse のときだけ)
+# =============================================================================
+# - 接続情報 (DATA_WAREHOUSE_*) は /<prefix>/data-warehouse の secret に入れ、worker と
+#   dwh-migration にだけ渡す
+# - deploy workflow はこの secret の有無で ClickHouse の migration を流すかを判定する
+#   (判定の正本はこのフラグだけ)
+# - worker と migration のタスクは NAT から外へ出るので、NAT の IP だけ接続を許す
+# 設計: docs/spec/clickhouse-migration/README.md
+
+module "clickhouse" {
+  source = "../../modules/clickhouse-service"
+  count  = var.enable_data_warehouse ? 1 : 0
+
+  name            = local.name_prefix
+  region          = var.aws_region
+  secret_name     = "/${local.name_prefix}/data-warehouse"
+  ip_access_cidrs = ["${module.vpc.nat_gateway_public_ip}/32"]
+
+  credentials_configured = alltrue([
+    for v in [var.clickhouse_org_id, var.clickhouse_token_key, var.clickhouse_token_secret] : v != null && v != ""
+  ])
+
+  tags = local.common_tags
+}
+
+locals {
+  /** ClickHouse の接続情報。enable_data_warehouse = false なら空で、worker も migration も受け取らない */
+  data_warehouse_secrets = var.enable_data_warehouse ? {
+    for k in ["DATA_WAREHOUSE_URL", "DATA_WAREHOUSE_USER", "DATA_WAREHOUSE_PASSWORD", "DATA_WAREHOUSE_DATABASE"] :
+    k => "${module.clickhouse[0].secret_arn}:${k}::"
+  } : {}
 }
 
 # =============================================================================
@@ -500,7 +521,7 @@ module "ecs_cluster" {
 
   # Task execution role に Secrets Manager Get 権限を持たせる対象 ARN を渡す。
   # ここで一元管理し、各 workload の task definition は valueFrom で個別キーを引くだけ。
-  secret_arns_readable = [module.app_secrets.secret_arn]
+  secret_arns_readable = concat([module.app_secrets.secret_arn], module.clickhouse[*].secret_arn)
 
   tags = local.common_tags
 }
@@ -533,12 +554,8 @@ locals {
       "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
       "FRONTEND_URL", "NODE_ENV", "PORT",
     ]
-    # DATA_WAREHOUSE_* は worker だけが読む (ClickHouse Cloud への接続情報)
-    worker = [
-      "DATABASE_URL", "REDIS_URL", "NODE_ENV",
-      "DATA_WAREHOUSE_URL", "DATA_WAREHOUSE_USER",
-      "DATA_WAREHOUSE_PASSWORD", "DATA_WAREHOUSE_DATABASE",
-    ]
+    # DATA_WAREHOUSE_* は app secret ではなく local.data_warehouse_secrets から渡す
+    worker    = ["DATABASE_URL", "REDIS_URL", "NODE_ENV"]
     cron      = ["DATABASE_URL", "NODE_ENV"]
     migration = ["DATABASE_URL"]
   }
@@ -595,15 +612,14 @@ module "ecs_worker" {
   subnets            = local.ecs_common.subnets
   security_groups    = local.ecs_common.security_groups
 
-  secrets_arn = local.ecs_common.secrets_arn
-  secret_keys = local.secret_keys.worker
+  secrets_arn        = local.ecs_common.secrets_arn
+  secret_keys        = local.secret_keys.worker
+  additional_secrets = local.data_warehouse_secrets
 
-  # 接続先は ClickHouse Cloud。秘密情報ではないので平文の environment で渡す。
-  # Cloud のサービスを作るまで DATA_WAREHOUSE_URL は dummy のままなので、
-  # 実トラフィックを流す前に実値へ差し替えること (未差し替えなら insert が
-  # 3 回失敗して "[queue] job failed permanently" が出続ける)。
+  # enable_data_warehouse = false なら、何も書き込まない実装を使わせる。
+  # 秘密情報ではないので secrets ではなく平文の environment で渡す。
   environment = {
-    DATA_WAREHOUSE_TYPE = "clickhouse"
+    DATA_WAREHOUSE_TYPE = var.enable_data_warehouse ? "clickhouse" : "none"
   }
 
   # 先に ECR へ image を push してから apply する前提で 1 固定。
@@ -639,6 +655,38 @@ module "ecs_migration" {
 
   secrets_arn = local.ecs_common.secrets_arn
   secret_keys = local.secret_keys.migration
+
+  create_service        = false
+  log_retention_in_days = var.log_retention_days
+  tags                  = local.common_tags
+}
+
+# =============================================================================
+# ECS Workload: ClickHouse migration (one-shot task definition、Service なし)
+# =============================================================================
+# - enable_data_warehouse のときだけ作る (流すかどうかの判定は module.clickhouse の secret の有無)
+# - イメージは DB migration と同じで、command で ClickHouse の migration コマンドを起動する
+
+module "ecs_dwh_migration" {
+  source = "../../modules/ecs-workload"
+  count  = var.enable_data_warehouse ? 1 : 0
+
+  name    = "${local.name_prefix}-dwh-migration"
+  image   = "${data.aws_ecr_repository.migration.repository_url}:latest"
+  cpu     = 256
+  memory  = 512
+  command = ["pnpm", "--filter", "@repo/data-warehouse", "dwh:migrate:run"]
+
+  cluster_arn        = local.ecs_common.cluster_arn
+  execution_role_arn = local.ecs_common.execution_role_arn
+  subnets            = local.ecs_common.subnets
+  security_groups    = local.ecs_common.security_groups
+
+  additional_secrets = local.data_warehouse_secrets
+  environment = {
+    /** CDC を張るまでは CDC の view を作らない */
+    DATA_WAREHOUSE_CDC = "none"
+  }
 
   create_service        = false
   log_retention_in_days = var.log_retention_days
