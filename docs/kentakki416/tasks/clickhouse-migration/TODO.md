@@ -34,8 +34,9 @@ ClickHouse の DDL（events / CDC の view）を版管理して local / dev / mi
 
 - [x] step1 の PR（#110）
 - [x] step2 の PR（#111）
-- [ ] step3 の PR
-- [ ] step4 の PR
+- [x] step3 の PR（#112）
+- [x] step4 の PR（#113）
+- [x] 設計書をレビュー指摘と実装に合わせる PR（#114）
 
 ## 5. 完了
 
