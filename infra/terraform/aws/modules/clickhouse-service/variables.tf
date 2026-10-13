@@ -10,7 +10,7 @@ variable "region" {
 }
 
 variable "ip_access_cidrs" {
-  description = "サービスへの接続を許す送信元 CIDR のリスト (worker / migration のタスクが外へ出る IP)"
+  description = "サービスへの接続を許す送信元 CIDR のリスト (worker / migration のタスクが外へ出る IP と、分析ツールなどの IP)"
   type        = list(string)
 }
 

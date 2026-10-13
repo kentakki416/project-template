@@ -58,6 +58,8 @@
 
 **AWS の環境が ClickHouse を持つかは、Terraform の `enable_data_warehouse` で選ぶ。**
 `true` の環境にだけ ClickHouse Cloud のサービスと接続情報の secret、migration 用のタスク定義を作る。
+prd は dev / min と別の organization に作る（API キーが organization 全体の Admin 権限のため。[`docs/setup/infra.md`](../../../docs/setup/infra.md)）。
+サービスに繋げるのは、dev / prd は NAT の IP（worker と migration のタスク）と、`clickhouse_additional_ip_access_cidrs` に足した IP（分析ツールや手元）だけ。min はタスクの IP が毎回変わるため絞らない。
 既定で持たないのは、dev は行動ログに分析価値が薄くコストに見合わないため、min は固定費を抑える構成で、記録するかをプロダクトごとに選ぶため（api の `EVENT_TRACKER_TYPE` と同じ考え方）。
 切り替え方は [`docs/spec/clickhouse-migration/README.md`](../../../docs/spec/clickhouse-migration/README.md)。
 

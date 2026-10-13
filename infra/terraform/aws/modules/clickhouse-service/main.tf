@@ -28,7 +28,7 @@ resource "clickhouse_service" "this" {
   idle_scaling         = true
   idle_timeout_minutes = 15
 
-  ip_access = [for cidr in var.ip_access_cidrs : { source = cidr, description = "${var.name} ECS tasks" }]
+  ip_access = [for cidr in var.ip_access_cidrs : { source = cidr, description = "${var.name} allowed" }]
 
   password_wo         = random_password.default_user.result
   password_wo_version = var.password_version

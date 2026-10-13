@@ -152,6 +152,12 @@ variable "clickhouse_token_secret" {
   sensitive   = true
 }
 
+variable "clickhouse_additional_ip_access_cidrs" {
+  description = "ClickHouse Cloud のサービスへの接続を、NAT の IP に加えて許す送信元の CIDR (分析ツールや手元の IP)。コンソールで足した IP は次の apply で消えるため、ここに足してコミットする"
+  type        = list(string)
+  default     = []
+}
+
 # =============================================================================
 # タグ設定
 # =============================================================================

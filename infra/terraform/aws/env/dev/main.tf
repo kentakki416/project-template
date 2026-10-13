@@ -374,7 +374,7 @@ module "clickhouse" {
   name            = local.name_prefix
   region          = var.aws_region
   secret_name     = "/${local.name_prefix}/data-warehouse"
-  ip_access_cidrs = ["${module.vpc.nat_gateway_public_ip}/32"]
+  ip_access_cidrs = concat(["${module.vpc.nat_gateway_public_ip}/32"], var.clickhouse_additional_ip_access_cidrs)
 
   # ClickHouse の default ユーザーのパスワードを作り直したら +1 する (手順は modules/clickhouse-service/main.tf)
   password_version = 1
