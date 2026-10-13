@@ -146,3 +146,8 @@ output "clickhouse_https_host" {
   description = "ClickHouse Cloud のサービスの HTTPS ホスト名。enable_data_warehouse = false なら null"
   value       = one(module.clickhouse[*].https_host)
 }
+
+output "clickpipe_state" {
+  description = "ClickPipe の状態 (Running / Snapshot / Failed など)。Failed でも apply は成功するため、apply 後に確認する。enable_cdc = false なら null"
+  value       = one(module.cdc[*].clickpipe_state)
+}

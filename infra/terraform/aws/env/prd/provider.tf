@@ -18,6 +18,10 @@ terraform {
       source  = "ClickHouse/clickhouse"
       version = "~> 3.38"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.13"
+    }
   }
 }
 

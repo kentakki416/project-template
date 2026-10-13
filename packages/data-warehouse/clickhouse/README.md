@@ -16,6 +16,7 @@
 - [CDC（Postgres からの取り込み）](#cdcpostgres-からの取り込み)
   - [ローカルと ClickHouse Cloud の違い](#ローカルと-clickhouse-cloud-の違い)
   - [運用上の注意](#運用上の注意)
+  - [ClickHouse Cloud の CDC（ClickPipes）](#clickhouse-cloud-の-cdcclickpipes)
 - [view を経由する規約](#view-を経由する規約)
 - [migration コマンド](#migration-コマンド)
   - [ClickHouse に置くもの](#clickhouse-に置くもの)
@@ -119,10 +120,50 @@ catalog Postgres / Temporal / MinIO を含む **11 サービス**が増え、ダ
 ### 運用上の注意
 
 - **replication slot は WAL を保持する。** 取り込み側が止まると Postgres のディスクが WAL で
-  埋まって書き込み不能になる。prd では slot ラグの監視が事実上必須（**未実装**）
+  埋まって書き込み不能になる。AWS の RDS は `max_slot_wal_keep_size`（5 GB）で上限を付けていて、
+  超えると slot が無効になり CDC は止まるが、DB は止まらない（再同期で戻す）。slot ラグの監視は**未実装**
 - 反映は同期ではない。ローカルでの実測は数秒〜10 秒程度で、再起動直後は長めに出る
 - ローカルで `pg_cdc` を消すときは `DROP DATABASE pg_cdc`。slot と publication も一緒に消える。
   手で消さずに放置すると docker volume が WAL で膨らみ続ける
+
+### ClickHouse Cloud の CDC（ClickPipes）
+
+AWS では Terraform の `enable_cdc` が `true` の環境（既定は prd）にだけ、ClickPipe と SSH bastion を作る。
+`enable_cdc` は `enable_data_warehouse` が `true` のときだけ有効にできる。
+
+- ClickPipes は VPC の外から RDS に繋ぐため、public subnet の SSH bastion を経由する。bastion は ClickPipes の固定 IP からの SSH だけを受け、RDS の 5432 にだけ出る
+- RDS の論理レプリケーション（`rds.logical_replication`）は `enable_cdc` に関係なく有効にしている。`enable_cdc` に連動させると、有効にするたびに RDS の再起動が要るため
+- 固定費は ClickPipes の CDC 用の計算資源（約 $73/月。ClickPipe がある間はサービスのアイドルに関係なくかかる）と bastion（月 $10 未満）
+- 同期の対象を変えるときは `infra/clickhouse/cdc-tables.json` を変えて apply する（ClickPipe に反映される）
+
+**パラメータグループを入れたとき（既存の環境で 1 回だけ）**
+
+論理レプリケーションは再起動するまで効かない。新しく作る環境では作成時から効くので不要。
+
+1. apply（dev / prd）
+2. `aws rds reboot-db-instance --db-instance-identifier <prefix>-db`（dev は日中でよい。prd はメンテナンス時間帯に）
+3. `aws rds describe-db-instances --db-instance-identifier <prefix>-db --query 'DBInstances[0].DBParameterGroups'` の `ParameterApplyStatus` が `in-sync` になったことを確かめる
+
+**CDC を有効にする**
+
+1. `enable_cdc` の既定値を `true` にして PR → マージ → apply
+2. apply の出力の `clickpipe_state` が `Running` か `Snapshot` であることを確かめる（`Failed` でも apply は成功するため、必ず見る）
+3. deploy か、ClickHouse の migration だけを流す workflow（`clickhouse-migrate.yml`）で view を作る
+
+**CDC の対象を変える**（このパッケージでやることは[後述](#cdc-の対象を変えるとき)）
+
+| ケース | 反映の順序 |
+| --- | --- |
+| テーブルを足す | Drizzle の migration・`cdc-tables.json`・`views/<table>.sql` を 1 つの PR に入れる → マージ → deploy（テーブルを作る。view はまだ元テーブルが無いので飛ばされる）→ apply（ClickPipe に足し、初回の取り込み）→ `clickhouse-migrate.yml`（view を作る） |
+| テーブルを消す・名前を変える | 1 回目の PR（`cdc-tables.json` と view から外し、`DROP VIEW` の migration を足す）→ deploy → apply（ClickPipe から外す）。2 回目の PR（Drizzle の変更と `DROP TABLE IF EXISTS pg_cdc.<table>` の migration）→ deploy。名前を変えるなら、新しい名前で「テーブルを足す」も 2 回目の PR で行う |
+| 列の型・名前を変える | deploy（Drizzle）→ ClickHouse Cloud のコンソールで ClickPipe を Resync → 終わったら `clickhouse-migrate.yml` |
+| 列を足す・消す | deploy だけでよい。足した列は、そのテーブルに次の書き込みがあったときに ClickHouse に現れる |
+
+**CDC を無効にする**
+
+1. `enable_cdc` を `false` にして apply（ClickPipe・bastion・SSH の鍵が消える）
+2. RDS に replication slot が残っていないことを確かめる（`SELECT slot_name FROM pg_replication_slots`）。残っていたら `SELECT pg_drop_replication_slot('<slot_name>')` で消す。残すと WAL が溜まり続ける
+3. `pg_cdc` のテーブルと view は残る。不要なら migration で消す
 
 ## view を経由する規約
 
