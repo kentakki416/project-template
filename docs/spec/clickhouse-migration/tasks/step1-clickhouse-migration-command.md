@@ -28,11 +28,14 @@ packages/clickhouse-migration/      # @repo/clickhouse-migration（新設）
 │   ├── cdc-view-variables.ts       # CDC の実装ごとの置き換え値
 │   ├── definition-files.ts         # migrations/ ・ views/ ・ cdc-tables.json の読み込みと検査
 │   ├── render-view-sql.ts
+│   ├── exists-table.ts
+│   ├── local-cdc-database.ts       # 既にある pg_cdc がこのプロジェクトのものかの判定
 │   ├── rebuild-local-cdc.ts
 │   ├── run-versioned-migrations.ts
 │   └── apply-views.ts
 └── test/
     ├── definition-files.test.ts
+    ├── local-cdc-database.test.ts
     └── render-view-sql.test.ts
 
 infra/clickhouse/
@@ -131,7 +134,8 @@ WHERE ${CDC_LIVE_FILTER}
 ```
 
 - **人が使うのは `migrate`、コンテナが使うのは `migrate:run`。** `@repo/logger` は `dist/` を読むため、事前にビルドが要る。`migrate` は turbo 経由で依存パッケージをビルドしてから `migrate:run` を実行する。コンテナではイメージのビルド時にビルド済みなので `migrate:run` を直接起動する
-- `turbo.json` に `migrate:run` タスク（`dependsOn: ["^build"]`、`cache: false`）を足す
+- `turbo.json` に `migrate:run` タスク（`dependsOn: ["^build"]`、`cache: false`）を足す。**`passThroughEnv` に `DATA_WAREHOUSE_*` / `LOCAL_CDC_POSTGRES_*` / `LOG_LEVEL` / `LOGGER_TYPE` を入れる。** turbo 2 は strict env mode で、宣言していない環境変数をタスクに渡さない。渡らないと既定の接続先（`localhost:8124`）に黙って繋がる
+- lint は他のパッケージと同じく `src/` だけを対象にし、型の検査用に `typecheck`（`tsc --noEmit`）を足す
 - アプリではないのでビルド（`dist/`）は作らない。`tsx` で直接実行する（`packages/db` の `db:seed` と同じ）
 
 ### `src/env.ts`
@@ -205,8 +209,8 @@ export const CDC_VIEW_VARIABLES: Record<Exclude<CdcMode, "none">, Record<string,
 | 関数 | 内容 |
 | --- | --- |
 | `readMigrationFileNames(dir)` | `*.sql` のファイル名一覧 |
-| `findDuplicateMigrationVersions(fileNames)` | `<版番号>_` を数値で解釈し、重複している版番号を返す。`<版番号>_` の形でないファイルもエラーにする（`clickhouse-migrations` は NaN を弾くが、重複は検知しないため） |
-| `readCdcTables(path)` | `cdc-tables.json` を読み、文字列の配列であることを Zod で検証する |
+| `verifyMigrationFileNames(fileNames)` | `<版番号>_` を数値で解釈し、問題の一覧を返す: 重複している版番号、`<版番号>_` の形でないファイル、`UInt32` を超える版番号（`clickhouse-migrations` は形式の誤りは弾くが、重複は検知しないため） |
+| `readCdcTables(path)` / `parseCdcTablesJson(text)` | `cdc-tables.json` を読み、識別子として安全な名前（`/^[a-z_][a-z0-9_]*$/`）の重複の無い配列であることを Zod で検証する（SQL に埋め込むため） |
 | `readViewDefinitions(dir)` | `{ table, sql }` の配列（`table` はファイル名から） |
 | `verifyViewsMatchCdcTables(cdcTables, viewTables)` | 一覧にあって view が無いもの、view があって一覧に無いものを返す |
 
@@ -288,6 +292,7 @@ export const rebuildLocalCdc = async (client: ClickHouseClient, params: {...}): 
 
 - `waitForCdcTables` は `EXISTS TABLE pg_cdc.<table>` を 1 秒ごとに確認する。タイムアウトしたら、現れなかったテーブル名と「Postgres にテーブルが無い。`pnpm --filter api db:migrate` を先に実行する」旨を含めて throw する
 - 値は env 由来で、外部入力ではないが、`'` を含む値はエラーにして埋め込まない
+- **DROP の前に、既にある `pg_cdc` の `system.databases.engine_full` を見て、`LOCAL_CDC_POSTGRES_HOST` / `_DATABASE` と同じ Postgres を取り込むものか確かめる。違えば消さずに throw する**（`isLocalCdcDatabaseOf`。別プロジェクトの ClickHouse に繋いでしまったときに、そのプロジェクトの CDC を消さないため）
 
 ### `src/apply-views.ts`
 
@@ -311,7 +316,7 @@ export const applyViews = async (client, params: { cdcMode, views }): Promise<vo
 処理の順序だけを書く。各処理の開始と結果を `logger.info` で出す。
 
 1. env の検証（`import { env } from "./env"`）
-2. `findDuplicateMigrationVersions` / `verifyViewsMatchCdcTables` で検査。問題があれば DB に触る前に失敗する
+2. `verifyMigrationFileNames` / `verifyViewsMatchCdcTables` で検査。問題があれば DB に触る前に失敗する
 3. `materialized_postgresql` なら `rebuildLocalCdc`
 4. `runVersionedMigrations`
 5. `none` 以外なら `applyViews`
@@ -325,7 +330,7 @@ Drizzle と同じイメージに同梱する（ECR リポジトリを増やさ�
 
 - pruner: `turbo prune @repo/db @repo/clickhouse-migration --docker`
 - runner: install の後に `pnpm turbo run build --filter=@repo/clickhouse-migration^...`（`@repo/logger` のビルド）
-- `infra/clickhouse/cdc-tables.json` を `/app/infra/clickhouse/` に COPY する（`turbo prune` は workspace 外のファイルを含めないため）
+- `infra/clickhouse/cdc-tables.json` を `/app/infra/clickhouse/` に COPY する（`turbo prune` は workspace 外のファイルを含めないため）。`.dockerignore` が `infra/` を除外しているので、`!infra/clickhouse/cdc-tables.json` の例外を足す
 - 先頭のコメントを「migration 専用イメージ（Drizzle / ClickHouse）」に更新する。ClickHouse の起動コマンドは `pnpm --filter @repo/clickhouse-migration migrate:run`
 
 ### `docker-compose.yaml`
@@ -351,7 +356,8 @@ Drizzle と同じイメージに同梱する（ECR リポジトリを増やさ�
 
 `pnpm --filter @repo/clickhouse-migration test`
 
-- `findDuplicateMigrationVersions`: `1_a.sql` と `001_b.sql` を重複として返す / `a.sql`・`0_a.sql` をエラーにする / 連番なら空
+- `verifyMigrationFileNames`: `1_a.sql` と `001_b.sql` を重複として返す / `a.sql`・`0_a.sql`・14 桁の版番号をエラーにする / 連番なら空
+- `isLocalCdcDatabaseOf`: 同じホストと DB 名なら true / 別の DB 名・別のホスト・MaterializedPostgreSQL でない database なら false
 - `verifyViewsMatchCdcTables`: 過不足の両方向を返す
 - `renderViewSql`: 全変数を置き換える / 未定義の変数で throw する / `$` を含まない SQL はそのまま
 
@@ -387,6 +393,8 @@ pnpm --filter @repo/clickhouse-migration migrate
 - **一覧と view のずれ**: `cdc-tables.json` だけに足して migrate → DB に触る前にエラーで止まる
 - **Postgres にテーブルが無い**: `cdc-tables.json` と view に存在しないテーブルを足して migrate → 60 秒で「`db:migrate` を先に」のエラー
 - **版番号の重複**: `1_x.sql` を足して migrate → DB に触る前にエラー
+- **別の DB の `pg_cdc`**: `LOCAL_CDC_POSTGRES_DATABASE` を別の名前にして migrate → 既にある `pg_cdc` を消さずに「refusing to drop」で止まる
+- **環境変数が渡ること**: `DATA_WAREHOUSE_URL` を既定と違うポートにして migrate → そのポートの ClickHouse に適用される（`turbo run ... --dry=json` の `passthrough` にも出る）
 - **適用済みファイルの変更**: `1_create_events.sql` を書き換えて migrate → `clickhouse-migrations` がチェックサムの不一致で止まる（確認後に戻す）
 
 ### migration イメージ

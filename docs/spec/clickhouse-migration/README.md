@@ -262,6 +262,7 @@ WHERE ${CDC_LIVE_FILTER}
 - 作り直しの後、`cdc-tables.json` の全テーブルが ClickHouse に現れるまで待つ（最大 60 秒）。現れなければ「Postgres にテーブルが無い。`db:migrate` を先に実行する」旨を出して失敗する
 - MaterializedPostgreSQL が接続する Postgres の情報（docker のネットワーク内のホスト名 `postgres:5432` など）は migration コマンドの env の既定値に持つ
 - `infra/clickhouse/users.d/materialized-postgresql.xml`（experimental 機能の有効化）はそのまま残す
+- **作り直す前に、既にある `pg_cdc` がこのプロジェクトの Postgres（ホストと DB 名）を取り込むものか確かめ、違えば消さずに止める。** 同じテンプレートから作った別プロジェクトの ClickHouse が同じポート（8124）で動いていると、接続先を取り違えたまま別プロジェクトの CDC を消してしまうため（実装中に、turbo が環境変数を渡さず既定の接続先に繋がって実際に起きた）
 
 ### ClickHouse Cloud のサービス（Terraform）
 
@@ -383,6 +384,7 @@ ClickHouse の接続情報は、Terraform が管理する専用の secret（`/<p
 | ClickPipe の作成時に、論理レプリケーションが有効になっていない（RDS の再起動漏れ） | step3 で apply の前に `SHOW wal_level` が `logical` か確認する手順を入れる | RDS を再起動してから apply し直す |
 | ClickPipes が RDS の証明書を既定で信頼せず、TLS で失敗する | step3 で ClickPipe の `state` を確認する | `ca_certificate` に RDS のリージョンの CA バンドルを渡す |
 | SSH の鍵の検証（`active` になること）が ClickPipe の作成より遅れる、または鍵の API が organization で使えない | step3 で鍵の `status` と ClickPipe の `state` を確認する | `time_sleep` を延ばす。使えなければ判断し直す（PrivateLink か IP 許可リスト） |
+| ローカルで、同じテンプレートから作った別プロジェクトの ClickHouse に誤って繋ぐ（既定のポートが同じ） | step1 で、別の DB を取り込む `pg_cdc` があると消さずに止まることを確認する | ― （作り直しの前の確認で防ぐ） |
 | min の ClickHouse Cloud が `0.0.0.0/0` を許可しているため、インターネットのスキャンでアイドルから起こされて費用が増える | min で有効にした後、ClickHouse Cloud の使用量を 1 週間見る | min の worker を固定 IP（NAT）経由にするか、min では ClickHouse を使わない |
 | ClickHouse Cloud の Shared database で `CREATE OR REPLACE VIEW` が一瞬 view を消す | step4 で dev に対して、migration を流しながら view を読み続けて失敗しないか確認する | 分析クエリは数秒のリトライで十分なので、README に注意を書くだけにする |
 | ClickPipe の列の反映（ケース 3）が遅れ、view に新しい列が出ないまま気づかない | step4 の動作確認で、列を足した後に書き込み → migration の再実行で view に出ることを確認する | ClickHouse の migration だけを流す workflow を手動で実行できるようにする |
