@@ -280,7 +280,7 @@ WHERE ${CDC_LIVE_FILTER}
 - provider は、ClickHouse のリソースが 0 個でも**空でない**認証情報を要求する（API は呼ばない）。そのため provider には `coalesce(var.clickhouse_org_id, "unused")` のように渡し、フラグが `false` の環境では secret を置かなくても plan / apply が通るようにする
 - フラグが `true` なのに認証情報が無いときは、`clickhouse_service` の `precondition` で分かりやすいエラーにする
 - **既存のサービスを消す（フラグを `true` → `false`）ときは本物の認証情報が要る。** 削除に API を呼ぶため
-- Terraform CI（`terraform-aws-env-ci.yml`）は `validate` だけで provider を設定しないので、認証情報は要らない。`.terraform.lock.hcl` に ClickHouse provider のハッシュを足す（`-lockfile=readonly` のため）
+- Terraform CI（`terraform-aws-env-ci.yml`）も dev / min を plan するので、apply の workflow と同じく `TF_VAR_*` を渡す（ClickHouse のリソースの refresh に API を呼ぶため）。フラグが `false` の環境では secret が未設定のまま通る。`.terraform.lock.hcl` に ClickHouse provider のハッシュを足す（`-lockfile=readonly` のため）
 
 ### CDC（ClickPipes）
 

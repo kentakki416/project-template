@@ -218,7 +218,7 @@ module "ecs_dwh_migration" {
 
 ### Terraform の workflow
 
-`terraform-aws-env-apply.yml` の plan / apply の step に足す:
+`terraform-aws-env-apply.yml` の plan / apply の step と、`terraform-aws-env-ci.yml` の plan の step に足す:
 
 ```yaml
 env:
@@ -228,7 +228,7 @@ env:
 ```
 
 - secret は GitHub Environment（`dev` / `min-terraform` / `prd`）ごとに置く。**フラグを `true` にする環境にだけ置けばよい**
-- `terraform-aws-env-ci.yml` は `validate` だけなので変えない
+- CI も dev / min を plan するので同じ env が要る（ClickHouse のリソースの refresh に API を呼ぶため）
 
 ### ClickHouse Cloud の準備（Terraform の管理外）
 
@@ -244,8 +244,10 @@ env:
 | --- | --- |
 | `packages/data-warehouse/README.md` | 「ホスティング」の表を「`enable_data_warehouse` で選ぶ（既定 dev / min は false、prd は true）」に直す。「dev は ClickHouse をホスティングしない」の段落を、フラグで作る・作らないを選べる旨に直す |
 | `packages/data-warehouse/src/noop-data-warehouse.ts` | コメントの「ローカルの一部・dev 等」を「`enable_data_warehouse = false` の環境」に直す |
-| `apps/worker/src/env.ts` / `apps/worker/CLAUDE.md` | `DATA_WAREHOUSE_TYPE` のコメントの「dev 等」を同様に直す |
+| `apps/worker/src/env.ts` / `apps/worker/src/index.ts` / `apps/worker/CLAUDE.md` | `DATA_WAREHOUSE_TYPE` のコメントの「dev 等」を同様に直す |
 | `docs/setup/infra.md` | ClickHouse Cloud の準備と、`enable_data_warehouse` の切り替え手順へのリンク |
+| `infra/README.md` | module の一覧に `clickhouse-service` を、dev / prd の差分表に `enable_data_warehouse` の既定値を足す |
+| `docs/spec/minimal-deploy/README.md` | 「ClickHouse Cloud は prd と同じ扱い・同じ接続先」を、`enable_data_warehouse` で選ぶ旨に直す |
 
 ## 動作確認
 
