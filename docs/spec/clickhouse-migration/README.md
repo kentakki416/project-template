@@ -114,7 +114,8 @@ pnpm --filter @repo/clickhouse-migration migrate   # ClickHouse（events / CDC /
 
 ### deploy での判定
 
-- **判定の正本は Terraform のフラグだけにする。** `enable_data_warehouse = true` の環境にだけ ClickHouse の migration 用の ECS タスク定義を作り、deploy workflow はそのタスク定義があるかどうかで migration の job を実行するか skip するかを決める。GitHub 側に同じ設定は持たない
+- **判定の正本は Terraform のフラグだけにする。** `enable_data_warehouse = true` の環境にだけ ClickHouse の接続情報の secret（`/<prefix>/data-warehouse`）と migration 用の ECS タスク定義を作り、deploy workflow はその secret があるかどうかで migration の job を実行するか skip するかを決める。GitHub 側に同じ設定は持たない
+- **タスク定義の有無では判定しない。** deploy が register した revision は Terraform の管理外で、フラグを `false` にしても `ACTIVE` のまま残るため（family 名で引くと最新の `ACTIVE` な revision が返る）。secret はフラグと同時に作られ、同時に消える
 - CDC の有無は Terraform がタスクの環境変数で渡し、migration コマンドが view を作るかどうかを決める。**ClickPipe の作成・同期対象の変更は deploy ではなく Terraform の apply で行う**
 - ClickHouse の migration が失敗しても **api の deploy は止めない**（分析用のため）。worker は ClickHouse に書き込むので、migration の成功を待ってから deploy する
 - skip した場合は GitHub の画面で job が skipped として見える
@@ -180,7 +181,8 @@ flowchart LR
 | ClickHouse Cloud | `modules/clickhouse-service`（新設） | サービス、パスワード、接続情報の secret |
 | CDC | `modules/clickpipes-postgres-cdc`（新設）/ `modules/rds`（パラメータグループを追加） | ClickPipe、SSH の鍵、bastion、RDS の論理レプリケーション |
 | migration の実行 | `modules/ecs-workload`（既存）で one-shot のタスク定義 `{env}-dwh-migration` | `enable_data_warehouse` のときだけ作る |
-| deploy | `deploy-aws-{dev,min,prd}.yml` | タスク定義の有無を見て `migrate-dwh` job を実行 / skip |
+| deploy | `deploy-aws-{dev,min,prd}.yml` | 接続情報の secret の有無を見て `migrate-dwh` job を実行 / skip |
+| deploy 用の IAM ロール | `account/github_oidc.tf`（既存） | secret の有無を調べる権限（`secretsmanager:DescribeSecret`）と、手動実行の workflow が使う `ecs:ListTaskDefinitions` を足す |
 
 `packages/data-warehouse` には DDL を持ち込まない。同パッケージは「書き込み経路の抽象」で、DDL はバックエンドの方言そのものなので抽象化の対象外とする方針（`data-warehouse.ts` のコメント）を維持する。
 
@@ -323,7 +325,7 @@ WHERE ${CDC_LIVE_FILTER}
 
 ```mermaid
 flowchart LR
-    D[detect<br/>dwh-migration の<br/>タスク定義の有無] --> B[build]
+    D[detect<br/>接続情報の<br/>secret の有無] --> B[build]
     B --> M[migrate<br/>Drizzle]
     M --> MD[migrate-dwh<br/>ClickHouse<br/>有るときだけ]
     M --> A[deploy-api]
@@ -332,12 +334,12 @@ flowchart LR
     M --> C[deploy-cron]
 ```
 
-- **detect**: `aws ecs describe-task-definition --task-definition <prefix>-dwh-migration` が成功すれば `dwh_enabled=true`。min は既存の detect job（worker の有無）に足す
+- **detect**: `aws secretsmanager describe-secret --secret-id /<prefix>/data-warehouse` が成功すれば `dwh_enabled=true`、secret が無ければ `false`。権限不足などそれ以外のエラーは job を失敗させる（黙って migration を飛ばさない）。min は既存の detect job（worker の有無）に足す
 - **migrate-dwh**: Drizzle の `migrate` の後に、同じ migration イメージで one-shot タスクを起動する（タスク定義の `command` で ClickHouse のコマンドを指定）。ケース 1 で view の元テーブルが Postgres に先にできている必要があるため、Drizzle の後にする
 - **deploy-worker** は `migrate` と `migrate-dwh` の両方を待つ。`migrate-dwh` が skip のときも進める（`!cancelled()` と各 job の結果で条件を書く）
 - **deploy-api / deploy-cron** は今までどおり `migrate` だけを待つ
 - 「タスク定義を最新のイメージで register → run-task → 停止を待つ → 終了コードで成否を判定し、失敗ならログを出す」処理は `migrate` と同じなので、composite action（`.github/actions/run-one-shot-task`）に切り出して両方から使う
-- **イメージは既存の migration イメージ（`project-template-migration`）に同梱する。** ECR リポジトリと `account/` 層の権限を増やさずに済む。`packages/db/Dockerfile.migration` の `turbo prune` の対象に `@repo/clickhouse-migration` を足す
+- **イメージは既存の migration イメージ（`project-template-migration`）に同梱する。** ECR リポジトリと push の権限を増やさずに済む。`packages/db/Dockerfile.migration` の `turbo prune` の対象に `@repo/clickhouse-migration` を足す
 
 ### secret と環境変数
 
@@ -441,7 +443,7 @@ sequenceDiagram
     TF->>CH: サービスを作成
     TF->>TF: data-warehouse の secret / dwh-migration のタスク定義を作成<br/>worker の DATA_WAREHOUSE_TYPE を clickhouse に
     Dev->>GA: deploy（dev）
-    GA->>GA: detect: dwh-migration のタスク定義がある
+    GA->>GA: detect: data-warehouse の secret がある
     GA->>ECS: migrate（Drizzle）
     GA->>ECS: migrate-dwh（ClickHouse）
     ECS->>CH: CREATE DATABASE / 未適用の migration
@@ -483,4 +485,4 @@ sequenceDiagram
 | [step1-clickhouse-migration-command](./tasks/step1-clickhouse-migration-command.md) | `packages/clickhouse-migration`（コマンド、`migrations/`、`views/`）、`cdc-tables.json`、ローカルの CDC の作り直し、init スクリプトの廃止、migration イメージへの同梱、関連 README の更新 |
 | [step2-infra-data-warehouse-flag](./tasks/step2-infra-data-warehouse-flag.md) | `enable_data_warehouse`、ClickHouse の provider、`modules/clickhouse-service`、data-warehouse の secret、`ecs-workload` の `additional_secrets`、worker の切り替え、dwh-migration のタスク定義、Terraform の workflow への認証情報 |
 | [step3-infra-cdc](./tasks/step3-infra-cdc.md) | `enable_cdc`、RDS のパラメータグループ、`modules/clickpipes-postgres-cdc`（ClickPipe と SSH bastion）、ケース 1・2・4 の手順 |
-| [step4-ci-deploy-dwh-migration](./tasks/step4-ci-deploy-dwh-migration.md) | 3 環境の deploy workflow の detect / `migrate-dwh` / worker の待ち合わせ、composite action、ClickHouse の migration だけを流す手動実行、AWS 上での動作確認 |
+| [step4-ci-deploy-dwh-migration](./tasks/step4-ci-deploy-dwh-migration.md) | deploy 用の IAM ロールの権限、3 環境の deploy workflow の detect / `migrate-dwh` / worker の待ち合わせ、composite action、ClickHouse の migration だけを流す手動実行、AWS 上での動作確認 |

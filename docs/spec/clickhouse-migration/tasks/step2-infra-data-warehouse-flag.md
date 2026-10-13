@@ -127,7 +127,7 @@ resource "aws_secretsmanager_secret_version" "this" {
 ```
 
 - パスワードを変えるときは `random_password` を taint し、`password_wo_version` を +1 して apply する（手順を README に書く）
-- `recovery_window_in_days = 0` は app secret と同じ（作り直しで名前が衝突しないように）
+- `recovery_window_in_days = 0` は app secret と同じ（作り直しで名前が衝突しないように）。加えて、deploy workflow はこの secret の有無で ClickHouse の migration を流すか判定する（step4）ため、フラグを `false` にしたら即座に消す必要がある。削除待ちの secret は `describe-secret` で見えてしまう
 
 ### `modules/ecs-workload`（変数の追加）
 
@@ -182,8 +182,7 @@ locals {
 ```hcl
 /**
  * ClickHouse の migration（one-shot。Service なし）
- * enable_data_warehouse のときだけ作る。deploy workflow はこのタスク定義の有無で
- * ClickHouse の migration を流すかを判定する（判定の正本はこのフラグだけ）。
+ * enable_data_warehouse のときだけ作る（deploy workflow が流すかどうかは接続情報の secret の有無で判定する）。
  * イメージは Drizzle の migration と同じで、command で ClickHouse のコマンドを起動する。
  */
 module "ecs_dwh_migration" {

@@ -1,6 +1,6 @@
 # step4-ci-deploy-dwh-migration
 
-3 環境の deploy workflow（`deploy-aws-{dev,min,prd}.yml`）に ClickHouse の migration（`migrate-dwh` job）を組み込む。`enable_data_warehouse = true` の環境（= dwh-migration のタスク定義がある環境）でだけ実行し、無ければ skip する。あわせて、ClickHouse の migration だけを手動で流す workflow を足し、AWS 上で一通り動作確認する。
+3 環境の deploy workflow（`deploy-aws-{dev,min,prd}.yml`）に ClickHouse の migration（`migrate-dwh` job）を組み込む。`enable_data_warehouse = true` の環境（= ClickHouse の接続情報の secret がある環境）でだけ実行し、無ければ skip する。あわせて、ClickHouse の migration だけを手動で流す workflow を足し、AWS 上で一通り動作確認する。
 
 設計: [`../README.md`](../README.md#deploy-への組み込み) / [deploy での判定](../README.md#deploy-での判定)
 
@@ -12,7 +12,7 @@
 
 ```mermaid
 flowchart LR
-    D[detect<br/>dwh-migration の<br/>タスク定義の有無] --> B[build]
+    D[detect<br/>接続情報の<br/>secret の有無] --> B[build]
     B --> M[migrate<br/>Drizzle]
     M --> MD[migrate-dwh<br/>dwh_enabled のときだけ]
     D --> MD
@@ -28,16 +28,33 @@ flowchart LR
 ### detect
 
 ```bash
-if aws ecs describe-task-definition --task-definition "${ECS_DWH_MIGRATION_TASK_DEF}" >/dev/null 2>&1; then
+if OUTPUT=$(aws secretsmanager describe-secret --secret-id "${DATA_WAREHOUSE_SECRET_ID}" --query Name --output text 2>&1); then
   echo "dwh_enabled=true" >> "$GITHUB_OUTPUT"
-else
+elif grep -q ResourceNotFoundException <<< "${OUTPUT}"; then
   echo "dwh_enabled=false" >> "$GITHUB_OUTPUT"
+else
+  echo "${OUTPUT}" >&2
+  exit 1
 fi
 ```
 
-- `ECS_DWH_MIGRATION_TASK_DEF: project-template-<env>-dwh-migration` を各 workflow 先頭の `env:` に足す
-- タスク定義は `terraform destroy`（`count = 0`）で INACTIVE になる。`describe-task-definition` は INACTIVE でも成功するため、`--query 'taskDefinition.status'` が `ACTIVE` かどうかで判定する
+- `DATA_WAREHOUSE_SECRET_ID: /project-template-<env>/data-warehouse` を各 workflow 先頭の `env:` に足す
+- **dwh-migration のタスク定義の有無では判定しない。** deploy が register した revision は Terraform の管理外で、フラグを `false` にして apply しても `ACTIVE` のまま残る。`describe-task-definition` に family 名を渡すと最新の `ACTIVE` な revision が返るので、判定が `true` のままになり、消えた secret を参照するタスクの起動に失敗して deploy-worker まで止まる
+- secret は `recovery_window_in_days = 0` なので、フラグを `false` にした apply で即座に消える（削除待ちの secret は `describe-secret` が成功してしまう）
+- secret が無い以外のエラー（権限不足など）で `false` にすると、migration が黙って飛ばされる。そのため job を失敗させる
 - min の `push_only=true`（初回）では調べない（既存の worker の判定と同じ）
+
+### deploy 用の IAM ロールの権限（`account/github_oidc.tf`）
+
+`ecs_deploy` の policy document に足す。dev / prd のロールは AdministratorAccess も持っているが、min の deploy 用ロール（Environment `min`）は持っていないため、policy 側に書く。
+
+| sid | actions | resources | 使うところ |
+| --- | --- | --- | --- |
+| `DescribeDataWarehouseSecret`（新設） | `secretsmanager:DescribeSecret` | `arn:aws:secretsmanager:*:<account>:secret:/${var.project_name}-*/data-warehouse-*` | detect。値は読めない |
+| `EcsDeploy`（既存） | `ecs:ListTaskDefinitions` を足す | `*`（既存のまま） | ClickHouse の migration だけを流す workflow が、最後に deploy したイメージを探す |
+
+- **account の apply を、deploy workflow の変更より先に行う。** 権限が無いまま deploy すると detect が失敗する（上記のとおり、黙って skip はしない）
+- account の apply は `terraform-aws-account-apply.yml`（role 自身の trust policy は変えないので CI から流せる）
 
 ### composite action `.github/actions/run-one-shot-task`
 
@@ -113,7 +130,7 @@ deploy-worker:
 - **最後に deploy したイメージで、最新のタスク定義の設定を使って起動する。** 最新の revision をそのまま起動しないのは、Terraform の apply（`enable_cdc` の切り替え等）でできた revision の image が `:latest` の placeholder で、ECR に存在しないため
   - revision を新しい順に見て、image のタグが `:latest` でない最初のものを「最後に deploy したイメージ」とする（`aws ecs list-task-definitions --family-prefix ... --sort DESC`）
   - それを composite action の `image` に渡す（最新の revision の設定に image だけ差し替えて register してから起動する）
-- タスク定義が無い（`enable_data_warehouse = false`）環境を選んだら、何もせずにその旨を出して失敗する
+- 接続情報の secret が無い（`enable_data_warehouse = false`）環境を選んだら、何もせずにその旨を出して失敗する（判定は detect と同じ）
 - `concurrency: deploy-aws-<env>` にして、同じ環境の deploy と同時に走らないようにする
 - network 設定は environment ごとに違うので、`if` で min とそれ以外の step を分ける
 
@@ -135,6 +152,7 @@ deploy-worker:
 
 1. 既定値を `false` にして PR → マージ → apply → deploy
 2. **ClickHouse Cloud のサービスは削除され、データも消える。** 残したい場合は先にバックアップを取る（prd では `false` にしない）
+3. deploy が register した dwh-migration の revision は `ACTIVE` のまま残るが、判定は secret で行うので害は無い（不要なら deregister してよい）
 
 ## 動作確認
 
