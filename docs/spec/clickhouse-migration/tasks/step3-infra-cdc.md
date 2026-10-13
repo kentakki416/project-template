@@ -46,7 +46,8 @@ variable "parameter_group_family" {
 }
 ```
 
-- `parameters` が空でなければ `aws_db_parameter_group`（`${var.name}-params`）を作り、`aws_db_instance.parameter_group_name` に渡す。空なら null（既存の挙動）
+- `parameters` が空でなければ `aws_db_parameter_group` を作り、`aws_db_instance.parameter_group_name` に渡す。空なら null（既存の挙動）
+- `family` を変えると作り直しになり、使用中のパラメータグループは消せない。`create_before_destroy` で付け替えてから消すため、名前は `name_prefix`（`${var.name}-params-`）にする
 - `engine_version` のメジャーを上げるときは `parameter_group_family` も変える必要がある旨を description に書く
 
 `env/{dev,prd}/main.tf` の `module "rds"`:
@@ -204,7 +205,7 @@ resource "clickhouse_clickpipe" "this" {
 
 - **属性は nested attribute の書き方（`source = { postgres = { ... } }`）にする。** clickhouse.com のページのブロック記法は現行の schema と合わない
 - `trigger_resync` は使わない（設定に残すと apply のたびに再同期する）
-- outputs: `clickpipe_state`（`clickhouse_clickpipe.this.state`）/ `bastion_public_ip`
+- outputs: `clickpipe_state`（`clickhouse_clickpipe.this.state`）/ `ssh_key_status` / `bastion_public_ip`
 
 bastion の cloud-init:
 
@@ -262,7 +263,7 @@ module "cdc" {
 - `module "ecs_dwh_migration"` の `DATA_WAREHOUSE_CDC` を `var.enable_cdc ? "clickpipes" : "none"` にする
 - `provider.tf` に `hashicorp/time`（`~> 0.13`）を足し、`.terraform.lock.hcl` を更新する
 - `outputs.tf` に `clickpipe_state`（`one(module.cdc[*].clickpipe_state)`）を足す
-- `.trivyignore` に、bastion の SSH の ingress（ClickPipes の固定 IP に限定済み）など意図したものだけを、理由のコメント付きで足す
+- trivy（CRITICAL / HIGH / MEDIUM）に指摘が出たときだけ、意図したものを理由のコメント付きで `.trivyignore` に足す（実装時点では指摘なし）
 
 ### Terraform CI
 
