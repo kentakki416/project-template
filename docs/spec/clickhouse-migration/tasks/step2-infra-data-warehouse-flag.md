@@ -161,7 +161,7 @@ module "clickhouse" {
   region      = var.aws_region
   secret_name = "/${local.name_prefix}/data-warehouse"
   # dev / prd: worker と migration のタスクは NAT から出る
-  ip_access_cidrs = ["${module.vpc.nat_gateway_public_ip}/32"]
+  ip_access_cidrs = concat(["${module.vpc.nat_gateway_public_ip}/32"], var.clickhouse_additional_ip_access_cidrs)
   # min: ["0.0.0.0/0"]（タスクの public IP が毎回変わるため。パスワードで守る）
 
   # ClickHouse の default ユーザーのパスワードを作り直したら +1 する
@@ -243,7 +243,7 @@ env:
 
 ### ClickHouse Cloud の準備（Terraform の管理外）
 
-1. ClickHouse Cloud の organization を作る（Basic tier）
+1. ClickHouse Cloud の organization を作る（Basic tier）。prd は dev / min と別の organization にする（API キーが organization 全体の Admin 権限で、dev の API キーは PR の CI にも渡るため）
 2. organization の API キーを作る（権限: Admin。サービスと ClickPipe を作るため）
 3. GitHub Environment の secret に `CLICKHOUSE_ORG_ID` / `CLICKHOUSE_TOKEN_KEY` / `CLICKHOUSE_TOKEN_SECRET` を登録する
 
