@@ -6,9 +6,13 @@ type RecordedCall = {
 }
 
 type FakeState = {
-  /** system.databases の pg_cdc の engine_full。undefined なら pg_cdc は無い */
+  /**
+   * system.databases の pg_cdc の engine_full。undefined なら pg_cdc は無い
+   */
   cdcEngineFull?: string
-  /** system.tables にある pg_cdc のテーブル */
+  /**
+   * system.tables にある pg_cdc のテーブル
+   */
   existingCdcTables: string[]
 }
 

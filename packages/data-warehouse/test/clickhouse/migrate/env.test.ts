@@ -25,6 +25,10 @@ describe("envSchema", () => {
       ).toBe(false)
     })
 
+    it("URL として読めない DATA_WAREHOUSE_URL は、例外を投げずに検証のエラーとして返す", () => {
+      expect(envSchema.safeParse({ DATA_WAREHOUSE_URL: "foo" }).success).toBe(false)
+    })
+
     it("database 名は識別子として安全な名前に限る", () => {
       expect(envSchema.safeParse({ DATA_WAREHOUSE_DATABASE: "a\"; DROP DATABASE x" }).success).toBe(false)
     })

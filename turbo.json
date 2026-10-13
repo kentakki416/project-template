@@ -42,6 +42,15 @@
         "^build"
       ]
     },
+    "@repo/data-warehouse#test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/infra/clickhouse/cdc-tables.json"
+      ]
+    },
     "test:ci": {
       "cache": false,
       "dependsOn": [

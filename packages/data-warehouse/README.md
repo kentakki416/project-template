@@ -50,10 +50,12 @@ migration だけが使う依存は devDependencies に置き、worker のイメ�
 DB に痕跡が残らない操作（閲覧・削除・離脱）を取るのが主目的。送出は fire-and-forget で、
 ユーザーのリクエストを待たせない。**Postgres は通らない。**
 
-```
-[web / mobile] --POST /api/events--> [api] --enqueue--> [Redis/BullMQ]
-                                                            |
-                                            [worker] --insertAll--> [データウェアハウス]
+```mermaid
+flowchart LR
+    C[web / mobile] -->|POST /api/events| A[api]
+    A -->|enqueue| Q[(Redis / BullMQ)]
+    Q --> W[worker]
+    W -->|insertAll| D[(データウェアハウス)]
 ```
 
 - 送出の抽象は `@repo/events` の `EventTracker`。api はデータウェアハウスを知らない

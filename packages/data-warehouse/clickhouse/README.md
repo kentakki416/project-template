@@ -80,8 +80,10 @@ ClickHouse Cloud を選んだのは、**月額最低額が無くアイドル時�
 
 ## CDC（Postgres からの取り込み）
 
-```
-[Postgres] --logical replication (pgoutput slot)--> [ClickHouse pg_cdc.*] --> [view v_*]
+```mermaid
+flowchart LR
+    P[(Postgres)] -->|論理レプリケーション<br/>pgoutput の slot| T[(ClickHouse の pg_cdc.*)]
+    T --> V[view v_*]
 ```
 
 同期対象は `infra/clickhouse/cdc-tables.json` に並べたテーブル（今は `users` / `memos`）。publication と
@@ -179,7 +181,8 @@ pnpm --filter @repo/data-warehouse dwh:migrate    # ClickHouse
 - **何度流しても同じ結果になるように書く（`IF NOT EXISTS` / `IF EXISTS`）。** ClickHouse の DDL にはトランザクションが無く、途中で失敗すると次回はそのファイルを最初からやり直す
 - テーブル名は database で修飾しない（接続先の `DATA_WAREHOUSE_DATABASE` に作られる）
 - **環境で変わる内容を書かない。** local と ClickHouse Cloud で同じ SQL が通るようにする（ENGINE は `MergeTree` 系を書けば Cloud では自動で Shared 系になる。`ON CLUSTER` は書かない）
-- `ALTER TABLE ... UPDATE / DELETE` などの mutation は非同期なので、終わるまで待たせたいときはファイルに `SET mutations_sync = 2;` を書く（そのファイルの全文に効く）
+- `ALTER TABLE ... UPDATE / DELETE` などの mutation は非同期なので、終わるまで待たせたいときはファイルに `SET mutations_sync = 2;` を書く（そのファイルの全文に効く）。ただし**各文は 120 秒以内に終わること**（migration の request timeout）。超えると client 側がタイムアウトし、mutation はサーバーで続くのに履歴には記録されない。大きなテーブルへの重い mutation は `mutations_sync` を付けずに非同期に任せる
+- **`pg_cdc` のテーブルを参照しない**（`DROP TABLE IF EXISTS pg_cdc.<table>` は除く）。CDC の無い環境（`DATA_WAREHOUSE_CDC=none`）や、ClickPipe の初回の取り込みの前には `pg_cdc` が無く、migration が失敗するため。CDC のデータを元にした集計は `views/` に書く（CDC のデータを元にしたマテリアライズドビューが要るときの扱いは未定）
 
 ### CDC の view の書き方
 
@@ -227,6 +230,8 @@ Postgres の変更と同じ PR で、ClickHouse 側の変更も入れる。ケ�
 ### 環境変数
 
 既定値はローカルの docker compose で動く値なので、ローカルでは設定しなくてよい。AWS では ECS のタスク定義が設定する。
+
+**docker compose の ClickHouse のポートを変えている（`CLICKHOUSE_HTTP_PORT`）ときは、`DATA_WAREHOUSE_URL=http://localhost:<port>` を付けて実行する。** 既定の `localhost:8124` で別のプロジェクトの ClickHouse が動いていると、そちらに繋がる。
 
 | 変数 | 既定値 | 説明 |
 | --- | --- | --- |

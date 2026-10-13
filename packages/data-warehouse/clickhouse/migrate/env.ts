@@ -9,6 +9,20 @@ import { z } from "zod"
  * このモジュールが import された時点で safeParse が走り、
  * 不正な env の場合は stderr にエラーを出力して process.exit(1) で停止する。
  */
+/**
+ * URL の protocol を返す。URL として読めなければ undefined
+ *
+ * 形式の誤りは z.string().url() が報告する。Zod 3 は url() が失敗しても superRefine を実行するため、
+ * ここで new URL() の例外を投げると検証のエラーにならずに落ちる。
+ */
+const readUrlProtocol = (value: string): string | undefined => {
+  try {
+    return new URL(value).protocol
+  } catch {
+    return undefined
+  }
+}
+
 const envSchema = z
   .object({
     /**
@@ -43,7 +57,8 @@ const envSchema = z
      * ClickHouse Cloud（https）に向けて流さないよう、タスク定義で DATA_WAREHOUSE_CDC を
      * 書き忘れたとき（既定値がこのモード）に止める。
      */
-    if (env.DATA_WAREHOUSE_CDC === "materialized_postgresql" && new URL(env.DATA_WAREHOUSE_URL).protocol !== "http:") {
+    const protocol = readUrlProtocol(env.DATA_WAREHOUSE_URL)
+    if (env.DATA_WAREHOUSE_CDC === "materialized_postgresql" && protocol !== undefined && protocol !== "http:") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "DATA_WAREHOUSE_CDC=materialized_postgresql is only for the local ClickHouse (http). Set clickpipes or none",
