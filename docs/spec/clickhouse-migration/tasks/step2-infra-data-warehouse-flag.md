@@ -194,7 +194,7 @@ module "ecs_dwh_migration" {
   image   = "${data.aws_ecr_repository.migration.repository_url}:latest"
   cpu     = 256
   memory  = 512
-  command = ["pnpm", "--filter", "@repo/clickhouse-migration", "migrate:run"]
+  command = ["pnpm", "--filter", "@repo/data-warehouse", "dwh:migrate:run"]
 
   cluster_arn        = local.ecs_common.cluster_arn
   execution_role_arn = local.ecs_common.execution_role_arn
@@ -242,7 +242,8 @@ env:
 
 | ファイル | 変更 |
 | --- | --- |
-| `packages/data-warehouse/README.md` | 「ホスティング」の表を「`enable_data_warehouse` で選ぶ（既定 dev / min は false、prd は true）」に直す。「dev は ClickHouse をホスティングしない」の段落を、フラグで作る・作らないを選べる旨に直す |
+| `packages/data-warehouse/clickhouse/README.md` | 「ホスティング」の表を「`enable_data_warehouse` で選ぶ（既定 dev / min は false、prd は true）」に直す。「dev は ClickHouse をホスティングしない」の段落を、フラグで作る・作らないを選べる旨に直す |
+| `packages/data-warehouse/README.md` | 「実装の選び方」の使う環境を、`enable_data_warehouse` で決まる旨に直す |
 | `packages/data-warehouse/src/noop-data-warehouse.ts` | コメントの「ローカルの一部・dev 等」を「`enable_data_warehouse = false` の環境」に直す |
 | `apps/worker/src/env.ts` / `apps/worker/src/index.ts` / `apps/worker/CLAUDE.md` | `DATA_WAREHOUSE_TYPE` のコメントの「dev 等」を同様に直す |
 | `docs/setup/infra.md` | ClickHouse Cloud の準備と、`enable_data_warehouse` の切り替え手順へのリンク |

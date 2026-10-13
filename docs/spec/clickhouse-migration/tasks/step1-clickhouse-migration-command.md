@@ -1,6 +1,6 @@
 # step1-clickhouse-migration-command
 
-ClickHouse の migration コマンド（`packages/clickhouse-migration`）を作り、ローカルの ClickHouse の DDL をすべてこのコマンド経由にする。`infra/clickhouse/init/` の init スクリプトは廃止する。migration イメージにも同梱し、コンテナからも同じコマンドを流せるようにする（AWS で動かすのは step2・4）。
+ClickHouse の migration コマンド（`packages/data-warehouse/clickhouse/`）を作り、ローカルの ClickHouse の DDL をすべてこのコマンド経由にする。`infra/clickhouse/init/` の init スクリプトは廃止する。migration イメージにも同梱し、コンテナからも同じコマンドを流せるようにする（AWS で動かすのは step2・4）。
 
 AWS の環境には影響しない（Terraform・deploy workflow は触らない。migration イメージの中身は増えるが、`CMD` は Drizzle のまま）。
 
@@ -11,30 +11,35 @@ AWS の環境には影響しない（Terraform・deploy workflow は触らない
 ### ディレクトリ構成
 
 ```
-packages/clickhouse-migration/      # @repo/clickhouse-migration（新設）
-├── package.json
-├── tsconfig.json
-├── eslint.config.js
-├── vitest.config.ts
-├── README.md
-├── migrations/                     # 版管理する migration（1 回だけ適用）
-│   └── 1_create_events.sql
-├── views/                          # CDC の view（毎回作り直す）。ファイル名 = CDC 対象テーブル名
-│   ├── memos.sql
-│   └── users.sql
-├── src/
-│   ├── index.ts                    # 処理の順序だけを書く
-│   ├── env.ts
-│   ├── cdc-view-variables.ts       # CDC の実装ごとの置き換え値
-│   ├── definition-files.ts         # migrations/ ・ views/ ・ cdc-tables.json の読み込みと検査
-│   ├── render-view-sql.ts
-│   ├── paths.ts                    # migrations/ ・ views/ ・ cdc-tables.json の場所
-│   ├── find-existing-tables.ts
-│   ├── local-cdc-database.ts       # 既にある pg_cdc がこのプロジェクトのものかの判定
-│   ├── rebuild-local-cdc.ts
-│   ├── run-versioned-migrations.ts
-│   └── apply-views.ts
-└── test/
+packages/data-warehouse/            # @repo/data-warehouse（既存）
+├── package.json                    # migration のスクリプトと devDependencies を足す
+├── eslint.config.js                # clickhouse/ の型情報は clickhouse/tsconfig.json から取る
+├── vitest.config.ts                # 新設
+├── README.md                       # パッケージの役割と要件だけにする
+├── src/                            # ライブラリ（build する。既存）
+│   └── clickhouse/
+│       └── clickhouse-data-warehouse.ts   # src/ 直下から移す
+├── clickhouse/                     # 新設。ClickHouse の定義と migration コマンド（build に含めない）
+│   ├── README.md                   # ClickHouse での実現方法・採用理由、migration コマンドの使い方
+│   ├── tsconfig.json               # migrate/ の型検査用（noEmit）
+│   ├── migrations/                 # 版管理する migration（1 回だけ適用）
+│   │   └── 1_create_events.sql
+│   ├── views/                      # CDC の view（毎回作り直す）。ファイル名 = CDC 対象テーブル名
+│   │   ├── memos.sql
+│   │   └── users.sql
+│   └── migrate/                    # migration コマンド
+│       ├── index.ts                # 処理の順序だけを書く
+│       ├── env.ts
+│       ├── cdc-view-variables.ts   # CDC の実装ごとの置き換え値
+│       ├── definition-files.ts     # migrations/ ・ views/ ・ cdc-tables.json の読み込みと検査
+│       ├── render-view-sql.ts
+│       ├── paths.ts                # migrations/ ・ views/ ・ cdc-tables.json の場所
+│       ├── find-existing-tables.ts
+│       ├── local-cdc-database.ts   # 既にある pg_cdc がこのプロジェクトのものかの判定
+│       ├── rebuild-local-cdc.ts
+│       ├── run-versioned-migrations.ts
+│       └── apply-views.ts
+└── test/clickhouse/migrate/
     ├── support/fake-clickhouse-client.ts   # 実行した SQL を記録する偽の client
     ├── apply-views.test.ts
     ├── definition-files.test.ts
@@ -49,6 +54,8 @@ infra/clickhouse/
 └── users.d/materialized-postgresql.xml   # そのまま
 ```
 
+置き方は `packages/db` に合わせる（実行時のコードは `src/drizzle/`、migration などの CLI 用は `drizzle/`）。理由は [設計書](../README.md#全体構成)。
+
 `infra/clickhouse/init/` は丸ごと削除する。
 
 ### `infra/clickhouse/cdc-tables.json`
@@ -58,9 +65,9 @@ infra/clickhouse/
 ```
 
 - `public` スキーマのテーブル名だけを並べる。ClickHouse 側のテーブル名も同じにする
-- JSON はコメントを書けないため、意味と変更手順は `packages/clickhouse-migration/README.md` と `packages/data-warehouse/README.md` に書く
+- JSON はコメントを書けないため、意味と変更手順は `packages/data-warehouse/clickhouse/README.md` に書く
 
-### `migrations/1_create_events.sql`
+### `clickhouse/migrations/1_create_events.sql`
 
 `infra/clickhouse/init/01-events.sql` を移す。**`project_template.` の修飾を外す**（init スクリプトは DB 未指定で実行されたため修飾が必要だったが、migration は接続先の database で実行される）。冒頭のコメントのうち「entrypoint が DB 指定なしで実行する」の段落は消し、ReplacingMergeTree の理由は残す。
 
@@ -85,7 +92,7 @@ TTL toDateTime(occurred_at) + INTERVAL 2 YEAR;
 - ファイル名は `<版番号>_<説明>.sql`。版番号は 1 からの連番（`clickhouse-migrations` は版番号を `UInt32` に入れるため、タイムスタンプ形式は使わない）
 - 既存のローカル環境ではすでに `events` があるが、`IF NOT EXISTS` なので何もせずに履歴だけ記録される
 
-### `views/users.sql` / `views/memos.sql`
+### `clickhouse/views/users.sql` / `clickhouse/views/memos.sql`
 
 `03-postgres-cdc-views.sh` が作っていた view と同じ名前・列・型にする。
 
@@ -108,45 +115,38 @@ WHERE ${CDC_LIVE_FILTER}
 
 ### `package.json`
 
+既存の scripts と devDependencies に足す。
+
 ```json
 {
-  "name": "@repo/clickhouse-migration",
-  "version": "1.0.0",
-  "private": true,
   "scripts": {
-    "lint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
-    "lint:fix": "eslint 'src/**/*.ts' 'test/**/*.ts' --fix",
-    "migrate": "turbo run migrate:run --filter=@repo/clickhouse-migration",
-    "migrate:run": "tsx src/index.ts",
+    "build": "tsc && tsc -p clickhouse/tsconfig.json",
+    "dwh:migrate": "turbo run dwh:migrate:run --filter=@repo/data-warehouse",
+    "dwh:migrate:run": "tsx clickhouse/migrate/index.ts",
+    "lint": "eslint 'src/**/*.ts' 'clickhouse/**/*.ts'",
+    "lint:fix": "eslint 'src/**/*.ts' 'clickhouse/**/*.ts' --fix",
     "test": "vitest run",
     "test:ci": "vitest run"
   },
-  "dependencies": {
-    "@clickhouse/client": "^1.14.0",
-    "@repo/logger": "workspace:^",
-    "clickhouse-migrations": "^1.5.0",
-    "zod": "<apps と同じ版>"
-  },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:^",
-    "@repo/typescript-config": "workspace:^",
-    "@types/node": "^24.10.1",
-    "eslint": "^9.39.1",
-    "tsx": "<packages/db と同じ版>",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.5"
+    "clickhouse-migrations": "^1.5.0",
+    "tsx": "^4.21.0",
+    "vitest": "^4.1.5",
+    "zod": "^3.25.76"
   }
 }
 ```
 
-- **人が使うのは `migrate`、コンテナが使うのは `migrate:run`。** `@repo/logger` は `dist/` を読むため、事前にビルドが要る。`migrate` は turbo 経由で依存パッケージをビルドしてから `migrate:run` を実行する。コンテナではイメージのビルド時にビルド済みなので `migrate:run` を直接起動する
-- `turbo.json` に `migrate:run` タスク（`dependsOn: ["^build"]`、`cache: false`）を足す。**`passThroughEnv` に `DATA_WAREHOUSE_*` / `LOCAL_CDC_POSTGRES_*` / `LOG_LEVEL` / `LOGGER_TYPE` を入れる。** turbo 2 は strict env mode で、宣言していない環境変数をタスクに渡さない。渡らないと既定の接続先（`localhost:8124`）に黙って繋がる
-- lint は他のパッケージと同じく `src/` だけを対象にする。`build` は `tsc --noEmit`（型の検査だけ）にする。CI は `pnpm --filter "./packages/*" build` で packages の型を検査しているため、ここで型エラーに気づける
-- アプリではないのでビルド（`dist/`）は作らない。`tsx` で直接実行する（`packages/db` の `db:seed` と同じ）
+- **人が使うのは `dwh:migrate`、コンテナが使うのは `dwh:migrate:run`。** `@repo/logger` は `dist/` を読むため、事前にビルドが要る。`dwh:migrate` は turbo 経由で依存パッケージをビルドしてから `dwh:migrate:run` を実行する。コンテナではイメージのビルド時にビルド済みなので `dwh:migrate:run` を直接起動する
+- `turbo.json` に `dwh:migrate:run` タスク（`dependsOn: ["^build"]`、`cache: false`）を足す。**`passThroughEnv` に `DATA_WAREHOUSE_*` / `LOCAL_CDC_POSTGRES_*` / `LOGGER_TYPE` / `NODE_ENV` を入れる。** turbo 2 は strict env mode で、宣言していない環境変数をタスクに渡さない。渡らないと既定の接続先（`localhost:8124`）に黙って繋がる
+- **migration だけが使う依存は devDependencies にする。** worker のイメージは `pnpm deploy --prod` で作るので入らない。migration イメージは全部 install する（`drizzle-kit` と同じ）
+- `build` は `src/` を `dist/` に出した後、`clickhouse/tsconfig.json`（`noEmit`、`migrate/` だけを含める）で migration コマンドの型を検査する。CI は `pnpm --filter "./packages/*" build` で packages の型を検査しているため、ここで型エラーに気づける
+- lint は `src/` と `clickhouse/` を対象にする（`test/` は他のパッケージと同じく対象外）。共通の ESLint 設定は `./tsconfig.json`（`src/` だけ）から型情報を取るため、`eslint.config.js` で `clickhouse/**/*.ts` だけ `./clickhouse/tsconfig.json` に向ける
+- migration コマンドは `dist/` を作らず `tsx` で直接実行する（`packages/db` の `db:seed` と同じ）
 
-### `src/env.ts`
+### `clickhouse/migrate/env.ts`
 
-各 app の `src/env.ts` と同じく Zod で検証し、不正なら `process.exit(1)` する。**既定値はローカルの docker compose で動く値にする**（`.env` を置かずに `migrate` だけで動くように）。
+各 app の `src/env.ts` と同じく Zod で検証し、不正なら `process.exit(1)` する。**既定値はローカルの docker compose で動く値にする**（`.env` を置かずに `dwh:migrate` だけで動くように）。
 
 ```ts
 import { z } from "zod"
@@ -186,7 +186,7 @@ const envSchema = z.object({
 - **`DATA_WAREHOUSE_CDC=materialized_postgresql`（既定値）は `http` の URL にだけ許す。** `pg_cdc` を消して作り直すローカル用のモードなので、タスク定義で `DATA_WAREHOUSE_CDC` を書き忘れたまま ClickHouse Cloud（`https`）に流れないよう、env の検証で止める
 - テストからスキーマを使うため、`export const forTesting = { envSchema }` を置く
 
-### `src/cdc-view-variables.ts`
+### `clickhouse/migrate/cdc-view-variables.ts`
 
 ```ts
 import type { CdcMode } from "./env"
@@ -211,7 +211,7 @@ export const CDC_VIEW_VARIABLES: Record<Exclude<CdcMode, "none">, Record<string,
 }
 ```
 
-### `src/definition-files.ts`
+### `clickhouse/migrate/definition-files.ts`
 
 ファイルの読み込みと、DB に触る前の検査をまとめる。検査はすべて純粋関数にしてテストする。
 
@@ -223,7 +223,7 @@ export const CDC_VIEW_VARIABLES: Record<Exclude<CdcMode, "none">, Record<string,
 | `readViewDefinitions(dir)` | `{ table, sql }` の配列（`table` はファイル名から） |
 | `verifyViewsMatchCdcTables(cdcTables, viewTables)` | 一覧にあって view が無いもの、view があって一覧に無いものを返す |
 
-### `src/render-view-sql.ts`
+### `clickhouse/migrate/render-view-sql.ts`
 
 ```ts
 /**
@@ -240,7 +240,7 @@ export const renderViewSql = (template: string, variables: Record<string, string
   })
 ```
 
-### `src/run-versioned-migrations.ts`
+### `clickhouse/migrate/run-versioned-migrations.ts`
 
 `clickhouse-migrations` の CLI を子プロセスで起動する。**ライブラリの関数は呼ばない**（エラー時に `process.exit(1)` するため）。
 
@@ -276,7 +276,7 @@ export const runVersionedMigrations = async (params: {
 - CLI の stdout / stderr はそのまま流す（`stdio: "inherit"` 相当。`execFile` ではなく `spawn` にして終了コードを見る形でもよい）。終了コードが 0 以外なら throw する
 - `CH_MIGRATIONS_SUBSTITUTE_ENV` は設定しない（版管理する migration は環境に依存させない）。親プロセスの `CH_MIGRATIONS_*` は引き継がず、必要な値だけを明示する
 
-### `src/rebuild-local-cdc.ts`
+### `clickhouse/migrate/rebuild-local-cdc.ts`
 
 `DATA_WAREHOUSE_CDC=materialized_postgresql` のときだけ呼ぶ。
 
@@ -304,7 +304,7 @@ export const rebuildLocalCdc = async (client: ClickHouseClient, params: {...}): 
 - **対象テーブルが空なら、消すだけで作らない。** 空の `materialized_postgresql_tables_list` は「DB の全テーブル」の意味になるため
 - **DROP の前に、既にある `pg_cdc` の `system.databases.engine_full` を見て、`LOCAL_CDC_POSTGRES_HOST` / `_DATABASE` と同じ Postgres を取り込むものか確かめる。違えば消さずに throw する**（`isLocalCdcDatabaseOf`。別プロジェクトの ClickHouse に繋いでしまったときに、そのプロジェクトの CDC を消さないため）
 
-### `src/apply-views.ts`
+### `clickhouse/migrate/apply-views.ts`
 
 ```ts
 /**
@@ -321,7 +321,7 @@ export const applyViews = async (client, params: { cdcMode, views }): Promise<vo
 - 元テーブルの有無は `system.tables` を 1 回の問い合わせ（`name IN {tables:Array(String)}`）で確認する（`findExistingTables`）
 - skip したテーブルは最後にまとめて警告として出す（`logger.warn`）。終了コードは 0
 
-### `src/index.ts`
+### `clickhouse/migrate/index.ts`
 
 処理の順序だけを書く。各処理の開始と結果を `logger.info` で出す。
 
@@ -338,10 +338,10 @@ ClickHouse の client は `@clickhouse/client` の `createClient` で作り、�
 
 Drizzle と同じイメージに同梱する（ECR リポジトリを増やさないため）。`CMD` は Drizzle のまま変えず、ClickHouse はタスク定義の `command` で起動する（step2）。
 
-- pruner: `turbo prune @repo/db @repo/clickhouse-migration --docker`
-- runner: install の後に `pnpm turbo run build --filter=@repo/clickhouse-migration^...`（`@repo/logger` のビルド）
+- pruner: `turbo prune @repo/db @repo/data-warehouse --docker`
+- runner: install の後に `pnpm turbo run build --filter=@repo/data-warehouse^...`（`@repo/logger` のビルド）
 - `infra/clickhouse/cdc-tables.json` を `/app/infra/clickhouse/` に COPY する（`turbo prune` は workspace 外のファイルを含めないため）。`.dockerignore` が `infra/` を除外しているので、`!infra/clickhouse/cdc-tables.json` の例外を足す
-- 先頭のコメントを「migration 専用イメージ（Drizzle / ClickHouse）」に更新する。ClickHouse の起動コマンドは `pnpm --filter @repo/clickhouse-migration migrate:run`
+- 先頭のコメントを「migration 専用イメージ（Drizzle / ClickHouse）」に更新する。ClickHouse の起動コマンドは `pnpm --filter @repo/data-warehouse dwh:migrate:run`
 
 ### `docker-compose.yaml`
 
@@ -352,19 +352,20 @@ Drizzle と同じイメージに同梱する（ECR リポジトリを増やさ�
 
 | ファイル | 変更 |
 | --- | --- |
-| `packages/clickhouse-migration/README.md`（新設） | 4 種類の置き場所、コマンド、変更のケースごとの作業（設計書の表へのリンクでよい）、版番号の規則、`cdc-tables.json` の書き方 |
-| ルートの `README.md` | セットアップ手順 5 を `pnpm --filter @repo/clickhouse-migration migrate` に置き換える。パッケージ一覧に `packages/clickhouse-migration` を足す |
-| `CLAUDE.md`（ルート） | Packages の一覧に `packages/clickhouse-migration` を足す |
+| `packages/data-warehouse/README.md` | パッケージの役割と要件（集計するデータ、データウェアハウスに求める要件、抽象化の範囲、実装の選び方）だけにする。ClickHouse に固有の内容は `clickhouse/README.md` に移す |
+| `packages/data-warehouse/clickhouse/README.md`（新設） | ClickHouse での実現方法と採用理由（ホスティング、`events` テーブル、CDC、view を経由する規約）と、migration コマンドの使い方（4 種類の置き場所、コマンド、版番号の規則、view の書き方、変更のケースごとの作業。ケースの表は設計書へのリンクでよい） |
+| ルートの `README.md` | セットアップ手順 5 を `pnpm --filter @repo/data-warehouse dwh:migrate` に置き換える。パッケージ一覧の data-warehouse に migration を書き足す |
+| `CLAUDE.md`（ルート） | Packages の data-warehouse に、ClickHouse の DDL と migration コマンドを `clickhouse/` に置く旨を書き足す |
 | `docs/setup/api.md` | ClickHouse の初期化に触れていれば同様に置き換える |
 | `packages/db/README.md` | DB の作り直し手順の 4（CDC を張り直す）を migration コマンドに置き換える。1 の `DROP DATABASE pg_cdc` は残す（Postgres の DB を消すには replication slot を先に外す必要がある） |
-| `packages/data-warehouse/README.md` | 「業務データ（Postgres からの CDC）」の手順、`infra/clickhouse/init/` へのリンクを migration コマンドに置き換える |
+| `infra/clickhouse/users.d/materialized-postgresql.xml` | コメントの参照先を `packages/data-warehouse/clickhouse/README.md` にする |
 | `docs/spec/user-behavior-events/tasks/step1-infra-clickhouse.md` | 実装済みの step なので書き換えない |
 
 ## 動作確認
 
 ### ユニットテスト
 
-`pnpm --filter @repo/clickhouse-migration test`
+`pnpm --filter @repo/data-warehouse test`
 
 - `verifyMigrationFileNames`: `1_a.sql` と `001_b.sql` を重複として返す / `a.sql`・`0_a.sql`・14 桁の版番号をエラーにする / 連番なら空
 - `isLocalCdcDatabaseOf`: 同じホストと DB 名なら true / 別の DB 名・別のホスト・MaterializedPostgreSQL でない database なら false
@@ -382,7 +383,7 @@ Drizzle と同じイメージに同梱する（ECR リポジトリを増やさ�
 ```bash
 docker compose up -d
 pnpm --filter api db:migrate
-pnpm --filter @repo/clickhouse-migration migrate
+pnpm --filter @repo/data-warehouse dwh:migrate
 ```
 
 - 成功し、`SELECT * FROM project_template._migrations` に `1_create_events.sql` が 1 行ある
@@ -394,7 +395,7 @@ pnpm --filter @repo/clickhouse-migration migrate
 ```bash
 docker compose down -v && docker compose up -d
 pnpm --filter api db:migrate && pnpm --filter api db:seed
-pnpm --filter @repo/clickhouse-migration migrate
+pnpm --filter @repo/data-warehouse dwh:migrate
 ```
 
 - `events` / `v_users` / `v_memos` ができ、`SELECT count() FROM project_template.v_users` が seed の件数になる
@@ -417,7 +418,7 @@ pnpm --filter @repo/clickhouse-migration migrate
 docker build -f packages/db/Dockerfile.migration -t migration-local .
 docker run --rm --network <compose のネットワーク> \
   -e DATA_WAREHOUSE_URL=http://clickhouse:8123 \
-  migration-local pnpm --filter @repo/clickhouse-migration migrate:run
+  migration-local pnpm --filter @repo/data-warehouse dwh:migrate:run
 ```
 
 - ローカルと同じ結果になる（`LOCAL_CDC_POSTGRES_HOST` の既定値 `postgres:5432` はコンテナ内からも同じ）

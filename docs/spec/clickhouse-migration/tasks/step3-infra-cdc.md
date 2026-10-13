@@ -268,7 +268,7 @@ module "cdc" {
 
 `terraform-aws-env-ci.yml` の `paths` に `infra/clickhouse/cdc-tables.json` を足す（Terraform が読むため、変更時に validate / plan を走らせる）。
 
-### 手順書（`packages/clickhouse-migration/README.md` に書く）
+### 手順書（`packages/data-warehouse/clickhouse/README.md` に書く）
 
 **パラメータグループを入れたとき（1 回だけ）**
 

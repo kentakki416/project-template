@@ -52,7 +52,7 @@
 
 ### CI での検証
 
-- `test.yml` に ClickHouse の service container を足し、`pnpm --filter @repo/clickhouse-migration migrate:run` を `DATA_WAREHOUSE_CDC=none` で流す（CDC は Postgres の論理レプリケーションが要るので対象外）
+- `test.yml` に ClickHouse の service container を足し、`pnpm --filter @repo/data-warehouse dwh:migrate:run` を `DATA_WAREHOUSE_CDC=none` で流す（CDC は Postgres の論理レプリケーションが要るので対象外）
 - 版管理する migration の構文エラーと、空の DB に全部流せることを PR で保証できる
 
 ### 変更漏れの検知
@@ -63,5 +63,5 @@
 
 - [ ] `README.md` の「環境ごとの構成」「CDC（ClickPipes）」の認証・監視の記述を更新する
 - [ ] min の `variables.tf` に `enable_cdc` を足し、`enable_data_warehouse` との検証を入れる
-- [ ] `packages/data-warehouse/README.md` の「運用上の注意」から「slot ラグの監視は未実装」を消す
+- [ ] `packages/data-warehouse/clickhouse/README.md` の「運用上の注意」から「slot ラグの監視は未実装」を消す
 - [ ] 付け外しを自動化したら、`README.md` の「変更のケースごとの作業」の順序の列を書き換える
