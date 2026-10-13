@@ -59,6 +59,18 @@
         "REDIS_URL"
       ]
     },
+    "migrate:run": {
+      "cache": false,
+      "dependsOn": [
+        "^build"
+      ],
+      "passThroughEnv": [
+        "DATA_WAREHOUSE_*",
+        "LOCAL_CDC_POSTGRES_*",
+        "LOGGER_TYPE",
+        "NODE_ENV"
+      ]
+    },
     "clean": {
       "cache": false
     }

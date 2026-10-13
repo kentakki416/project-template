@@ -76,7 +76,7 @@ worker 側で採番すると再配信のたびに別 ID になり、重複排除
 ### ReplacingMergeTree による畳み込み
 
 `events` テーブルは `ReplacingMergeTree` で、`ORDER BY` の末尾に `event_id` を置いている
-（`infra/clickhouse/init/01-events.sql`）。同じ `event_id` の行はマージ時に 1 件に畳まれる。
+（`packages/clickhouse-migration/migrations/1_create_events.sql`）。同じ `event_id` の行はマージ時に 1 件に畳まれる。
 
 **マージは非同期**なので、insert 直後は重複が見えている状態がありうる。
 
@@ -114,9 +114,9 @@ DB に痕跡が残らない操作（閲覧・削除・離脱）を取るのが�
 [Postgres] --logical replication (pgoutput slot)--> [ClickHouse pg_cdc.*]
 ```
 
-同期対象は `users` / `memos`。publication と replication slot は取り込み側が自動作成する。
+同期対象は `infra/clickhouse/cdc-tables.json` に並べたテーブル（今は `users` / `memos`）。publication と replication slot は取り込み側が自動作成する。
 
-**初回の `docker compose up` では view（後述）が作られない。** Postgres のテーブルは `db:migrate` で作るため、ClickHouse の初期化時点ではまだ無いから。テーブルは migrate の後に自動でアタッチされるので、migrate の後に `docker exec project-template-clickhouse bash /docker-entrypoint-initdb.d/03-postgres-cdc-views.sh` で view を作る（ルートの README のセットアップ手順に含めている）。
+CDC と view は `packages/clickhouse-migration` の migration コマンドが作る。ローカルでは Postgres の migration（`db:migrate`）の後に `pnpm --filter @repo/clickhouse-migration migrate` を流す（ルートの README のセットアップ手順に含めている）。CDC の対象を足す・列を変えるときの手順は [`packages/clickhouse-migration/README.md`](../clickhouse-migration/README.md)。
 
 ### view を経由する規約
 
@@ -199,4 +199,4 @@ catalog Postgres / Temporal / MinIO を含む **11 サービス**が増え、ダ
 - [`packages/events/`](../events) — 送出の抽象（`EventTracker`）
 - [`packages/queue/`](../queue) — 配送の抽象（BullMQ）
 - [`apps/worker/CLAUDE.md`](../../apps/worker/CLAUDE.md) — 消費側の実装と env
-- [`infra/clickhouse/init/`](../../infra/clickhouse/init) — テーブル / CDC / view の定義
+- [`packages/clickhouse-migration/`](../clickhouse-migration) — テーブル / CDC / view の定義と migration コマンド
