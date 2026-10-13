@@ -78,11 +78,11 @@ pnpm db:studio              # Drizzle Studio で DB を見る (任意)
 
 スキーマを変えたときは `pnpm db:generate` で migration を作ってから `pnpm db:migrate` で適用する。
 
-ClickHouse（行動イベントの `events` と、Postgres から取り込む CDC の view）は、Postgres の migration の後に別のコマンドで適用する。`docker compose up` だけでは作られない。詳細は [`packages/clickhouse-migration/README.md`](../../packages/clickhouse-migration/README.md)。
+ClickHouse（行動イベントの `events` と、Postgres から取り込む CDC の view）は、Postgres の migration の後に別のコマンドで適用する。`docker compose up` だけでは作られない。詳細は [`packages/data-warehouse/clickhouse/README.md`](../../packages/data-warehouse/clickhouse/README.md)。
 
 ```bash
 cd <project-root>
-pnpm --filter @repo/clickhouse-migration migrate
+pnpm --filter @repo/data-warehouse dwh:migrate
 ```
 
 ローカル DB を空から作り直す手順は [`packages/db/README.md`](../../packages/db/README.md#ローカル-db-の作り直し) を参照。

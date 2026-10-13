@@ -1,4 +1,4 @@
-import { renderViewSql } from "../src/render-view-sql"
+import { renderViewSql } from "../../../clickhouse/migrate/render-view-sql"
 
 describe("renderViewSql", () => {
   describe("正常系", () => {

@@ -2,7 +2,7 @@ import {
   forTesting,
   verifyMigrationFileNames,
   verifyViewsMatchCdcTables,
-} from "../src/definition-files"
+} from "../../../clickhouse/migrate/definition-files"
 
 const { parseCdcTablesJson } = forTesting
 

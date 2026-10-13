@@ -1,4 +1,4 @@
-import { rebuildLocalCdc } from "../src/rebuild-local-cdc"
+import { rebuildLocalCdc } from "../../../clickhouse/migrate/rebuild-local-cdc"
 
 import { createFakeClickHouseClient } from "./support/fake-clickhouse-client"
 

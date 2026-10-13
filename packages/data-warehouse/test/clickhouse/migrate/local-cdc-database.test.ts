@@ -1,4 +1,4 @@
-import { isLocalCdcDatabaseOf } from "../src/local-cdc-database"
+import { isLocalCdcDatabaseOf } from "../../../clickhouse/migrate/local-cdc-database"
 
 const POSTGRES = { database: "project-template_dev", host: "postgres:5432" }
 

@@ -6,12 +6,12 @@
 # migration を実行して終了する (Service ではない)。
 #
 # - Drizzle (Postgres): CMD の既定。schema / migrations / config は packages/db (@repo/db)
-# - ClickHouse: packages/clickhouse-migration。ECR リポジトリを増やさないため同じイメージに同梱し、
-#   タスク定義の command で `pnpm --filter @repo/clickhouse-migration migrate:run` を起動する
+# - ClickHouse: packages/data-warehouse/clickhouse (@repo/data-warehouse)。ECR リポジトリを増やさないため
+#   同じイメージに同梱し、タスク定義の command で `pnpm --filter @repo/data-warehouse dwh:migrate:run` を起動する
 #   (設計: docs/spec/clickhouse-migration/README.md)
 #
 # turbo prune で 2 つの workspace に必要なものだけを抽出する。
-# drizzle-kit / tsx は devDependency なので --prod にせず全 install する。
+# drizzle-kit / clickhouse-migrations / tsx は devDependency なので --prod にせず全 install する。
 
 # ==============================================================================
 # Stage 1: base - pnpm をインストールしたベースイメージ
@@ -21,7 +21,7 @@ FROM node:20-slim AS base
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 
 # ==============================================================================
-# Stage 2: pruner - @repo/db / @repo/clickhouse-migration に必要な workspace を抽出
+# Stage 2: pruner - @repo/db / @repo/data-warehouse に必要な workspace を抽出
 # ==============================================================================
 FROM base AS pruner
 
@@ -31,7 +31,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps ./apps
 COPY packages ./packages
 
-RUN npx -y turbo@2.6.1 prune @repo/db @repo/clickhouse-migration --docker
+RUN npx -y turbo@2.6.1 prune @repo/db @repo/data-warehouse --docker
 
 # ==============================================================================
 # Stage 3: runner - drizzle-kit / ClickHouse の migration コマンドと定義を持ち migrate を実行
@@ -45,7 +45,7 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# package.json + lock を先に入れて install (drizzle-kit は devDep なので --prod にしない)
+# package.json + lock を先に入れて install (drizzle-kit / clickhouse-migrations は devDep なので --prod にしない)
 COPY --from=pruner /app/out/json/ ./
 RUN pnpm install --frozen-lockfile
 
@@ -53,7 +53,7 @@ RUN pnpm install --frozen-lockfile
 COPY --from=pruner /app/out/full/ ./
 
 # ClickHouse の migration コマンドが import する workspace パッケージ (@repo/logger) は dist/ を読むためビルドする
-RUN pnpm turbo run build --filter=@repo/clickhouse-migration^...
+RUN pnpm turbo run build --filter=@repo/data-warehouse^...
 
 # CDC の対象一覧。turbo prune は workspace 外のファイルを含めないため個別にコピーする
 COPY infra/clickhouse/cdc-tables.json ./infra/clickhouse/cdc-tables.json

@@ -84,7 +84,7 @@ pnpm --filter api db:migrate
 pnpm --filter api db:seed
 
 # 4. CDC を張り直す（ClickHouse の migration は CDC を毎回作り直す）
-pnpm --filter @repo/clickhouse-migration migrate
+pnpm --filter @repo/data-warehouse dwh:migrate
 ```
 
 test DB は `pnpm --filter api test` が実行のたびにマイグレーションを流すので、作り直した後は空のままでよい。

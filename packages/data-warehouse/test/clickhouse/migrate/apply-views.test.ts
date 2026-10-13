@@ -1,4 +1,4 @@
-import { applyViews } from "../src/apply-views"
+import { applyViews } from "../../../clickhouse/migrate/apply-views"
 
 import { createFakeClickHouseClient } from "./support/fake-clickhouse-client"
 

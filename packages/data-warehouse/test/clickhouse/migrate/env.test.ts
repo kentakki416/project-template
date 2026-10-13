@@ -1,4 +1,4 @@
-import { forTesting } from "../src/env"
+import { forTesting } from "../../../clickhouse/migrate/env"
 
 const { envSchema } = forTesting
 

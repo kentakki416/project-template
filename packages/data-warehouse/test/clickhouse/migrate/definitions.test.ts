@@ -1,13 +1,13 @@
-import { CDC_VIEW_VARIABLES } from "../src/cdc-view-variables"
+import { CDC_VIEW_VARIABLES } from "../../../clickhouse/migrate/cdc-view-variables"
 import {
   readCdcTables,
   readMigrationFileNames,
   readViewDefinitions,
   verifyMigrationFileNames,
   verifyViewsMatchCdcTables,
-} from "../src/definition-files"
-import { renderViewSql } from "../src/render-view-sql"
-import { CDC_TABLES_PATH, MIGRATIONS_DIR, VIEWS_DIR } from "../src/paths"
+} from "../../../clickhouse/migrate/definition-files"
+import { renderViewSql } from "../../../clickhouse/migrate/render-view-sql"
+import { CDC_TABLES_PATH, MIGRATIONS_DIR, VIEWS_DIR } from "../../../clickhouse/migrate/paths"
 
 /**
  * リポジトリにある実際の定義ファイルを検査する。

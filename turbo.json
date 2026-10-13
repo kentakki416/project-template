@@ -59,7 +59,7 @@
         "REDIS_URL"
       ]
     },
-    "migrate:run": {
+    "dwh:migrate:run": {
       "cache": false,
       "dependsOn": [
         "^build"
