@@ -28,14 +28,20 @@ packages/clickhouse-migration/      # @repo/clickhouse-migration（新設）
 │   ├── cdc-view-variables.ts       # CDC の実装ごとの置き換え値
 │   ├── definition-files.ts         # migrations/ ・ views/ ・ cdc-tables.json の読み込みと検査
 │   ├── render-view-sql.ts
-│   ├── exists-table.ts
+│   ├── paths.ts                    # migrations/ ・ views/ ・ cdc-tables.json の場所
+│   ├── find-existing-tables.ts
 │   ├── local-cdc-database.ts       # 既にある pg_cdc がこのプロジェクトのものかの判定
 │   ├── rebuild-local-cdc.ts
 │   ├── run-versioned-migrations.ts
 │   └── apply-views.ts
 └── test/
+    ├── support/fake-clickhouse-client.ts   # 実行した SQL を記録する偽の client
+    ├── apply-views.test.ts
     ├── definition-files.test.ts
+    ├── definitions.test.ts         # リポジトリの実際の定義ファイルを検査する（CI で一覧と view のずれに気づく）
+    ├── env.test.ts
     ├── local-cdc-database.test.ts
+    ├── rebuild-local-cdc.test.ts
     └── render-view-sql.test.ts
 
 infra/clickhouse/
@@ -135,7 +141,7 @@ WHERE ${CDC_LIVE_FILTER}
 
 - **人が使うのは `migrate`、コンテナが使うのは `migrate:run`。** `@repo/logger` は `dist/` を読むため、事前にビルドが要る。`migrate` は turbo 経由で依存パッケージをビルドしてから `migrate:run` を実行する。コンテナではイメージのビルド時にビルド済みなので `migrate:run` を直接起動する
 - `turbo.json` に `migrate:run` タスク（`dependsOn: ["^build"]`、`cache: false`）を足す。**`passThroughEnv` に `DATA_WAREHOUSE_*` / `LOCAL_CDC_POSTGRES_*` / `LOG_LEVEL` / `LOGGER_TYPE` を入れる。** turbo 2 は strict env mode で、宣言していない環境変数をタスクに渡さない。渡らないと既定の接続先（`localhost:8124`）に黙って繋がる
-- lint は他のパッケージと同じく `src/` だけを対象にし、型の検査用に `typecheck`（`tsc --noEmit`）を足す
+- lint は他のパッケージと同じく `src/` だけを対象にする。`build` は `tsc --noEmit`（型の検査だけ）にする。CI は `pnpm --filter "./packages/*" build` で packages の型を検査しているため、ここで型エラーに気づける
 - アプリではないのでビルド（`dist/`）は作らない。`tsx` で直接実行する（`packages/db` の `db:seed` と同じ）
 
 ### `src/env.ts`
@@ -176,6 +182,9 @@ const envSchema = z.object({
 ```
 
 - `LOCAL_CDC_POSTGRES_DATABASE` の既定値は `docker-compose.yaml` の `POSTGRES_DB` と合わせる。docker-compose.yaml と同じく `TODO: プロジェクト名に変更` を付ける
+- `DATA_WAREHOUSE_DATABASE` は識別子（`/^[A-Za-z_][A-Za-z0-9_]*$/`）に限る（`clickhouse-migrations` が `CREATE DATABASE` に埋め込むため）
+- **`DATA_WAREHOUSE_CDC=materialized_postgresql`（既定値）は `http` の URL にだけ許す。** `pg_cdc` を消して作り直すローカル用のモードなので、タスク定義で `DATA_WAREHOUSE_CDC` を書き忘れたまま ClickHouse Cloud（`https`）に流れないよう、env の検証で止める
+- テストからスキーマを使うため、`export const forTesting = { envSchema }` を置く
 
 ### `src/cdc-view-variables.ts`
 
@@ -265,7 +274,7 @@ export const runVersionedMigrations = async (params: {
 
 - `CLI_PATH` はパッケージの `node_modules/.bin/clickhouse-migrations`。実装時に `clickhouse-migrations` の `package.json` の `bin` を確認して解決する
 - CLI の stdout / stderr はそのまま流す（`stdio: "inherit"` 相当。`execFile` ではなく `spawn` にして終了コードを見る形でもよい）。終了コードが 0 以外なら throw する
-- `CH_MIGRATIONS_SUBSTITUTE_ENV` は設定しない（版管理する migration は環境に依存させない）
+- `CH_MIGRATIONS_SUBSTITUTE_ENV` は設定しない（版管理する migration は環境に依存させない）。親プロセスの `CH_MIGRATIONS_*` は引き継がず、必要な値だけを明示する
 
 ### `src/rebuild-local-cdc.ts`
 
@@ -290,8 +299,9 @@ export const rebuildLocalCdc = async (client: ClickHouseClient, params: {...}): 
 }
 ```
 
-- `waitForCdcTables` は `EXISTS TABLE pg_cdc.<table>` を 1 秒ごとに確認する。タイムアウトしたら、現れなかったテーブル名と「Postgres にテーブルが無い。`pnpm --filter api db:migrate` を先に実行する」旨を含めて throw する
-- 値は env 由来で、外部入力ではないが、`'` を含む値はエラーにして埋め込まない
+- `waitForCdcTables` は `findExistingTables` で 1 秒ごとに確認する。タイムアウトしたら、現れなかったテーブル名と「Postgres にテーブルが無い。`pnpm --filter api db:migrate` を先に実行する」旨を含めて throw する
+- 値は env 由来で、外部入力ではないが、`'` と `\` を含む値はエラーにして埋め込まない（ClickHouse の文字列リテラルは `\` をエスケープとして解釈する）
+- **対象テーブルが空なら、消すだけで作らない。** 空の `materialized_postgresql_tables_list` は「DB の全テーブル」の意味になるため
 - **DROP の前に、既にある `pg_cdc` の `system.databases.engine_full` を見て、`LOCAL_CDC_POSTGRES_HOST` / `_DATABASE` と同じ Postgres を取り込むものか確かめる。違えば消さずに throw する**（`isLocalCdcDatabaseOf`。別プロジェクトの ClickHouse に繋いでしまったときに、そのプロジェクトの CDC を消さないため）
 
 ### `src/apply-views.ts`
@@ -308,7 +318,7 @@ export const rebuildLocalCdc = async (client: ClickHouseClient, params: {...}): 
 export const applyViews = async (client, params: { cdcMode, views }): Promise<void> => { ... }
 ```
 
-- 元テーブルの有無は `EXISTS TABLE pg_cdc.<table>` で確認する
+- 元テーブルの有無は `system.tables` を 1 回の問い合わせ（`name IN {tables:Array(String)}`）で確認する（`findExistingTables`）
 - skip したテーブルは最後にまとめて警告として出す（`logger.warn`）。終了コードは 0
 
 ### `src/index.ts`
@@ -322,7 +332,7 @@ export const applyViews = async (client, params: { cdcMode, views }): Promise<vo
 5. `none` 以外なら `applyViews`
 6. ClickHouse の client を close して終了。どこかで throw されたら `logger.error` を出して `process.exitCode = 1`
 
-ClickHouse の client は `@clickhouse/client` の `createClient({ url, username, password, database })` を `index.ts` で 1 回だけ作り、各処理に渡す。`rebuildLocalCdc` は `pg_cdc` を、`applyViews` は `DATA_WAREHOUSE_DATABASE` を対象にするので、client の既定 database は `DATA_WAREHOUSE_DATABASE` にして `pg_cdc` は修飾して書く。ただし `DATA_WAREHOUSE_DATABASE` は手順 4 で初めて作られるため、手順 3 では database を指定しない client を使う（`rebuildLocalCdc` 用に別の client を作るか、手順 4 の後に既定 database 付きの client を作る）。
+ClickHouse の client は `@clickhouse/client` の `createClient` で作り、各処理に渡す。`DATA_WAREHOUSE_DATABASE` は版管理する migration（`clickhouse-migrations`）が初めて作るため、CDC の作り直しには database を指定しない client を、view には既定 database 付きの client を使う（`pg_cdc` は修飾して書く）。client の `close()` の失敗は警告にとどめ、元のエラーを上書きしない。
 
 ### migration イメージ（`packages/db/Dockerfile.migration`）
 
@@ -358,6 +368,10 @@ Drizzle と同じイメージに同梱する（ECR リポジトリを増やさ�
 
 - `verifyMigrationFileNames`: `1_a.sql` と `001_b.sql` を重複として返す / `a.sql`・`0_a.sql`・14 桁の版番号をエラーにする / 連番なら空
 - `isLocalCdcDatabaseOf`: 同じホストと DB 名なら true / 別の DB 名・別のホスト・MaterializedPostgreSQL でない database なら false
+- `rebuildLocalCdc`（偽の client）: 別プロジェクトの `pg_cdc` なら DROP を 1 度も実行せずに throw / `'`・`\` を含む接続情報なら何も実行せずに throw / 対象が空なら DROP だけ / 時間切れなら現れなかったテーブル名を出して throw
+- `applyViews`（偽の client）: 変数を埋めて作り直す / clickpipes で元テーブルが無い view は作らずに返す / materialized_postgresql なら throw
+- env: `https` に materialized_postgresql を使えない / database 名に識別子以外を使えない
+- リポジトリの定義ファイル: 版番号に問題が無い / `cdc-tables.json` と `views/` が 1 対 1 / 全 view が両方の CDC の変数で置き換えられる
 - `verifyViewsMatchCdcTables`: 過不足の両方向を返す
 - `renderViewSql`: 全変数を置き換える / 未定義の変数で throw する / `$` を含まない SQL はそのまま
 
