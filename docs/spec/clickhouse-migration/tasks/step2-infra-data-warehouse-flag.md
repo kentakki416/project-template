@@ -63,9 +63,9 @@ provider "clickhouse" {
 | ファイル | 内容 |
 | --- | --- |
 | `terraform.tf` | `aws` / `random` / `clickhouse`（`ClickHouse/clickhouse ~> 3.38`） |
-| `variables.tf` | `name` / `region`（既定 `ap-northeast-1`）/ `ip_access_cidrs` / `database`（既定 `project_template`）/ `secret_name` / `credentials_configured`（bool）/ `tags` |
+| `variables.tf` | `name` / `region`（既定 `ap-northeast-1`）/ `ip_access_cidrs` / `database`（既定 `project_template`）/ `secret_name` / `password_version`（既定 1）/ `credentials_configured`（bool）/ `tags` |
 | `main.tf` | 下記 |
-| `outputs.tf` | `service_id` / `secret_arn` / `https_host` |
+| `outputs.tf` | `service_id` / `secret_arn`（`depends_on` で secret の値の書き込みを待つ。値が入る前に worker や migration のタスク定義が参照しないように）/ `https_host` |
 
 ```hcl
 resource "random_password" "default_user" {
@@ -95,7 +95,7 @@ resource "clickhouse_service" "this" {
   ip_access = [for cidr in var.ip_access_cidrs : { source = cidr, description = "${var.name} egress" }]
 
   password_wo         = random_password.default_user.result
-  password_wo_version = 1
+  password_wo_version = var.password_version
 
   lifecycle {
     precondition {
@@ -126,7 +126,7 @@ resource "aws_secretsmanager_secret_version" "this" {
 }
 ```
 
-- パスワードを変えるときは `random_password` を taint し、`password_wo_version` を +1 して apply する（手順を README に書く）
+- パスワードを変えるときは `random_password` を taint し、`password_version` を +1 して apply する（手順を README に書く）
 - `recovery_window_in_days = 0` は app secret と同じ（作り直しで名前が衝突しないように）。加えて、deploy workflow はこの secret の有無で ClickHouse の migration を流すか判定する（step4）ため、フラグを `false` にしたら即座に消す必要がある。削除待ちの secret は `describe-secret` で見えてしまう
 
 ### `modules/ecs-workload`（変数の追加）
@@ -149,6 +149,7 @@ module "clickhouse" {
   count  = var.enable_data_warehouse ? 1 : 0
 
   name        = local.name_prefix
+  region      = var.aws_region
   secret_name = "/${local.name_prefix}/data-warehouse"
   # dev / prd: worker と migration のタスクは NAT から出る
   ip_access_cidrs = ["${module.vpc.nat_gateway_public_ip}/32"]
