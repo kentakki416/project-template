@@ -28,11 +28,11 @@ ClickHouse の DDL（events / CDC の view）を版管理して local / dev / mi
 
 ## 3. 設計書 PR
 
-- [ ] 設計書用ブランチを切って PR を出す
+- [x] 設計書用ブランチを切って PR を出す（#109）
 
 ## 4. 実装（設計書 PR の上に積む）
 
-- [ ] step1 の PR
+- [x] step1 の PR（#110）
 - [ ] step2 の PR
 - [ ] step3 の PR
 - [ ] step4 の PR
