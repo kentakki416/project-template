@@ -65,7 +65,7 @@ ClickHouse に置くテーブル・view を **Postgres と同じように版管�
 - `enable_data_warehouse` を `true` にしても、ClickHouse Cloud はアイドル時に止まる設定にするため、使っていない間の費用はほぼストレージ代だけになる
 - **`enable_cdc` を `true` にすると、月 $80 強の固定費が増える。** 内訳は ClickPipes の CDC 用の計算資源（Basic tier で $0.10/時、約 $73/月。ClickPipe がある間はサービスのアイドルに関係なくかかる）と bastion（EC2、月 $10 未満）。加えて取り込んだデータ量に応じた課金（初回 $0.10/GB、以降 $0.20/GB）がある
 - min は現在 `DATA_WAREHOUSE_TYPE=clickhouse`（接続先は dummy で insert は失敗し続ける）になっている。本 spec の既定値 `false` で `none` に変わる
-- 切り替えは min の `enable_worker` と同じく、`variables.tf` の既定値を変えてコミットし、Terraform の apply → deploy の順に流す（CI の apply は変数を渡さないため）
+- 切り替えは min の `enable_worker` と同じく、`variables.tf` の既定値を変えてコミットし、Terraform の apply → deploy の順に流す（CI の apply はフラグの変数を渡さないため）
 
 ### ClickHouse に置くもの
 
@@ -80,6 +80,7 @@ ClickHouse に置くものは 4 種類あり、それぞれ管理のしかたが
 
 - **view を作り直しても過去のデータは消えない。** 通常の view はデータを持たず、中身は保存された SELECT 文だけだから。データは CDC のテーブル本体にある
 - **「毎回作り直す」のは CDC の view だけにする。** マテリアライズドビューは作り直し方によってデータが消えるため、版管理する migration に入れて 1 回だけ適用する
+- **版管理する migration は `pg_cdc` のテーブルを参照しない**（`DROP TABLE IF EXISTS pg_cdc.<table>` は除く）。CDC の無い環境（`DATA_WAREHOUSE_CDC=none`）や ClickPipe の初回の取り込みの前には `pg_cdc` が無く、migration が失敗して deploy-worker まで止まるため。CDC のデータを元にした集計は `views/` に書く。CDC のデータを元にしたマテリアライズドビューが要るときの扱いは MVP 対象外
 - 分析クエリは今までどおり CDC のテーブル本体ではなく `v_*` の view を参照する（規約の正本は `packages/data-warehouse/clickhouse/README.md`）
 
 ### 変更のケースごとの作業
@@ -88,14 +89,14 @@ Postgres（Drizzle）の変更と同じ PR で、ClickHouse 側に必要な変�
 
 | ケース | Postgres | CDC の対象一覧（`cdc-tables.json`） | ClickHouse（`migrations/` / `views/`） | 反映の順序（dev / prd） |
 | --- | --- | --- | --- | --- |
-| 1. CDC 対象テーブルの追加 | テーブルを作る | テーブル名を足す | `views/<table>.sql` を足す | deploy（テーブル作成）→ apply（ClickPipe に追加し、初回の取り込み）→ ClickHouse の migration を再実行（view 作成） |
+| 1. CDC 対象テーブルの追加 | テーブルを作る | テーブル名を足す | `views/<table>.sql` を足す | deploy（テーブル作成）→ apply（ClickPipe に追加し、初回の取り込み）→ ClickHouse の migration を再実行（view 作成。[`clickhouse-migrate.yml`](../../../.github/workflows/clickhouse-migrate.yml)） |
 | 2. テーブルの名前変更・削除 | **2 回に分けて出す。** 1 回目は ClickHouse 側だけ。2 回目で Postgres を変える | 1 回目で外す | 1 回目: `views/<table>.sql` を消し、`DROP VIEW IF EXISTS` の migration を足す。2 回目: `DROP TABLE IF EXISTS pg_cdc.<table>` の migration を足す。名前変更なら 2 回目に新しい名前でケース 1 も行う | 1 回目: deploy → apply（ClickPipe から外す）→ 2 回目: deploy |
 | 3. 列の追加 | 列を足す | 不要 | **不要** | deploy のみ。ClickHouse に列が増えた後の migration 実行で view に出る |
-| 4. 列の型・名前の変更 | 型・名前を変える | 不要 | 不要 | deploy → ClickPipe 全体を再同期（ClickHouse Cloud のコンソールの Resync）→ ClickHouse の migration を再実行 |
+| 4. 列の型・名前の変更 | 型・名前を変える | 不要 | 不要 | deploy → ClickPipe 全体を再同期（ClickHouse Cloud のコンソールの Resync）→ ClickHouse の migration を再実行（[`clickhouse-migrate.yml`](../../../.github/workflows/clickhouse-migrate.yml)） |
 | 5. 列の削除 | 列を消す | 不要 | 消した列名を view の除外列に足す | deploy のみ |
 | 6. ClickHouse だけの変更 | - | - | `migrations/` にファイルを足す | deploy のみ |
 
-- **ローカルは どのケースでも Postgres の migration（`pnpm --filter api db:migrate`）→ ClickHouse の migration の順に流すだけでよい。** ローカルの migration コマンドは CDC を毎回作り直す（[後述](#ローカルの-cdc)）ため、テーブルや列の変更に自動で追いつく
+- **ローカルはどのケースでも Postgres の migration（`pnpm --filter api db:migrate`）→ ClickHouse の migration の順に流すだけでよい。** ローカルの migration コマンドは CDC を毎回作り直す（[後述](#ローカルの-cdc)）ため、テーブルや列の変更に自動で追いつく
 - ケース 1 で view の元テーブルがまだ ClickHouse に無いとき（初回の取り込み前）、migration コマンドはその view だけ作らずに警告を出して成功する。次の実行で作られる
 - ケース 3 で ClickPipes が ClickHouse 側に列を足すのは、**そのテーブルに次の書き込みが来たとき**。それまでは view にも出ない
 - ケース 4 では、Resync が終わるまでその間の変更が ClickHouse に届かない。Resync は新しいテーブルを裏で作ってから入れ替えるため、view が空になる時間は無い
@@ -116,7 +117,7 @@ pnpm --filter @repo/data-warehouse dwh:migrate     # ClickHouse（events / CDC /
 ### deploy での判定
 
 - **判定の正本は Terraform のフラグだけにする。** `enable_data_warehouse = true` の環境にだけ ClickHouse の接続情報の secret（`/<prefix>/data-warehouse`）と migration 用の ECS タスク定義を作り、deploy workflow はその secret があるかどうかで migration の job を実行するか skip するかを決める。GitHub 側に同じ設定は持たない
-- **タスク定義の有無では判定しない。** deploy が register した revision は Terraform の管理外で、フラグを `false` にしても `ACTIVE` のまま残るため（family 名で引くと最新の `ACTIVE` な revision が返る）。secret はフラグと同時に作られ、同時に消える
+- **タスク定義の有無では判定しない。** deploy が register した revision は Terraform の管理外で、フラグを `false` にしても `ACTIVE` のまま残るため（family 名で引くと最新の `ACTIVE` な revision が返る）。secret はサービスを作り終えた後に作られ（サービスの作成に失敗したときに secret だけが残らないように）、フラグを `false` にした apply で即座に消える
 - CDC の有無は Terraform がタスクの環境変数で渡し、migration コマンドが view を作るかどうかを決める。**ClickPipe の作成・同期対象の変更は deploy ではなく Terraform の apply で行う**
 - ClickHouse の migration が失敗しても **api の deploy は止めない**（分析用のため）。worker は ClickHouse に書き込むので、migration の成功を待ってから deploy する
 - skip した場合は GitHub の画面で job が skipped として見える
@@ -181,7 +182,7 @@ flowchart LR
 | CDC の対象一覧 | `infra/clickhouse/cdc-tables.json`（新設） | ClickPipe の `table_mappings`（Terraform）とローカルの CDC（migration コマンド）の両方が読む唯一の一覧 |
 | ClickHouse Cloud | `modules/clickhouse-service`（新設） | サービス、パスワード、接続情報の secret |
 | CDC | `modules/clickpipes-postgres-cdc`（新設）/ `modules/rds`（パラメータグループを追加） | ClickPipe、SSH の鍵、bastion、RDS の論理レプリケーション |
-| migration の実行 | `modules/ecs-workload`（既存）で one-shot のタスク定義 `{env}-dwh-migration` | `enable_data_warehouse` のときだけ作る |
+| migration の実行 | `modules/ecs-workload`（既存）で one-shot のタスク定義 `<prefix>-dwh-migration`（例: `project-template-dev-dwh-migration`） | `enable_data_warehouse` のときだけ作る |
 | deploy | `deploy-aws-{dev,min,prd}.yml` | 接続情報の secret の有無を見て `migrate-dwh` job を実行 / skip |
 | deploy 用の IAM ロール | `account/github_oidc.tf`（既存） | secret の有無を調べる権限（`secretsmanager:DescribeSecret`）と、手動実行の workflow が使う `ecs:ListTaskDefinitions` を足す |
 
@@ -342,7 +343,7 @@ flowchart LR
 
 - **detect**: `aws secretsmanager describe-secret --secret-id /<prefix>/data-warehouse` が成功すれば `dwh_enabled=true`、secret が無ければ `false`。権限不足などそれ以外のエラーは job を失敗させる（黙って migration を飛ばさない）。min は既存の detect job（worker の有無）に足す
 - **migrate-dwh**: Drizzle の `migrate` の後に、同じ migration イメージで one-shot タスクを起動する（タスク定義の `command` で ClickHouse のコマンドを指定）。ケース 1 で view の元テーブルが Postgres に先にできている必要があるため、Drizzle の後にする
-- **deploy-worker** は `migrate` と `migrate-dwh` の両方を待つ。`migrate-dwh` が skip のときも進める（`!cancelled()` と各 job の結果で条件を書く）
+- **deploy-worker** は `migrate` と `migrate-dwh` の両方を待つ。`migrate-dwh` が skip のときも進める（`!cancelled()` と各 job の結果で条件を書く）。ただし detect が失敗して `migrate-dwh` が skip になったときは進めない
 - **deploy-api / deploy-cron** は今までどおり `migrate` だけを待つ
 - 「タスク定義を最新のイメージで register → run-task → 停止を待つ → 終了コードで成否を判定し、失敗ならログを出す」処理は `migrate` と同じなので、composite action（`.github/actions/run-one-shot-task`）に切り出して両方から使う
 - **イメージは既存の migration イメージ（`project-template-migration`）に同梱する。** ECR リポジトリと push の権限を増やさずに済む。`packages/db/Dockerfile.migration` の `turbo prune` の対象に `@repo/data-warehouse` を足す

@@ -139,6 +139,7 @@ WHERE ${CDC_LIVE_FILTER}
 
 - **人が使うのは `dwh:migrate`、コンテナが使うのは `dwh:migrate:run`。** `@repo/logger` は `dist/` を読むため、事前にビルドが要る。`dwh:migrate` は turbo 経由で依存パッケージをビルドしてから `dwh:migrate:run` を実行する。コンテナではイメージのビルド時にビルド済みなので `dwh:migrate:run` を直接起動する
 - `turbo.json` に `dwh:migrate:run` タスク（`dependsOn: ["^build"]`、`cache: false`）を足す。**`passThroughEnv` に `DATA_WAREHOUSE_*` / `LOCAL_CDC_POSTGRES_*` / `LOGGER_TYPE` / `NODE_ENV` を入れる。** turbo 2 は strict env mode で、宣言していない環境変数をタスクに渡さない。渡らないと既定の接続先（`localhost:8124`）に黙って繋がる
+- `turbo.json` に `@repo/data-warehouse#test` を足し、`inputs` に `$TURBO_ROOT$/infra/clickhouse/cdc-tables.json` を入れる（実際の定義ファイルを検査するテストが、`cdc-tables.json` だけを変えたときもキャッシュから返らないように）
 - **migration だけが使う依存は devDependencies にする。** worker のイメージは `pnpm deploy --prod` で作るので入らない。migration イメージは全部 install する（`drizzle-kit` と同じ）
 - `build` は `src/` を `dist/` に出した後、`clickhouse/tsconfig.json`（`noEmit`、`migrate/` だけを含める）で migration コマンドの型を検査する。CI は `pnpm --filter "./packages/*" build` で packages の型を検査しているため、ここで型エラーに気づける
 - lint は `src/` と `clickhouse/` を対象にする（`test/` は他のパッケージと同じく対象外）。共通の ESLint 設定は `./tsconfig.json`（`src/` だけ）から型情報を取るため、`eslint.config.js` で `clickhouse/**/*.ts` だけ `./clickhouse/tsconfig.json` に向ける
@@ -183,7 +184,7 @@ const envSchema = z.object({
 
 - `LOCAL_CDC_POSTGRES_DATABASE` の既定値は `docker-compose.yaml` の `POSTGRES_DB` と合わせる。docker-compose.yaml と同じく `TODO: プロジェクト名に変更` を付ける
 - `DATA_WAREHOUSE_DATABASE` は識別子（`/^[A-Za-z_][A-Za-z0-9_]*$/`）に限る（`clickhouse-migrations` が `CREATE DATABASE` に埋め込むため）
-- **`DATA_WAREHOUSE_CDC=materialized_postgresql`（既定値）は `http` の URL にだけ許す。** `pg_cdc` を消して作り直すローカル用のモードなので、タスク定義で `DATA_WAREHOUSE_CDC` を書き忘れたまま ClickHouse Cloud（`https`）に流れないよう、env の検証で止める
+- **`DATA_WAREHOUSE_CDC=materialized_postgresql`（既定値）は `http` の URL にだけ許す。** `pg_cdc` を消して作り直すローカル用のモードなので、タスク定義で `DATA_WAREHOUSE_CDC` を書き忘れたまま ClickHouse Cloud（`https`）に流れないよう、env の検証で止める。URL として読めない値は `z.string().url()` のエラーにする（Zod 3 は `url()` が失敗しても `superRefine` を実行するので、protocol は読めたときだけ見る）
 - テストからスキーマを使うため、`export const forTesting = { envSchema }` を置く
 
 ### `clickhouse/migrate/cdc-view-variables.ts`
@@ -245,35 +246,32 @@ export const renderViewSql = (template: string, variables: Record<string, string
 `clickhouse-migrations` の CLI を子プロセスで起動する。**ライブラリの関数は呼ばない**（エラー時に `process.exit(1)` するため）。
 
 ```ts
-import { execFile } from "node:child_process"
-import { promisify } from "node:util"
+import { spawn } from "node:child_process"
 
 /**
  * 未適用の migration を適用する。database が無ければ作る（ENGINE は指定しない）。
  */
-export const runVersionedMigrations = async (params: {
-  database: string
-  migrationsDir: string
-  password: string
-  url: string
-  username: string
-}): Promise<void> => {
-  await promisify(execFile)(CLI_PATH, ["migrate"], {
-    env: {
-      ...process.env,
-      CH_MIGRATIONS_DB: params.database,
-      CH_MIGRATIONS_HOME: params.migrationsDir,
-      CH_MIGRATIONS_HOST: params.url,
-      CH_MIGRATIONS_PASSWORD: params.password,
-      CH_MIGRATIONS_TIMEOUT: "60000",
-      CH_MIGRATIONS_USER: params.username,
-    },
+export const runVersionedMigrations = async (params: VersionedMigrationParams): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [require.resolve("clickhouse-migrations/lib/cli.js"), "migrate"], {
+      env: {
+        ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("CH_MIGRATIONS_"))),
+        CH_MIGRATIONS_DB: params.database,
+        CH_MIGRATIONS_HOME: params.migrationsDir,
+        CH_MIGRATIONS_HOST: params.url,
+        CH_MIGRATIONS_PASSWORD: params.password,
+        CH_MIGRATIONS_TIMEOUT: "120000",
+        CH_MIGRATIONS_USER: params.username,
+      },
+      stdio: "inherit",
+    })
+    child.on("error", reject)
+    child.on("close", (code, signal) => { /* 0 なら resolve、それ以外は signal か code を含めて reject */ })
   })
-}
 ```
 
-- `CLI_PATH` はパッケージの `node_modules/.bin/clickhouse-migrations`。実装時に `clickhouse-migrations` の `package.json` の `bin` を確認して解決する
-- CLI の stdout / stderr はそのまま流す（`stdio: "inherit"` 相当。`execFile` ではなく `spawn` にして終了コードを見る形でもよい）。終了コードが 0 以外なら throw する
+- CLI は `require.resolve("clickhouse-migrations/lib/cli.js")` で解決し、`process.execPath`（node）で起動する。stdout / stderr はそのまま流す
+- `CH_MIGRATIONS_TIMEOUT` は 120 秒。アイドルから起きる ClickHouse Cloud の初回の応答を待つため（既定は 30 秒）。各文の request timeout にも効くので、重い mutation を `mutations_sync` で同期させると超えうる（README に書く）
 - `CH_MIGRATIONS_SUBSTITUTE_ENV` は設定しない（版管理する migration は環境に依存させない）。親プロセスの `CH_MIGRATIONS_*` は引き継がず、必要な値だけを明示する
 
 ### `clickhouse/migrate/rebuild-local-cdc.ts`
