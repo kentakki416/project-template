@@ -54,11 +54,11 @@
 | | ローカル | dev / min | prd |
 | --- | --- | --- | --- |
 | ClickHouse | docker-compose（8124 / 9003） | `enable_data_warehouse` で選ぶ（既定は**持たない**） | ClickHouse Cloud（`enable_data_warehouse` の既定が `true`） |
-| `DATA_WAREHOUSE_TYPE` | `clickhouse` | フラグに合わせて `clickhouse` / `none` | `clickhouse` |
+| `DATA_WAREHOUSE_TYPE` | `clickhouse` | フラグに合わせて `clickhouse` / `none` | フラグに合わせて `clickhouse` / `none`（既定は `clickhouse`） |
 
 **AWS の環境が ClickHouse を持つかは、Terraform の `enable_data_warehouse` で選ぶ。**
 `true` の環境にだけ ClickHouse Cloud のサービスと接続情報の secret、migration 用のタスク定義を作る。
-dev の行動ログに分析価値は薄く、そのためにインスタンスを持つのはコストに見合わないので、既定では持たない。
+既定で持たないのは、dev は行動ログに分析価値が薄くコストに見合わないため、min は固定費を抑える構成で、記録するかをプロダクトごとに選ぶため（api の `EVENT_TRACKER_TYPE` と同じ考え方）。
 切り替え方は [`docs/spec/clickhouse-migration/README.md`](../../../docs/spec/clickhouse-migration/README.md)。
 
 ClickHouse Cloud を選んだのは、**月額最低額が無くアイドル時に compute がゼロへスケールダウン**

@@ -185,7 +185,7 @@ jobs:
       # continue-on-error で後続のコメント投稿まで必ず到達させ、最後のステップで失敗を再現する。
       # Pattern A 採用のため tfplan バイナリは保存せず、出力テキストのみ tee で tfplan.txt に保管する。
       # apply は terraform-aws-env-apply.yml 側で plan を再生成してから適用するため、ここでは plan を保持しない。
-      # CLICKHOUSE_* は enable_data_warehouse = true の環境の GitHub Environment にだけ置く（ClickHouse のリソースの refresh に要る）
+      # CLICKHOUSE_* は enable_data_warehouse = true の環境の GitHub Environment にだけ置く（ClickHouse のリソースの refresh に要る。false に戻す apply が終わるまでは消さない）
       - name: Terraform Plan
         id: plan
         continue-on-error: true

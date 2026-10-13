@@ -376,6 +376,9 @@ module "clickhouse" {
   secret_name     = "/${local.name_prefix}/data-warehouse"
   ip_access_cidrs = ["${module.vpc.nat_gateway_public_ip}/32"]
 
+  # ClickHouse の default ユーザーのパスワードを作り直したら +1 する (手順は modules/clickhouse-service/main.tf)
+  password_version = 1
+
   credentials_configured = alltrue([
     for v in [var.clickhouse_org_id, var.clickhouse_token_key, var.clickhouse_token_secret] : v != null && v != ""
   ])
@@ -385,10 +388,7 @@ module "clickhouse" {
 
 locals {
   /** ClickHouse の接続情報。enable_data_warehouse = false なら空で、worker も migration も受け取らない */
-  data_warehouse_secrets = var.enable_data_warehouse ? {
-    for k in ["DATA_WAREHOUSE_URL", "DATA_WAREHOUSE_USER", "DATA_WAREHOUSE_PASSWORD", "DATA_WAREHOUSE_DATABASE"] :
-    k => "${module.clickhouse[0].secret_arn}:${k}::"
-  } : {}
+  data_warehouse_secrets = var.enable_data_warehouse ? module.clickhouse[0].ecs_secrets : {}
 }
 
 # =============================================================================
@@ -666,6 +666,8 @@ module "ecs_dwh_migration" {
   environment = {
     /** CDC を張るまでは CDC の view を作らない */
     DATA_WAREHOUSE_CDC = "none"
+    /** logger を JSON 出力にする (未設定だと development 扱いで色付きのテキストになる) */
+    NODE_ENV = "production"
   }
 
   create_service        = false

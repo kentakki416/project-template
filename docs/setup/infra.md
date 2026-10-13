@@ -118,7 +118,7 @@ dev は Blue/Green ではなく rolling 更新で承認ゲートを持たない�
 
 - [ ] ClickHouse Cloud の organization を作る（Basic tier）
 - [ ] organization の API キーを作る（権限は Admin。Terraform がサービスを作るため）
-- [ ] `enable_data_warehouse = true` にする環境の GitHub Environment（`dev` / `min-terraform` / `prd`）の **Secrets** に `CLICKHOUSE_ORG_ID` / `CLICKHOUSE_TOKEN_KEY` / `CLICKHOUSE_TOKEN_SECRET` を登録する。Terraform の workflow が `TF_VAR_clickhouse_*` として渡す
+- [ ] `enable_data_warehouse = true` にする環境の GitHub Environment（`dev` / `min-terraform` / `prd`）の **Secrets** に `CLICKHOUSE_ORG_ID` / `CLICKHOUSE_TOKEN_KEY` / `CLICKHOUSE_TOKEN_SECRET` を登録する。Terraform の workflow が `TF_VAR_clickhouse_*` として渡す。`true` から `false` に戻すときは、その apply が終わるまで消さない（サービスの削除と、その PR の CI の plan で API を呼ぶため）
 - [ ] ローカルから apply するときは、同じ値を環境変数で渡す
 
 ```bash

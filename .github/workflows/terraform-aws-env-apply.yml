@@ -73,7 +73,7 @@ jobs:
         working-directory: infra/terraform/aws/env/${{ inputs.environment }}
 
       # plan を一度走らせて差分を可視化（apply ログだけだと事後追跡しづらいため）
-      # CLICKHOUSE_* は enable_data_warehouse = true の環境の GitHub Environment にだけ置く
+      # CLICKHOUSE_* は enable_data_warehouse = true の環境の GitHub Environment にだけ置く (false に戻す apply が終わるまでは消さない)
       - name: Terraform Plan
         run: terraform plan -no-color -input=false -lock-timeout=120s -out=tfplan
         working-directory: infra/terraform/aws/env/${{ inputs.environment }}
