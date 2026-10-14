@@ -123,12 +123,13 @@ worker の `DATA_WAREHOUSE_TYPE` で選ぶ。
 
 | `DATA_WAREHOUSE_TYPE` | 実装 | 使う環境 |
 | --- | --- | --- |
-| `clickhouse` | `ClickHouseDataWarehouse` | ローカル / prd |
-| `none` | `NoopDataWarehouse` | dev（行動ログに分析価値が無い環境） |
+| `clickhouse` | `ClickHouseDataWarehouse` | ローカル / AWS で `enable_data_warehouse = true` の環境（既定は prd） |
+| `none` | `NoopDataWarehouse` | AWS で `enable_data_warehouse = false` の環境（既定は dev / min） |
 
+AWS では Terraform の `enable_data_warehouse` に合わせて、worker の `DATA_WAREHOUSE_TYPE` が入る。
 `none` にすると insert はスキップされる（ジョブは成功扱い）。
 
-**本番で `none` にしてはいけない。** 呼び出し側から見ると insert は成功するので、
+**イベントを記録する環境で `none` にしてはいけない。** 呼び出し側から見ると insert は成功するので、
 設定を間違えるとイベントが無言で消える。気付けるように insert のたびに debug ログを出している。
 
 接続先などの環境変数は [`apps/worker/CLAUDE.md`](../../apps/worker/CLAUDE.md#環境変数)。
