@@ -88,7 +88,7 @@ flowchart LR
 
 同期対象は `infra/clickhouse/cdc-tables.json` に並べたテーブル（今は `users` / `memos`）。publication と
 replication slot は取り込み側が自動作成する。取り込んだテーブルは `pg_cdc` database に入り、
-分析クエリは `project_template.v_*` の view から読む。CDC と view は [migration コマンド](#migration-コマンド)が作る。
+分析クエリは `project_template.v_*` の view から読む。ローカルの CDC（MaterializedPostgreSQL）と、両方の環境の view は [migration コマンド](#migration-コマンド)が作る。ClickHouse Cloud の CDC（ClickPipe）は Terraform が作る。
 
 ### ローカルと ClickHouse Cloud の違い
 
@@ -182,7 +182,7 @@ pnpm --filter @repo/data-warehouse dwh:migrate    # ClickHouse
 - テーブル名は database で修飾しない（接続先の `DATA_WAREHOUSE_DATABASE` に作られる）
 - **環境で変わる内容を書かない。** local と ClickHouse Cloud で同じ SQL が通るようにする（ENGINE は `MergeTree` 系を書けば Cloud では自動で Shared 系になる。`ON CLUSTER` は書かない）
 - `ALTER TABLE ... UPDATE / DELETE` などの mutation は非同期なので、終わるまで待たせたいときはファイルに `SET mutations_sync = 2;` を書く（そのファイルの全文に効く）。ただし**各文は 120 秒以内に終わること**（migration の request timeout）。超えると client 側がタイムアウトし、mutation はサーバーで続くのに履歴には記録されない。大きなテーブルへの重い mutation は `mutations_sync` を付けずに非同期に任せる
-- **`pg_cdc` のテーブルを参照しない**（`DROP TABLE IF EXISTS pg_cdc.<table>` は除く）。CDC の無い環境（`DATA_WAREHOUSE_CDC=none`）や、ClickPipe の初回の取り込みの前には `pg_cdc` が無く、migration が失敗するため。CDC のデータを元にした集計は `views/` に書く（CDC のデータを元にしたマテリアライズドビューが要るときの扱いは未定）
+- **`pg_cdc` のテーブルを参照しない**（`DROP TABLE IF EXISTS pg_cdc.<table>` は除く。database が無くても通る）。参照するとコマンドが DB に触る前に止まる。CDC の無い環境（`DATA_WAREHOUSE_CDC=none`）や、ClickPipe の初回の取り込みの前には `pg_cdc` が無く、migration が失敗するため。CDC のデータを元にした集計は `views/` に書く（CDC のデータを元にしたマテリアライズドビューが要るときの扱いは未定）
 
 ### CDC の view の書き方
 

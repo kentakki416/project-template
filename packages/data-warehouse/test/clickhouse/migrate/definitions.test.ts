@@ -1,9 +1,11 @@
 import { CDC_VIEW_VARIABLES } from "../../../clickhouse/migrate/cdc-view-variables"
 import {
   readCdcTables,
+  readMigrationDefinitions,
   readMigrationFileNames,
   readViewDefinitions,
   verifyMigrationFileNames,
+  verifyMigrationsDoNotReferenceCdc,
   verifyViewsMatchCdcTables,
 } from "../../../clickhouse/migrate/definition-files"
 import { renderViewSql } from "../../../clickhouse/migrate/render-view-sql"
@@ -16,6 +18,10 @@ import { CDC_TABLES_PATH, MIGRATIONS_DIR, VIEWS_DIR } from "../../../clickhouse/
 describe("リポジトリの定義ファイル", () => {
   it("migrations/ のファイル名に問題が無い", async () => {
     expect(verifyMigrationFileNames(await readMigrationFileNames(MIGRATIONS_DIR))).toEqual([])
+  })
+
+  it("migrations/ が pg_cdc を参照しない", async () => {
+    expect(verifyMigrationsDoNotReferenceCdc(await readMigrationDefinitions(MIGRATIONS_DIR))).toEqual([])
   })
 
   it("cdc-tables.json と views/ が 1 対 1 になっている", async () => {

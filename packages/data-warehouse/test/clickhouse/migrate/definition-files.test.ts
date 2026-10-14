@@ -1,6 +1,7 @@
 import {
   forTesting,
   verifyMigrationFileNames,
+  verifyMigrationsDoNotReferenceCdc,
   verifyViewsMatchCdcTables,
 } from "../../../clickhouse/migrate/definition-files"
 
@@ -85,6 +86,39 @@ describe("parseCdcTablesJson", () => {
 
     it("重複していれば throw する", () => {
       expect(() => parseCdcTablesJson("[\"users\", \"users\"]")).toThrow()
+    })
+  })
+})
+
+describe("verifyMigrationsDoNotReferenceCdc", () => {
+  describe("正常系", () => {
+    it("pg_cdc を参照しない migration は問題なし", () => {
+      expect(verifyMigrationsDoNotReferenceCdc([
+        { fileName: "1_create_events.sql", sql: "CREATE TABLE IF NOT EXISTS events (event_id UUID) ENGINE = MergeTree ORDER BY event_id;" },
+      ])).toEqual([])
+    })
+
+    it("CDC のテーブルを消す DROP TABLE IF EXISTS pg_cdc.<table> は許す（CDC の無い環境でも通る）", () => {
+      expect(verifyMigrationsDoNotReferenceCdc([
+        { fileName: "3_drop_cdc_memos.sql", sql: "DROP VIEW IF EXISTS v_memos;\ndrop table if exists PG_CDC.memos;" },
+      ])).toEqual([])
+    })
+
+    it("コメントの中の pg_cdc は参照とみなさない", () => {
+      expect(verifyMigrationsDoNotReferenceCdc([
+        { fileName: "2_add_index.sql", sql: "-- pg_cdc.users は参照しない\n/* pg_cdc.memos も */\nALTER TABLE events ADD INDEX idx_user user_id TYPE minmax;" },
+      ])).toEqual([])
+    })
+  })
+
+  describe("異常系", () => {
+    it("pg_cdc を参照する migration を返す（CDC の無い環境や初回の取り込みの前に失敗するため）", () => {
+      expect(verifyMigrationsDoNotReferenceCdc([
+        { fileName: "2_create_mv.sql", sql: "CREATE MATERIALIZED VIEW mv_users AS SELECT count() FROM pg_cdc.users;" },
+        { fileName: "3_drop_cdc_memos.sql", sql: "DROP TABLE IF EXISTS pg_cdc.memos;" },
+      ])).toEqual([
+        "migration must not reference pg_cdc (except DROP TABLE IF EXISTS pg_cdc.<table>): 2_create_mv.sql",
+      ])
     })
   })
 })

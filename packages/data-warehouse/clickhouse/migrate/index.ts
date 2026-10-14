@@ -5,9 +5,10 @@ import { logger } from "@repo/logger"
 import { applyViews } from "./apply-views"
 import {
   readCdcTables,
-  readMigrationFileNames,
+  readMigrationDefinitions,
   readViewDefinitions,
   verifyMigrationFileNames,
+  verifyMigrationsDoNotReferenceCdc,
   verifyViewsMatchCdcTables,
 } from "./definition-files"
 import { env } from "./env"
@@ -37,13 +38,14 @@ const closeClient = async (client: ClickHouseClient): Promise<void> => {
  * 設計: docs/spec/clickhouse-migration/README.md
  */
 const main = async (): Promise<void> => {
-  const [migrationFileNames, cdcTables, views] = await Promise.all([
-    readMigrationFileNames(MIGRATIONS_DIR),
+  const [migrations, cdcTables, views] = await Promise.all([
+    readMigrationDefinitions(MIGRATIONS_DIR),
     readCdcTables(CDC_TABLES_PATH),
     readViewDefinitions(VIEWS_DIR),
   ])
   const problems = [
-    ...verifyMigrationFileNames(migrationFileNames),
+    ...verifyMigrationFileNames(migrations.map((migration) => migration.fileName)),
+    ...verifyMigrationsDoNotReferenceCdc(migrations),
     ...verifyViewsMatchCdcTables(cdcTables, views.map((view) => view.table)),
   ]
   if (problems.length > 0) {

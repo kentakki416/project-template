@@ -3,6 +3,8 @@ import path from "node:path"
 
 import { z } from "zod"
 
+import { CDC_DATABASE } from "./cdc-view-variables"
+
 /**
  * clickhouse-migrations は版番号を UInt32 の列に入れる。
  * 超えると JSONEachRow の insert で黙って桁あふれし、次回から「適用済みのファイルが消えた」扱いで止まる。
@@ -18,6 +20,20 @@ const MIGRATION_FILE_NAME_PATTERN = /^(\d+)_.+\.sql$/
 const cdcTablesSchema = z
   .array(z.string().regex(/^[a-z_][a-z0-9_]*$/, "table name must match /^[a-z_][a-z0-9_]*$/"))
   .refine((tables) => new Set(tables).size === tables.length, "table names must be unique")
+
+/**
+ * migrations/ で許す pg_cdc への参照。CDC のテーブルを消す文だけで、database が無い環境でも通る
+ */
+const ALLOWED_CDC_STATEMENT = new RegExp(`DROP\\s+TABLE\\s+IF\\s+EXISTS\\s+${CDC_DATABASE}\\.[A-Za-z_][A-Za-z0-9_]*`, "gi")
+
+const CDC_REFERENCE = new RegExp(`\\b${CDC_DATABASE}\\s*\\.`, "i")
+
+const SQL_COMMENT = /--[^\n]*|\/\*[\s\S]*?\*\//g
+
+export type MigrationDefinition = {
+  fileName: string
+  sql: string
+}
 
 export type ViewDefinition = {
   sql: string
@@ -70,12 +86,31 @@ export const verifyViewsMatchCdcTables = (cdcTables: string[], viewTables: strin
 ]
 
 /**
+ * pg_cdc を参照する migration を検査し、問題の一覧を返す（問題が無ければ空）。
+ *
+ * CDC の無い環境（DATA_WAREHOUSE_CDC=none）や ClickPipe の初回の取り込みの前には pg_cdc が無く、
+ * 参照する migration は失敗して deploy-worker まで止まるため、実行前にここで止める。
+ * CDC のテーブルを消す DROP TABLE IF EXISTS pg_cdc.<table> だけは許す。
+ */
+export const verifyMigrationsDoNotReferenceCdc = (migrations: MigrationDefinition[]): string[] =>
+  migrations
+    .filter(({ sql }) => CDC_REFERENCE.test(sql.replace(SQL_COMMENT, "").replace(ALLOWED_CDC_STATEMENT, "")))
+    .map(({ fileName }) => `migration must not reference ${CDC_DATABASE} (except DROP TABLE IF EXISTS ${CDC_DATABASE}.<table>): ${fileName}`)
+
+/**
  * cdc-tables.json の中身を検証してテーブル名の配列にする。不正なら throw する。
  */
 const parseCdcTablesJson = (text: string): string[] => cdcTablesSchema.parse(JSON.parse(text))
 
 export const readMigrationFileNames = async (dir: string): Promise<string[]> =>
   (await readdir(dir)).filter((fileName) => fileName.endsWith(".sql"))
+
+export const readMigrationDefinitions = async (dir: string): Promise<MigrationDefinition[]> => {
+  const fileNames = (await readMigrationFileNames(dir)).sort()
+  return Promise.all(
+    fileNames.map(async (fileName) => ({ fileName, sql: await readFile(path.join(dir, fileName), "utf8") })),
+  )
+}
 
 export const readCdcTables = async (filePath: string): Promise<string[]> =>
   parseCdcTablesJson(await readFile(filePath, "utf8"))
