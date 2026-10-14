@@ -166,8 +166,7 @@ cd infra/terraform/aws/env/prd && terraform init && terraform apply
 作成物: VPC / RDS(Multi-AZ) / ElastiCache(TLS) / ALB(HTTPS+Blue/Green) /
 ECS cluster + api/worker/migration/cron / EventBridge スケジュール / Secrets(箱+JWT) /
 **ACM 証明書 `*.<your-domain>`（DNS 検証）+ HTTPS リスナー + `api.<your-domain>` の ALIAS Aレコード**。
-`enable_data_warehouse` / `enable_cdc`（prd の既定はどちらも `true`）により、ClickHouse Cloud のサービス・ClickHouse の migration のタスク定義・ClickPipe・SSH bastion も作られる（ClickHouse Cloud の API キーが要る。[`docs/setup/infra.md`](../setup/infra.md) の手順 7）。
-**ただし ClickPipe はこの時点では作らない**（テーブルが Phase 8 の migrate までできないため）。最初の apply は `-var enable_cdc=false` で流し、Phase 8 の後に既定値のまま apply する（[`packages/data-warehouse/clickhouse/README.md`](../../packages/data-warehouse/clickhouse/README.md#clickhouse-cloud-の-cdcclickpipes) の「prd で初めて CDC を作るとき」）。
+`enable_data_warehouse`（prd の既定は `true`）により、ClickHouse Cloud のサービスと ClickHouse の migration のタスク定義も作られる（ClickHouse Cloud の API キーが要る。[`docs/setup/infra.md`](../setup/infra.md) の手順 7）。Postgres からの CDC（`enable_cdc`）は既定で作らない。有効にするときは Phase 8 の deploy が終わってから（[`packages/data-warehouse/clickhouse/README.md`](../../packages/data-warehouse/clickhouse/README.md#clickhouse-cloud-の-cdcclickpipes)）。
 
 > ⚠️ この時点で ECS api/worker は **イメージ未 push のため起動失敗**する（後で deploy して正常化）。想定どおり。
 
