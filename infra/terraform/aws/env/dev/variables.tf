@@ -156,6 +156,17 @@ variable "clickhouse_additional_ip_access_cidrs" {
   default     = []
 }
 
+variable "enable_cdc" {
+  description = "Postgres (RDS) から ClickHouse への CDC (ClickPipes + SSH bastion) を作るか。enable_data_warehouse = true のときだけ有効にできる。ClickPipes の CDC 用の計算資源 (約 $73/月) と bastion (月 $10 未満) の固定費がかかる"
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_cdc || var.enable_data_warehouse
+    error_message = "enable_cdc = true には enable_data_warehouse = true が要る"
+  }
+}
+
 # =============================================================================
 # タグ設定
 # =============================================================================
