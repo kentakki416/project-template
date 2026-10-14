@@ -296,7 +296,7 @@ graph TB
 | [naming.md](docs/onboarding/naming.md) | ファイル名 / 変数名 / 関数名の命名規則 |
 | [error-handling.md](docs/onboarding/error-handling.md) | エラーハンドリング（`Result<T>` / 業務エラーと想定外エラー） |
 | [testing.md](docs/onboarding/testing.md) | テスト戦略 / 正常系・異常系の分類 / モック方針 |
-| [auth.md](docs/onboarding/auth.md) | 認証（JWT / httpOnly cookie / middleware ガード） |
+| [auth.md](docs/onboarding/auth.md) | 認証（Google OAuth のサインインの流れ / JWT / httpOnly cookie / proxy ガード） |
 
 ### 技術スタックの採用理由と挙動
 
@@ -313,6 +313,7 @@ graph TB
 |---|---|
 | [docs/setup/api.md](docs/setup/api.md) | API のローカル起動・テスト実行の詳細 |
 | [docs/setup/infra.md](docs/setup/infra.md) | AWS インフラの初回セットアップ |
+| [docs/onboarding/deploy-prd.md](docs/onboarding/deploy-prd.md) | 本番をゼロから立ち上げる手順（AWS + Vercel）と落とし穴 |
 | [infra/README.md](infra/README.md) | インフラ構成 / dev と prd の差分 / デプロイフロー / 日常運用コマンド |
 
 ### 各 app
@@ -340,7 +341,7 @@ graph TB
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | Claude Code 向けのプロジェクト全体ガイド |
 | [.claude/README.md](.claude/README.md) | Agents / Commands / Skills の設定 |
-| [docs/mcp.md](docs/mcp.md) | MCP サーバーの一覧・使い方・追加方法 |
+| [docs/onboarding/mcp.md](docs/onboarding/mcp.md) | MCP サーバーの一覧・使い方・追加方法 |
 
 MCP サーバーの設定はルートの `.mcp.json` にあります。起動時に読み込ませるには `claude --mcp-config=./.mcp.json` を使います。
 

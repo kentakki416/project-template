@@ -5,6 +5,7 @@
 ## 目次
 
 - [読む順番](#読む順番)
+  - [必要になったら読む](#必要になったら読む)
 - [このドキュメント群の位置づけ](#このドキュメント群の位置づけ)
 - [全体像（1 枚図）](#全体像1-枚図)
 
@@ -19,7 +20,14 @@
 | 3 | [naming.md](./naming.md) | ファイル名は kebab-case（Component だけ PascalCase）。変数・関数・型の命名規則 |
 | 4 | [error-handling.md](./error-handling.md) | API は `Result<T>`。業務エラー(4xx)は `err()` で返し、想定外は `throw` して分離する |
 | 5 | [testing.md](./testing.md) | Service はユニット / Controller は実 DB・Redis を使う統合テスト。`正常系` / `異常系` で分類 |
-| 6 | [auth.md](./auth.md) | Google OAuth + 自前 JWT (access 15分 / refresh 7日)。httpOnly cookie + middleware ガード |
+| 6 | [auth.md](./auth.md) | Google OAuth + 自前 JWT (access 15分 / refresh 7日)。httpOnly cookie + proxy ガード |
+
+### 必要になったら読む
+
+| ドキュメント | 一言でいうと |
+|---|---|
+| [deploy-prd.md](./deploy-prd.md) | 本番を AWS（バックエンド）+ Vercel（フロント）にゼロから立ち上げる手順。ALB は HTTPS の最終形にしてから deploy する |
+| [mcp.md](./mcp.md) | Claude Code から使う MCP サーバーの一覧・使い方・追加方法 |
 
 ## このドキュメント群の位置づけ
 

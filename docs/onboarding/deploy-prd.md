@@ -8,7 +8,7 @@
 
 > ⚠️ **最重要の教訓**: ALB は **最初から HTTPS の最終形にしてから app を deploy する**こと。
 > HTTP で deploy → 後から HTTPS 化、の順だと **ECS Blue/Green のリスナールール紐付けが壊れ**、
-> ECS サービスの作り直しが必要になる（[落とし穴 7](#落とし穴-7-https-は-deploy-より先に-ecs-bluegreen-のルール紐付け)）。
+> ECS サービスの作り直しが必要になる（[落とし穴 7](#落とし穴-7-https-は-deploy-より先にecs-bluegreen-のルール紐付け)）。
 
 ## 目次
 
@@ -149,7 +149,7 @@ GitHub → Settings → Developers → OAuth Apps → New OAuth App
 ## Phase 6: env/prd を apply（HTTPS 込みの最終形で）
 
 > ★ **ここが最重要**。HTTP で先に立ち上げてから後で HTTPS 化、をやると ECS Blue/Green の
-> ルール紐付けが壊れる（[落とし穴 7](#落とし穴-7-https-は-deploy-より先に-ecs-bluegreen-のルール紐付け)）。
+> ルール紐付けが壊れる（[落とし穴 7](#落とし穴-7-https-は-deploy-より先にecs-bluegreen-のルール紐付け)）。
 > **最初から `domain_name` を設定して HTTPS の最終形で apply** し、それから Phase 8 で deploy する。
 
 1. `env/prd/variables.tf` の `domain_name` を本番ドメインに設定（default を `"<your-domain>"` に）。
