@@ -235,7 +235,7 @@ module "ecs_dwh_migration" {
 
 ### Terraform の workflow
 
-`terraform-aws-env-apply.yml` の plan / apply の step と、`terraform-aws-env-ci.yml` の plan の step に足す:
+`terraform-aws-env-apply.yml` と `terraform-aws-env-ci.yml` の plan の step に足す（apply の step には要らない。保存した plan に変数の値が入っているため）:
 
 ```yaml
 env:
