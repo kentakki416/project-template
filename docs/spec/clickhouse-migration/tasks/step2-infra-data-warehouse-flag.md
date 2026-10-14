@@ -249,7 +249,7 @@ env:
 
 ### ClickHouse Cloud の準備（Terraform の管理外）
 
-1. ClickHouse Cloud の organization を作る（Basic tier）。prd は dev / min と別の organization にする（API キーが organization 全体の Admin 権限で、dev の API キーは PR の CI にも渡るため）
+1. ClickHouse Cloud の organization を作る（Basic tier）。dev / min / prd はそれぞれ別の organization にする（API キーが organization 全体の Admin 権限で、dev の API キーは PR の CI にも渡るため）
 2. organization の API キーを作る（権限: Admin。サービスと ClickPipe を作るため）
 3. GitHub Environment の secret に `CLICKHOUSE_ORG_ID` / `CLICKHOUSE_TOKEN_KEY` / `CLICKHOUSE_TOKEN_SECRET` を登録する
 

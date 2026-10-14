@@ -282,7 +282,7 @@ WHERE ${CDC_LIVE_FILTER}
 - アイドル時に止める（`idle_scaling = true`、`idle_timeout_minutes = 15`）
 - パスワードは `random_password` で作り、サービスには書き込み専用の `password_wo` で、Secrets Manager には secret の値として渡す。`random_password` の値は tfstate に残るが、JWT の鍵と同じく S3 の暗号化で保護する前提（既存方針）
 - 接続を許可する IP（`ip_access`）は、dev / prd は NAT Gateway の固定 IP（worker と migration のタスクはここから出る）と、`clickhouse_additional_ip_access_cidrs` で足した IP（分析ツールや手元。コンソールで足しても次の apply で消えるため変数で持つ）。min は `0.0.0.0/0`（タスクに付く public IP が毎回変わるため。パスワードで守る）
-- **prd は dev / min と別の organization に作る。** API キーは organization 全体の Admin 権限で、dev の API キーは PR の CI（plan）にも渡るため、同じ organization だと prd のサービスも消せてしまう
+- **dev / min / prd はそれぞれ別の organization に作る。** API キーは organization 全体の Admin 権限で、dev の API キーは PR の CI（plan）にも渡るため、同じ organization だとほかの環境のサービスも消せてしまう
 - データベース（`project_template`）は Terraform では作らず、`clickhouse-migrations` が `CREATE DATABASE IF NOT EXISTS`（ENGINE を指定しない。Cloud では自動で Shared になる）で作る。ローカルと同じ経路にする
 
 **provider の認証情報。** organization ID と API キー（key / secret）を GitHub Environment の secret に置き、Terraform の apply の workflow が `TF_VAR_*` で渡す。
