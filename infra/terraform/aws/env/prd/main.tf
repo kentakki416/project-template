@@ -378,7 +378,8 @@ module "elasticache" {
 #   dwh-migration にだけ渡す
 # - deploy workflow はこの secret の有無で ClickHouse の migration を流すかを判定する
 #   (判定の正本はこのフラグだけ)
-# - worker と migration のタスクは NAT から外へ出るので、NAT の IP だけ接続を許す
+# - 接続を許すのは、worker と migration のタスクが外へ出る NAT の IP と、
+#   clickhouse_additional_ip_access_cidrs に足した IP (分析ツールなど) だけ
 # 設計: docs/spec/clickhouse-migration/README.md
 
 module "clickhouse" {

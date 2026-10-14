@@ -26,7 +26,7 @@ variable "secret_name" {
 }
 
 variable "password_version" {
-  description = "default ユーザーのパスワードの版。random_password を taint して作り直したら +1 する (password_wo は値の変化を検知できないため)"
+  description = "default ユーザーのパスワードの版。random_password を -replace で作り直すときに同じ apply で +1 する (password_wo は値の変化を検知できないため。手順は main.tf)"
   type        = number
   default     = 1
 }
