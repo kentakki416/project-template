@@ -62,7 +62,19 @@
 dev / min / prd はそれぞれ別の organization に作る（API キーが organization 全体の Admin 権限のため。[`docs/setup/infra.md`](../../../docs/setup/infra.md)）。
 サービスに繋げるのは、dev / prd は NAT の IP（worker と migration のタスク）と、`clickhouse_additional_ip_access_cidrs` に足した IP（分析ツールや手元）だけ。min はタスクの IP が毎回変わるため絞らない。
 既定で持たないのは、dev は行動ログに分析価値が薄くコストに見合わないため、min は固定費を抑える構成で、記録するかをプロダクトごとに選ぶため（api の `EVENT_TRACKER_TYPE` と同じ考え方）。
-切り替え方は [`docs/spec/clickhouse-migration/README.md`](../../../docs/spec/clickhouse-migration/README.md)。
+deploy はこの secret の有無で ClickHouse の migration（migrate-dwh）を流すかを決める。
+
+**有効にする**
+
+1. `infra/terraform/aws/env/<env>/variables.tf` の `enable_data_warehouse` の既定値を `true` にして PR → マージ
+2. Terraform AWS Env Apply を実行する（サービス・接続情報の secret・migration 用のタスク定義ができる。ClickHouse Cloud の API キーが要る: [`docs/setup/infra.md`](../../../docs/setup/infra.md)）
+3. deploy を実行する（migrate-dwh が `events` を作り、worker が ClickHouse に書き始める）
+
+**無効にする**
+
+1. 既定値を `false` にして PR → マージ → apply → **すぐに deploy する**（ClickHouse Cloud の API キーはこの apply が終わるまで消さない）。apply で接続情報の secret が消えるが、動いている worker は deploy するまで、その secret を参照するタスク定義のまま残る。その間に worker のタスクが入れ替わる（Fargate Spot の中断やクラッシュ）と、起動に失敗してすべての queue が止まる
+2. **ClickHouse Cloud のサービスは削除され、データも消える。** 残したい場合は先にバックアップを取る（prd では `false` にしない）
+3. deploy が register した dwh-migration のタスク定義の revision は残るが、判定は secret で行うので害は無い（不要なら deregister してよい）
 
 ClickHouse Cloud を選んだのは、**月額最低額が無くアイドル時に compute がゼロへスケールダウン**
 するため。この規模ではストレージ費用が支配的で、それも年数 GB に収まる。
@@ -167,6 +179,8 @@ ClickPipe を作る前に、論理レプリケーションが効いているこ�
 | 列の型・名前を変える | deploy（Drizzle）→ ClickHouse Cloud のコンソールで ClickPipe を Resync → 終わったら `clickhouse-migrate.yml` |
 | 列を足す | deploy（Drizzle）→ そのテーブルに書き込みがあった後に `clickhouse-migrate.yml`（足した列は次の書き込みで ClickHouse に現れ、view の列は作り直すまで増えない） |
 | 列を消す | view の `EXCEPT` に列名を足して deploy（ClickPipes は消した列を NULL で残す） |
+
+`clickhouse-migrate.yml` は、同じ環境の deploy と同じ concurrency group で動く。deploy の実行中は終わるまで待ち、待っている間に deploy をもう一度実行すると、待っていた方は取り消される。
 
 **CDC を無効にする**
 
