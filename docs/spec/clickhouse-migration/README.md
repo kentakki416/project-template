@@ -57,12 +57,13 @@ ClickHouse に置くテーブル・view を **Postgres と同じように版管�
 | | local | dev | min | prd |
 | --- | --- | --- | --- | --- |
 | ClickHouse | docker compose（常にある） | `enable_data_warehouse`（既定 `false`）。`true` なら ClickHouse Cloud | 同左（既定 `false`） | 同左（既定 `true`） |
-| CDC | MaterializedPostgreSQL（常にある） | `enable_cdc`（既定 `false`）。`true` なら ClickPipes | **なし**（MVP 対象外） | `enable_cdc`（既定 `true`）。ClickPipes |
+| CDC | MaterializedPostgreSQL（常にある） | `enable_cdc`（既定 `false`）。`true` なら ClickPipes | **なし**（MVP 対象外） | 同 dev（既定 `false`） |
 | worker の書き込み先 | ClickHouse | フラグが `false` なら書かない（`DATA_WAREHOUSE_TYPE=none`） | 同左 | 同左 |
 | ClickHouse の migration | 手元でコマンドを実行 | deploy で実行（フラグが `true` のときだけ） | 同左 | 同左 |
 
 - **フラグが `false` の環境には ClickHouse 関連のリソースを 1 つも作らない。** 費用は今と変わらない
 - `enable_data_warehouse` を `true` にしても、ClickHouse Cloud はアイドル時に止まる設定にするため、使っていない間の費用はほぼストレージ代だけになる
+- **CDC は仕組みだけを用意し、既定ではどの環境にも作らない。** 行動イベントには `userId` が入っていて、属性での切り分けもイベントの `properties` に載せれば足りるため、業務データとの JOIN は今は要らない。cron などイベントに出ない変更も、必要ならイベントとして送る。業務データの状態や履歴を ClickHouse で大量に分析したくなったら `enable_cdc` を `true` にする（AWS 上では未検証なので、先に dev で step3・step4 の動作確認を行う）
 - **`enable_cdc` を `true` にすると、月 $80 強の固定費が増える。** 内訳は ClickPipes の CDC 用の計算資源（Basic tier で $0.10/時、約 $73/月。ClickPipe がある間はサービスのアイドルに関係なくかかる）と bastion（EC2、月 $10 未満）。加えて取り込んだデータ量に応じた課金（初回 $0.10/GB、以降 $0.20/GB）がある
 - min は現在 `DATA_WAREHOUSE_TYPE=clickhouse`（接続先は dummy で insert は失敗し続ける）になっている。本 spec の既定値 `false` で `none` に変わる
 - 切り替えは min の `enable_worker` と同じく、`variables.tf` の既定値を変えてコミットし、Terraform の apply → deploy の順に流す（CI の apply はフラグの変数を渡さないため）

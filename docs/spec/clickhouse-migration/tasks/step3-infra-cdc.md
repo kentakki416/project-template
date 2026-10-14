@@ -4,7 +4,7 @@ dev / prd の Terraform に `enable_cdc` を足し、`true` の環境にだけ C
 
 min は CDC を MVP 対象外にする（`enable_cdc` を足さない。[`../deferred-cdc-operations.md`](../deferred-cdc-operations.md)）。
 
-**既定値（dev は `false`、prd は `true`）で dev の plan に出るのは RDS のパラメータグループだけ。** パラメータグループの適用には RDS の再起動が 1 回要る（手順は後述）。
+**既定値はどちらも `false`（仕組みだけを用意する）。既定値の plan に出るのは RDS のパラメータグループだけ。** パラメータグループの適用には RDS の再起動が 1 回要る（手順は後述）。
 
 設計: [`../README.md`](../README.md#cdcclickpipes) / [変更のケースごとの作業](../README.md#変更のケースごとの作業)
 
@@ -18,7 +18,7 @@ min は CDC を MVP 対象外にする（`enable_cdc` を足さない。[`../def
 variable "enable_cdc" {
   description = "Postgres（RDS）から ClickHouse への CDC（ClickPipes + SSH bastion）を作るか。enable_data_warehouse = true のときだけ有効にできる。ClickPipes の CDC 用の計算資源（約 $73/月）と bastion（月 $10 未満）の固定費がかかる"
   type        = bool
-  default     = false # prd は true
+  default     = false
 
   validation {
     condition     = !var.enable_cdc || var.enable_data_warehouse
@@ -284,7 +284,7 @@ module "cdc" {
 3. apply の出力の `clickpipe_state` が `Running` か `Snapshot` であること（`Failed` でも apply は成功するため必ず見る）
 4. deploy（または `clickhouse-migrate.yml`）で view を作る
 
-**prd で初めて CDC を作るとき**: prd は既定値が `true` なので、最初の apply で ClickPipe まで作られ、論理レプリケーションの有効化（既存の環境の再起動）やテーブルの作成（Drizzle の migration）より先になる。最初の apply を `-var enable_cdc=false` で流し、再起動と deploy の後に既定値のまま apply する。先に作られて `Failed` になったら、同じ準備の後に `terraform apply -replace='module.cdc[0].clickhouse_clickpipe.this'` で作り直す（差分の無い apply では動き出さない）
+**新しく作る環境で有効にするとき**: 最初の deploy（Drizzle の migration でテーブルを作る）が終わってから `enable_cdc` を `true` にする。先に作られて `Failed` になったら、準備ができてから `terraform apply -replace='module.cdc[0].clickhouse_clickpipe.this'` で作り直す（差分の無い apply では動き出さない）
 
 **bastion の OS の更新**: AMI を固定し、外へは RDS にしか出られないので、定期的に、または sshd に脆弱性が出たら `terraform apply -replace='module.cdc[0].aws_instance.bastion'` で作り直す
 
