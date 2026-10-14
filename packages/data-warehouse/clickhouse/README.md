@@ -55,11 +55,12 @@
 | `DATA_WAREHOUSE_TYPE` | `clickhouse` | フラグに合わせて `clickhouse` / `none` | フラグに合わせて `clickhouse` / `none`（既定は `clickhouse`） |
 
 **AWS の環境が ClickHouse を持つかは、Terraform の `enable_data_warehouse` で選ぶ。**
-`true` の環境にだけ ClickHouse Cloud のサービスと接続情報の secret、migration 用のタスク定義を作る。
-dev / min / prd はそれぞれ別の organization に作る（API キーが organization 全体の Admin 権限のため。[`docs/setup/infra.md`](../../../docs/setup/infra.md)）。
-サービスに繋げるのは、dev / prd は NAT の IP（worker と migration のタスク）と、`clickhouse_additional_ip_access_cidrs` に足した IP（分析ツールや手元）だけ。min はタスクの IP が毎回変わるため絞らない。
-既定で持たないのは、dev は行動ログに分析価値が薄くコストに見合わないため、min は固定費を抑える構成で、記録するかをプロダクトごとに選ぶため（api の `EVENT_TRACKER_TYPE` と同じ考え方）。
-deploy はこの secret の有無で ClickHouse の migration（migrate-dwh）を流すかを決める。
+
+- `true` の環境にだけ、ClickHouse Cloud のサービス・接続情報の secret・migration 用のタスク定義を作る
+- dev / min が既定で持たないのは、dev は行動ログに分析価値が薄く、min は固定費を抑える構成のため
+- organization は dev / min / prd で分ける（API キーが organization 全体の Admin 権限のため。[`docs/setup/infra.md`](../../../docs/setup/infra.md)）
+- 接続を許すのは、dev / prd は NAT の IP と `clickhouse_additional_ip_access_cidrs` に足した IP だけ。min はタスクの IP が毎回変わるので絞らない
+- deploy は接続情報の secret の有無で、ClickHouse の migration（migrate-dwh）を流すかを決める
 
 
 ## events テーブル
