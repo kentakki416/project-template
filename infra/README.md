@@ -46,7 +46,7 @@ Route 53 hosted zone は Terraform 管理外。Route 53 Domains でドメイン�
 | state key | `dev/terraform.tfstate` | `prd/terraform.tfstate` |
 | RDS / ElastiCache | 最小構成 (single AZ, snapshot OFF, TLS OFF) | dev と同等 (※将来本番強化したい場合は別途) |
 | ClickHouse Cloud (`enable_data_warehouse`) | 既定 `false` (作らない) | 既定 `true` |
-| CDC: ClickPipes + SSH bastion (`enable_cdc`) | 既定 `false` (作らない) | 既定 `true` |
+| CDC: ClickPipes + SSH bastion (`enable_cdc`) | 既定 `false` (作らない) | 既定 `false` (作らない) |
 | RDS の論理レプリケーション | 有効 (パラメータグループ) | 有効 (パラメータグループ) |
 
 ## デプロイフロー

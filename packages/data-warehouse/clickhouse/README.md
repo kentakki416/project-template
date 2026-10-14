@@ -128,8 +128,10 @@ catalog Postgres / Temporal / MinIO を含む **11 サービス**が増え、ダ
 
 ### ClickHouse Cloud の CDC（ClickPipes）
 
-AWS では Terraform の `enable_cdc` が `true` の環境（既定は prd）にだけ、ClickPipe と SSH bastion を作る。
+AWS では Terraform の `enable_cdc` が `true` の環境にだけ、ClickPipe と SSH bastion を作る。**既定はすべての環境で `false`** で、仕組みだけを用意している（行動イベントの分析には要らず、業務データを ClickHouse で分析する必要が出たときに有効にする）。
 `enable_cdc` は `enable_data_warehouse` が `true` のときだけ有効にできる。
+
+**AWS 上ではまだ一度も動かしていない。** 有効にする前に、dev で [設計書の step3・step4 の動作確認](../../../docs/spec/clickhouse-migration/tasks/step3-infra-cdc.md#動作確認) を行う。
 
 - ClickPipes は VPC の外から RDS に繋ぐため、public subnet の SSH bastion を経由する。bastion は ClickPipes の固定 IP からの SSH だけを受け、RDS の 5432 にだけ出る
 - RDS の論理レプリケーション（`rds.logical_replication`）は `enable_cdc` に関係なく有効にしている。`enable_cdc` に連動させると、有効にするたびに RDS の再起動が要るため
@@ -147,20 +149,14 @@ AWS では Terraform の `enable_cdc` が `true` の環境（既定は prd）に
 
 **CDC を有効にする**
 
-ClickPipe を作る前に、論理レプリケーションが効いていること（上の再起動）と、同期するテーブルが Postgres にあること（Drizzle の migration）が要る。
+ClickPipe を作る前に、論理レプリケーションが効いていること（上の再起動）と、同期するテーブルが Postgres にあること（deploy で流す Drizzle の migration）が要る。新しく作る環境では、最初の deploy が終わってから有効にする。
 
 1. `enable_cdc` の既定値を `true` にして PR → マージ → apply
 2. ClickHouse Cloud のコンソールで SSH の鍵を検証（Validate）し、`active` になることを確かめる（検証は自動では走らず、apply の出力の `ssh_key_status` は `pending` のまま）
 3. apply の出力の `clickpipe_state` が `Running` か `Snapshot` であることを確かめる（`Failed` でも apply は成功するため、必ず見る）
 4. deploy か、ClickHouse の migration だけを流す workflow（`clickhouse-migrate.yml`）で view を作る
 
-**prd で初めて CDC を作るとき**（prd は既定値が `true` なので、最初の apply で ClickPipe まで作られる）
-
-1. 最初の apply を `-var enable_cdc=false` で流す（パラメータグループだけが入る）
-2. 既存の環境なら RDS を再起動し、deploy で Drizzle の migration を流す（テーブルを作る）
-3. 既定値のまま apply して ClickPipe を作る
-
-先に ClickPipe ができて `Failed` になったときは、2 の後に `terraform apply -replace='module.cdc[0].clickhouse_clickpipe.this'` で作り直す（差分の無い apply では動き出さない）。
+先に ClickPipe ができて `Failed` になったとき（再起動や deploy の前に有効にしたときなど）は、準備ができてから `terraform apply -replace='module.cdc[0].clickhouse_clickpipe.this'` で作り直す（差分の無い apply では動き出さない）。
 
 **CDC の対象を変える**（このパッケージでやることは[後述](#cdc-の対象を変えるとき)）
 
