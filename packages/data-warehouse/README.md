@@ -1,7 +1,7 @@
 # @repo/data-warehouse
 
 分析用データ（行動イベント）の書き込み先を抽象化するパッケージ。今の実装は ClickHouse だけ。
-ClickHouse の採用理由・テーブル・CDC・運用は [`docs/tech-stack/clickhouse.md`](../../docs/tech-stack/clickhouse.md) にまとめている。
+ClickHouse の採用理由・テーブル・CDC・運用は [`docs/tech-stack/clickhouse/`](../../docs/tech-stack/clickhouse/README.md) にまとめている。
 
 ## 構成
 
@@ -25,7 +25,7 @@ packages/data-warehouse/
 
 ## 関連
 
-- [`docs/tech-stack/clickhouse.md`](../../docs/tech-stack/clickhouse.md) — ClickHouse の採用理由・events テーブル・CDC・view の規約・migration
+- [`docs/tech-stack/clickhouse/`](../../docs/tech-stack/clickhouse/README.md) — ClickHouse の採用理由・方式の選択・集計クエリの注意・CDC・migration
 - [`docs/spec/user-behavior-events/README.md`](../../docs/spec/user-behavior-events/README.md) — 行動イベント基盤の設計
 - [`packages/events/`](../events) — 送出の抽象（`EventTracker`）
 - [`apps/worker/CLAUDE.md`](../../apps/worker/CLAUDE.md) — 消費側の実装と環境変数

@@ -27,7 +27,7 @@ flowchart LR
 
 | Queue 名 | 積む側 | 処理 |
 | --- | --- | --- |
-| `track-event` | api（`@repo/events` の `QueueEventTracker`） | 行動イベントを ClickHouse に書き込む（[`clickhouse.md`](./clickhouse.md)） |
+| `track-event` | api（`@repo/events` の `QueueEventTracker`） | 行動イベントを ClickHouse に書き込む（[`clickhouse/`](./clickhouse/README.md)） |
 | `process-memo` | （サンプル。今は積む側が無い） | memo を読んでログに出す。通知などの処理に差し替える起点 |
 
 キューに積むのは「何をするか」のデータ（ペイロード）だけで、処理の中身は worker の `src/jobs/` に書く。
@@ -53,7 +53,7 @@ BullMQ の配送は **at-least-once** で、次のときに同じジョブがも
 
 **ジョブハンドラは、何度実行されても結果が壊れないように書く**（[`apps/worker/CLAUDE.md`](../../apps/worker/CLAUDE.md#冪等性は必須)）。
 行動イベントは enqueue 時に `eventId` を振り（[`packages/events`](../../packages/events/README.md#重複排除は-eventid-の採番場所で決まる)）、
-ClickHouse 側でその値をキーに重複を畳んでいる（[`clickhouse.md`](./clickhouse.md#events-テーブル)）。
+ClickHouse 側でその値をキーに重複を畳んでいる（[`clickhouse/query.md`](./clickhouse/query.md#events-テーブル)）。
 
 ### jobId で重複した enqueue を防ぐ
 
@@ -112,5 +112,5 @@ SQS / Cloud Tasks / pg-boss などに移るときは、同じ interface の実�
 - [`packages/queue/README.md`](../../packages/queue/README.md) — interface と BullMQ 実装のパッケージ
 - [`apps/worker/CLAUDE.md`](../../apps/worker/CLAUDE.md) — ジョブの追加手順・冪等性・graceful shutdown・環境変数
 - [`packages/redis/README.md`](../../packages/redis/README.md) — Redis の接続
-- [`clickhouse.md`](./clickhouse.md) — `track-event` の書き込み先
+- [`clickhouse/`](./clickhouse/README.md) — `track-event` の書き込み先
 - [BullMQ 公式ドキュメント](https://docs.bullmq.io/)

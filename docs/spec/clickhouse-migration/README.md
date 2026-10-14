@@ -13,7 +13,7 @@ ClickHouse に置くテーブル・view を **Postgres と同じように版管�
 
 - [`../user-behavior-events/README.md`](../user-behavior-events/README.md) — `events` テーブルの出どころ。テーブル定義の置き場所が `infra/clickhouse/init/` から本 spec の migration に移る
 - [`../minimal-deploy/README.md`](../minimal-deploy/README.md) — min 環境。「Terraform のフラグを唯一の正本にし、deploy は AWS のリソースの有無で判定する」作法（`enable_worker`）を本 spec でも踏襲する
-- [`../../tech-stack/clickhouse.md`](../../tech-stack/clickhouse.md) — ClickHouse を採用した理由、データウェアハウスへの要件、CDC と view を経由する規約の正本。本 spec の実装でホスティングの表と CDC の手順を更新した
+- [`../../tech-stack/clickhouse/`](../../tech-stack/clickhouse/README.md) — ClickHouse を採用した理由、データウェアハウスへの要件、CDC と view を経由する規約の正本。本 spec の実装でホスティングの表と CDC の手順を更新した
 - [`./deferred-cdc-operations.md`](./deferred-cdc-operations.md) — MVP 対象外。min の CDC、専用のレプリケーションユーザー、replication slot の監視など
 
 ## 目次
@@ -81,7 +81,7 @@ ClickHouse に置くものは 4 種類あり、それぞれ管理のしかたが
 - **view を作り直しても過去のデータは消えない。** 通常の view はデータを持たず、中身は保存された SELECT 文だけだから。データは CDC のテーブル本体にある
 - **「毎回作り直す」のは CDC の view だけにする。** マテリアライズドビューは作り直し方によってデータが消えるため、版管理する migration に入れて 1 回だけ適用する
 - **版管理する migration は `pg_cdc` のテーブルを参照しない**（`DROP TABLE IF EXISTS pg_cdc.<table>` は除く。database が無くても通ることを確認済み）。CDC の無い環境（`DATA_WAREHOUSE_CDC=none`）や ClickPipe の初回の取り込みの前には `pg_cdc` が無く、migration が失敗して deploy-worker まで止まるため。CDC のデータを元にした集計は `views/` に書く。CDC のデータを元にしたマテリアライズドビューが要るときの扱いは MVP 対象外
-- 分析クエリは今までどおり CDC のテーブル本体ではなく `v_*` の view を参照する（規約の正本は `docs/tech-stack/clickhouse.md`）
+- 分析クエリは今までどおり CDC のテーブル本体ではなく `v_*` の view を参照する（規約の正本は `docs/tech-stack/clickhouse/query.md`）
 
 ### 変更のケースごとの作業
 
@@ -258,7 +258,7 @@ WHERE ${CDC_LIVE_FILTER}
 - **`SELECT *` で定義し、毎回作り直す。** ClickHouse の view の列は作成時に固定されるため（実機で確認。元テーブルに列を足しても view に出ず、列を消すと view を読むクエリが落ちる）、作り直すことで Postgres 側の列の増減に追いつく
 - **列の削除（ケース 5）は `EXCEPT` に列名を足して隠す。** ClickPipes は削除した列を ClickHouse 側に残す（以降は NULL）が、ローカルでは列ごと無くなる。`EXCEPT`（STRICT を付けない形）は無い列を無視するので、同じ定義が両方で動く（実機で確認）
 - 置き換えの構文は `${NAME}`。未定義の変数があればエラーにする
-- 型合わせ（`toUInt64(id)`）と `FINAL`・削除行の除外を view に閉じ込める理由は `docs/tech-stack/clickhouse.md` の「view を経由する規約」のとおり
+- 型合わせ（`toUInt64(id)`）と `FINAL`・削除行の除外を view に閉じ込める理由は `docs/tech-stack/clickhouse/query.md` の「view を経由する規約」のとおり
 
 ### ローカルの CDC
 

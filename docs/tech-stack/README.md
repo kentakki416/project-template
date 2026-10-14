@@ -5,13 +5,14 @@
 
 | ドキュメント | 一言でいうと |
 |---|---|
-| [clickhouse.md](./clickhouse.md) | 行動イベントの分析先。追記と集計に強い列指向 DB。重複は `ReplacingMergeTree` で畳み、分析クエリは view を経由する |
+| [drizzle.md](./drizzle.md) | Postgres の ORM。スキーマを TS で書き、`@repo/domain` の定数から `CHECK` 制約を作るために Prisma から移った |
+| [clickhouse/](./clickhouse/README.md) | 行動イベントの分析先。追記と集計に強い列指向 DB。AWS では ClickHouse Cloud で動かし、分析クエリは view を経由する |
 | [bullmq.md](./bullmq.md) | Redis を使うジョブキュー。at-least-once なのでハンドラは冪等に書く。`@repo/queue` の interface 越しに使う |
 
 ここに無い技術の一覧はルートの [README.md](../../README.md#技術スタック) を見る。
 
 ## 書き方
 
-- 1 技術 1 ファイル。「何に使っているか」「採用した理由」「挙動と注意点」の順に書く
+- 1 技術 1 ファイル（長くなったら技術名のディレクトリに分ける）。「何に使っているか」「採用した理由」「挙動と注意点」の順に書く
 - パッケージの README からはリンクで参照し、同じ内容を書かない
 - 実装の規約の正本は各 `CLAUDE.md`。矛盾を見つけたら `CLAUDE.md` を正とし、こちらを直す

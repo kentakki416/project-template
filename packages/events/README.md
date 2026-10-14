@@ -44,7 +44,7 @@ export interface EventTracker {
 
 ## 重複排除は eventId の採番場所で決まる
 
-配送は BullMQ 経由で **at-least-once** なので、同じイベントが 2 回届くことがある（[`docs/tech-stack/bullmq.md`](../../docs/tech-stack/bullmq.md#同じジョブが-2-回以上実行される)）。ClickHouse 側は `event_id` をキーに畳むが（[`docs/tech-stack/clickhouse.md`](../../docs/tech-stack/clickhouse.md#events-テーブル)）、**それが効くかは採番場所で決まる**。
+配送は BullMQ 経由で **at-least-once** なので、同じイベントが 2 回届くことがある（[`docs/tech-stack/bullmq.md`](../../docs/tech-stack/bullmq.md#同じジョブが-2-回以上実行される)）。ClickHouse 側は `event_id` をキーに畳むが（[`docs/tech-stack/clickhouse/query.md`](../../docs/tech-stack/clickhouse/query.md#events-テーブル)）、**それが効くかは採番場所で決まる**。
 
 | 採番場所 | 再配信時 | 結果 |
 | --- | --- | --- |

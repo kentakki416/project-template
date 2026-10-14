@@ -51,7 +51,7 @@ export const canShareMemo = (tier: MembershipTier): boolean => tier === "silver"
 | 参照する側 | 参照方法 |
 | --- | --- |
 | API 契約（`@repo/api-schema`） | `z.enum(MEMBERSHIP_TIERS)` のように domain の定数から作る。値を直接書かない |
-| DB（`packages/db`） | Drizzle のスキーマで domain の定数から列の型と `CHECK` 制約を作る（`text(..., { enum: MEMBERSHIP_TIERS })` + `check()`。詳細は `packages/db/README.md`） |
+| DB（`packages/db`） | Drizzle のスキーマで domain の定数から列の型と `CHECK` 制約を作る（`text(..., { enum: MEMBERSHIP_TIERS })` + `check()`。詳細は `docs/tech-stack/drizzle.md`） |
 | フロント | domain は import せず、api-schema のスキーマから取る（例: 選択肢一覧は `membershipTierSchema.options`） |
 
 - TS の `enum` ではなく `as const` の配列 + union 型で定義する（`z.enum` にそのまま渡せる）

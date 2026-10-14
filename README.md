@@ -238,7 +238,7 @@ graph TB
 
 ### 技術スタック
 
-採用した理由と、使うときに知っておくべき挙動は [docs/tech-stack/](docs/tech-stack/README.md) にまとめています（今は ClickHouse / BullMQ）。
+採用した理由と、使うときに知っておくべき挙動は [docs/tech-stack/](docs/tech-stack/README.md) にまとめています（今は Drizzle / ClickHouse / BullMQ）。
 
 #### モノレポ・ビルド
 ![Turborepo](https://img.shields.io/badge/Turborepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)
@@ -304,7 +304,8 @@ graph TB
 
 | ドキュメント | 内容 |
 |---|---|
-| [clickhouse.md](docs/tech-stack/clickhouse.md) | 行動イベントの分析先（採用理由 / ホスティング / events テーブル / CDC / view の規約 / migration） |
+| [drizzle.md](docs/tech-stack/drizzle.md) | Postgres の ORM（Prisma から移った理由 / マイグレーション / UTC の固定 / CHECK 制約 / リードレプリカ） |
+| [clickhouse/](docs/tech-stack/clickhouse/README.md) | 行動イベントの分析先（採用理由 / 方式の選択 / ホスティング / 集計クエリの注意 / CDC / migration） |
 | [bullmq.md](docs/tech-stack/bullmq.md) | ジョブキュー（採用理由 / at-least-once と冪等性 / jobId / 失敗とリトライ / 差し替えの方針） |
 
 ### セットアップ・運用

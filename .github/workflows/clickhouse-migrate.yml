@@ -3,7 +3,7 @@ name: ClickHouse Migrate
 # =============================================================================
 # ClickHouse の migration だけを流す (deploy をやり直さずに)
 # =============================================================================
-# 使いどころ (手順は docs/tech-stack/clickhouse.md):
+# 使いどころ (手順は docs/tech-stack/clickhouse/cdc.md):
 # - CDC の対象テーブルを足し、apply で ClickPipe の初回の取り込みが終わった後 (view を作る)
 # - ClickPipe を Resync した後 (view を作り直す)
 # - Postgres に足した列を view に出す (そのテーブルに書き込みがあった後)
