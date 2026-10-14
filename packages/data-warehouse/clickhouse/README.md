@@ -135,6 +135,7 @@ AWS では Terraform の `enable_cdc` が `true` の環境（既定は prd）に
 - RDS の論理レプリケーション（`rds.logical_replication`）は `enable_cdc` に関係なく有効にしている。`enable_cdc` に連動させると、有効にするたびに RDS の再起動が要るため
 - 固定費は ClickPipes の CDC 用の計算資源（約 $73/月。ClickPipe がある間はサービスのアイドルに関係なくかかる）と bastion（月 $10 未満）
 - 同期の対象を変えるときは `infra/clickhouse/cdc-tables.json` を変えて apply する（ClickPipe に反映される）
+- RDS（isolated subnet）に SQL を流す手段は用意していない。replication slot の状態は CloudWatch の RDS のメトリクス（`OldestReplicationSlotLag` / `TransactionLogsDiskUsage`）で見る
 
 **パラメータグループを入れたとき（既存の環境で 1 回だけ）**
 
@@ -146,9 +147,20 @@ AWS では Terraform の `enable_cdc` が `true` の環境（既定は prd）に
 
 **CDC を有効にする**
 
+ClickPipe を作る前に、論理レプリケーションが効いていること（上の再起動）と、同期するテーブルが Postgres にあること（Drizzle の migration）が要る。
+
 1. `enable_cdc` の既定値を `true` にして PR → マージ → apply
-2. apply の出力の `clickpipe_state` が `Running` か `Snapshot` であることを確かめる（`Failed` でも apply は成功するため、必ず見る）
-3. deploy か、ClickHouse の migration だけを流す workflow（`clickhouse-migrate.yml`）で view を作る
+2. ClickHouse Cloud のコンソールで SSH の鍵を検証（Validate）し、`active` になることを確かめる（検証は自動では走らず、apply の出力の `ssh_key_status` は `pending` のまま）
+3. apply の出力の `clickpipe_state` が `Running` か `Snapshot` であることを確かめる（`Failed` でも apply は成功するため、必ず見る）
+4. deploy か、ClickHouse の migration だけを流す workflow（`clickhouse-migrate.yml`）で view を作る
+
+**prd で初めて CDC を作るとき**（prd は既定値が `true` なので、最初の apply で ClickPipe まで作られる）
+
+1. 最初の apply を `-var enable_cdc=false` で流す（パラメータグループだけが入る）
+2. 既存の環境なら RDS を再起動し、deploy で Drizzle の migration を流す（テーブルを作る）
+3. 既定値のまま apply して ClickPipe を作る
+
+先に ClickPipe ができて `Failed` になったときは、2 の後に `terraform apply -replace='module.cdc[0].clickhouse_clickpipe.this'` で作り直す（差分の無い apply では動き出さない）。
 
 **CDC の対象を変える**（このパッケージでやることは[後述](#cdc-の対象を変えるとき)）
 
@@ -157,13 +169,18 @@ AWS では Terraform の `enable_cdc` が `true` の環境（既定は prd）に
 | テーブルを足す | Drizzle の migration・`cdc-tables.json`・`views/<table>.sql` を 1 つの PR に入れる → マージ → deploy（テーブルを作る。view はまだ元テーブルが無いので飛ばされる）→ apply（ClickPipe に足し、初回の取り込み）→ `clickhouse-migrate.yml`（view を作る） |
 | テーブルを消す・名前を変える | 1 回目の PR（`cdc-tables.json` と view から外し、`DROP VIEW` の migration を足す）→ deploy → apply（ClickPipe から外す）。2 回目の PR（Drizzle の変更と `DROP TABLE IF EXISTS pg_cdc.<table>` の migration）→ deploy。名前を変えるなら、新しい名前で「テーブルを足す」も 2 回目の PR で行う |
 | 列の型・名前を変える | deploy（Drizzle）→ ClickHouse Cloud のコンソールで ClickPipe を Resync → 終わったら `clickhouse-migrate.yml` |
-| 列を足す・消す | deploy だけでよい。足した列は、そのテーブルに次の書き込みがあったときに ClickHouse に現れる |
+| 列を足す | deploy（Drizzle）→ そのテーブルに書き込みがあった後に `clickhouse-migrate.yml`（足した列は次の書き込みで ClickHouse に現れ、view の列は作り直すまで増えない） |
+| 列を消す | view の `EXCEPT` に列名を足して deploy（ClickPipes は消した列を NULL で残す） |
 
 **CDC を無効にする**
 
-1. `enable_cdc` を `false` にして apply（ClickPipe・bastion・SSH の鍵が消える）
-2. RDS に replication slot が残っていないことを確かめる（`SELECT slot_name FROM pg_replication_slots`）。残っていたら `SELECT pg_drop_replication_slot('<slot_name>')` で消す。残すと WAL が溜まり続ける
+1. `enable_cdc` を `false` にして apply（ClickPipe・bastion・SSH の鍵が消える。replication slot は ClickPipe の削除で消える想定）
+2. CloudWatch の `OldestReplicationSlotLag` が出なくなる（slot が無くなる）ことを確かめる。slot が残っても、`max_slot_wal_keep_size`（5 GB）を超えると無効になって WAL は解放される
 3. `pg_cdc` のテーブルと view は残る。不要なら migration で消す
+
+**bastion を作り直す（OS の更新）**
+
+bastion は AMI を固定していて、外へは RDS にしか出られないので、OS をその場で更新する手段が無い。定期的に、または sshd に脆弱性が出たら、`terraform apply -replace='module.cdc[0].aws_instance.bastion'` で最新の AMI に作り直す（IP は EIP で変わらない。ClickPipe は数分切れて、再接続する）。
 
 ## view を経由する規約
 

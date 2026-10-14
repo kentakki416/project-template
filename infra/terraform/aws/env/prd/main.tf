@@ -298,6 +298,14 @@ ephemeral "aws_secretsmanager_secret_version" "app" {
   secret_id = module.app_secrets.seeded_secret_id
 }
 
+locals {
+  /**
+   * DB マスターパスワードの版。app secret の DB_PASSWORD を変更したら +1 して apply する。
+   * RDS と ClickPipe の両方に渡す (片方だけ上げると、ClickPipe が古いパスワードのまま認証に失敗して CDC が止まる)
+   */
+  db_password_version = 1
+}
+
 module "rds" {
   source = "../../modules/rds"
 
@@ -312,9 +320,8 @@ module "rds" {
   db_name           = "project_template"
   master_username   = "projecttemplate"
 
-  master_password = jsondecode(ephemeral.aws_secretsmanager_secret_version.app.secret_string)["DB_PASSWORD"]
-  # app secret の DB_PASSWORD を変更したら +1 して apply する
-  master_password_version = 1
+  master_password         = jsondecode(ephemeral.aws_secretsmanager_secret_version.app.secret_string)["DB_PASSWORD"]
+  master_password_version = local.db_password_version
 
   /**
    * CDC (ClickPipes) 用に論理レプリケーションを常に有効にする。
@@ -442,8 +449,7 @@ module "cdc" {
   rds_database          = module.rds.db_name
   rds_username          = module.rds.master_username
   rds_password          = jsondecode(ephemeral.aws_secretsmanager_secret_version.app.secret_string)["DB_PASSWORD"]
-  # module.rds の master_password_version と揃える
-  rds_password_version = 1
+  rds_password_version  = local.db_password_version
 
   /** CDC 対象の一覧の正本。ローカルの migration コマンドも同じファイルを読む */
   tables = jsondecode(file("${path.module}/../../../../clickhouse/cdc-tables.json"))
