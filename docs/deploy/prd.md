@@ -214,6 +214,8 @@ Actions → **「Deploy to AWS prd」** を workflow_dispatch。
 5. **deploy-api**: Blue/Green の green を待機 TG に投入 → テストトラフィックを green に
 6. **`prd-api-approval` で承認待ち** ← ここで承認
 
+migrate が一時的なエラーで失敗したときなど、Postgres の migration だけを流し直したいときは、Actions → **「Postgres Migrate」** を `environment=prd` で実行する（最後に deploy した migration イメージで流す。新しい migration は deploy で流す）。
+
 ClickHouse の migration だけを流し直したいとき（CDC の対象を足して ClickPipe の初回の取り込みが終わった後、ClickPipe を Resync した後、Postgres に列を足してそのテーブルに書き込みがあった後）は、Actions → **「ClickHouse Migrate」** を `environment=prd` で実行する（手順は [`packages/data-warehouse/clickhouse/README.md`](../../packages/data-warehouse/clickhouse/README.md#clickhouse-cloud-の-cdcclickpipes)）。
 
 **承認前に green を実機確認できる**（Blue/Green の利点）:
