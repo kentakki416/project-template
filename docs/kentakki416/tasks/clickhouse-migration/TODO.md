@@ -38,7 +38,13 @@ ClickHouse の DDL（events / CDC の view）を版管理して local / dev / mi
 - [x] step4 の PR（#113）
 - [x] 設計書をレビュー指摘と実装に合わせる PR（#114）
 
+- [x] #109〜#114 をすべて main にマージ（2026-10-14）
+
 ## 5. 完了
 
-- [ ] AWS 上の動作確認（dev）
+- [ ] ClickHouse Cloud の organization を dev / min / prd ごとに作り、API キーを GitHub Environment に登録する
+- [ ] account の apply（deploy 用ロールの権限、#113）
+- [ ] dev で enable_data_warehouse = true にして動作確認（step2・step4）
+- [ ] CDC を使うときだけ、dev で enable_cdc = true にして動作確認（step3・step4）
+- [ ] docs/spec/README.md の状態を「完了」にする
 - [ ] TODO.md / judge-yourself.md を削除する
