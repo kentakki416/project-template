@@ -43,6 +43,7 @@ Turborepo + pnpm モノレポのフルスタックアプリケーションテン
   - [技術スタック](#技術スタック)
 - [ドキュメント案内](#ドキュメント案内)
   - [アーキテクチャと規約（まずここから）](#アーキテクチャと規約まずここから)
+  - [技術スタックの採用理由と挙動](#技術スタックの採用理由と挙動)
   - [セットアップ・運用](#セットアップ運用)
   - [各 app](#各-app)
   - [仕様・設計](#仕様設計)
@@ -231,11 +232,13 @@ graph TB
 | [packages/redis](packages/redis/README.md) | `createRedisClient` |
 | [packages/queue](packages/queue/README.md) | `JobQueue` / `JobConsumer` の抽象と BullMQ 実装 |
 | [packages/events](packages/events/README.md) | 行動イベントの型と `EventTracker`（fire-and-forget で送出） |
-| [packages/data-warehouse](packages/data-warehouse/README.md) | `DataWarehouse` 抽象と ClickHouse 実装。ClickHouse のテーブル・view の migration（[`clickhouse/`](packages/data-warehouse/clickhouse/README.md)） |
+| [packages/data-warehouse](packages/data-warehouse/README.md) | `DataWarehouse` 抽象と ClickHouse 実装。ClickHouse のテーブル・view の migration |
 | [packages/storage](packages/storage/README.md) | `createStorage` と local / S3 実装 |
 | [packages/eslint-config](packages/eslint-config/README.md) / [packages/typescript-config](packages/typescript-config/README.md) | 共有 lint / tsconfig |
 
 ### 技術スタック
+
+採用した理由と、使うときに知っておくべき挙動は [docs/tech-stack/](docs/tech-stack/README.md) にまとめています（今は ClickHouse / BullMQ）。
 
 #### モノレポ・ビルド
 ![Turborepo](https://img.shields.io/badge/Turborepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)
@@ -294,6 +297,15 @@ graph TB
 | [error-handling.md](docs/onboarding/error-handling.md) | エラーハンドリング（`Result<T>` / 業務エラーと想定外エラー） |
 | [testing.md](docs/onboarding/testing.md) | テスト戦略 / 正常系・異常系の分類 / モック方針 |
 | [auth.md](docs/onboarding/auth.md) | 認証（JWT / httpOnly cookie / middleware ガード） |
+
+### 技術スタックの採用理由と挙動
+
+技術ごとに、採用した理由と使うときに知っておくべき挙動をまとめています。入口は [docs/tech-stack/README.md](docs/tech-stack/README.md) です。
+
+| ドキュメント | 内容 |
+|---|---|
+| [clickhouse.md](docs/tech-stack/clickhouse.md) | 行動イベントの分析先（採用理由 / ホスティング / events テーブル / CDC / view の規約 / migration） |
+| [bullmq.md](docs/tech-stack/bullmq.md) | ジョブキュー（採用理由 / at-least-once と冪等性 / jobId / 失敗とリトライ / 差し替えの方針） |
 
 ### セットアップ・運用
 

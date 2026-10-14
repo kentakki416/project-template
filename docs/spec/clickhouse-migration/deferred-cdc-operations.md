@@ -69,5 +69,5 @@
 
 - [ ] `README.md` の「環境ごとの構成」「CDC（ClickPipes）」の認証・監視の記述を更新する
 - [ ] min の `variables.tf` に `enable_cdc` を足し、`enable_data_warehouse` との検証を入れる
-- [ ] `packages/data-warehouse/clickhouse/README.md` の「運用上の注意」から「slot ラグの監視は未実装」を消す
+- [ ] `docs/tech-stack/clickhouse.md` の「運用上の注意」から「slot ラグの監視は未実装」を消す
 - [ ] 付け外しを自動化したら、`README.md` の「変更のケースごとの作業」の順序の列を書き換える

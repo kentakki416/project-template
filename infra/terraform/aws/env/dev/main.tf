@@ -311,7 +311,7 @@ module "rds" {
   /**
    * CDC (ClickPipes) 用に論理レプリケーションを常に有効にする。
    * enable_cdc に連動させると「apply → 再起動 → もう一度 apply」の 2 段になるため、
-   * 再起動が要るのはこのパラメータグループを入れるときの 1 回だけにする (手順は packages/data-warehouse/clickhouse/README.md)。
+   * 再起動が要るのはこのパラメータグループを入れるときの 1 回だけにする (手順は docs/tech-stack/clickhouse.md)。
    * slot が無い間は WAL を溜め込まないので、常に有効でも WAL が少し増える程度。
    */
   parameters = [
