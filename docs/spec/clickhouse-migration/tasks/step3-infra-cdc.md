@@ -4,7 +4,7 @@ dev / prd の Terraform に `enable_cdc` を足し、`true` の環境にだけ C
 
 min は CDC を MVP 対象外にする（`enable_cdc` を足さない。[`../deferred-cdc-operations.md`](../deferred-cdc-operations.md)）。
 
-**既定値（dev は `false`、prd は `true`）で dev の plan に出るのは RDS のパラメータグループだけ。** パラメータグループの適用には RDS の再起動が 1 回要る（手順は後述）。
+**既定値はどちらも `false`（仕組みだけを用意する）。既定値の plan に出るのは RDS のパラメータグループだけ。** パラメータグループの適用には RDS の再起動が 1 回要る（手順は後述）。
 
 設計: [`../README.md`](../README.md#cdcclickpipes) / [変更のケースごとの作業](../README.md#変更のケースごとの作業)
 
@@ -18,7 +18,7 @@ min は CDC を MVP 対象外にする（`enable_cdc` を足さない。[`../def
 variable "enable_cdc" {
   description = "Postgres（RDS）から ClickHouse への CDC（ClickPipes + SSH bastion）を作るか。enable_data_warehouse = true のときだけ有効にできる。ClickPipes の CDC 用の計算資源（約 $73/月）と bastion（月 $10 未満）の固定費がかかる"
   type        = bool
-  default     = false # prd は true
+  default     = false
 
   validation {
     condition     = !var.enable_cdc || var.enable_data_warehouse
@@ -46,7 +46,8 @@ variable "parameter_group_family" {
 }
 ```
 
-- `parameters` が空でなければ `aws_db_parameter_group`（`${var.name}-params`）を作り、`aws_db_instance.parameter_group_name` に渡す。空なら null（既存の挙動）
+- `parameters` が空でなければ `aws_db_parameter_group` を作り、`aws_db_instance.parameter_group_name` に渡す。空なら null（既存の挙動）
+- `family` を変えると作り直しになり、使用中のパラメータグループは消せない。`create_before_destroy` で付け替えてから消すため、名前は `name_prefix`（`${var.name}-params-`）にする
 - `engine_version` のメジャーを上げるときは `parameter_group_family` も変える必要がある旨を description に書く
 
 `env/{dev,prd}/main.tf` の `module "rds"`:
@@ -79,7 +80,7 @@ ClickPipe と、それが RDS に届くための SSH bastion をまとめて持�
 | `vpc_id` / `public_subnet_id` | bastion の置き場所 |
 | `rds_security_group_id` / `rds_address` / `rds_port` / `rds_database` / `rds_username` | 取り込み元 |
 | `rds_password` | `sensitive` + `ephemeral`。app secret の `DB_PASSWORD` を ephemeral で読んで渡す（`module.rds` と同じ） |
-| `rds_password_version` | `password_wo_version`。RDS のパスワードを変えたら +1（`master_password_version` と揃える） |
+| `rds_password_version` | `password_wo_version`。env 側の `local.db_password_version` を `module.rds` の `master_password_version` と共有する（片方だけ上げると ClickPipe が古いパスワードのまま認証に失敗する） |
 | `tables` | CDC 対象のテーブル名の一覧 |
 | `destination_database` | 既定 `pg_cdc` |
 | `sync_interval_seconds` | 既定 `60` |
@@ -204,7 +205,7 @@ resource "clickhouse_clickpipe" "this" {
 
 - **属性は nested attribute の書き方（`source = { postgres = { ... } }`）にする。** clickhouse.com のページのブロック記法は現行の schema と合わない
 - `trigger_resync` は使わない（設定に残すと apply のたびに再同期する）
-- outputs: `clickpipe_state`（`clickhouse_clickpipe.this.state`）/ `bastion_public_ip`
+- outputs: `clickpipe_state`（`clickhouse_clickpipe.this.state`）/ `ssh_key_status` / `bastion_public_ip`
 
 bastion の cloud-init:
 
@@ -250,7 +251,7 @@ module "cdc" {
   rds_database          = module.rds.db_name
   rds_username          = module.rds.master_username
   rds_password          = jsondecode(ephemeral.aws_secretsmanager_secret_version.app.secret_string)["DB_PASSWORD"]
-  rds_password_version  = 1 # module.rds の master_password_version と揃える
+  rds_password_version  = local.db_password_version # module.rds の master_password_version と同じ local
 
   /** CDC 対象の一覧の正本。ローカルの migration コマンドも同じファイルを読む */
   tables = jsondecode(file("${path.module}/../../../../clickhouse/cdc-tables.json"))
@@ -262,7 +263,7 @@ module "cdc" {
 - `module "ecs_dwh_migration"` の `DATA_WAREHOUSE_CDC` を `var.enable_cdc ? "clickpipes" : "none"` にする
 - `provider.tf` に `hashicorp/time`（`~> 0.13`）を足し、`.terraform.lock.hcl` を更新する
 - `outputs.tf` に `clickpipe_state`（`one(module.cdc[*].clickpipe_state)`）を足す
-- `.trivyignore` に、bastion の SSH の ingress（ClickPipes の固定 IP に限定済み）など意図したものだけを、理由のコメント付きで足す
+- trivy（CRITICAL / HIGH / MEDIUM）に指摘が出たときだけ、意図したものを理由のコメント付きで `.trivyignore` に足す（実装時点では指摘なし）
 
 ### Terraform CI
 
@@ -279,8 +280,13 @@ module "cdc" {
 **CDC を有効にする**
 
 1. `enable_cdc` の既定値を `true` にして PR → マージ → apply
-2. apply の出力の `clickpipe_state` が `Running` か `Snapshot` であること（`Failed` でも apply は成功するため必ず見る）
-3. deploy（または `clickhouse-migrate.yml`）で view を作る
+2. ClickHouse Cloud のコンソールで SSH の鍵を検証（Validate）し、`active` になることを確かめる（検証は自動では走らない）
+3. apply の出力の `clickpipe_state` が `Running` か `Snapshot` であること（`Failed` でも apply は成功するため必ず見る）
+4. deploy（または `clickhouse-migrate.yml`）で view を作る
+
+**新しく作る環境で有効にするとき**: 最初の deploy（Drizzle の migration でテーブルを作る）が終わってから `enable_cdc` を `true` にする。先に作られて `Failed` になったら、準備ができてから `terraform apply -replace='module.cdc[0].clickhouse_clickpipe.this'` で作り直す（差分の無い apply では動き出さない）
+
+**bastion の OS の更新**: AMI を固定し、外へは RDS にしか出られないので、定期的に、または sshd に脆弱性が出たら `terraform apply -replace='module.cdc[0].aws_instance.bastion'` で作り直す
 
 **ケース 1（CDC 対象のテーブルを足す）**: Drizzle の migration・`cdc-tables.json`・`views/<table>.sql` を 1 つの PR に入れる → マージ → deploy（テーブル作成。view は skip）→ apply（ClickPipe に追加。初回の取り込み）→ `clickhouse-migrate.yml`（view 作成）
 
@@ -291,7 +297,7 @@ module "cdc" {
 
 **ケース 4（型・列名の変更）**: deploy（Drizzle）→ ClickHouse Cloud のコンソールで ClickPipe を Resync → 完了後に `clickhouse-migrate.yml`
 
-**CDC を無効にする**: `enable_cdc` を `false` にして apply（ClickPipe・bastion が消える）。`pg_cdc` のテーブルと view は残るので、不要なら migration で消す。replication slot が RDS に残っていないこと（`SELECT * FROM pg_replication_slots`）を確認する
+**CDC を無効にする**: `enable_cdc` を `false` にして apply（ClickPipe・bastion が消える）。`pg_cdc` のテーブルと view は残るので、不要なら migration で消す。replication slot が消えたことは CloudWatch の `OldestReplicationSlotLag` で確かめる（RDS に SQL を流す手段は用意していない）。残っても `max_slot_wal_keep_size` を超えると無効になり、WAL は解放される
 
 ## 動作確認
 
@@ -300,7 +306,7 @@ dev で確認する（`enable_data_warehouse = true` の状態から）。
 ### パラメータグループ
 
 - 既定値のままの plan で、RDS にはパラメータグループの追加だけが出る（`replace` が出ないこと）
-- 再起動後に RDS へ繋いで `SHOW wal_level` が `logical`、`SHOW max_slot_wal_keep_size` が `5GB`
+- 再起動後に `aws rds describe-db-instances` の `ParameterApplyStatus` が `in-sync`（RDS に SQL を流す手段は用意していない）
 
 ### `enable_cdc = true`
 
@@ -308,7 +314,8 @@ dev で確認する（`enable_data_warehouse = true` の状態から）。
 - ClickHouse Cloud のコンソールで、SSH の鍵が `active`、ClickPipe に users / memos がある
 - `pg_cdc.users` / `pg_cdc.memos` ができ、件数が RDS と一致する（`pg_cdc` が作られない場合は README のリスク表のとおり `default` に切り替える）
 - bastion に ClickPipes の固定 IP 以外から SSH できない（手元から `ssh -o ConnectTimeout=5 clickpipes@<EIP>` がタイムアウトする）
-- RDS で `SELECT slot_name, active FROM pg_replication_slots` に ClickPipes の slot がある
+- CloudWatch の RDS のメトリクス `OldestReplicationSlotLag` が出る（ClickPipes の slot がある）
+- SSH の鍵はコンソールで検証（Validate）するまで `pending` のまま。`pending` のままでも ClickPipe が繋がるかを確かめる
 
 ### ケースの確認
 

@@ -14,7 +14,7 @@ dev / min / prd の Terraform に `enable_data_warehouse` を足し、`true` の
 
 ```hcl
 variable "enable_data_warehouse" {
-  description = "ClickHouse Cloud のサービスを作り、worker の書き込み先と ClickHouse の migration を有効にするか。CI の apply は変数を渡さないので、切り替えはこの既定値を変えてコミットする（手順は docs/spec/clickhouse-migration/tasks/step4-ci-deploy-dwh-migration.md）"
+  description = "ClickHouse Cloud のサービスを作り、worker の書き込み先と ClickHouse の migration を有効にするか。CI の apply はフラグの変数を渡さないので、切り替えはこの既定値を変えてコミットする（手順は docs/spec/clickhouse-migration/tasks/step4-ci-deploy-dwh-migration.md）"
   type        = bool
   default     = false # prd は true
 }
@@ -30,6 +30,12 @@ variable "clickhouse_org_id" {
 }
 variable "clickhouse_token_key" { ... }
 variable "clickhouse_token_secret" { ... }
+
+/** dev / prd だけ。NAT の IP に加えて、分析ツールや手元から繋ぐ送信元を許可する（コンソールで足した IP は次の apply で消えるため） */
+variable "clickhouse_additional_ip_access_cidrs" {
+  type    = list(string)
+  default = []
+}
 ```
 
 ### `env/{dev,min,prd}/provider.tf`
@@ -65,7 +71,7 @@ provider "clickhouse" {
 | `terraform.tf` | `aws` / `random` / `clickhouse`（`ClickHouse/clickhouse ~> 3.38`） |
 | `variables.tf` | `name` / `region`（既定 `ap-northeast-1`）/ `ip_access_cidrs` / `database`（既定 `project_template`）/ `secret_name` / `password_version`（既定 1）/ `credentials_configured`（bool）/ `tags` |
 | `main.tf` | 下記 |
-| `outputs.tf` | `service_id` / `secret_arn`（`depends_on` で secret の値の書き込みを待つ。値が入る前に worker や migration のタスク定義が参照しないように）/ `https_host` |
+| `outputs.tf` | `service_id` / `ecs_secrets`（環境変数名 → valueFrom）/ `secret_arn`（`depends_on` で secret の値の書き込みを待つ。値が入る前に worker や migration のタスク定義が参照しないように）/ `https_host` |
 
 ```hcl
 resource "random_password" "default_user" {
@@ -92,7 +98,7 @@ resource "clickhouse_service" "this" {
   idle_scaling         = true
   idle_timeout_minutes = 15
 
-  ip_access = [for cidr in var.ip_access_cidrs : { source = cidr, description = "${var.name} egress" }]
+  ip_access = [for cidr in var.ip_access_cidrs : { source = cidr, description = "${var.name} allowed" }]
 
   password_wo         = random_password.default_user.result
   password_wo_version = var.password_version
@@ -105,10 +111,23 @@ resource "clickhouse_service" "this" {
   }
 }
 
+/** サービスを作り終えてから作る。サービスの作成に失敗したときに secret だけが残ると、deploy の判定が true になるため */
 resource "aws_secretsmanager_secret" "this" {
   name                    = var.secret_name
   recovery_window_in_days = 0
   tags                    = var.tags
+
+  depends_on = [clickhouse_service.this]
+}
+
+locals {
+  /** worker と migration に渡す接続情報。キーは ecs_secrets の output と共有する */
+  connection = {
+    DATA_WAREHOUSE_DATABASE = var.database
+    DATA_WAREHOUSE_PASSWORD = random_password.default_user.result
+    DATA_WAREHOUSE_URL      = "https://${clickhouse_service.this.endpoints.https.host}:${clickhouse_service.this.endpoints.https.port}"
+    DATA_WAREHOUSE_USER     = "default"
+  }
 }
 
 /**
@@ -116,17 +135,13 @@ resource "aws_secretsmanager_secret" "this" {
  * サービスを作り直したときに接続先が追随するようにする。
  */
 resource "aws_secretsmanager_secret_version" "this" {
-  secret_id = aws_secretsmanager_secret.this.id
-  secret_string = jsonencode({
-    DATA_WAREHOUSE_DATABASE = var.database
-    DATA_WAREHOUSE_PASSWORD = random_password.default_user.result
-    DATA_WAREHOUSE_URL      = "https://${clickhouse_service.this.endpoints.https.host}:${clickhouse_service.this.endpoints.https.port}"
-    DATA_WAREHOUSE_USER     = "default"
-  })
+  secret_id     = aws_secretsmanager_secret.this.id
+  secret_string = jsonencode(local.connection)
 }
 ```
 
-- パスワードを変えるときは `random_password` を taint し、`password_version` を +1 して apply する（手順を README に書く）
+- output の `ecs_secrets`（環境変数名 → valueFrom の map）は `keys(local.connection)` から作り、env 側でキーを並べ直さない。`secret_arn` と同じく `depends_on = [aws_secretsmanager_secret_version.this]` を付け、値が入る前にタスク定義が参照しないようにする
+- パスワードを変えるときは `terraform apply -replace='module.clickhouse[0].random_password.default_user'` と env 側の `password_version` の +1 を同じ apply で行い、その後 worker を deploy し直す（稼働中の worker は起動時に読んだ古いパスワードを持ち続けるため）
 - `recovery_window_in_days = 0` は app secret と同じ（作り直しで名前が衝突しないように）。加えて、deploy workflow はこの secret の有無で ClickHouse の migration を流すか判定する（step4）ため、フラグを `false` にしたら即座に消す必要がある。削除待ちの secret は `describe-secret` で見えてしまう
 
 ### `modules/ecs-workload`（変数の追加）
@@ -152,8 +167,11 @@ module "clickhouse" {
   region      = var.aws_region
   secret_name = "/${local.name_prefix}/data-warehouse"
   # dev / prd: worker と migration のタスクは NAT から出る
-  ip_access_cidrs = ["${module.vpc.nat_gateway_public_ip}/32"]
+  ip_access_cidrs = concat(["${module.vpc.nat_gateway_public_ip}/32"], var.clickhouse_additional_ip_access_cidrs)
   # min: ["0.0.0.0/0"]（タスクの public IP が毎回変わるため。パスワードで守る）
+
+  # ClickHouse の default ユーザーのパスワードを作り直したら +1 する
+  password_version = 1
 
   credentials_configured = alltrue([
     for v in [var.clickhouse_org_id, var.clickhouse_token_key, var.clickhouse_token_secret] : v != null && v != ""
@@ -164,10 +182,7 @@ module "clickhouse" {
 
 locals {
   /** ClickHouse の接続情報。enable_data_warehouse = false なら空で、worker も migration も受け取らない */
-  data_warehouse_secrets = var.enable_data_warehouse ? {
-    for k in ["DATA_WAREHOUSE_URL", "DATA_WAREHOUSE_USER", "DATA_WAREHOUSE_PASSWORD", "DATA_WAREHOUSE_DATABASE"] :
-    k => "${module.clickhouse[0].secret_arn}:${k}::"
-  } : {}
+  data_warehouse_secrets = var.enable_data_warehouse ? module.clickhouse[0].ecs_secrets : {}
 }
 ```
 
@@ -204,6 +219,8 @@ module "ecs_dwh_migration" {
   environment = {
     /** step3 で var.enable_cdc に応じて clickpipes にする */
     DATA_WAREHOUSE_CDC = "none"
+    /** logger を JSON 出力にする（未設定だと development 扱いで色付きのテキストになる） */
+    NODE_ENV = "production"
   }
   additional_secrets = local.data_warehouse_secrets
 
@@ -213,12 +230,12 @@ module "ecs_dwh_migration" {
 }
 ```
 
-- min は `image` が `:${var.bootstrap_image_tag}` 等、既存の `ecs_migration` に合わせる
-- `outputs.tf` に `clickhouse_https_host`（`one(module.clickhouse[*].https_host)`）を足す
+- min も dev / prd と同じく `:latest`（既存の `ecs_migration` と同じ）
+- `outputs.tf` に `clickhouse_https_host`（`one(module.clickhouse[*].https_host)`）と `ecs_dwh_migration_task_definition_family`（`one(module.ecs_dwh_migration[*].task_definition_family)`）を足す
 
 ### Terraform の workflow
 
-`terraform-aws-env-apply.yml` の plan / apply の step と、`terraform-aws-env-ci.yml` の plan の step に足す:
+`terraform-aws-env-apply.yml` と `terraform-aws-env-ci.yml` の plan の step に足す（apply の step には要らない。保存した plan に変数の値が入っているため）:
 
 ```yaml
 env:
@@ -227,12 +244,12 @@ env:
   TF_VAR_clickhouse_token_secret: ${{ secrets.CLICKHOUSE_TOKEN_SECRET }}
 ```
 
-- secret は GitHub Environment（`dev` / `min-terraform` / `prd`）ごとに置く。**フラグを `true` にする環境にだけ置けばよい**
+- secret は GitHub Environment（`dev` / `min-terraform` / `prd`）ごとに置く。**フラグを `true` にする環境にだけ置けばよい**。`true` から `false` に戻すときは、その apply が終わるまで消さない（サービスの削除と、その PR の CI の plan で API を呼ぶため）
 - CI も dev / min を plan するので同じ env が要る（ClickHouse のリソースの refresh に API を呼ぶため）
 
 ### ClickHouse Cloud の準備（Terraform の管理外）
 
-1. ClickHouse Cloud の organization を作る（Basic tier）
+1. ClickHouse Cloud の organization を作る（Basic tier）。dev / min / prd はそれぞれ別の organization にする（API キーが organization 全体の Admin 権限で、dev の API キーは PR の CI にも渡るため）
 2. organization の API キーを作る（権限: Admin。サービスと ClickPipe を作るため）
 3. GitHub Environment の secret に `CLICKHOUSE_ORG_ID` / `CLICKHOUSE_TOKEN_KEY` / `CLICKHOUSE_TOKEN_SECRET` を登録する
 

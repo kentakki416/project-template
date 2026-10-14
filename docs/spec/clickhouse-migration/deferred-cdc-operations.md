@@ -12,6 +12,7 @@
 | 付け外し・再同期の自動化 | CDC 対象のテーブル追加・名前変更・型変更が月に数回以上起きるようになったとき |
 | CI での検証 | ClickHouse の migration の失敗が deploy で初めて見つかる事故が起きたとき |
 | 変更漏れの検知 | CDC 対象テーブルの列を変えたのに view の除外列や再同期を忘れる事故が起きたとき |
+| CDC のデータを元にしたマテリアライズドビュー | CDC のデータの集計が view では遅すぎるようになったとき |
 
 ## 対象範囲
 
@@ -58,6 +59,11 @@
 ### 変更漏れの検知
 
 - Drizzle の migration（`packages/db/drizzle/migrations/*.sql`）が CDC 対象テーブルに `DROP COLUMN` / `ALTER COLUMN ... TYPE` / `RENAME` を含むとき、PR にコメントで「view の除外列 / 再同期が要る」と知らせる
+
+### CDC のデータを元にしたマテリアライズドビュー
+
+- 版管理する migration は `pg_cdc` を参照できない（CDC の無い環境や初回の取り込みの前に失敗する。migration コマンドが実行前に弾く）
+- CDC のある環境にだけ適用する仕組み（`views/` と同じく `DATA_WAREHOUSE_CDC` を見て、`none` なら飛ばす migration の置き場所）を足し、作り直し方でデータが消えないように 1 回だけ適用する
 
 ## 既存仕様との差分（着手時のチェックリスト）
 
