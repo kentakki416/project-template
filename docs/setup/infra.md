@@ -116,7 +116,7 @@ dev は Blue/Green ではなく rolling 更新で承認ゲートを持たない�
 
 行動イベントの書き込み先（ClickHouse Cloud のサービス）は、`aws/env/{dev,min,prd}/variables.tf` の `enable_data_warehouse` が `true` の環境にだけ Terraform が作る。既定は prd が `true`、dev / min が `false`。`false` の環境ではこの手順は要らない。設計は [`docs/spec/clickhouse-migration/README.md`](../spec/clickhouse-migration/README.md)。
 
-- [ ] ClickHouse Cloud の organization を作る（Basic tier）。**prd は dev / min と別の organization にする。** API キーは organization 全体の Admin 権限で、dev の API キーは PR の CI（plan）にも渡るため、同じ organization だと prd のサービスも消せてしまう
+- [ ] ClickHouse Cloud の organization を作る（Basic tier）。**dev / min / prd はそれぞれ別の organization にする。** API キーは organization 全体の Admin 権限で、dev の API キーは PR の CI（plan）にも渡るため、同じ organization だとほかの環境のサービスも消せてしまう。Basic tier は最低料金が無いので、分けても費用は増えない
 - [ ] organization の API キーを作る（権限は Admin。Terraform がサービスを作るため）
 - [ ] `enable_data_warehouse = true` にする環境の GitHub Environment（`dev` / `min-terraform` / `prd`）の **Secrets** に `CLICKHOUSE_ORG_ID` / `CLICKHOUSE_TOKEN_KEY` / `CLICKHOUSE_TOKEN_SECRET` を登録する。Terraform の workflow が `TF_VAR_clickhouse_*` として渡す。`true` から `false` に戻すときは、その apply が終わるまで消さない（サービスの削除と、その PR の CI の plan で API を呼ぶため）
 - [ ] ローカルから apply するときは、同じ値を環境変数で渡す
