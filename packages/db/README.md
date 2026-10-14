@@ -83,9 +83,8 @@ docker exec project-template-postgres psql -U postgres \
 pnpm --filter api db:migrate
 pnpm --filter api db:seed
 
-# 4. CDC を張り直す
-docker exec -i project-template-clickhouse clickhouse-client --multiquery < infra/clickhouse/init/02-postgres-cdc.sql
-docker exec project-template-clickhouse bash /docker-entrypoint-initdb.d/03-postgres-cdc-views.sh
+# 4. CDC を張り直す（ClickHouse の migration は CDC を毎回作り直す）
+pnpm --filter @repo/data-warehouse dwh:migrate
 ```
 
 test DB は `pnpm --filter api test` が実行のたびにマイグレーションを流すので、作り直した後は空のままでよい。

@@ -576,12 +576,24 @@ importers:
       '@types/node':
         specifier: ^24.10.1
         version: 24.12.0
+      clickhouse-migrations:
+        specifier: ^1.5.0
+        version: 1.5.0
       eslint:
         specifier: ^9.39.1
         version: 9.39.1(jiti@2.6.1)
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@types/node@24.12.0)(@vitest/coverage-v8@4.1.5)(vite@8.0.11(@types/node@24.12.0)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.3))
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
 
   packages/db:
     dependencies:
@@ -4181,6 +4193,11 @@ packages:
     resolution: {integrity: sha512-ywqV+5MmyL4E7ybXgKys4DugZbX0FC6LnwrhjuykIjnK9k8OQacQ7axGKnjDXWNhns0xot3bZI5h55H8yo9cJg==}
     engines: {node: '>=6'}
 
+  clickhouse-migrations@1.5.0:
+    resolution: {integrity: sha512-PD2tstHGrKRe//xJ/jdAWUYyY91S7NYGl6qVrU7pq6YLa8M77wg0b6ACW/bkiOJ19oF4K2Hp0fTFOSquagN0Kg==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   client-only@0.0.1:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
 
@@ -4246,6 +4263,10 @@ packages:
   commander@12.1.0:
     resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
     engines: {node: '>=18'}
+
+  commander@14.0.3:
+    resolution: {integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==}
+    engines: {node: '>=20'}
 
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
@@ -12109,6 +12130,11 @@ snapshots:
 
   cli-spinners@2.9.2: {}
 
+  clickhouse-migrations@1.5.0:
+    dependencies:
+      '@clickhouse/client': 1.23.1
+      commander: 14.0.3
+
   client-only@0.0.1: {}
 
   cliui@8.0.1:
@@ -12167,6 +12193,8 @@ snapshots:
   commander@11.1.0: {}
 
   commander@12.1.0: {}
+
+  commander@14.0.3: {}
 
   commander@2.20.3: {}
 
