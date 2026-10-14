@@ -80,7 +80,7 @@ ClickHouse に置くものは 4 種類あり、それぞれ管理のしかたが
 
 - **view を作り直しても過去のデータは消えない。** 通常の view はデータを持たず、中身は保存された SELECT 文だけだから。データは CDC のテーブル本体にある
 - **「毎回作り直す」のは CDC の view だけにする。** マテリアライズドビューは作り直し方によってデータが消えるため、版管理する migration に入れて 1 回だけ適用する
-- **版管理する migration は `pg_cdc` のテーブルを参照しない**（`DROP TABLE IF EXISTS pg_cdc.<table>` は除く）。CDC の無い環境（`DATA_WAREHOUSE_CDC=none`）や ClickPipe の初回の取り込みの前には `pg_cdc` が無く、migration が失敗して deploy-worker まで止まるため。CDC のデータを元にした集計は `views/` に書く。CDC のデータを元にしたマテリアライズドビューが要るときの扱いは MVP 対象外
+- **版管理する migration は `pg_cdc` のテーブルを参照しない**（`DROP TABLE IF EXISTS pg_cdc.<table>` は除く。database が無くても通ることを確認済み）。CDC の無い環境（`DATA_WAREHOUSE_CDC=none`）や ClickPipe の初回の取り込みの前には `pg_cdc` が無く、migration が失敗して deploy-worker まで止まるため。CDC のデータを元にした集計は `views/` に書く。CDC のデータを元にしたマテリアライズドビューが要るときの扱いは MVP 対象外
 - 分析クエリは今までどおり CDC のテーブル本体ではなく `v_*` の view を参照する（規約の正本は `packages/data-warehouse/clickhouse/README.md`）
 
 ### 変更のケースごとの作業
@@ -333,11 +333,12 @@ WHERE ${CDC_LIVE_FILTER}
 
 ```mermaid
 flowchart LR
-    D[detect<br/>接続情報の<br/>secret の有無] --> B[build]
-    B --> M[migrate<br/>Drizzle]
+    B[build] --> M[migrate<br/>Drizzle]
+    D[detect<br/>接続情報の<br/>secret の有無] --> MD
     M --> MD[migrate-dwh<br/>ClickHouse<br/>有るときだけ]
     M --> A[deploy-api]
     MD --> W[deploy-worker]
+    D --> W
     M --> W
     M --> C[deploy-cron]
 ```
@@ -346,7 +347,7 @@ flowchart LR
 - **migrate-dwh**: Drizzle の `migrate` の後に、同じ migration イメージで one-shot タスクを起動する（タスク定義の `command` で ClickHouse のコマンドを指定）。ケース 1 で view の元テーブルが Postgres に先にできている必要があるため、Drizzle の後にする
 - **deploy-worker** は `migrate` と `migrate-dwh` の両方を待つ。`migrate-dwh` が skip のときも進める（`!cancelled()` と各 job の結果で条件を書く）。ただし detect が失敗して `migrate-dwh` が skip になったときは進めない
 - **deploy-api / deploy-cron** は今までどおり `migrate` だけを待つ
-- 「タスク定義を最新のイメージで register → run-task → 停止を待つ → 終了コードで成否を判定し、失敗ならログを出す」処理は `migrate` と同じなので、composite action（`.github/actions/run-one-shot-task`）に切り出して両方から使う
+- 「タスク定義を最新のイメージで register → run-task → 停止を待つ → タスクのログを出す → 終了コードで成否を判定する」処理は `migrate` と同じなので、composite action（`.github/actions/run-one-shot-task`）に切り出して両方から使う
 - **イメージは既存の migration イメージ（`project-template-migration`）に同梱する。** ECR リポジトリと push の権限を増やさずに済む。`packages/db/Dockerfile.migration` の `turbo prune` の対象に `@repo/data-warehouse` を足す
 
 ### secret と環境変数
@@ -398,7 +399,7 @@ ClickHouse の接続情報は、Terraform が管理する専用の secret（`/<p
 | ローカルで、同じテンプレートから作った別プロジェクトの ClickHouse に誤って繋ぐ（既定のポートが同じ） | step1 で、別の DB を取り込む `pg_cdc` があると消さずに止まることを確認する | ― （作り直しの前の確認で防ぐ） |
 | min の ClickHouse Cloud が `0.0.0.0/0` を許可しているため、インターネットのスキャンでアイドルから起こされて費用が増える | min で有効にした後、ClickHouse Cloud の使用量を 1 週間見る | min の worker を固定 IP（NAT）経由にするか、min では ClickHouse を使わない |
 | ClickHouse Cloud の Shared database で `CREATE OR REPLACE VIEW` が一瞬 view を消す | step4 で dev に対して、migration を流しながら view を読み続けて失敗しないか確認する | 分析クエリは数秒のリトライで十分なので、README に注意を書くだけにする |
-| ClickPipe の列の反映（ケース 3）が遅れ、view に新しい列が出ないまま気づかない | step4 の動作確認で、列を足した後に書き込み → migration の再実行で view に出ることを確認する | ClickHouse の migration だけを流す workflow を手動で実行できるようにする |
+| ClickPipe の列の反映（ケース 3）が遅れ、view に新しい列が出ないまま気づかない | step4 の動作確認で、列を足した後に書き込み → migration の再実行で view に出ることを確認する | ClickHouse の migration だけを流す workflow（`clickhouse-migrate.yml`）を実行する |
 | ClickPipes の固定 IP が変わり、bastion に繋がらなくなる | ClickPipe の状態を ClickHouse Cloud のコンソールで確認する運用にする | IP の一覧を Terraform の変数にしてあるので、更新して apply する |
 
 ### MVP 対象外（将来検討）
@@ -411,6 +412,7 @@ ClickHouse の接続情報は、Terraform が管理する専用の secret（`/<p
 - ケース 1・2・4 の付け外し・再同期を deploy で自動化すること
 - CI（PR）で ClickHouse の migration を実際の ClickHouse に流して検証すること
 - Drizzle の migration が CDC 対象のテーブルを変えたときに、ClickHouse 側の変更漏れを CI で検知すること
+- CDC のデータを元にしたマテリアライズドビュー（版管理する migration は `pg_cdc` を参照できないため）
 
 詳細：[`./deferred-cdc-operations.md`](./deferred-cdc-operations.md)
 
@@ -479,7 +481,7 @@ sequenceDiagram
     Dev->>TF: apply
     TF->>Pipe: table_mappings に追加
     Pipe->>CH: 初回の全件取り込み → pg_cdc.<table>
-    Dev->>GA: migrate-dwh だけを再実行（または次の deploy）
+    Dev->>GA: clickhouse-migrate.yml を実行（または次の deploy）
     GA->>CH: CREATE OR REPLACE VIEW v_<table>
 ```
 

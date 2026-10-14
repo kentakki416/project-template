@@ -30,6 +30,12 @@ variable "clickhouse_org_id" {
 }
 variable "clickhouse_token_key" { ... }
 variable "clickhouse_token_secret" { ... }
+
+/** dev / prd だけ。NAT の IP に加えて、分析ツールや手元から繋ぐ送信元を許可する（コンソールで足した IP は次の apply で消えるため） */
+variable "clickhouse_additional_ip_access_cidrs" {
+  type    = list(string)
+  default = []
+}
 ```
 
 ### `env/{dev,min,prd}/provider.tf`
@@ -92,7 +98,7 @@ resource "clickhouse_service" "this" {
   idle_scaling         = true
   idle_timeout_minutes = 15
 
-  ip_access = [for cidr in var.ip_access_cidrs : { source = cidr, description = "${var.name} egress" }]
+  ip_access = [for cidr in var.ip_access_cidrs : { source = cidr, description = "${var.name} allowed" }]
 
   password_wo         = random_password.default_user.result
   password_wo_version = var.password_version

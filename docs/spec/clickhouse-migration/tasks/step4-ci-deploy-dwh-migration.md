@@ -12,17 +12,17 @@
 
 ```mermaid
 flowchart LR
-    D[detect<br/>接続情報の<br/>secret の有無] --> B[build]
-    B --> M[migrate<br/>Drizzle]
+    B[build] --> M[migrate<br/>Drizzle]
+    D[detect<br/>接続情報の<br/>secret の有無] --> MD
     M --> MD[migrate-dwh<br/>dwh_enabled のときだけ]
-    D --> MD
     M --> A[deploy-api]
     M --> W[deploy-worker]
     MD --> W
+    D --> W
     M --> C[deploy-cron]
 ```
 
-- dev / prd には detect job が無いので新設する。min は既存の detect job（worker の有無）に step を足す
+- detect は build と並べて走らせ、build は待たない（ClickHouse の判定の失敗で api の deploy を止めない）。dev / prd は `detect` を新設し、min は既存の detect job（worker の有無。build が待つ）とは別に `detect-dwh` を足す
 - build は変えない（migration イメージは step1 で ClickHouse のコマンドを同梱済み）
 
 ### detect
@@ -54,6 +54,7 @@ fi
 | `EcsDeploy`（既存） | `ecs:ListTaskDefinitions` を足す | `*`（既存のまま） | ClickHouse の migration だけを流す workflow が、最後に deploy したイメージを探す |
 
 - resource は末尾を `data-warehouse*` にする（`-*` にしない）。secret が無いときの認可が、末尾の 6 文字の付かない ARN で評価される可能性があるため。合わなければ AccessDenied になり、ClickHouse の無い環境（既定の min）の deploy が全部止まる。min（admin を持たないロール）で、フラグが `false` のまま deploy して detect が `dwh_enabled=false` になることを動作確認で確かめる
+- `account/.terraform.lock.hcl` に linux の hash を足す（`terraform providers lock -platform=linux_amd64 -platform=darwin_arm64`）。無いと CI の apply が `-lockfile=readonly` の init で落ちる
 - **account の apply を、deploy workflow の変更より先に行う。** 権限が無いまま deploy すると detect が失敗する（上記のとおり、黙って skip はしない）
 - account の apply は `terraform-aws-account-apply.yml`（role 自身の trust policy は変えないので CI から流せる）
 
@@ -74,7 +75,7 @@ fi
 1. `image` があれば register（`jq` で image を差し替え、メタ情報を消して `register-task-definition`）
 2. `run-task`（起動できなければ `failures` を出して失敗する）→ `aws ecs wait tasks-stopped`
 3. `describe-tasks` で停止理由と終了コードを出す
-4. **成否にかかわらずタスクのログを出す**（migrate-dwh で view を skip した警告などを Actions のログで見るため）。**ログはそのタスクのログストリーム（`ecs/<コンテナ名>/<タスク ID>`）に絞る**。`filter-log-events` に `--log-stream-names` を付ければ既存の `logs:FilterLogEvents` で足りる（既存の呼び方はロググループ全体の古い順で、前回以前の実行のログが出ることがあった）
+4. **成否にかかわらずタスクのログを 1 行ずつ出す**（`--query 'events[].[message]'`）（migrate-dwh で view を skip した警告などを Actions のログで見るため）。**ログはそのタスクのログストリーム（`ecs/<コンテナ名>/<タスク ID>`）に絞る**。`filter-log-events` に `--log-stream-names` を付ければ既存の `logs:FilterLogEvents` で足りる（既存の呼び方はロググループ全体の古い順で、前回以前の実行のログが出ることがあった）
 5. 終了コードが 0 以外なら失敗する
 
 composite action を使う job は `actions/checkout` が要る（既存の migrate job にも足す）。
@@ -135,6 +136,7 @@ deploy-worker:
 
 - `on: workflow_dispatch`、input は `environment`（`dev` / `min` / `prd`）
 - **最後に deploy したイメージで、最新のタスク定義の設定を使って起動する。** 最新の revision をそのまま起動しないのは、Terraform の apply（`enable_cdc` の切り替え等）でできた revision の image が `:latest` の placeholder で、ECR に存在しないため
+  - 一覧の取得（`list-task-definitions`）は変数に入れてからループする（`for` の中のコマンド置換は失敗しても止まらず、権限不足を「deploy していない」と取り違えるため）
   - **Drizzle の migration のタスク定義**の revision を新しい順に見て、image のタグが `:latest` でない最初のものを「最後に deploy したイメージ」とする（`aws ecs list-task-definitions --family-prefix <prefix>-migration --sort DESC`）。ClickHouse の migration も同じイメージで、Drizzle の migration は deploy のたびに必ず register されるため（dwh-migration の family だと、フラグを有効にしてからまだ deploy していない環境で見つからない）
   - それを composite action の `image` に渡す（dwh-migration の最新の revision の設定に image だけ差し替えて register してから起動する）
 - 接続情報の secret が無い（`enable_data_warehouse = false`）環境を選んだら、何もせずにその旨を出して失敗する（判定は detect と同じ）
@@ -145,7 +147,6 @@ deploy-worker:
 
 - 各 deploy workflow 先頭の「Job 構成」のコメントに detect / migrate-dwh を足す
 - `docs/deploy/*.md` のデプロイ手順に、ClickHouse の migration が自動で流れることと、手動実行の workflow の使いどころ（ケース 1・4）を書く
-- 設計書 `README.md` の「変更のケースごとの作業」の「ClickHouse の migration を再実行」を、この workflow へのリンクにする
 
 ### 有効化・無効化の手順
 

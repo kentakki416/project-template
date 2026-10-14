@@ -223,6 +223,7 @@ export const CDC_VIEW_VARIABLES: Record<Exclude<CdcMode, "none">, Record<string,
 | `readCdcTables(path)` / `parseCdcTablesJson(text)` | `cdc-tables.json` を読み、識別子として安全な名前（`/^[a-z_][a-z0-9_]*$/`）の重複の無い配列であることを Zod で検証する（SQL に埋め込むため） |
 | `readViewDefinitions(dir)` | `{ table, sql }` の配列（`table` はファイル名から） |
 | `verifyViewsMatchCdcTables(cdcTables, viewTables)` | 一覧にあって view が無いもの、view があって一覧に無いものを返す |
+| `readMigrationDefinitions(dir)` / `verifyMigrationsDoNotReferenceCdc(migrations)` | migration の SQL（コメントを除く）が `pg_cdc` を参照していたら返す。`DROP TABLE IF EXISTS pg_cdc.<table>` は許す。CDC の無い環境で失敗するため、実行前に弾く |
 
 ### `clickhouse/migrate/render-view-sql.ts`
 
