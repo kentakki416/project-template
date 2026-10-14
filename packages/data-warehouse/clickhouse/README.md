@@ -42,13 +42,10 @@
 
 | 候補 | 却下理由 |
 | --- | --- |
-| **Postgres のまま** | OLTP と資源競合する（[`../README.md`](../README.md#データウェアハウスに求める要件)）。TTL による自動失効も自前実装が必要 |
-| **BigQuery** | 方言が違いすぎる。抽象化で吸収できるのは書き込み経路だけで、移行コストの大半はクエリとダッシュボードの作り直し。本テンプレートは AWS 前提なのでクロスクラウドの前提ごと変わる場面でしか選ばない |
+| **Postgres のまま** | OLTP と資源競合する。TTL による自動失効も自前実装が必要 |
+| **BigQuery** | 本テンプレートは AWS 前提なのでクロスクラウドの前提ごと変わる場面でしか選ばない |
 | **S3 + Athena** | スキャン課金でダッシュボードの常時参照に向かない。低レイテンシのクエリも期待できない |
 | **運用ログ（pino）に混ぜる** | 保持期間が短く、量が行動イベントの数十倍。混ぜると分析基盤のコストが跳ね上がりスキーマが汚れる |
-
-乗り換えるなら、同じ SQL 方言のマネージドサービス（Tinybird 等）が現実的。テーブル定義とクエリがそのまま使えるため、
-書き込み経路の差し替えだけで済む。
 
 ## ホスティング
 
@@ -64,20 +61,6 @@ dev / min / prd はそれぞれ別の organization に作る（API キーが org
 既定で持たないのは、dev は行動ログに分析価値が薄くコストに見合わないため、min は固定費を抑える構成で、記録するかをプロダクトごとに選ぶため（api の `EVENT_TRACKER_TYPE` と同じ考え方）。
 deploy はこの secret の有無で ClickHouse の migration（migrate-dwh）を流すかを決める。
 
-**有効にする**
-
-1. `infra/terraform/aws/env/<env>/variables.tf` の `enable_data_warehouse` の既定値を `true` にして PR → マージ
-2. Terraform AWS Env Apply を実行する（サービス・接続情報の secret・migration 用のタスク定義ができる。ClickHouse Cloud の API キーが要る: [`docs/setup/infra.md`](../../../docs/setup/infra.md)）
-3. deploy を実行する（migrate-dwh が `events` を作り、worker が ClickHouse に書き始める）
-
-**無効にする**
-
-1. 既定値を `false` にして PR → マージ → apply → **すぐに deploy する**（ClickHouse Cloud の API キーはこの apply が終わるまで消さない）。apply で接続情報の secret が消えるが、動いている worker は deploy するまで、その secret を参照するタスク定義のまま残る。その間に worker のタスクが入れ替わる（Fargate Spot の中断やクラッシュ）と、起動に失敗してすべての queue が止まる
-2. **ClickHouse Cloud のサービスは削除され、データも消える。** 残したい場合は先にバックアップを取る（prd では `false` にしない）
-3. deploy が register した dwh-migration のタスク定義の revision は残るが、判定は secret で行うので害は無い（不要なら deregister してよい）
-
-ClickHouse Cloud を選んだのは、**月額最低額が無くアイドル時に compute がゼロへスケールダウン**
-するため。この規模ではストレージ費用が支配的で、それも年数 GB に収まる。
 
 ## events テーブル
 

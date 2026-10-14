@@ -1,10 +1,8 @@
 # @repo/data-warehouse
 
-分析用データの書き込み先（データウェアハウス）を抽象化するパッケージ。`DataWarehouse` interface と、
-何も書き込まない no-op 実装、実装を選ぶ factory を持つ。
-
-バックエンドごとの実装・テーブル定義・migration は、バックエンド名のディレクトリにまとめる。
+分析用データの書き込み先（データウェアハウス）を抽象化するパッケージ。
 今のバックエンドは ClickHouse だけで、実現方法と採用理由は [`clickhouse/README.md`](./clickhouse/README.md) に書く。
+
 
 ## 目次
 
@@ -40,14 +38,11 @@ packages/data-warehouse/
 └── clickhouse/                   ClickHouse のテーブル・view の定義と migration コマンド（build に含めない）
 ```
 
-`packages/db` の `src/drizzle/`（実行時のコード）と `drizzle/`（migration などの CLI 用）と同じ分け方にしている。
-migration だけが使う依存は devDependencies に置き、worker のイメージ（`pnpm deploy --prod`）には入れない。
-
 ## 集計するデータ
 
 ### 行動イベント
 
-DB に痕跡が残らない操作（閲覧・削除・離脱）を取るのが主目的。送出は fire-and-forget で、
+DB に痕跡が残らない操作（閲覧・削除・離脱・ユーザー行動）を取るのが主目的。送出は fire-and-forget で、
 ユーザーのリクエストを待たせない。**Postgres は通らない。**
 
 ```mermaid
@@ -63,12 +58,10 @@ flowchart LR
 - 詳細は [`docs/spec/user-behavior-events/README.md`](../../docs/spec/user-behavior-events/README.md)
 
 ### 業務データ
-
-行動イベントには `user_id` しか入っていないため、「どんな属性のユーザーが何をしたか」を出すには
-業務データ（`users` / `memos` など）もデータウェアハウス側に必要になる。
-
-業務データの正本は Postgres で、アプリから二重に書かずに **CDC（論理レプリケーション）でデータウェアハウスに写す。**
-この経路は `DataWarehouse` interface を通らない。同期対象は `infra/clickhouse/cdc-tables.json` に並べたテーブル。
+業務データの正本は Postgres。<br>
+アプリから二重に書かずに **CDC（論理レプリケーション）でデータウェアハウスに写す。** <br>
+この経路は `DataWarehouse` interface を通らない。<br>
+同期対象は `infra/clickhouse/cdc-tables.json` に並べたテーブル。
 
 ## データウェアハウスに求める要件
 
@@ -81,15 +74,6 @@ flowchart LR
 | トランザクション | 不要 | 必要 |
 | 読み方 | 大量行を集計 | 1 行を id で引く |
 | 消し方 | TTL で自動失効 | 明示的に削除 |
-
-Postgres に相乗りさせると、イベントの書き込み量が業務テーブルと同じインスタンスを圧迫し、
-集計クエリが本番の OLTP と資源を奪い合う。そのため別のデータウェアハウスに置き、次を満たすものを選ぶ。
-
-- 追記だけの大量の書き込みと、大量行の集計に向いている
-- 古いイベントを TTL で自動で消せる
-- 同じイベントが 2 回届いても 1 件に畳める（[後述](#同じイベントが-2-回届く)）
-- Postgres の業務データを CDC で取り込める
-- リクエストが無いときの費用が小さい
 
 ### 同じイベントが 2 回届く
 
