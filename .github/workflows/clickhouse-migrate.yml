@@ -80,12 +80,14 @@ jobs:
         id: image
         run: |
           set -euo pipefail
-          for ARN in $(aws ecs list-task-definitions \
+          # for の中のコマンド置換は失敗しても止まらないので、先に変数に入れる (権限不足などを取り違えないように)
+          ARNS=$(aws ecs list-task-definitions \
             --family-prefix "${ECS_MIGRATION_TASK_DEF}" \
             --status ACTIVE \
             --sort DESC \
             --query 'taskDefinitionArns' \
-            --output text); do
+            --output text)
+          for ARN in ${ARNS}; do
             IMAGE=$(aws ecs describe-task-definition \
               --task-definition "${ARN}" \
               --query 'taskDefinition.containerDefinitions[0].image' \

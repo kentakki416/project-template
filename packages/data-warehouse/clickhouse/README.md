@@ -180,6 +180,8 @@ ClickPipe を作る前に、論理レプリケーションが効いているこ�
 | 列を足す | deploy（Drizzle）→ そのテーブルに書き込みがあった後に `clickhouse-migrate.yml`（足した列は次の書き込みで ClickHouse に現れ、view の列は作り直すまで増えない） |
 | 列を消す | view の `EXCEPT` に列名を足して deploy（ClickPipes は消した列を NULL で残す） |
 
+`clickhouse-migrate.yml` は、同じ環境の deploy と同じ concurrency group で動く。deploy の実行中は終わるまで待ち、待っている間に deploy をもう一度実行すると、待っていた方は取り消される。
+
 **CDC を無効にする**
 
 1. `enable_cdc` を `false` にして apply（ClickPipe・bastion・SSH の鍵が消える。replication slot は ClickPipe の削除で消える想定）

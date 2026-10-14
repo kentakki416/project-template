@@ -106,7 +106,7 @@ runs:
         aws logs filter-log-events \
           --log-group-name "/ecs/${FAMILY}" \
           --log-stream-names "ecs/${FAMILY}/${TASK_ARN##*/}" \
-          --query 'events[*].message' \
+          --query 'events[].[message]' \
           --output text || true
 
         if [ "${EXIT_CODE}" != "0" ]; then

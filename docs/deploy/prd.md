@@ -167,6 +167,7 @@ cd infra/terraform/aws/env/prd && terraform init && terraform apply
 ECS cluster + api/worker/migration/cron / EventBridge スケジュール / Secrets(箱+JWT) /
 **ACM 証明書 `*.<your-domain>`（DNS 検証）+ HTTPS リスナー + `api.<your-domain>` の ALIAS Aレコード**。
 `enable_data_warehouse` / `enable_cdc`（prd の既定はどちらも `true`）により、ClickHouse Cloud のサービス・ClickHouse の migration のタスク定義・ClickPipe・SSH bastion も作られる（ClickHouse Cloud の API キーが要る。[`docs/setup/infra.md`](../setup/infra.md) の手順 7）。
+**ただし ClickPipe はこの時点では作らない**（テーブルが Phase 8 の migrate までできないため）。最初の apply は `-var enable_cdc=false` で流し、Phase 8 の後に既定値のまま apply する（[`packages/data-warehouse/clickhouse/README.md`](../../packages/data-warehouse/clickhouse/README.md#clickhouse-cloud-の-cdcclickpipes) の「prd で初めて CDC を作るとき」）。
 
 > ⚠️ この時点で ECS api/worker は **イメージ未 push のため起動失敗**する（後で deploy して正常化）。想定どおり。
 
@@ -214,7 +215,7 @@ Actions → **「Deploy to AWS prd」** を workflow_dispatch。
 5. **deploy-api**: Blue/Green の green を待機 TG に投入 → テストトラフィックを green に
 6. **`prd-api-approval` で承認待ち** ← ここで承認
 
-ClickHouse の migration だけを流し直したいとき（CDC の対象を足して ClickPipe の初回の取り込みが終わった後、ClickPipe を Resync した後）は、Actions → **「ClickHouse Migrate」** を `environment=prd` で実行する（手順は [`packages/data-warehouse/clickhouse/README.md`](../../packages/data-warehouse/clickhouse/README.md#clickhouse-cloud-の-cdcclickpipes)）。
+ClickHouse の migration だけを流し直したいとき（CDC の対象を足して ClickPipe の初回の取り込みが終わった後、ClickPipe を Resync した後、Postgres に列を足してそのテーブルに書き込みがあった後）は、Actions → **「ClickHouse Migrate」** を `environment=prd` で実行する（手順は [`packages/data-warehouse/clickhouse/README.md`](../../packages/data-warehouse/clickhouse/README.md#clickhouse-cloud-の-cdcclickpipes)）。
 
 **承認前に green を実機確認できる**（Blue/Green の利点）:
 ```bash
