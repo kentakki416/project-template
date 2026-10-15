@@ -37,6 +37,7 @@ export const runTask = (name: string, task: (context: TaskContext) => Promise<vo
         "db disconnect failed",
         err instanceof Error ? err : new Error(String(err)),
       )
+      process.exitCode = 1
     })
     await disconnecting
   }
