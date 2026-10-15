@@ -1,4 +1,4 @@
-import { z, ZodError, ZodSchema } from "zod"
+import { z, ZodError } from "zod"
 
 /**
  * リクエストの Zod 検証失敗を表す独自エラー
@@ -27,9 +27,10 @@ export class ResponseSchemaMismatchError extends Error {
  * Controller でリクエスト（body / params / query）を検証するヘルパ
  * 失敗時は RequestSchemaMismatchError を throw し、グローバルエラーハンドラ経由で 400 を返す
  *
- * 入力は外部から来る未検証の値なので `unknown` を受ける
+ * 入力は外部から来る未検証の値なので `unknown` を受ける。
+ * 戻り値は検証後（default や coerce を通した後）の型にする
  */
-export const parseRequest = <T>(schema: ZodSchema<T>, value: unknown): T => {
+export const parseRequest = <Schema extends z.ZodTypeAny>(schema: Schema, value: unknown): z.output<Schema> => {
   const result = schema.safeParse(value)
   if (!result.success) {
     throw new RequestSchemaMismatchError(result.error)

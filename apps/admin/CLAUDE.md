@@ -53,6 +53,8 @@ admin は DB を直接触らず、必ず Express API を経由する。
 2. レスポンスは `@repo/api-schema` の `admin/` のスキーマで parse する。**独自に型を書かない**
 3. client component にデータが必要な場合は Server Component で取得して props で渡す
 
+**API に繋いだ画面の見本はユーザー管理**（`src/app/(dashboard)/users/`・`src/features/user/`・`src/components/features/user/`）。一覧の検索・絞り込み・ページングは `DataTable` の `server` モードで、条件を URL の検索パラメータ（`q` / `page` / `per_page` / 絞り込みの key）に持つ。画面（Server Component）は `searchParams` を api のクエリに変換して呼ぶ（不正な値は既定値に戻し、api の 400 にしない）。データが少なく api で絞らない表は、`server` を渡さない client モードで使う（見本は `/demo/tables/data-table`）。
+
 `@repo/*` のうち admin が import できるのは `@repo/api-schema` だけで、これは lint で強制している（`@repo/eslint-config/frontend-boundary`）。
 
 ## 認証

@@ -6,6 +6,8 @@ import { AdminAuthGoogleController } from "../controller/admin/auth/google"
 import { AdminAuthLogoutController } from "../controller/admin/auth/logout"
 import { AdminAuthRefreshController } from "../controller/admin/auth/refresh"
 import { AdminMeGetController } from "../controller/admin/me/get"
+import { AdminUserDetailController } from "../controller/admin/user/detail"
+import { AdminUserListController } from "../controller/admin/user/list"
 import { adminAuthMiddleware } from "../middleware/admin-auth"
 
 type AdminRouterControllers = {
@@ -14,6 +16,8 @@ type AdminRouterControllers = {
   authLogout?: AdminAuthLogoutController
   authRefresh?: AdminAuthRefreshController
   meGet?: AdminMeGetController
+  userDetail?: AdminUserDetailController
+  userList?: AdminUserListController
 }
 
 /**
@@ -54,6 +58,18 @@ export const adminRouter = (controllers: AdminRouterControllers): Router => {
   if (controllers.meGet) {
     const controller = controllers.meGet
     router.get("/me", async (req, res) => controller.execute(req, res))
+  }
+
+  /** GET /api/admin/users */
+  if (controllers.userList) {
+    const controller = controllers.userList
+    router.get("/users", async (req, res) => controller.execute(req, res))
+  }
+
+  /** GET /api/admin/users/:id */
+  if (controllers.userDetail) {
+    const controller = controllers.userDetail
+    router.get("/users/:id", async (req, res) => controller.execute(req, res))
   }
 
   return router

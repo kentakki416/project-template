@@ -1,5 +1,5 @@
-import { and, authAccounts, DrizzleClient, eq, users } from "@repo/db"
-import { AuthAccount, AuthAccountWithUser, User } from "@repo/domain"
+import { and, asc, authAccounts, DrizzleClient, eq, users } from "@repo/db"
+import { AuthAccount, AuthAccountWithUser, AuthProvider, User } from "@repo/domain"
 
 import type { AuthAccountRepository, CreateAuthAccountInput } from "../auth-account-repository"
 import type { TransactionContext } from "../transaction"
@@ -23,7 +23,7 @@ export class DrizzleAuthAccountRepository implements AuthAccountRepository {
   }
 
   public async findByProvider(
-    provider: string,
+    provider: AuthProvider,
     providerAccountId: string
   ): Promise<AuthAccountWithUser | null> {
     const [row] = await this._db
@@ -46,6 +46,18 @@ export class DrizzleAuthAccountRepository implements AuthAccountRepository {
       ...this._toDomainAuthAccount(row.authAccount),
       user: this._toDomainUser(row.user),
     }
+  }
+
+  /**
+   * ユーザーのログイン方法を、紐付けた順（created_at の昇順）に返す
+   */
+  public async findByUserId(userId: number): Promise<AuthAccount[]> {
+    const rows = await this._db
+      .select()
+      .from(authAccounts)
+      .where(eq(authAccounts.userId, userId))
+      .orderBy(asc(authAccounts.createdAt), asc(authAccounts.id))
+    return rows.map((row) => this._toDomainAuthAccount(row))
   }
 
   public async create(data: CreateAuthAccountInput, tx?: TransactionContext): Promise<AuthAccount> {

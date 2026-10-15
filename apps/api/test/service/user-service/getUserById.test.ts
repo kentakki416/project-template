@@ -10,6 +10,7 @@ const mockUserRepository: UserRepository = {
   create: vi.fn(),
   findByEmail: vi.fn(),
   findById: mockFindById,
+  search: vi.fn(),
 }
 
 describe("getUserById", () => {

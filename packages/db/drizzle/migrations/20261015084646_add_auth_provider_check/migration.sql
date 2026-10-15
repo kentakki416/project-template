@@ -1,0 +1,1 @@
+ALTER TABLE "auth_accounts" ADD CONSTRAINT "auth_accounts_provider_check" CHECK ("provider" IN ('google', 'dev'));

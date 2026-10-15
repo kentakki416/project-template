@@ -9,4 +9,4 @@ export * from "./drizzle/schema"
  * 依存に持つと、peer dependency の解決次第で packages/db と別インスタンスになり、
  * テーブル定義と演算子の型が噛み合わなくなるため。必要な演算子が増えたらここに足す。
  */
-export { and, desc, eq, lt, sql } from "drizzle-orm"
+export { and, asc, count, desc, eq, exists, gte, ilike, inArray, lt, or, sql } from "drizzle-orm"
