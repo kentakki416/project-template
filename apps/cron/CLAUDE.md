@@ -20,7 +20,7 @@ pnpm test              # Vitest（DB client を mock するので DB 不要）
 
 参考実装: `src/task/cleanup-old-memos.ts` / `src/service/memo/cleanup-old-memos.ts` / `src/repository/drizzle/memo-repository.ts`。
 
-- **`task/<name>.ts`**: cron 1 本 = 1 ファイル。env を読んで DB client（Drizzle）と Repository を生成し service に DI するだけ。**閾値計算や件数集計などのドメインロジックを書かない**。サブディレクトリは切らない
+- **`task/<name>.ts`**: cron 1 本 = 1 ファイル。`runTask` で包み、受け取った DB client（Drizzle）で Repository を生成して service に DI するだけ。**閾値計算や件数集計などのドメインロジックを書かない**。サブディレクトリは切らない
 - **`service/<domain>/`**: 業務ロジック。`export const` のアロー関数で、Repository は単一でも `repo: { xxxRepository }` のオブジェクト引数で受ける（将来増えてもシグネチャを変えずに済む）。**Repository class を service の中に書かない**
 - **`repository/`**: interface は `repository/<name>.ts`、実装は `repository/drizzle/`。interface の引数・戻り値は `@repo/domain` の型か素の値にする。Drizzle の型は実装クラスの内側に閉じる（`@repo/eslint-config/db-boundary` が lint で強制）
 - **`lib/`**（任意）: env も DB も知らない純関数のみ
@@ -32,9 +32,15 @@ Repository の interface は api / worker と意図的に分離する（api は 
 
 run-once モデルなので、**処理の途中でシグナルを受けて終了した場合はタスクが未完了**を意味する。ここで exit 0 を返すとスケジューラが成功と誤認し、削除が途中で止まっても次回まで気付けない。
 
-`src/runtime/graceful-shutdown.ts` は中断時に **非 0（`128 + シグナル番号`。SIGTERM=143 / SIGINT=130）で終了する**。戻り値の `isShuttingDown` は長時間ループや batch で各 iteration の頭をチェックして自発的に break するために使う。
+task は `src/run-task.ts` の `runTask(name, async ({ db }) => { ... })` で包む。DB client の生成・切断、シグナルの受信、終了コードは `runTask` が持つので、task 側には書かない。
 
-タスク失敗時は `throw` してプロセスを exit code 1 で終わらせ、スケジューラに通知する。
+| 結果 | 終了コード |
+| --- | --- |
+| 成功 | 0 |
+| 失敗（task が throw、または DB の切断に失敗） | 1 |
+| 中断（SIGTERM / SIGINT） | `128 + シグナル番号`（SIGTERM=143 / SIGINT=130） |
+
+中断時は task の完了を待たずに終了する（実行中の DB クエリの完了だけ待ってから切断する）。**task / service の中でシグナルを見てループを break する処理は書かない**（JS は実行中の処理を外から止められず、チェックが回る前にプロセスが終わる）。代わりに、途中で止まっても次の実行で続きから拾い直せる処理にする。
 
 ## 環境変数
 
