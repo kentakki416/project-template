@@ -3,6 +3,7 @@
 import {
   autoUpdate,
   flip,
+  FloatingFocusManager,
   FloatingPortal,
   offset,
   shift,
@@ -12,13 +13,17 @@ import {
   useInteractions,
   useRole,
 } from "@floating-ui/react"
+import dynamic from "next/dynamic"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import React, { ReactNode, useEffect, useMemo, useState, useTransition } from "react"
+import React, { ReactNode, useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { twMerge } from "tailwind-merge"
 
-import DatePicker from "../form/DatePicker"
-
 import Pagination from "./Pagination"
+
+/**
+ * 日付の絞り込み（dateRange）を開いたときだけ flatpickr を読み込む
+ */
+const DatePicker = dynamic(async () => import("../form/DatePicker"), { ssr: false })
 
 /**
  * テーブルカラム定義
@@ -37,11 +42,18 @@ export type Column<T> = {
 /**
  * 検索設定
  */
-type SearchConfig<T> = {
-  /** client モードで検索する行の項目。server モードでは使わない（検索は api が行う） */
-  filterKeys?: (keyof T)[]
+type SearchConfig = {
+  /** 検索語の最大の長さ（server モードで api の検証と合わせる） */
+  maxLength?: number
   /** プレースホルダーテキスト */
   placeholder?: string
+}
+
+/**
+ * client モードの検索設定。検索する行の項目を指定する
+ */
+type ClientSearchConfig<T> = SearchConfig & {
+  filterKeys: (keyof T)[]
 }
 
 /**
@@ -54,47 +66,69 @@ type PaginationConfig = {
   pageSizeOptions?: number[]
 }
 
+type FilterOption = { label: string; value: string }
+
 /**
- * フィルタ定義。type を省略したら select
- * - client モード: select の key は行のフィールド名
- * - server モード: key は URL の検索パラメータ名（行のフィールドと一致しなくてよい）。
- *   dateRange は server モードだけで、`{key}_from` / `{key}_to`（`YYYY-MM-DD`、両端を含む）
+ * server モードのフィルタ定義。type を省略したら select。
+ * key は URL の検索パラメータ名（行のフィールドと一致しなくてよい）。
+ * dateRange は `{key}_from` / `{key}_to`（`YYYY-MM-DD`、両端を含む）
  */
 export type FilterConfig =
-  | { key: string; label: string; options: { label: string; value: string }[]; type?: "select" }
+  | { key: string; label: string; options: FilterOption[]; type?: "select" }
   | { key: string; label: string; type: "dateRange" }
 
 /**
+ * client モードのフィルタ定義（select だけ）。key は行のフィールド名
+ */
+export type ClientFilterConfig<T> = { key: keyof T & string; label: string; options: FilterOption[] }
+
+/**
  * サーバー側で検索・絞り込み・ページングするときの設定。
- * 指定すると状態を URL の検索パラメータ（q / page / per_page / 絞り込みの key）で持ち、data はその 1 ページ分として扱う
+ * 指定すると状態を URL の検索パラメータ（q / page / per_page / 絞り込みの key）で持ち、data はその 1 ページ分として扱う。
+ * page / perPage は api が実際に使った値（URL を手で書き換えても、表示とページ数が api と食い違わないように）
  */
 type ServerModeConfig = {
+  page: number
+  perPage: number
   /** 条件に合う全件数（フッターとページ数に使う） */
   totalCount: number
 }
 
+type ServerModeProps = {
+  /** フィルタ定義。指定するとフィルタのボタンを表示 */
+  filters?: FilterConfig[]
+  /** 検索設定。指定すると検索バーを表示 */
+  search?: SearchConfig
+  /** 指定すると検索・絞り込み・ページングをサーバー側に任せる */
+  server: ServerModeConfig
+}
+
+type ClientModeProps<T> = {
+  /** フィルタ定義。指定するとフィルタのボタンを表示 */
+  filters?: ClientFilterConfig<T>[]
+  /** 検索設定。指定すると検索バーを表示 */
+  search?: ClientSearchConfig<T>
+  server?: undefined
+}
+
 /**
- * DataTable の Props
+ * DataTable の Props（server を渡すかどうかで、filters と search の形が変わる）
  */
-type DataTableProps<T> = {
+type DataTableProps<T> = BaseProps<T> & (ServerModeProps | ClientModeProps<T>)
+
+type BaseProps<T> = {
   /** カラム定義 */
   columns: Column<T>[]
   /** テーブルに表示するデータ配列 */
   data: T[]
   /** 該当 0 件のときの表示 */
   emptyMessage?: string
-  /** フィルタ定義。指定するとフィルタのボタンを表示 */
-  filters?: FilterConfig[]
   /** 行のリンク先。指定すると行のクリックで遷移する */
   getRowHref?: (row: T) => string
   /** 各行のユニークキーを取得する関数 */
   getRowKey: (row: T) => string | number
   /** ページネーション設定。指定するとページネーションを表示 */
   pagination?: PaginationConfig
-  /** 検索設定。指定すると検索バーを表示 */
-  search?: SearchConfig<T>
-  /** 指定すると検索・絞り込み・ページングをサーバー側に任せる */
-  server?: ServerModeConfig
 }
 
 /**
@@ -113,6 +147,11 @@ const QUERY_PARAM = "q"
 const FIELD_CLASS_NAME =
   "shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border border-gray-300 bg-transparent text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
 
+/**
+ * ポップオーバーの日付の入力。select と同じ高さ・フォーカスの色にそろえる
+ */
+const DATE_INPUT_CLASS_NAME = "h-10 focus:ring-brand-500/10"
+
 const CELL_CLASS_NAME = "px-5 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-400"
 
 /**
@@ -120,6 +159,27 @@ const CELL_CLASS_NAME = "px-5 py-4 whitespace-nowrap text-sm text-gray-700 dark:
  */
 const listFilterValueKeys = (filter: FilterConfig): string[] =>
   filter.type === "dateRange" ? [`${filter.key}_from`, `${filter.key}_to`] : [filter.key]
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * フィルタの値として使えるものだけを取り出す（select は選択肢にある値、dateRange は `YYYY-MM-DD`）。
+ * URL を手で書き換えた値を、効いていない絞り込みとして数えないため
+ */
+const pickValidFilterValues = (filters: FilterConfig[], readValue: (key: string) => string | null | undefined): FilterValues => {
+  const values: FilterValues = {}
+  for (const filter of filters) {
+    for (const key of listFilterValueKeys(filter)) {
+      const value = readValue(key)
+      if (!value) continue
+      const isValid = filter.type === "dateRange"
+        ? DATE_PATTERN.test(value)
+        : filter.options.some((option) => option.value === value)
+      if (isValid) values[key] = value
+    }
+  }
+  return values
+}
 
 /**
  * 値が入っているフィルタの数（dateRange は片方だけでも 1 つと数える）
@@ -134,30 +194,20 @@ const resolveDefaultPageSize = (pagination?: PaginationConfig): number =>
   pagination?.defaultPageSize ?? resolvePageSizeOptions(pagination)[0]
 
 /**
- * 検索パラメータを正の整数として読む。読めなければ fallback
+ * 検索パラメータ（`a=1&b=2`）に updates を当てた文字列を作る。値が空の項目は消す。shouldResetPage なら page も消す
  */
-const parsePositiveInt = (value: string | null, fallback: number): number => {
-  const parsed = Number(value)
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback
-}
-
-/**
- * 今の検索パラメータに updates を当てた URL を作る。値が空の項目は消す。shouldResetPage なら page も消す
- */
-const buildUrlWithSearchParams = (
-  pathname: string,
-  searchParams: URLSearchParams,
+const applySearchParamUpdates = (
+  searchParams: string,
   updates: Record<string, string | undefined>,
   shouldResetPage: boolean,
 ): string => {
-  const params = new URLSearchParams(searchParams.toString())
+  const params = new URLSearchParams(searchParams)
   for (const [key, value] of Object.entries(updates)) {
     if (value) params.set(key, value)
     else params.delete(key)
   }
   if (shouldResetPage) params.delete(PAGE_PARAM)
-  const queryString = params.toString()
-  return queryString ? `${pathname}?${queryString}` : pathname
+  return params.toString()
 }
 
 /**
@@ -168,7 +218,7 @@ export default function DataTable<T>(props: DataTableProps<T>) {
   if (props.server) {
     return <ServerStateDataTable {...props} server={props.server} />
   }
-  return <ClientStateDataTable {...props} />
+  return <ClientStateDataTable {...props} server={undefined} />
 }
 
 /**
@@ -185,7 +235,7 @@ function ServerStateDataTable<T>({
   pagination,
   search,
   server,
-}: DataTableProps<T> & { server: ServerModeConfig }) {
+}: BaseProps<T> & ServerModeProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -209,28 +259,28 @@ function ServerStateDataTable<T>({
     else setQuery(urlQuery)
   }
 
+  const appliedFilterValues = useMemo(
+    () => pickValidFilterValues(filters ?? [], (key) => searchParams.get(key)),
+    [filters, searchParams],
+  )
+
   /**
-   * 選択肢に無い件数（URL の手書きなど）は既定にする。画面（api の呼び出し）も同じ扱いにしておく
+   * 最後に書いた検索パラメータ。searchParams は遷移が終わるまで古い値のままなので、
+   * 遷移の途中に続けて操作したとき（絞り込みの直後にページを押すなど）に、前の操作を消さないようここから組み立てる
    */
-  const urlPerPage = parsePositiveInt(searchParams.get(PER_PAGE_PARAM), resolveDefaultPageSize(pagination))
-  const perPage = resolvePageSizeOptions(pagination).includes(urlPerPage) ? urlPerPage : resolveDefaultPageSize(pagination)
-  const currentPage = parsePositiveInt(searchParams.get(PAGE_PARAM), 1)
-  const appliedFilterValues = useMemo(() => {
-    const values: FilterValues = {}
-    for (const key of (filters ?? []).flatMap(listFilterValueKeys)) {
-      const value = searchParams.get(key)
-      if (value) values[key] = value
-    }
-    return values
-  }, [filters, searchParams])
+  const latestSearchParamsRef = useRef(searchParams.toString())
+  useEffect(() => {
+    latestSearchParamsRef.current = searchParams.toString()
+  }, [searchParams])
 
   /**
    * 検索パラメータを書き換えて URL を差し替える。条件を変えたときは page を消して 1 ページ目に戻す
    */
   const replaceSearchParams = (updates: Record<string, string | undefined>, shouldResetPage: boolean) => {
-    const url = buildUrlWithSearchParams(pathname, searchParams, updates, shouldResetPage)
+    const nextSearchParams = applySearchParamUpdates(latestSearchParamsRef.current, updates, shouldResetPage)
+    latestSearchParamsRef.current = nextSearchParams
     startTransition(() => {
-      router.replace(url, { scroll: false })
+      router.replace(nextSearchParams ? `${pathname}?${nextSearchParams}` : pathname, { scroll: false })
     })
   }
 
@@ -242,20 +292,21 @@ function ServerStateDataTable<T>({
     if (trimmedQuery === urlQuery) return
     const timer = setTimeout(() => {
       setRequestedQuery(trimmedQuery)
-      const url = buildUrlWithSearchParams(pathname, searchParams, { [QUERY_PARAM]: trimmedQuery }, true)
+      const nextSearchParams = applySearchParamUpdates(latestSearchParamsRef.current, { [QUERY_PARAM]: trimmedQuery }, true)
+      latestSearchParamsRef.current = nextSearchParams
       startTransition(() => {
-        router.replace(url, { scroll: false })
+        router.replace(nextSearchParams ? `${pathname}?${nextSearchParams}` : pathname, { scroll: false })
       })
     }, SEARCH_DEBOUNCE_MS)
     return () => clearTimeout(timer)
-  }, [pathname, query, router, searchParams, urlQuery])
+  }, [pathname, query, router, urlQuery])
 
   const filterKeys = (filters ?? []).flatMap(listFilterValueKeys)
 
   return (
     <DataTableView
       columns={columns}
-      currentPage={currentPage}
+      currentPage={server.page}
       emptyMessage={emptyMessage}
       filterValues={appliedFilterValues}
       filters={filters}
@@ -263,9 +314,10 @@ function ServerStateDataTable<T>({
       getRowKey={getRowKey}
       isPending={isPending}
       pageSizeOptions={pagination ? resolvePageSizeOptions(pagination) : undefined}
-      perPage={perPage}
+      perPage={server.perPage}
       query={query}
       rows={data}
+      searchMaxLength={search?.maxLength}
       searchPlaceholder={search ? search.placeholder ?? "検索..." : undefined}
       totalCount={server.totalCount}
       onFiltersApply={(values) =>
@@ -290,7 +342,7 @@ function ClientStateDataTable<T>({
   getRowKey,
   pagination,
   search,
-}: DataTableProps<T>) {
+}: BaseProps<T> & ClientModeProps<T>) {
   const [currentPage, setCurrentPage] = useState(1)
   const [perPage, setPerPage] = useState(resolveDefaultPageSize(pagination))
   const [query, setQuery] = useState("")
@@ -300,12 +352,11 @@ function ClientStateDataTable<T>({
     const lowerQuery = query.trim().toLowerCase()
     return data.filter((row) => {
       const matchesFilters = (filters ?? []).every((filter) => {
-        if (filter.type === "dateRange") return true
         const selected = filterValues[filter.key]
-        return !selected || String(row[filter.key as keyof T]) === selected
+        return !selected || String(row[filter.key]) === selected
       })
       if (!matchesFilters) return false
-      if (!lowerQuery || !search?.filterKeys) return true
+      if (!lowerQuery || !search) return true
       return search.filterKeys.some((key) => {
         const value = row[key]
         return value !== null && value !== undefined && String(value).toLowerCase().includes(lowerQuery)
@@ -331,6 +382,7 @@ function ClientStateDataTable<T>({
       perPage={perPage}
       query={query}
       rows={rows}
+      searchMaxLength={search?.maxLength}
       searchPlaceholder={search ? search.placeholder ?? "検索..." : undefined}
       totalCount={pagination ? filteredRows.length : undefined}
       onFiltersApply={(values) => {
@@ -369,6 +421,7 @@ type DataTableViewProps<T> = {
   perPage: number
   query: string
   rows: T[]
+  searchMaxLength?: number
   /** 指定すると検索バーを出す */
   searchPlaceholder?: string
   /** 指定するとフッター（件数とページ番号）を出す */
@@ -395,6 +448,7 @@ function DataTableView<T>({
   perPage,
   query,
   rows,
+  searchMaxLength,
   searchPlaceholder,
   totalCount,
 }: DataTableViewProps<T>) {
@@ -406,12 +460,19 @@ function DataTableView<T>({
   const lastIndex = firstIndex + rows.length - 1
 
   /**
-   * 行のクリックで遷移する。行の中のリンク・ボタン・入力欄のクリックは、それぞれに任せる
+   * 行のクリックで遷移する。行の中のリンク・ボタン・入力欄のクリックは、それぞれに任せる。
+   * 文字を選んだだけ（コピーしようとした）のときは移らない。⌘ / Ctrl を押していれば新しいタブで開く
    */
   const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>, row: T) => {
     if (!getRowHref) return
     if ((event.target as HTMLElement).closest("a, button, input, select, label")) return
-    router.push(getRowHref(row))
+    if (window.getSelection()?.toString()) return
+    const href = getRowHref(row)
+    if (event.metaKey || event.ctrlKey) {
+      window.open(href, "_blank")
+      return
+    }
+    router.push(href)
   }
 
   return (
@@ -455,6 +516,7 @@ function DataTableView<T>({
                 <input
                   aria-label={searchPlaceholder}
                   className={`${FIELD_CLASS_NAME} h-11 py-2.5 pr-4 pl-11 sm:w-[300px] sm:min-w-[300px]`}
+                  maxLength={searchMaxLength}
                   placeholder={searchPlaceholder}
                   type="text"
                   value={query}
@@ -616,82 +678,92 @@ function FilterPopover({ appliedValues, filters, onApply }: FilterPopoverProps) 
       </button>
       {isOpen && (
         <FloatingPortal>
-          <div
-            ref={setFloating}
-            className="z-99999 w-56 rounded-lg border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800"
-            style={floatingStyles}
-            {...getFloatingProps()}
-          >
-            {filters.map((filter) => (
-              <div key={filter.key} className="mb-5">
-                <label
-                  className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300"
-                  htmlFor={`filter-${filter.key}`}
-                >
-                  {filter.label}
-                </label>
-                {filter.type === "dateRange" ? (
-                  <div className="space-y-2">
-                    <DatePicker
-                      id={`filter-${filter.key}`}
-                      placeholder="開始日"
-                      value={draftValues[`${filter.key}_from`] ?? ""}
-                      onChange={(_dates, dateStr) => updateDraftValue(`${filter.key}_from`, dateStr)}
-                    />
-                    <DatePicker
-                      id={`filter-${filter.key}-to`}
-                      placeholder="終了日"
-                      value={draftValues[`${filter.key}_to`] ?? ""}
-                      onChange={(_dates, dateStr) => updateDraftValue(`${filter.key}_to`, dateStr)}
-                    />
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <select
-                      className={`${FIELD_CLASS_NAME} h-10 appearance-none px-4 py-2.5 pr-8`}
-                      id={`filter-${filter.key}`}
-                      value={draftValues[filter.key] ?? ""}
-                      onChange={(event) => updateDraftValue(filter.key, event.target.value)}
-                    >
-                      <option className="text-gray-500 dark:bg-gray-900 dark:text-gray-400" value="">
-                        すべて
-                      </option>
-                      {filter.options.map((option) => (
-                        <option
-                          key={option.value}
-                          className="text-gray-500 dark:bg-gray-900 dark:text-gray-400"
-                          value={option.value}
-                        >
-                          {option.label}
+          {/**
+           * 開いたらポップオーバーの中にフォーカスを移し、閉じたらボタンに戻す。
+           * 日付のカレンダーはポップオーバーの外に出るので、外へのフォーカスは閉じ込めない（modal にしない）
+           */}
+          <FloatingFocusManager context={context} modal={false}>
+            <div
+              ref={setFloating}
+              className="z-99999 w-56 rounded-lg border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+              style={floatingStyles}
+              {...getFloatingProps()}
+            >
+              {filters.map((filter) => (
+                <div key={filter.key} className="mb-5">
+                  <label
+                    className="mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300"
+                    htmlFor={`filter-${filter.key}`}
+                  >
+                    {filter.label}
+                  </label>
+                  {filter.type === "dateRange" ? (
+                    <div className="space-y-2">
+                      <DatePicker
+                        ariaLabel={`${filter.label}（開始日）`}
+                        id={`filter-${filter.key}`}
+                        inputClassName={DATE_INPUT_CLASS_NAME}
+                        placeholder="開始日"
+                        value={draftValues[`${filter.key}_from`] ?? ""}
+                        onChange={(_dates, dateStr) => updateDraftValue(`${filter.key}_from`, dateStr)}
+                      />
+                      <DatePicker
+                        ariaLabel={`${filter.label}（終了日）`}
+                        id={`filter-${filter.key}-to`}
+                        inputClassName={DATE_INPUT_CLASS_NAME}
+                        placeholder="終了日"
+                        value={draftValues[`${filter.key}_to`] ?? ""}
+                        onChange={(_dates, dateStr) => updateDraftValue(`${filter.key}_to`, dateStr)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <select
+                        className={`${FIELD_CLASS_NAME} h-10 appearance-none px-4 py-2.5 pr-8`}
+                        id={`filter-${filter.key}`}
+                        value={draftValues[filter.key] ?? ""}
+                        onChange={(event) => updateDraftValue(filter.key, event.target.value)}
+                      >
+                        <option className="text-gray-500 dark:bg-gray-900 dark:text-gray-400" value="">
+                          すべて
                         </option>
-                      ))}
-                    </select>
-                    <SelectArrow />
-                  </div>
-                )}
-              </div>
-            ))}
-            <button
-              className="bg-brand-500 hover:bg-brand-600 h-10 w-full rounded-lg px-3 py-2 text-sm font-medium text-white"
-              type="button"
-              onClick={() => {
-                onApply(draftValues)
-                setIsOpen(false)
-              }}
-            >
-              適用
-            </button>
-            <button
-              className="text-brand-500 hover:text-brand-600 mt-3 block w-full text-center text-xs"
-              type="button"
-              onClick={() => {
-                setDraftValues({})
-                onApply({})
-              }}
-            >
-              リセット
-            </button>
-          </div>
+                        {filter.options.map((option) => (
+                          <option
+                            key={option.value}
+                            className="text-gray-500 dark:bg-gray-900 dark:text-gray-400"
+                            value={option.value}
+                          >
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <SelectArrow />
+                    </div>
+                  )}
+                </div>
+              ))}
+              <button
+                className="bg-brand-500 hover:bg-brand-600 h-10 w-full rounded-lg px-3 py-2 text-sm font-medium text-white"
+                type="button"
+                onClick={() => {
+                  onApply(draftValues)
+                  setIsOpen(false)
+                }}
+              >
+                適用
+              </button>
+              <button
+                className="text-brand-500 hover:text-brand-600 mt-3 block w-full text-center text-xs"
+                type="button"
+                onClick={() => {
+                  setDraftValues({})
+                  onApply({})
+                }}
+              >
+                リセット
+              </button>
+            </div>
+          </FloatingFocusManager>
         </FloatingPortal>
       )}
     </>

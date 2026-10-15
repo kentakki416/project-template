@@ -149,6 +149,15 @@ describe("UserRepository.search", () => {
       expect(result).toEqual({ totalCount: 1, users: [] })
     })
 
+    it("同じログイン方法を 2 つ紐付けていても 1 つにまとめる", async () => {
+      const row = await insertUser({ name: "Two Googles", providers: ["google"] })
+      await testDb.insert(authAccounts).values({ provider: "google", providerAccountId: "google-second", userId: row.id })
+
+      const result = await userRepository.search(BASE_SEARCH)
+
+      expect(result.users[0].providers).toEqual(["google"])
+    })
+
     it("各ユーザーに紐付くログイン方法を付けて返す", async () => {
       const row = await insertUser({ email: "alice@example.com", name: "Alice", providers: ["dev", "google"] })
       const none = await insertUser({ name: "None" })

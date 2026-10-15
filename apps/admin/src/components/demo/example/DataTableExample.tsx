@@ -1,7 +1,7 @@
 "use client"
 
 import Badge from "@/components/ui/badge/Badge"
-import { Column, DataTable, FilterConfig } from "@/components/ui/table"
+import { ClientFilterConfig, Column, DataTable } from "@/components/ui/table"
 
 type Member = {
   id: number
@@ -43,7 +43,7 @@ const columns: Column<Member>[] = [
   },
 ]
 
-const filters: FilterConfig[] = [
+const filters: ClientFilterConfig<Member>[] = [
   { key: "role", label: "Role", options: ROLES.map((role) => ({ label: role, value: role })) },
   {
     key: "status",

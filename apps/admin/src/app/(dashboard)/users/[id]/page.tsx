@@ -5,6 +5,7 @@ import React from "react"
 import BackToUserListButton from "@/components/features/user/BackToUserListButton"
 import UserDetailCards from "@/components/features/user/UserDetailCards"
 import PageBreadcrumb from "@/components/layout/PageBreadCrumb"
+import { convertUserIdParamToNumber } from "@/features/user/user-list-params"
 import { userApi } from "@/features/user/user.api"
 import { ApiClientError } from "@/libs/api-client"
 
@@ -20,11 +21,11 @@ type Props = {
  * ユーザー詳細。基本情報と、紐付けているログイン方法を出す
  */
 export default async function UserDetailPage({ params }: Props) {
-  const id = Number((await params).id)
   /**
-   * 1.5 / 0 / -1 を api に渡すと 400 になり、404 の画面にならないので、ここで弾く
+   * 1.5 / 0 / -1 / DB の範囲を超える ID を api に渡すと 400 になり、404 の画面にならないので、ここで弾く
    */
-  if (!Number.isSafeInteger(id) || id <= 0) {
+  const id = convertUserIdParamToNumber((await params).id)
+  if (id === null) {
     notFound()
   }
 

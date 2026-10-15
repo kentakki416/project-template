@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 
-import { authProviderSchema, GetAdminUserListResponse } from "@repo/api-schema"
+import { ADMIN_USER_LIST_MAX_QUERY_LENGTH, authProviderSchema, GetAdminUserListResponse } from "@repo/api-schema"
 
 import AuthProviderBadge from "@/components/features/user/AuthProviderBadge"
 import UserAvatar from "@/components/features/user/UserAvatar"
@@ -25,7 +25,7 @@ const columns: Column<UserRow>[] = [
           className="text-theme-sm font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400"
           href={`/users/${row.id}`}
         >
-          {row.name ?? "（名前なし）"}
+          {row.name ?? "名前未設定"}
         </Link>
       </div>
     ),
@@ -64,6 +64,9 @@ const filters: FilterConfig[] = [
 ]
 
 type Props = {
+  /** api が実際に使ったページと件数 */
+  page: number
+  perPage: number
   totalCount: number
   users: UserRow[]
 }
@@ -71,7 +74,7 @@ type Props = {
 /**
  * ユーザー一覧の表。検索・絞り込み・ページングは URL に持ち、api で行う（DataTable の server モード）
  */
-export default function UserTable({ totalCount, users }: Props) {
+export default function UserTable({ page, perPage, totalCount, users }: Props) {
   return (
     <DataTable
       columns={columns}
@@ -81,8 +84,8 @@ export default function UserTable({ totalCount, users }: Props) {
       getRowHref={(row) => `/users/${row.id}`}
       getRowKey={(row) => row.id}
       pagination={{ defaultPageSize: USER_LIST_DEFAULT_PER_PAGE, pageSizeOptions: USER_LIST_PAGE_SIZE_OPTIONS }}
-      search={{ placeholder: "名前・メールアドレスで検索" }}
-      server={{ totalCount }}
+      search={{ maxLength: ADMIN_USER_LIST_MAX_QUERY_LENGTH, placeholder: "名前・メールアドレスで検索" }}
+      server={{ page, perPage, totalCount }}
     />
   )
 }

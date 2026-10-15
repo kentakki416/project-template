@@ -32,7 +32,7 @@ export default function UserDetailCards({ user }: Props) {
             <UserAvatar avatarUrl={user.avatar_url} name={user.name} size="lg" />
           </div>
           <div className="text-left">
-            <h4 className="mb-2 text-lg font-semibold text-gray-800 dark:text-white/90">{user.name ?? "（名前なし）"}</h4>
+            <h4 className="mb-2 text-lg font-semibold text-gray-800 dark:text-white/90">{user.name ?? "名前未設定"}</h4>
             <p className="text-sm text-gray-500 dark:text-gray-400">{user.email ?? "-"}</p>
           </div>
         </div>

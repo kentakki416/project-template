@@ -23,16 +23,35 @@ const timeZoneOffsetFormatter = new Intl.DateTimeFormat("en-US", {
 })
 
 /**
- * 設定のタイムゾーンの、その日の UTC からのずれ（`+09:00`）
+ * 設定のタイムゾーンの、ある時刻での UTC からのずれ（`+09:00`）
  */
-const resolveTimeZoneOffset = (date: string): string => {
+const resolveTimeZoneOffsetAt = (time: number): string => {
   const name = timeZoneOffsetFormatter
-    .formatToParts(new Date(`${date}T00:00:00Z`))
+    .formatToParts(new Date(time))
     .find((part) => part.type === "timeZoneName")?.value
   /**
    * longOffset は `GMT+09:00`。UTC は `GMT` だけになる
    */
   return name?.match(/[+-]\d{2}:\d{2}/)?.[0] ?? "+00:00"
+}
+
+/**
+ * `+09:00` を分（540）にする
+ */
+const convertOffsetToMinutes = (offset: string): number => {
+  const sign = offset.startsWith("-") ? -1 : 1
+  const [hours, minutes] = offset.slice(1).split(":").map(Number)
+  return sign * (hours * 60 + minutes)
+}
+
+/**
+ * 設定のタイムゾーンで、その日の 0 時の UTC からのずれ。
+ * UTC の 0 時のずれで見当を付け、その分ずらした時刻（＝その日の 0 時の近く）でもう一度取る（夏時間の切り替わる日に 1 時間ずれないように）
+ */
+const resolveTimeZoneOffset = (date: string): string => {
+  const utcMidnight = Date.parse(`${date}T00:00:00Z`)
+  const guess = convertOffsetToMinutes(resolveTimeZoneOffsetAt(utcMidnight))
+  return resolveTimeZoneOffsetAt(utcMidnight - guess * 60 * 1000)
 }
 
 /**

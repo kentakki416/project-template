@@ -9,6 +9,35 @@ export const authProviderSchema = z.enum(AUTH_PROVIDERS)
 
 export type AuthProvider = z.infer<typeof authProviderSchema>
 
+/**
+ * ユーザー一覧で指定できるページ番号の上限。offset が DB の整数の範囲をあふれないように抑える
+ */
+export const ADMIN_USER_LIST_MAX_PAGE = 10_000
+
+/**
+ * ユーザー一覧の検索語の最大の長さ
+ */
+export const ADMIN_USER_LIST_MAX_QUERY_LENGTH = 100
+
+/**
+ * ユーザー ID の上限（DB の serial = int4 の最大値）。超える値を渡すと DB のエラーになる
+ */
+export const ADMIN_USER_ID_MAX = 2_147_483_647
+
+/**
+ * DB の timestamp に入れられる日時か（1970 年 1 月 1 日から 9999 年 12 月 31 日まで）。
+ * 0001 年などは UTC にすると 0 年になり、Postgres が受け付けない
+ */
+const isStorableDateTime = (value: string): boolean => {
+  const time = Date.parse(value)
+  return time >= Date.UTC(1970, 0, 1) && time < Date.UTC(10000, 0, 1)
+}
+
+const storableDateTimeSchema = z
+  .string()
+  .datetime({ offset: true })
+  .refine(isStorableDateTime, { message: "1970-01-01 から 9999-12-31 の日時にする" })
+
 // ========================================================
 // GET /api/admin/users - ユーザー一覧（検索・絞り込み・ページング）
 // ========================================================
@@ -20,12 +49,12 @@ export type AuthProvider = z.infer<typeof authProviderSchema>
  * オフセット付きの ISO 8601 で渡す
  */
 export const getAdminUserListQueryStringSchema = z.object({
-  created_before: z.string().datetime({ offset: true }).optional(),
-  created_from: z.string().datetime({ offset: true }).optional(),
-  page: z.coerce.number().int().positive().default(1),
+  created_before: storableDateTimeSchema.optional(),
+  created_from: storableDateTimeSchema.optional(),
+  page: z.coerce.number().int().positive().max(ADMIN_USER_LIST_MAX_PAGE).default(1),
   per_page: z.coerce.number().int().min(1).max(100).default(20),
   provider: authProviderSchema.optional(),
-  q: z.string().trim().max(100).optional(),
+  q: z.string().trim().max(ADMIN_USER_LIST_MAX_QUERY_LENGTH).optional(),
 })
 
 export type GetAdminUserListQueryString = z.infer<typeof getAdminUserListQueryStringSchema>
@@ -57,7 +86,7 @@ export type GetAdminUserListResponse = z.infer<typeof getAdminUserListResponseSc
  * ユーザー詳細のパスパラメータ `:id` を検証するスキーマ
  */
 export const getAdminUserPathParamSchema = z.object({
-  id: z.coerce.number().int().positive(),
+  id: z.coerce.number().int().positive().max(ADMIN_USER_ID_MAX),
 })
 
 export type GetAdminUserPathParam = z.infer<typeof getAdminUserPathParamSchema>

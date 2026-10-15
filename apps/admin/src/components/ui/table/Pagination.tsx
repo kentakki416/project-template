@@ -24,8 +24,13 @@ const buildPageItems = (currentPage: number, totalPages: number): PageItem[] => 
   if (totalPages <= MAX_PAGES_WITHOUT_ELLIPSIS) {
     return Array.from({ length: totalPages }, (_, i) => i + 1)
   }
-  const start = Math.max(2, currentPage - SIBLING_COUNT)
-  const end = Math.min(totalPages - 1, currentPage + SIBLING_COUNT)
+  /**
+   * 「…」が 1 ページだけを隠すときは、「…」の代わりにその番号を出す
+   */
+  const nearStart = Math.max(2, currentPage - SIBLING_COUNT)
+  const nearEnd = Math.min(totalPages - 1, currentPage + SIBLING_COUNT)
+  const start = nearStart === 3 ? 2 : nearStart
+  const end = nearEnd === totalPages - 2 ? totalPages - 1 : nearEnd
   const middle = Array.from({ length: end - start + 1 }, (_, i) => start + i)
   return [
     1,

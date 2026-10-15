@@ -61,10 +61,13 @@ describe("GET /api/admin/users/:id", () => {
       expect(res.body).toEqual({ error: expect.any(String), status_code: 404 })
     })
 
-    it("ID が数値でなければ 400", async () => {
+    it.each([
+      ["数値でない", "abc"],
+      ["int4 の上限を超える", "2147483648"],
+    ])("ID が%sなら 400", async (_label, id) => {
       const { token } = await createTestAdmin()
 
-      const res = await request(app).get("/api/admin/users/abc").set("Authorization", `Bearer ${token}`)
+      const res = await request(app).get(`/api/admin/users/${id}`).set("Authorization", `Bearer ${token}`)
 
       expect(res.status).toBe(400)
     })

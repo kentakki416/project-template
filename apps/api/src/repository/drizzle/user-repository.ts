@@ -14,7 +14,7 @@ import {
   sql,
   users,
 } from "@repo/db"
-import { User } from "@repo/domain"
+import { AuthProvider, User } from "@repo/domain"
 
 import type { TransactionContext } from "../transaction"
 import type { CreateUserInput, SearchUsersInput, SearchUsersResult, UserRepository } from "../user-repository"
@@ -75,14 +75,16 @@ export class DrizzleUserRepository implements UserRepository {
       input.createdBefore ? lt(users.createdAt, input.createdBefore) : undefined,
     )
 
-    const [{ total }] = await this._db.select({ total: count() }).from(users).where(where)
-    const rows = await this._db
-      .select()
-      .from(users)
-      .where(where)
-      .orderBy(desc(users.createdAt), desc(users.id))
-      .limit(input.limit)
-      .offset(input.offset)
+    const [[{ total }], rows] = await Promise.all([
+      this._db.select({ total: count() }).from(users).where(where),
+      this._db
+        .select()
+        .from(users)
+        .where(where)
+        .orderBy(desc(users.createdAt), desc(users.id))
+        .limit(input.limit)
+        .offset(input.offset),
+    ])
 
     /**
      * そのページのユーザーのログイン方法をまとめて引く（行ごとに引かない）
@@ -95,11 +97,21 @@ export class DrizzleUserRepository implements UserRepository {
         .where(inArray(authAccounts.userId, rows.map((row) => row.id)))
         .orderBy(authAccounts.createdAt, authAccounts.id)
 
+    /**
+     * ユーザーごとのログイン方法。同じ方法を 2 つ紐付けていても（Google のアカウントを 2 つなど）1 つにまとめる
+     */
+    const providersByUserId = new Map<number, Set<AuthProvider>>()
+    for (const account of accounts) {
+      const providers = providersByUserId.get(account.userId) ?? new Set<AuthProvider>()
+      providers.add(account.provider)
+      providersByUserId.set(account.userId, providers)
+    }
+
     return {
       totalCount: total,
       users: rows.map((row) => ({
         ...this._toDomainUser(row),
-        providers: accounts.filter((account) => account.userId === row.id).map((account) => account.provider),
+        providers: [...(providersByUserId.get(row.id) ?? [])],
       })),
     }
   }
