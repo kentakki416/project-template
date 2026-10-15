@@ -147,9 +147,6 @@ export default function NotificationDropdown({ markAllAsReadAction, notification
             })}
           </ul>
         )}
-        {/**
-         * DropdownItem の tag="button" は preventDefault するので submit に使わない。素の button にする
-         */}
         {hasUnread && markAllAsReadAction && (
           <form action={markAllAsReadAction} className="mt-auto">
             <button

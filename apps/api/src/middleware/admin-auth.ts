@@ -23,9 +23,6 @@ const isAdminPublicPath = (path: string): boolean => {
 /**
  * admin の Access Token で認証する。
  *
- * mountAdminApi（routes/admin-router.ts）で `/api/admin` の mount の中に置く。
- * 全体に適用して req.path で判定すると、Express 5 が大文字小文字を区別せずに Router に渡す
- * `/API/Admin/users` のようなパスで、認証の判定だけがすり抜けるため。
  * ここでの req.path は mount からの相対（/auth/google など）。
  */
 export const adminAuthMiddleware = (req: AdminAuthRequest, res: Response, next: NextFunction) => {
