@@ -7,6 +7,8 @@ import { AUTH_PROVIDERS } from "@repo/domain"
  */
 export const authProviderSchema = z.enum(AUTH_PROVIDERS)
 
+export type AuthProvider = z.infer<typeof authProviderSchema>
+
 // ========================================================
 // GET /api/admin/users - ユーザー一覧（検索・絞り込み・ページング）
 // ========================================================

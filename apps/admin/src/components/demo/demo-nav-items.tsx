@@ -41,7 +41,10 @@ export const demoNavSection: NavSection = {
     {
       icon: <TableIcon />,
       name: "Tables",
-      subItems: [{ name: "Basic Tables", path: "/demo/tables/basic" }],
+      subItems: [
+        { name: "Basic Tables", path: "/demo/tables/basic" },
+        { name: "Data Table", path: "/demo/tables/data-table" },
+      ],
     },
     {
       icon: <PageIcon />,

@@ -1,5 +1,5 @@
 import flatpickr from "flatpickr"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 import "flatpickr/dist/flatpickr.css"
 import { CalenderIcon } from "@/icons"
@@ -10,38 +10,65 @@ import Hook = flatpickr.Options.Hook
 import DateOption = flatpickr.Options.DateOption
 
 type PropsType = {
+  defaultDate?: DateOption;
   id: string;
+  label?: string;
   mode?: "single" | "multiple" | "range" | "time";
   onChange?: Hook | Hook[];
-  defaultDate?: DateOption;
-  label?: string;
   placeholder?: string;
+  /**
+   * 表示する日付（`YYYY-MM-DD`）。渡すと表示をこの値に合わせる（空文字で空にする）
+   */
+  value?: string;
 }
 
 export default function DatePicker({
+  defaultDate,
   id,
+  label,
   mode,
   onChange,
-  label,
-  defaultDate,
   placeholder,
+  value,
 }: PropsType) {
+  const flatpickrRef = useRef<flatpickr.Instance | null>(null)
+  /**
+   * onChange は ref に入れて、渡す関数が変わるたびに flatpickr を作り直さない
+   */
+  const onChangeRef = useRef(onChange)
   useEffect(() => {
-    const flatPickr = flatpickr(`#${id}`, {
-      mode: mode || "single",
-      static: true,
-      monthSelectorType: "static",
+    onChangeRef.current = onChange
+  }, [onChange])
+
+  useEffect(() => {
+    const instance = flatpickr(`#${id}`, {
       dateFormat: "Y-m-d",
       defaultDate,
-      onChange,
+      mode: mode || "single",
+      monthSelectorType: "static",
+      onChange: (...args) => {
+        const handler = onChangeRef.current
+        const handlers = Array.isArray(handler) ? handler : handler ? [handler] : []
+        handlers.forEach((h) => h(...args))
+      },
+      /**
+       * カレンダーは body の直下に出す。親（ポップオーバーや表の枠）の overflow で切れないように
+       */
+      static: false,
     })
+    flatpickrRef.current = Array.isArray(instance) ? null : instance
 
     return () => {
-      if (!Array.isArray(flatPickr)) {
-        flatPickr.destroy()
+      if (!Array.isArray(instance)) {
+        instance.destroy()
       }
     }
-  }, [mode, onChange, id, defaultDate])
+  }, [mode, id, defaultDate])
+
+  useEffect(() => {
+    if (value === undefined) return
+    flatpickrRef.current?.setDate(value === "" ? [] : value, false)
+  }, [value])
 
   return (
     <div>

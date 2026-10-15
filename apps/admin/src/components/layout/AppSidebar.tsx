@@ -19,11 +19,18 @@ const navSections: NavSection[] = [mainNavSection, demoNavSection]
 
 type SubmenuState = { itemIndex: number; sectionIndex: number } | null
 
+/**
+ * 項目を選択中にするか。`/` は完全一致、それ以外はパスの segment 境界での前方一致
+ * （ユーザー詳細の /users/1 でも「ユーザー管理」（/users）を選択中にする）
+ */
+const isPathActive = (pathname: string, path: string): boolean =>
+  path === "/" ? pathname === path : pathname === path || pathname.startsWith(`${path}/`)
+
 const findSubmenuByPathname = (pathname: string): SubmenuState => {
   for (let sectionIndex = 0; sectionIndex < navSections.length; sectionIndex++) {
     const items = navSections[sectionIndex].items
     for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-      if (items[itemIndex].subItems?.some((subItem) => subItem.path === pathname)) {
+      if (items[itemIndex].subItems?.some((subItem) => isPathActive(pathname, subItem.path))) {
         return { itemIndex, sectionIndex }
       }
     }
@@ -140,7 +147,7 @@ export default function AppSidebar() {
     </ul>
   )
 
-  const isActive = useCallback((path: string) => path === pathname, [pathname])
+  const isActive = useCallback((path: string) => isPathActive(pathname, path), [pathname])
 
   const [openSubmenu, setOpenSubmenu] = useState<SubmenuState>(() =>
     findSubmenuByPathname(pathname)
