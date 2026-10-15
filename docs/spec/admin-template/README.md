@@ -142,7 +142,7 @@ graph LR
     UserApi --> Redis2[("Redis<br/>refresh_token:*")]
 ```
 
-api の中では、`/api/admin/*` を一般ユーザー用の認証ミドルウェアの対象から外し、admin 用の認証ミドルウェアだけが見るようにする。Controller / Service / Repository は共通のものを使い、admin 専用のものだけを足す（`apps/api/CLAUDE.md` の Admin API 設計方針）。
+api の中では、admin 用の認証ミドルウェアを `/api/admin` の mount の中に置き、そこを通らないと admin の Router に届かないようにする。一般ユーザー用の認証ミドルウェアは `/api/admin/*` を対象から外す。Controller / Service / Repository は共通のものを使い、admin 専用のものだけを足す（`apps/api/CLAUDE.md` の Admin API 設計方針）。
 
 ### デモの置き場所
 
@@ -156,7 +156,7 @@ api の中では、`/api/admin/*` を一般ユーザー用の認証ミドルウ�
 | `src/components/demo/demo-nav-items.tsx` | サイドバーの「デモ」の項目 |
 | `public/images/demo/` | デモだけが使う画像 |
 
-土台（`src/components/ui/` など）はデモを import しない。逆向き（デモ → 土台）だけを許す。これを lint で強制し（`no-restricted-imports`）、デモを消したときに土台が壊れないことを保証する。
+土台（`src/components/ui/` など）はデモを import しない。逆向き（デモ → 土台）だけを許す。これを lint で強制し（`import/no-restricted-paths`）、デモを消したときに土台が壊れないことを保証する。
 
 **実プロジェクトでデモを消す手順**（`apps/admin/README.md` に書く）:
 
@@ -169,6 +169,7 @@ api の中では、`/api/admin/*` を一般ユーザー用の認証ミドルウ�
 `src/config/app.ts` にアプリ名・説明・言語・タイムゾーンを置く。ロゴは `AppLogo` 部品にまとめ、既定ではアプリ名の頭文字のアイコン + アプリ名の文字で描く（画像を差し替えなくてもアプリ名を変えればロゴも変わる）。画像のロゴを使うプロジェクトは `AppLogo` の中身を差し替える。
 
 - ページの `<title>` は root layout の `metadata.title.template`（`%s | <アプリ名>`）で組み立て、各ページは自分の名前だけを `title` に書く
+- favicon は `public/favicon.svg` に置き、root layout の `metadata.icons` で指す（`app/icon.svg` にすると、`*.svg` を React 部品に変える svgr の設定と衝突するおそれがある）
 - フォントは TailAdmin の Outfit を残し、日本語は `Hiragino Sans` / `Noto Sans JP` 系にフォールバックさせる
 - 日時の表示は `formatDateTime()`（`Intl.DateTimeFormat` + 設定のタイムゾーン）に集約する。Server Component はサーバーのタイムゾーン（本番は UTC のことが多い）で動くため、`toLocaleString()` を直接使わない
 
@@ -191,16 +192,24 @@ api の中では、`/api/admin/*` を一般ユーザー用の認証ミドルウ�
 | JWT の payload | `{ userId }` | `{ adminId }` |
 | JWT の鍵 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | `JWT_ADMIN_ACCESS_SECRET` / `JWT_ADMIN_REFRESH_SECRET` |
 | refresh token の Redis のキー | `refresh_token:{jti}` | `admin_refresh_token:{jti}` |
-| api の認証ミドルウェア | `authMiddleware`（`/api/admin/*` は見ない） | `adminAuthMiddleware`（`/api/admin/*` だけを見る） |
-| cookie | `app_access_token` / `app_refresh_token` / `app_oauth_state` | `admin_access_token` / `admin_refresh_token` / `admin_oauth_state` |
+| api の認証ミドルウェア | `authMiddleware`（全体に適用。`/api/admin/*` は見ない） | `adminAuthMiddleware`（`app.use("/api/admin", adminAuthMiddleware, adminRouter(...))` で mount の中だけに適用） |
+| cookie | `app_access_token` / `app_refresh_token` / `app_oauth_state` | `admin_access_token` / `admin_refresh_token` / `admin_oauth_state` / `admin_oauth_redirect` |
 | Google の redirect URI | `{web}/api/auth/callback/google` | `{admin}/api/auth/callback/google` |
 
-- **鍵を分ける理由**: 権限の境界を「種別の確認を忘れないこと」ではなく、鍵の違いで守る。一般ユーザーのトークンは admin の鍵の検証で必ず失敗する
+- **鍵を分ける理由**: 権限の境界を「種別の確認を忘れないこと」ではなく、鍵の違いで守る。一般ユーザーのトークンは admin の鍵の検証で必ず失敗する。加えて、env の検証で admin の鍵が一般ユーザーの鍵と同じ値なら起動を止め、admin のトークンの検証では payload の `adminId` が数値であることも確かめる（鍵を写し間違えたときの保険）
+- **admin のミドルウェアを mount の中に置く理由**: Express 5 の mount（`app.use("/api/admin", ...)`）は URL の大文字小文字を区別しない。全体に適用するミドルウェアで `req.path` を文字列で比べると、`/API/Admin/users` が admin の判定をすり抜けて Router に届く。mount の中に置けば、Router に届くリクエストは必ず admin の認証を通る（見落としても閉じる側に倒れる）
 - **cookie 名を分ける理由**: cookie はポートが違っても同じホストなら共有される。ローカルの web（:3000）と admin（:3030）が同じ名前だと上書きし合う
-- **admin の判定は email**: Google の userinfo の `verified_email` が `true` で、その email（小文字にそろえる）が `admins` にあれば admin とする。`admins` は事前登録制で、ログイン時に行を作ることはない
+- **admin の判定は email**: Google の userinfo の `verified_email` が `true` で、その email（小文字にそろえる）が `admins` にあれば admin とする。`verified_email` が無い応答は未確認として扱う。`admins` は事前登録制で、ログイン時に行を作ることはない
 - **トークンの有効期限**は一般ユーザーと同じ env（`JWT_ACCESS_EXPIRATION` / `JWT_REFRESH_EXPIRATION`）を使う
-- refresh / logout の処理は `service/auth-service.ts` の `refreshTokens` / `logout` をそのまま使う（検証関数・発行関数・Repository を引数で受け取る作りになっているため、admin 用のものを渡すだけでよい）
-- admin の proxy（`apps/admin/src/proxy.ts`）・cookie 操作・401 で refresh して再試行する api-client は、web の実装と同じ作りにする
+- refresh / logout の処理は `service/auth-service.ts` の `refreshTokens` / `logout` をそのまま使う（検証関数・発行関数・Repository を引数で受け取る作りになっているため、admin 用のものを渡すだけでよい）。logout は refresh token だけを受け取る公開のパスにする（access token が切れていてもログアウトできるように）
+
+**トークンの更新（refresh）は proxy で行う。** Next.js は Server Component の中で cookie を書き換えられない（Server Action と Route Handler だけ）。web の api-client のように「api が 401 なら refresh して cookie を書き直す」を Server Component から呼ぶと、api 側で refresh token は作り直されたのに cookie は古いまま、という状態になりセッションが切れる。そのため admin では次のように分ける。
+
+- `proxy.ts`: access の cookie が無い（または期限まで 30 秒を切っている。payload を検証せずに読んで `exp` を見る）かつ refresh の cookie があれば、`/api/admin/auth/refresh` を呼ぶ。成功したら、レスポンスに新しい cookie を付け、同じリクエストの Cookie ヘッダーも書き換えて先に渡す（その画面の Server Component が新しい access token で api を呼べる）
+- refresh が 401 のときは cookie を消さずに `/signin?redirect=...` へ送る。同時に来た別のリクエストが先に refresh に成功していることがあり（refresh token は 1 回使うと無効になる）、ここで消すと成功した側の新しい cookie まで消すため。サインイン画面は有効な access の cookie があれば `redirect` に戻す
+- api-client（`libs/api-client.ts`）は Bearer を付けて呼ぶだけで、refresh も cookie の書き込みもしない。401 は `ApiClientError` で投げ、画面（layout）がサインイン画面に送る
+
+web の api-client にも同じ問題がある（Server Component からの refresh で cookie を書けず、`page.tsx` の try/catch で隠れている）。この機能では直さない。
 
 ### admin の JWT の鍵の配布
 
@@ -213,7 +222,7 @@ api の中では、`/api/admin/*` を一般ユーザー用の認証ミドルウ�
 | `apps/api/test/vitest.setup.ts` / `turbo.json`（`test:ci` の `env`） | テスト用の既定値と、CI で渡すキーに足す |
 | Terraform `env/{dev,min,prd}/main.tf` | `random_password` を 2 つ足し、`module.app_secrets` の `initial_values` と ECS の `secret_keys.api` に足す |
 | `.github/workflows/deploy-aws-min.yml` | Lambda に渡す `SECRET_KEYS_JSON` に足す |
-| `scripts/deploy/seed-secrets.sh` | Secrets Manager に無ければ生成して足す（既にあれば触らない） |
+| `scripts/deploy/seed-secrets.sh` | Secrets Manager に無ければ生成して足す（既にあれば触らない）。今の secret の読み込みに失敗したら止める（今は失敗を `{}` として扱うため、生成した鍵だけで secret 全体を上書きしてしまう） |
 
 **既存の環境では Terraform だけでは鍵が入らない。** `module.app_secrets` は初回 apply でしか `initial_values` を書かない（以降は `ignore_changes`）。一方で ECS は Secrets Manager に無いキーを参照するとタスクの起動に失敗する。そのため既存の環境は次の順で反映する（step4 に手順を書く）。
 
@@ -227,7 +236,7 @@ api の中では、`/api/admin/*` を一般ユーザー用の認証ミドルウ�
 
 本番では、deploy 済みの migration イメージを ECS の one-shot タスクで起動する仕組み（`.github/actions/run-deployed-migration`）に、起動コマンドを差し替える入力を足し、`admin-create.yml`（workflow_dispatch: 環境・email）から `admin:create` を流す。
 
-- migration イメージは `packages/db` 一式と `tsx` を含むので、イメージを増やさずに済む
+- migration イメージは `packages/db` 一式と `tsx` を含むので、イメージを増やさずに済む。ただし `@repo/domain`（`normalizeEmail` / `AUTH_PROVIDERS`）は `dist/` を読むので、`Dockerfile.migration` のビルドの対象に `@repo/db` の依存を足す
 - 実行の記録は GitHub Actions のログに残る（email も入力として残る）
 - ローカルは seed で `admin@dev.local` を入れる。dev ログインはこの admin でログインする
 
@@ -247,8 +256,11 @@ api の中では、`/api/admin/*` を一般ユーザー用の認証ミドルウ�
 `components/ui/table/DataTable.tsx` に `server` の props を足す。指定しないときは今のまま（受け取った配列をブラウザ側で絞る）。
 
 - `server` を指定すると、検索語・絞り込み・ページ・件数を URL の検索パラメータで持つ。入力が変わったら `router.replace` で URL を書き換え、ページ（Server Component）が URL を読んで api を呼び直す。`data` はその 1 ページ分、総件数は `server.totalCount` で受け取る
+- 中では、状態の持ち方だけが違う 2 つの部品（URL で持つ / state で持つ）が、同じ見た目の部品を描く。`useSearchParams()` は server モードの部品の中だけで呼ぶ（client モードの静的なページで `<Suspense>` が要らないように）
 - 検索語の反映は 300ms 間引く（debounce）。条件を変えたら `page` を外して 1 ページ目に戻す
-- 絞り込みの種類に「期間（`dateRange`）」を足す。既存の select と同じポップオーバーに、開始日・終了日の入力（既存の `DatePicker`）を並べる
+- 絞り込みの種類に「期間（`dateRange`）」を足す（server モードだけ）。既存の select と同じポップオーバーに、開始日・終了日の入力（既存の `DatePicker`）を並べる
+- Filter のポップオーバーと日付の入力のカレンダーは、Tooltip と同じく `body` の直下に出す（`@floating-ui/react` / flatpickr の `static: false`）。表の枠の `overflow-hidden` の中に置くと、行が少ないときに切れる
+- client モードの見本として、デモに `DataTable` を使う表（`/demo/tables/data-table`）を足す（今は `DataTable` を使う画面が無い）
 - 行のリンク（`getRowHref`）を足す。行のクリックで遷移し、名前のセルは `Link` にしてキーボードでも辿れるようにする
 - 該当 0 件の表示（`emptyMessage`）を足す
 - 絞り込みは、ポップオーバーの「適用」で反映する（デモと同じ）。期間の開始・終了をそろえてから 1 回だけ api を呼ぶため
@@ -265,12 +277,13 @@ api の中では、`/api/admin/*` を一般ユーザー用の認証ミドルウ�
 | `NotificationDropdown` | `notifications`（id・本文・リンク・日時・既読）、`markAllAsReadAction`（Server Action、省略可） |
 | `HeaderSearch` | `action`（検索の遷移先のパス）、`placeholder`。省略すると検索欄を出さない |
 
-- 通知は `features/notification/notification.api.ts` の `getNotifications()` で取る。テンプレートでは空配列を返すだけにし、プロジェクトで API に繋ぐ。既読の処理も同じファイルに置く
+- 通知は `features/notification/notification.api.ts` の `notificationApi.getList()` で取る。テンプレートでは空配列を返すだけにし、プロジェクトで API に繋ぐ。既読の処理（`markAllAsRead`）も同じファイルに置き、Server Action（`markAllAsReadAction`）を layout → `AdminShell` → `AppHeader` → `NotificationDropdown` と props で渡す
+- api の 401（refresh も済んだ上での 401）は layout でサインイン画面に送る
 - 検索は `<form action="/users">` の GET 送信にする（JavaScript が無くても動き、URL は一覧の検索と同じ `?q=` になる）
 
 ### ADMIN_USE_DUMMY の廃止
 
-`ADMIN_USE_DUMMY`（DB なしでダミーデータを返すモード）は、ドキュメントにだけ書かれていて実装が無い。ローカルは docker compose + seed で本物のデータが揃い、admin 認証が入ると admins テーブル無しでは画面を開けなくなるため、作らずに消す。`apps/api/src/env.ts` の定義と、`apps/admin/CLAUDE.md` / `apps/admin/README.md` / `apps/api/CLAUDE.md` / `docs/onboarding/auth.md` の記述を消す。
+`ADMIN_USE_DUMMY`（DB なしでダミーデータを返すモード）は、ドキュメントにだけ書かれていて実装が無い。ローカルは docker compose + seed で本物のデータが揃い、admin 認証が入ると admins テーブル無しでは画面を開けなくなるため、作らずに消す。`apps/api/src/env.ts` の定義と、`apps/admin/CLAUDE.md` / `apps/admin/README.md` / `apps/api/CLAUDE.md` の記述を消す。`docs/onboarding/auth.md` の「Admin API は現時点は認証なし」も admin 認証の説明に書き換える（step5）。
 
 ### MVP 対象外（将来検討）
 
@@ -299,7 +312,7 @@ api の中では、`/api/admin/*` を一般ユーザー用の認証ミドルウ�
 
 ## 必要な API
 
-admin（Next.js）のサーバー側からだけ呼ぶ。`/api/admin/auth/google` / `refresh` / `dev-login` 以外は admin の access token が必要。
+admin（Next.js）のサーバー側からだけ呼ぶ。`/api/admin/auth/google` / `refresh` / `logout` / `dev-login` 以外は admin の access token が必要（logout は refresh token で本人を確かめる）。
 
 | メソッド | パス | 説明 |
 | --- | --- | --- |

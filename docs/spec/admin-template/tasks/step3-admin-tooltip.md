@@ -41,7 +41,8 @@ type TooltipProps = {
 }
 ```
 
-- `useFloating({ middleware: [offset(10), flip({ fallbackAxisSideDirection: "start" }), shift({ padding: 8 }), arrow({ element: arrowRef, padding: 8 })], placement, whileElementsMounted: autoUpdate })`
+- `const [isOpen, setIsOpen] = useState(false)`
+- `useFloating({ middleware: [offset(10), flip({ fallbackAxisSideDirection: "start" }), shift({ padding: 8 }), arrow({ element: arrowRef, padding: 8 })], onOpenChange: setIsOpen, open: isOpen, placement, whileElementsMounted: autoUpdate })`。`isOpen` が false の間は吹き出しを描かない
 - `useInteractions([useHover(context), useFocus(context), useDismiss(context), useRole(context, { role: "tooltip" })])`。Esc で消える（`useDismiss`）。`aria-describedby` は `useRole` が付ける
 - 吹き出しは `FloatingPortal` の中に描く
 

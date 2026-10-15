@@ -23,9 +23,9 @@ packages/schema/
 └── src/api-schema/admin/user.ts      # 新設（admin/index.ts に足す）
 apps/api/
 ├── src/repository/user-repository.ts            # search
-├── src/repository/auth-account-repository.ts    # findByUserId
+├── src/repository/auth-account-repository.ts    # findByUserId、provider を AuthProvider に
 ├── src/repository/drizzle/user-repository.ts
-├── src/repository/drizzle/auth-account-repository.ts
+├── src/repository/drizzle/auth-account-repository.ts  # findByUserId、findByProvider の引数の型
 ├── src/service/user-service.ts                  # searchUsers / getUserDetail
 ├── src/controller/admin/user/{list,detail}.ts   # 新設
 ├── src/routes/admin-router.ts                   # userList / userDetail
@@ -42,6 +42,10 @@ apps/admin/src/
 ├── components/features/user/AuthProviderBadge.tsx  # 新設
 ├── components/ui/table/DataTable.tsx            # server モード・dateRange・行リンク・0 件表示・見た目をデモに合わせる
 ├── components/ui/table/Pagination.tsx           # 見た目とページ番号の出し方をデモに合わせる
+├── components/ui/form/DatePicker.tsx            # value を受け取る・カレンダーを body の直下に出す
+├── components/demo/example/DataTableExample.tsx # 新設 client モードの見本
+├── app/(dashboard)/demo/tables/data-table/page.tsx  # 新設
+├── components/demo/demo-nav-items.tsx           # Tables に Data Table を足す
 ├── libs/date.ts                                 # toStartOfDayIso を足す（formatDateTime は step2）
 ├── hooks/useGoBack.ts                           # 履歴が無いときの戻り先を引数で受け取る
 ├── components/layout/nav-items.tsx              # 「ユーザー管理」を足す
@@ -240,6 +244,8 @@ public async search(input: SearchUsersInput): Promise<SearchUsersResult> {
 
 `AuthAccountRepository` に `findByUserId(userId: number): Promise<AuthAccount[]>`（`created_at` の昇順）を足す。
 
+`provider` の列が enum の型になるので、`findByProvider(provider: string, ...)` と `CreateAuthAccountInput.provider` を `AuthProvider` にする（`string` のままでは `eq(authAccounts.provider, provider)` が型エラーになる）。「"google" | "github" | "credentials" など」というコメントも `AUTH_PROVIDERS` を指すように直す。
+
 ### `apps/api` の Service
 
 ```typescript
@@ -306,6 +312,8 @@ export const userApi = {
 }
 ```
 
+`toSearchParams` は `URLSearchParams` で組み立てる（文字列を自分でつなぐと `+09:00` の `+` が空白として届き、api が 400 を返す）。undefined の項目は入れない。
+
 `features/user/user-list-params.ts` は、画面の URL の検索パラメータ（`q` / `provider` / `created_from` / `created_to`（日付・両端を含む）/ `page` / `per_page`）を api のクエリに変換する純粋関数。
 
 - `created_from=2026-10-01` → `created_from=2026-10-01T00:00:00+09:00`（`toStartOfDayIso`。step2 の設定のタイムゾーンで日の始まりを出す）
@@ -330,14 +338,22 @@ type ServerModeConfig = {
 
 /**
  * フィルタ定義。type を省略したら select（既存）
- * server モードでは key が URL の検索パラメータ名になる。dateRange は `{key}_from` / `{key}_to`
+ * - client モード: select の key は行のフィールド名
+ * - server モード: key は URL の検索パラメータ名（行のフィールドと一致しなくてよい。一覧の行は providers、絞り込みは provider）。
+ *   dateRange は server モードだけで、`{key}_from` / `{key}_to`
  */
-export type FilterConfig<T> =
-  | { key: keyof T & string; label: string; options: { label: string; value: string }[]; type?: "select" }
+export type FilterConfig =
+  | { key: string; label: string; options: { label: string; value: string }[]; type?: "select" }
   | { key: string; label: string; type: "dateRange" }
 
+type PaginationConfig = {
+  /** 最初の件数。省略したら pageSizeOptions の先頭（今と同じ） */
+  defaultPageSize?: number
+  pageSizeOptions?: number[]
+}
+
 type DataTableProps<T> = {
-  /** 既存の props */
+  /** 既存の props（filters は FilterConfig[] に） */
   /** 該当 0 件のときの表示 */
   emptyMessage?: string
   /** 行のリンク先。指定すると行のクリックで遷移する */
@@ -346,12 +362,16 @@ type DataTableProps<T> = {
 }
 ```
 
+- 中では、状態の持ち方だけが違う 2 つの部品（`ServerStateDataTable`: URL で持つ / `ClientStateDataTable`: state で持つ）が、同じ見た目の部品（`DataTableView`）を描く。`useSearchParams()` は `ServerStateDataTable` の中だけで呼ぶ（client モードを静的なページで使っても `<Suspense>` が要らないように）。ユーザー一覧は `searchParams` を読む動的なページなので、server モードでも `<Suspense>` は要らない
 - server モードの状態は `useSearchParams()` から読み、変更は `router.replace(`${pathname}?${params}`, { scroll: false })` で書く。検索語は 300ms 間引く。検索語・絞り込み・件数を変えたら `page` を消す
 - 読み込み中は `useTransition` の `isPending` でテーブルを薄くする
 - 絞り込みはポップオーバーの中で選び、「適用」で反映してポップオーバーを閉じる（client モードも同じ）。「リセット」は条件を空にしてすぐ反映する
 - `dateRange` はポップオーバーの中に `DatePicker` を 2 つ（開始・終了）並べる。片方だけでもよい
+- Filter のポップオーバーは `@floating-ui/react`（step3）で `body` の直下に出す。表の枠は `overflow-hidden` なので、中に置くと行が少ないときに切れる
+- `DatePicker` を直す: `value` を受け取って表示を合わせる（「リセット」で空にできるように）、`onChange` は ref に入れて flatpickr を作り直さない、カレンダーは `static: false` で `body` の直下に出す。日付は flatpickr の `dateStr`（`YYYY-MM-DD`）を使う（`Date` の `toISOString()` は UTC になり、日本時間では前日になる）
 - 行のクリックは `router.push(getRowHref(row))`。キーボードで辿れるよう、名前の列は `UserTable` 側で `Link` にする
-- フッターの文言は日本語にする（「全 N 件中 X〜Y 件」「表示件数」）。デモの画面も同じ DataTable を使うので、デモでも日本語になる
+- フッターの文言は日本語にする（「全 N 件中 X〜Y 件」「表示件数」）
+- 今は `DataTable` を使う画面が 1 つも無い。client モードの見本として、デモに `/demo/tables/data-table`（固定の 30 件のサンプル・検索・select の絞り込み・ページング）を足す
 
 ### DataTable / Pagination の見た目
 
@@ -377,11 +397,11 @@ TailAdmin のデモから実測した値に合わせる。検索・Filter・表�
 - 列見出しの並び替えのアイコンは付けない（並び替えは [MVP 対象外](../README.md#mvp-対象外将来検討)）
 - Filter のバッジ（適用中の条件の数）と「リセット」はデモに無い追加。バッジは `bg-brand-500 text-white` の 20px の丸、「リセット」は `text-xs text-brand-500 hover:text-brand-600`
 
-client モード（デモの表）も同じ見た目になる。
+client モード（`/demo/tables/data-table`）も同じ見た目になる。
 
 ### 画面
 
-**一覧（`app/(dashboard)/users/page.tsx`）**: Server Component。`searchParams` を `user-list-params.ts` で api のクエリにし、`userApi.getList` を呼び、`UserTable`（client）に渡す。`metadata.title` は「ユーザー管理」。
+**一覧（`app/(dashboard)/users/page.tsx`）**: Server Component。`searchParams`（Next.js 16 では Promise なので `await` する）を `user-list-params.ts` で api のクエリにし、`userApi.getList` を呼び、`UserTable`（client）に渡す。`metadata.title` は「ユーザー管理」。
 
 ```typescript
 /** components/features/user/UserTable.tsx（列定義の抜粋） */
@@ -399,7 +419,7 @@ const columns: Column<UserRow>[] = [
   { header: "登録日時", render: (row) => formatDateTime(row.created_at) },
 ]
 
-const filters: FilterConfig<UserRow>[] = [
+const filters: FilterConfig[] = [
   {
     key: "provider",
     label: "ログイン方法",
@@ -409,11 +429,12 @@ const filters: FilterConfig<UserRow>[] = [
 ]
 ```
 
+- `DataTable` には `server={{ totalCount }}` と `pagination={{ defaultPageSize: 20, pageSizeOptions: [10, 20, 50] }}` を渡す（api の既定の `per_page` と合わせる）
 - `Column.header` を `ReactNode` に広げる（Tooltip を入れるため）。`key` が無い列の React の key は列の index にする
-- `AuthProviderBadge` は `ui/badge/Badge`（google: `primary`、dev: `warning`）。`AUTH_PROVIDER_LABELS` は `{ dev: "開発用", google: "Google" }`
+- `AuthProviderBadge` は `ui/badge/Badge`（`variant="light"`、`color` は google: `"primary"`・dev: `"warning"`）。`AUTH_PROVIDER_LABELS` は `{ dev: "開発用", google: "Google" }`
 - `UserNameCell` は TailAdmin の表のアバター + 名前のセル（`RecentOrders` / `BasicTableOne` と同じ見た目）。アイコンが無ければ名前の頭文字（`ui/avatar/AvatarText`）
 
-**詳細（`app/(dashboard)/users/[id]/page.tsx`）**: `params.id` を数値にできなければ `notFound()`。`userApi.getDetail` を呼び、`UserDetailCards` に渡す。
+**詳細（`app/(dashboard)/users/[id]/page.tsx`）**: `params`（Promise）の `id` を数値にできなければ `notFound()`。`userApi.getDetail` を呼び、`UserDetailCards` に渡す。
 
 - 見た目は TailAdmin のデモのプロフィール画面（https://demo.tailadmin.com/profile ）に合わせる。編集ボタンは置かない
   - 外枠: `rounded-2xl border border-gray-200 bg-white p-5 lg:p-6 dark:border-gray-800 dark:bg-white/3`、見出し `mb-5 text-lg font-semibold text-gray-800 lg:mb-7 dark:text-white/90`
@@ -439,7 +460,7 @@ const filters: FilterConfig<UserRow>[] = [
 | `test/controller/admin/user/detail.test.ts` | インテグレーション | 正常系 / 存在しない ID は 404 / `id=abc` は 400 |
 | `packages/db` の migration | — | `CHECK` に違反する provider の insert が失敗する（repository のテストで 1 件） |
 
-admin 側の `user-list-params.ts` は純粋関数なので、変換（日付の境界・不正な値の切り捨て）をここで確かめる。admin にはまだテストの仕組みが無いため、この step では `apps/admin` に Vitest を足さず、api 側のテストと画面の確認で担保する。
+admin にはテストの仕組みが無いため、この step では `apps/admin` に Vitest を足さない。`user-list-params.ts` の変換（日付の境界・不正な値の切り捨て）は、下の画面の確認（登録日の絞り込み・URL を手で書き換える）で確かめる。
 
 ```bash
 pnpm --filter api test
@@ -465,6 +486,9 @@ pnpm --filter api test
 | 「ログイン方法」の見出しにマウスを乗せる | Tooltip が出る |
 | ダークモード | 一覧・フィルタ・詳細が崩れない |
 | デモの `/products-list` / `/data-tables` / `/profile` と並べる | 枠線・検索欄・Filter・ポップオーバー・見出し・行・フッター・ページ番号・詳細のカードの色と寸法が一致する（`browser_evaluate` の `getComputedStyle` で数値を比べる。ライト / ダーク） |
-| デモの表（`/demo/tables/basic` など client モードの表） | 同じ見た目に変わり、ブラウザ側の検索・絞り込みがこれまでどおり動く |
+| `/demo/tables/data-table`（client モード） | 同じ見た目で、ブラウザ側の検索・絞り込み・ページングが動く |
+| URL を手で `?page=abc&provider=foo&created_from=xyz` にする | 400 のエラー画面にならず、既定の条件の一覧が出る |
+| Filter で登録日を入れて「リセット」 | 日付の入力が空になり、全件に戻る |
+| 行が 1 件だけのときに Filter を開く | ポップオーバーと日付のカレンダーが表の枠で切れない |
 
 PR には一覧（絞り込みあり）・0 件・詳細のスクリーンショット（ライト / ダーク）を、デモと並べて付ける。

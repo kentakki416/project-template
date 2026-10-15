@@ -18,10 +18,11 @@ apps/admin/src/
 ├── app/layout.tsx                        # metadata・lang・フォント
 ├── app/global-error.tsx                  # lang
 ├── app/not-found.tsx                     # © の表記
-├── app/icon.svg                          # 新設 favicon（app/favicon.ico は削除）
+├── app/favicon.ico                       # 削除（TailAdmin）
 ├── app/globals.css                       # フォントのフォールバック
 ├── app/(auth)/layout.tsx                 # ロゴ・説明文・重複した ThemeProvider
 └── app/**/page.tsx                       # metadata をページ名だけに
+apps/admin/public/favicon.svg             # 新設
 apps/admin/public/images/logo/            # 削除（TailAdmin のロゴ 4 枚）
 ```
 
@@ -76,6 +77,7 @@ type AppLogoProps = {
 /** app/layout.tsx */
 export const metadata: Metadata = {
   description: appConfig.description,
+  icons: { icon: "/favicon.svg" },
   title: {
     default: appConfig.name,
     template: `%s | ${appConfig.name}`,
@@ -88,13 +90,13 @@ export const metadata: Metadata = {
 - 各 `page.tsx` の `metadata` は `title` にページ名だけを書き、`description` は消す（TailAdmin の説明文を残さない）。土台は日本語（「ホーム」）、デモは英語のまま（「Bar Chart」）
 - `app/global-error.tsx` の `lang` も `appConfig.lang` にする
 - `app/not-found.tsx` の `© {year} - TailAdmin` を `appConfig.name` にする
-- favicon は `app/favicon.ico`（TailAdmin）を消し、`app/icon.svg`（`AppLogo` のアイコンと同じ見た目の SVG）を置く。Next.js が `<link rel="icon">` を出す
+- favicon は `app/favicon.ico`（TailAdmin）を消し、`public/favicon.svg`（`AppLogo` のアイコンと同じ見た目の SVG）を置いて `metadata.icons` で指す。`app/icon.svg` にしないのは、`next.config.ts` の `*.svg` を React 部品に変える svgr の設定が Next.js の icon の扱いと衝突するおそれがあるため
 
 ### フォント
 
 TailAdmin の Outfit は欧文だけなので、日本語のフォールバックを足す。
 
-- `app/layout.tsx`: `Outfit({ subsets: ["latin"], variable: "--font-outfit-loaded" })` にして `<body>` に `outfit.variable` を付ける
+- `app/layout.tsx`: `Outfit({ subsets: ["latin"], variable: "--font-outfit-loaded" })` にして **`<html>`** に `outfit.variable` を付ける。`--font-outfit` は `@theme` で `:root`（= `<html>`）に出るので、`<body>` に付けると `:root` からは `--font-outfit-loaded` が見えず、`--font-outfit` ごと無効になる（日本語のフォールバックも効かなくなる）
 - `globals.css`: `--font-outfit: var(--font-outfit-loaded), "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;`
 
 デモのグラフの `fontFamily: "Outfit"` はそのまま（デモは英語）。
@@ -109,7 +111,7 @@ TailAdmin の Outfit は欧文だけなので、日本語のフォールバッ�
 const dateTimeFormatter = new Intl.DateTimeFormat(appConfig.locale, {
   day: "2-digit",
   hour: "2-digit",
-  hour12: false,
+  hourCycle: "h23",
   minute: "2-digit",
   month: "2-digit",
   timeZone: appConfig.timeZone,
@@ -128,7 +130,7 @@ step6 で日付の絞り込み用の `toStartOfDayIso`、step7 で通知用の `
 
 ### ドキュメント
 
-`apps/admin/README.md` に「ブランドを変える」を書く: `src/config/app.ts`、`AppLogo`、`app/icon.svg`、ブランドの色（`globals.css` の `@theme` の `--color-brand-*`）。
+`apps/admin/README.md` に「ブランドを変える」を書く: `src/config/app.ts`、`AppLogo`、`public/favicon.svg`、ブランドの色（`globals.css` の `@theme` の `--color-brand-*`）。
 
 ## 動作確認
 

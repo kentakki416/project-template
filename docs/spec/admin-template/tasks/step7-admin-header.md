@@ -111,6 +111,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <AdminShell
       admin={admin}
+      markAllAsReadAction={markAllAsReadAction}
       notifications={notifications}
       search={{ action: "/users", placeholder: "ユーザーを検索" }}
     >
@@ -121,13 +122,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
 ```
 
 - `adminApi.getMe` が 401 の `ApiClientError` を投げたら（refresh も失敗した = cookie は消えている）、`redirect("/signin")` する
-- `AdminShell` は今の `(dashboard)/layout.tsx` の中身（`useSidebar` で本文の左の余白を変える部分）をそのまま移した client component。受け取った props を `AppHeader` に渡す
+- `AdminShell` は今の `(dashboard)/layout.tsx` の中身（`useSidebar` で本文の左の余白を変える部分）をそのまま移した client component。受け取った props（`admin` / `markAllAsReadAction` / `notifications` / `search`）をそのまま `AppHeader` に渡し、`AppHeader` は `UserDropdown` / `NotificationDropdown` / `HeaderSearch` に配る
+- Server Action は Server Component から client component に props で渡せる（関数の参照が送られる）
 
 ### `AppHeader`
 
 ```typescript
 type AppHeaderProps = {
   admin: GetAdminMeResponse
+  /** 通知をすべて既読にする Server Action。省略すると「すべて既読にする」を出さない */
+  markAllAsReadAction?: () => Promise<void>
   notifications: Notification[]
   /** 省略すると検索欄を出さない */
   search?: HeaderSearchProps
@@ -164,7 +168,7 @@ type NotificationDropdownProps = {
 - ベルの印（オレンジの点）は未読（`isRead === false`）が 1 件以上あるときだけ出す。今の「開いたら消える」ローカルの state はやめる
 - 見出しを「通知」、0 件のときは「通知はありません」を一覧の位置に出す。デモには空の状態が無いため、トークンから作る（ベルのアイコン 24px `text-gray-400` と `text-sm text-gray-500 dark:text-gray-400` の文を縦に並べて中央に置く）
 - デモとの差を直す: 見出しの区切り線を `dark:border-gray-800`（今は `gray-700`）、見出しの文字を `dark:text-white/90`（今は `gray-200`）
-- 下の「View All Notifications」（`/` へのリンク）は消し、未読があるときだけ「すべて既読にする」（`<form action={markAllAsReadAction}>`）を出す
+- 下の「View All Notifications」（`/` へのリンク）は消し、未読があり `markAllAsReadAction` があるときだけ「すべて既読にする」（`<form action={markAllAsReadAction}>` の中の素の `<button type="submit">`。見た目はデモのフッターのリンクのクラス。`DropdownItem` の `tag="button"` は `preventDefault` するので submit に使わない）を出す
 - `href` がある通知は `DropdownItem` を `Link` にする。無ければ遷移しない
 
 ### `UserDropdown`

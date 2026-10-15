@@ -85,7 +85,11 @@ export const mainNavSection: NavSection = {
 export const demoNavSection: NavSection = {
   items: [
     { icon: <GridIcon />, name: "Dashboard", subItems: [{ name: "Ecommerce", path: "/demo/ecommerce" }] },
-    /** 今の navItems / othersItems の項目をすべて /demo/... にして並べる */
+    /**
+     * 今の navItems / othersItems の項目をすべて /demo/... にして並べる。
+     * Authentication の Sign In だけは、まだ土台の /signin（今の email + パスワードのフォーム）を指す。
+     * step5 でフォームを /demo/signin に移すときに行き先を変える
+     */
   ],
   title: "デモ",
 }
@@ -120,7 +124,16 @@ export const demoNavSection: NavSection = {
 /* components/demo/demo.css */
 /* globals.css のテーマ（色・余白）を @apply で使うため */
 @reference "../../app/globals.css";
+
+/* globals.css では @utility だったもの。@reference だけのファイルでは @utility は出力されないので、素のクラスにする */
+/* 例: globals.css の `@utility modal-title { @apply font-semibold; }` */
+.modal-title {
+  @apply font-semibold;
+}
 ```
+
+- **`@utility` のブロック（`modal-title` / `modal-footer` / `btn*` / `n-chk` / `form-check*` / `dropzone` / `dz-message` / `mapOne` / `map-btn` / `fc-event-*`）は、`.名前 { @apply ...; }` の素のクラスに書き換えて移す。** `@utility` のまま移すと、`@tailwind utilities` を持たない `demo.css` からは何も出力されず、デモの CSS が黙って消える
+- 素の CSS（`.fc*` / `.custom-calendar` / apexcharts / jvectormap のセレクタ）はそのまま移す
 
 - `app/layout.tsx` の `import "flatpickr/dist/flatpickr.css"` は消す（`DatePicker` が自分で読む。デモの `StatisticsChart` には同じ import を足す）
 - `eslint.config.mjs` の `settings.tailwindcss.cssFiles` に `"src/components/demo/*.css"` を足す（デモのクラス名が未定義と言われないように）
@@ -146,6 +159,8 @@ export const demoNavSection: NavSection = {
     ignores: ["src/app/(dashboard)/demo/**", "src/app/(auth)/demo/**", "src/components/demo/**"],
     rules: {
       "import/no-restricted-paths": ["error", {
+        /** zones のパスを eslint を起動した場所ではなく、この設定ファイルの場所から解決する（エディタの ESLint でも効くように） */
+        basePath: import.meta.dirname,
         zones: [{
           except: ["./demo-nav-items.tsx"],
           from: "./src/components/demo",
