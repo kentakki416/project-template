@@ -5,7 +5,6 @@ name: Admin Create
 # =============================================================================
 # 最後に deploy した migration イメージで、packages/db の admin:create を流す
 # (.github/actions/run-deployed-migration の command で起動コマンドを差し替える)。
-# 登録済みの email なら何もしない。名前とアイコンは、その Google アカウントで初めてサインインしたときに入る。
 #
 # 手順は docs/onboarding/deploy-prd.md の「admin を登録する」。
 # =============================================================================

@@ -76,7 +76,7 @@ runs:
       run: |
         set -euo pipefail
 
-        # 起動コマンドの差し替え。コンテナ名はタスク定義の family と同じ (ecs-workload module の規約)
+        # 起動コマンドの差し替え。
         OVERRIDES_ARGS=()
         if [ -n "${COMMAND}" ]; then
           OVERRIDES_ARGS=(--overrides "$(jq -cn --arg name "${FAMILY}" --argjson command "${COMMAND}" \
