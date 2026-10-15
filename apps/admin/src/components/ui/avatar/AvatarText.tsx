@@ -6,10 +6,12 @@ interface AvatarTextProps {
 }
 
 export default function AvatarText({ name, className = "" }: AvatarTextProps) {
-  // Generate initials from name
+  /**
+   * 単語ごとの最初の文字（記号は飛ばす。「Admin (dev)」は「AD」）
+   */
   const initials = name
-    .split(" ")
-    .map((word) => word[0])
+    .split(/\s+/)
+    .map((word) => word.match(/[\p{L}\p{N}]/u)?.[0] ?? "")
     .join("")
     .toUpperCase()
     .slice(0, 2)

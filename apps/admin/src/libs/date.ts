@@ -68,3 +68,27 @@ export const addOneDayToDate = (date: string): string => {
   next.setUTCDate(next.getUTCDate() + 1)
   return next.toISOString().slice(0, 10)
 }
+
+const relativeTimeFormatter = new Intl.RelativeTimeFormat(appConfig.locale, { numeric: "auto" })
+
+const SECONDS_PER_MINUTE = 60
+const SECONDS_PER_HOUR = 60 * 60
+const SECONDS_PER_DAY = 60 * 60 * 24
+/**
+ * これより前は経過時間ではなく日時で出す
+ */
+const RELATIVE_TIME_LIMIT_DAYS = 30
+
+/**
+ * 今からの経過時間を「5 分前」「3 時間前」「昨日」の形で出す。30 日より前は日時で出す
+ */
+export const formatRelativeTime = (value: string | Date, now: Date = new Date()): string => {
+  const date = typeof value === "string" ? new Date(value) : value
+  const seconds = Math.max(0, Math.floor((now.getTime() - date.getTime()) / 1000))
+  if (seconds < SECONDS_PER_MINUTE) return relativeTimeFormatter.format(0, "second")
+  if (seconds < SECONDS_PER_HOUR) return relativeTimeFormatter.format(-Math.floor(seconds / SECONDS_PER_MINUTE), "minute")
+  if (seconds < SECONDS_PER_DAY) return relativeTimeFormatter.format(-Math.floor(seconds / SECONDS_PER_HOUR), "hour")
+  const days = Math.floor(seconds / SECONDS_PER_DAY)
+  if (days < RELATIVE_TIME_LIMIT_DAYS) return relativeTimeFormatter.format(-days, "day")
+  return formatDateTime(date)
+}

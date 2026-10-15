@@ -57,6 +57,10 @@ admin は DB を直接触らず、必ず Express API を経由する。
 
 `@repo/*` のうち admin が import できるのは `@repo/api-schema` だけで、これは lint で強制している（`@repo/eslint-config/frontend-boundary`）。
 
+## ヘッダー
+
+`src/app/(dashboard)/layout.tsx`（Server Component）がサインイン中の admin（`/api/admin/me`）と通知を取り、`AdminShell`（client）→ `AppHeader` に props で渡す。layout で `/api/admin/me` を呼ぶので、サイドバー付きの画面はどれも描画のたびに api が token を確かめる（proxy は期限しか見ない）。通知の元は `src/features/notification/notification.api.ts` を差し替える（`README.md` の「ヘッダー」）。
+
 ## 認証
 
 一般ユーザー（web）とは別の、admin 専用の認証。`admins` に登録された Google アカウントだけがサインインできる（流れと理由は `docs/onboarding/auth.md` の「admin の認証」、設計は `docs/spec/admin-template/README.md` の「admin 認証」）。
