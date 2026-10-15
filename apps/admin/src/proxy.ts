@@ -44,6 +44,12 @@ const PUBLIC_PATHS = [
 const isPathUnderPrefix = (pathname: string, prefix: string): boolean =>
   pathname === prefix || pathname.startsWith(`${prefix}/`)
 
+/**
+ * refresh の api を待つ上限。api が応答しないときに、画面の描画を長く止めない
+ * （打ち切ったら failed として扱い、cookie を残したままサインイン画面に送るか、そのまま通す）
+ */
+const REFRESH_TIMEOUT_MS = 5_000
+
 type RefreshResult =
   | { accessToken: string; refreshToken: string; status: "refreshed" }
   | { status: "unauthorized" }
@@ -59,6 +65,7 @@ const requestTokenRefresh = async (refreshToken: string): Promise<RefreshResult>
       body: JSON.stringify({ refresh_token: refreshToken }),
       headers: { "Content-Type": "application/json" },
       method: "POST",
+      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
     })
     if (res.status === 401) return { status: "unauthorized" }
     if (!res.ok) return { status: "failed" }
