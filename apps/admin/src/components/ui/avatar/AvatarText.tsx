@@ -6,15 +6,19 @@ interface AvatarTextProps {
 }
 
 export default function AvatarText({ name, className = "" }: AvatarTextProps) {
-  // Generate initials from name
+  /**
+   * 単語ごとの最初の文字（記号は飛ばす。「Admin (dev)」は「AD」）。文字が取れなければ「?」
+   */
   const initials = name
-    .split(" ")
-    .map((word) => word[0])
+    .split(/\s+/)
+    .map((word) => word.match(/[\p{L}\p{N}]/u)?.[0] ?? "")
     .join("")
     .toUpperCase()
-    .slice(0, 2)
+    .slice(0, 2) || "?"
 
-  // Generate a consistent pastel color based on the name
+  /**
+   * 名前から決まる淡い色（同じ名前なら同じ色）
+   */
   const getColorClass = (name: string) => {
     const colors = [
       "bg-brand-100 text-brand-600",

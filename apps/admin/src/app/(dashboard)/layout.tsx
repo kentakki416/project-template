@@ -1,40 +1,41 @@
-"use client"
-
+import { unstable_rethrow } from "next/navigation"
 import React from "react"
 
-import AppHeader from "@/components/layout/AppHeader"
-import AppSidebar from "@/components/layout/AppSidebar"
-import Backdrop from "@/components/layout/Backdrop"
-import { useSidebar } from "@/features/sidebar/sidebar.context"
+import { ADMIN_USER_LIST_MAX_QUERY_LENGTH } from "@repo/api-schema"
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const { isExpanded, isHovered, isMobileOpen } = useSidebar()
+import AdminShell from "@/components/layout/AdminShell"
+import { adminApi } from "@/features/admin/admin.api"
+import { markAllAsReadAction } from "@/features/notification/notification.actions"
+import { notificationApi } from "@/features/notification/notification.api"
 
-  // Dynamic class for main content margin based on sidebar state
-  const mainContentMargin = isMobileOpen
-    ? "ml-0"
-    : isExpanded || isHovered
-      ? "lg:ml-[290px]"
-      : "lg:ml-[90px]"
+/**
+ * サイドバー付きの画面の枠。サインイン中の admin と通知を取ってシェルに渡す。
+ *
+ * proxy は cookie の期限しか見ないので、ここで api の /api/admin/me を呼び、画面を直接開いたとき・再読み込みのとき
+ * （router.refresh を含む）は api が token を確かめる。クライアント側の遷移では layout は描き直されないので、
+ * 機密を出す画面は自分で api を呼ぶ。api の 401 は api-client が /api/auth/signout に送る（cookie を消して /signin へ）
+ */
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [admin, notifications] = await Promise.all([
+    adminApi.getMe(),
+    /**
+     * 通知が取れなくても画面は出す（通知の api だけの障害で、全画面をエラーにしない）
+     */
+    notificationApi.getList().catch((error: unknown) => {
+      unstable_rethrow(error)
+      console.error("通知を取得できませんでした", error)
+      return []
+    }),
+  ])
 
   return (
-    <div className="min-h-screen xl:flex">
-      {/* Sidebar and Backdrop */}
-      <AppSidebar />
-      <Backdrop />
-      {/* Main Content Area */}
-      <div
-        className={`flex-1 transition-all  duration-300 ease-in-out ${mainContentMargin}`}
-      >
-        {/* Header */}
-        <AppHeader />
-        {/* Page Content */}
-        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
-      </div>
-    </div>
+    <AdminShell
+      admin={admin}
+      markAllAsReadAction={markAllAsReadAction}
+      notifications={notifications}
+      search={{ action: "/users", maxLength: ADMIN_USER_LIST_MAX_QUERY_LENGTH, placeholder: "ユーザーを検索" }}
+    >
+      {children}
+    </AdminShell>
   )
 }
