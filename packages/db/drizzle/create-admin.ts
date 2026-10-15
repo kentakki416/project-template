@@ -14,8 +14,6 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/
 /**
  * admins に email を登録する。既にあれば何もしない（何度流しても同じ結果になる）
  *
- * 名前とアイコンは、その email の Google アカウントで初めてサインインしたときに入る。
- *
  * 使い方: pnpm --filter @repo/db admin:create --email someone@example.com
  * 本番は .github/workflows/admin-create.yml から migration イメージで流す
  */
