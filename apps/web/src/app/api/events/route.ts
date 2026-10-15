@@ -13,8 +13,9 @@ import { eventApi } from "@/features/event/event.api"
  *
  * **失敗しても 204 を返す。** 分析イベントの送信失敗をブラウザ側で
  * リトライさせる意味がなく、エラーを返すと sendBeacon のログが汚れるだけ。
- * 未ログイン時は Express が 401 を返すが、それも 204 に丸める
- * （匿名ユーザーは追跡しない方針なので想定内）。
+ * 未ログイン時は Express が 401 を返し、apiClient はサインアウトへの redirect を投げるが、
+ * ここでは握りつぶして 204 に丸める（匿名ユーザーは追跡しない方針なので想定内。
+ * sendBeacon に redirect を返さない）。
  */
 export const POST = async (req: NextRequest) => {
   const parsed = createEventRequestSchema.safeParse(await req.json().catch(() => null))
