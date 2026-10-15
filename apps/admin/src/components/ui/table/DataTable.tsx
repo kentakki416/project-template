@@ -60,7 +60,7 @@ type ClientSearchConfig<T> = SearchConfig & {
  * ページネーション設定
  */
 type PaginationConfig = {
-  /** 最初の件数。省略したら pageSizeOptions の先頭 */
+  /** 最初の件数。省略したら pageSizeOptions の先頭。client モードだけで使う（server モードの件数は server.perPage） */
   defaultPageSize?: number
   /** 1ページあたりの表示件数の選択肢 */
   pageSizeOptions?: number[]

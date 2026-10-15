@@ -1,5 +1,6 @@
 import request from "supertest"
 
+import { ADMIN_USER_LIST_MAX_PAGE } from "@repo/api-schema"
 import { authAccounts, users } from "@repo/db"
 
 import { AdminUserListController } from "../../../../src/controller/admin/user/list"
@@ -101,10 +102,10 @@ describe("GET /api/admin/users", () => {
       ["page が 0", { page: 0 }],
       ["provider が AUTH_PROVIDERS に無い", { provider: "github" }],
       ["日時にオフセットが無い", { created_from: "2026-10-01T00:00:00" }],
-      ["page が上限を超える", { page: 10_001 }],
+      ["page が上限を超える", { page: ADMIN_USER_LIST_MAX_PAGE + 1 }],
       ["page が指数表記の大きな値", { page: "1e20" }],
       ["日時が 1970 年より前", { created_from: "0001-01-01T00:00:00+09:00" }],
-      ["日時が 9999 年より後", { created_before: "+010000-01-01T00:00:00+09:00" }],
+      ["日時が 9999 年より後", { created_before: "9999-12-31T23:00:00-05:00" }],
     ])("%s は 400", async (_label, query) => {
       const { token } = await createTestAdmin()
 

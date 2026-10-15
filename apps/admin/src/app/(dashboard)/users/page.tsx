@@ -26,8 +26,8 @@ export default async function UserListPage({ searchParams }: Props) {
   /**
    * 最後のページより後ろ（URL の手書きや、件数が減った後のリロード）は、最後のページに移す
    */
-  const lastPage = Math.ceil(totalCount / perPage)
-  if (users.length === 0 && totalCount > 0 && page > lastPage) {
+  const lastPage = Math.max(1, Math.ceil(totalCount / perPage))
+  if (page > lastPage) {
     redirect(`/users?${buildUserListPageSearchParams(params, lastPage)}`)
   }
 

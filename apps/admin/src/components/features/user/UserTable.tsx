@@ -9,7 +9,7 @@ import UserAvatar from "@/components/ui/avatar/UserAvatar"
 import { Column, DataTable, FilterConfig } from "@/components/ui/table"
 import Tooltip from "@/components/ui/tooltip/Tooltip"
 import { AUTH_PROVIDER_LABELS } from "@/features/user/auth-provider-labels"
-import { USER_LIST_DEFAULT_PER_PAGE, USER_LIST_PAGE_SIZE_OPTIONS } from "@/features/user/user-list-params"
+import { USER_LIST_PAGE_SIZE_OPTIONS } from "@/features/user/user-list-params"
 import { InfoIcon } from "@/icons"
 import { formatDateTime } from "@/libs/date"
 
@@ -83,7 +83,7 @@ export default function UserTable({ page, perPage, totalCount, users }: Props) {
       filters={filters}
       getRowHref={(row) => `/users/${row.id}`}
       getRowKey={(row) => row.id}
-      pagination={{ defaultPageSize: USER_LIST_DEFAULT_PER_PAGE, pageSizeOptions: USER_LIST_PAGE_SIZE_OPTIONS }}
+      pagination={{ pageSizeOptions: USER_LIST_PAGE_SIZE_OPTIONS }}
       search={{ maxLength: ADMIN_USER_LIST_MAX_QUERY_LENGTH, placeholder: "名前・メールアドレスで検索" }}
       server={{ page, perPage, totalCount }}
     />
