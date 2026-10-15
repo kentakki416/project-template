@@ -3,6 +3,7 @@ import React from "react"
 import { GetAdminMeResponse } from "@repo/api-schema"
 
 import UserAvatar from "@/components/ui/avatar/UserAvatar"
+import { resolveAdminDisplayName } from "@/features/admin/admin-display-name"
 import { formatDateTime } from "@/libs/date"
 
 type Props = {
@@ -13,7 +14,7 @@ type Props = {
  * マイページのカード。見た目は TailAdmin のデモのプロフィール画面に合わせる（編集のボタンとモーダルは置かない）
  */
 export default function AdminProfileCards({ admin }: Props) {
-  const displayName = admin.name || admin.email
+  const displayName = resolveAdminDisplayName(admin)
   const infoItems = [
     { label: "名前", value: admin.name || "-" },
     { label: "メールアドレス", value: admin.email },

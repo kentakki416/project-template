@@ -6,6 +6,7 @@ import { GetAdminMeResponse } from "@repo/api-schema"
 import UserAvatar from "@/components/ui/avatar/UserAvatar"
 import { Dropdown } from "@/components/ui/dropdown/Dropdown"
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem"
+import { resolveAdminDisplayName } from "@/features/admin/admin-display-name"
 import { logoutAction } from "@/features/auth/auth.actions"
 
 type UserDropdownProps = {
@@ -20,10 +21,7 @@ const MENU_ITEM_CLASS_NAME =
  */
 export default function UserDropdown({ admin }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
-  /**
-   * 名前が無ければ（Google で一度もサインインしていない admin）email を出す
-   */
-  const displayName = admin.name || admin.email
+  const displayName = resolveAdminDisplayName(admin)
 
   function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
     e.stopPropagation()
