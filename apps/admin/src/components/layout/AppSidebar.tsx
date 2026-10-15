@@ -13,7 +13,7 @@ import {
 } from "@/icons"
 
 /**
- * サイドバーに並べるセクション。デモを消すときは demoNavSection を外す
+ * サイドバーに並べるセクション
  */
 const navSections: NavSection[] = [mainNavSection, demoNavSection]
 

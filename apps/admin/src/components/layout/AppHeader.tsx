@@ -14,7 +14,7 @@ import { useSidebar } from "@/features/sidebar/sidebar.context"
 
 export type AppHeaderProps = {
   admin: GetAdminMeResponse
-  /** 通知をすべて既読にする Server Action。省略すると「すべて既読にする」を出さない */
+  /** 通知をすべて既読にする Server Action */
   markAllAsReadAction?: () => Promise<void>
   notifications: AdminNotification[]
   /** 省略すると検索欄を出さない */

@@ -64,7 +64,6 @@ const filters: FilterConfig[] = [
 ]
 
 type Props = {
-  /** api が実際に使ったページと件数 */
   page: number
   perPage: number
   totalCount: number
@@ -72,7 +71,7 @@ type Props = {
 }
 
 /**
- * ユーザー一覧の表。検索・絞り込み・ページングは URL に持ち、api で行う（DataTable の server モード）
+ * ユーザー一覧の表（DataTable の server モード）
  */
 export default function UserTable({ page, perPage, totalCount, users }: Props) {
   return (

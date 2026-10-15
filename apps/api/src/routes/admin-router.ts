@@ -21,8 +21,8 @@ type AdminRouterControllers = {
 }
 
 /**
- * admin の API のルーター（/api/admin に mount する）
- * 認証は mount の中の adminAuthMiddleware が済ませている。渡されたコントローラーのルートのみ登録する
+ * admin の API のルーター
+ * 渡されたコントローラーのルートのみ登録する
  */
 export const adminRouter = (controllers: AdminRouterControllers): Router => {
   const router = Router()
@@ -35,20 +35,19 @@ export const adminRouter = (controllers: AdminRouterControllers): Router => {
 
   /**
    * POST /api/admin/auth/dev-login（NODE_ENV !== "production" のみ）
-   * index.ts で本番時は controllers.authDevLogin に undefined を渡すため、ルート自体が登録されない
    */
   if (controllers.authDevLogin) {
     const controller = controllers.authDevLogin
     router.post("/auth/dev-login", async (req, res) => controller.execute(req, res))
   }
 
-  /** POST /api/admin/auth/refresh（ADMIN_PUBLIC_PATHS に含まれるため admin の認証不要） */
+  /** POST /api/admin/auth/refresh */
   if (controllers.authRefresh) {
     const controller = controllers.authRefresh
     router.post("/auth/refresh", async (req, res) => controller.execute(req, res))
   }
 
-  /** POST /api/admin/auth/logout（ADMIN_PUBLIC_PATHS に含まれる。refresh token で本人を確かめる） */
+  /** POST /api/admin/auth/logout */
   if (controllers.authLogout) {
     const controller = controllers.authLogout
     router.post("/auth/logout", async (req, res) => controller.execute(req, res))

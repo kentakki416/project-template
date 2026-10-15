@@ -104,9 +104,6 @@ export default function UserDropdown({ admin }: UserDropdownProps) {
             </DropdownItem>
           </li>
         </ul>
-        {/**
-         * DropdownItem の tag="button" は preventDefault するので submit できない。素の button にする
-         */}
         <form action={logoutAction}>
           <button
             className={`w-full mt-3 ${MENU_ITEM_CLASS_NAME}`}
