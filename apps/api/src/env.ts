@@ -11,14 +11,6 @@ import { z } from "zod"
  */
 const apiEnvSchema = z.object({
   /**
-   * Admin API のダミーモード（DB 不要で固定データを返す）
-   */
-  ADMIN_USE_DUMMY: z
-    .enum(["true", "false"])
-    .transform((v) => v === "true")
-    .default("false"),
-
-  /**
    * Postgres 接続文字列
    * 未指定時は packages/db 側でローカル開発用デフォルトにフォールバックする
    */
@@ -68,6 +60,16 @@ const apiEnvSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32),
 
   /**
+   * admin の Access Token の署名鍵。一般ユーザーの鍵と分け、user のトークンを admin の API で通さない
+   */
+  JWT_ADMIN_ACCESS_SECRET: z.string().min(32),
+
+  /**
+   * admin の Refresh Token の署名鍵
+   */
+  JWT_ADMIN_REFRESH_SECRET: z.string().min(32),
+
+  /**
    * Refresh Token 有効期限（例: "7d" / "30d"）
    */
   JWT_REFRESH_EXPIRATION: z.string().default("7d"),
@@ -91,6 +93,13 @@ const apiEnvSchema = z.object({
    */
   REDIS_URL: z.string().url().optional(),
 })
+  /**
+   * admin の鍵が一般ユーザーの鍵と同じ値なら起動を止める（写し間違えると、鍵を分けた意味が無くなる）
+   */
+  .refine(
+    (env) => env.JWT_ADMIN_ACCESS_SECRET !== env.JWT_ACCESS_SECRET && env.JWT_ADMIN_REFRESH_SECRET !== env.JWT_REFRESH_SECRET,
+    { message: "admin の JWT の鍵は一般ユーザーの鍵と別の値にする", path: ["JWT_ADMIN_ACCESS_SECRET"] },
+  )
 
 const result = apiEnvSchema.safeParse(process.env)
 if (!result.success) {

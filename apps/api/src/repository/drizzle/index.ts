@@ -1,3 +1,4 @@
+export * from "./admin-repository"
 export * from "./auth-account-repository"
 export * from "./healthcheck-repository"
 export * from "./memo-repository"

@@ -69,14 +69,16 @@ try/catch を許容するのは次の 2 つだけ。
 - **オブジェクトは一括 assertion にする**。API レスポンス（外部契約）は `toEqual` + `expect.any(...)`（フィールド増減で落ちる方が望ましい）、DB 行（内部状態）は `toMatchObject`
 - **境界値テストは必須**（日付フィルタの境界、条件分岐の境界）
 
-## Admin API 設計方針（未実装）
+## Admin API
 
-Admin 向けエンドポイントはまだ 1 つも実装されていない（`src/routes/` には auth / health / memo / user のみ）。追加するときの方針:
+管理画面（`apps/admin`）用の API。一般ユーザーの API と認証を完全に分ける（設計: `docs/spec/admin-template/README.md` の「admin 認証」）。
 
-- すべて `/api/admin/` 配下に置き、ユーザー向け API と分離する
-- Controller / Service は共通のものを使い、`admin-router.ts` を新設してマッピングする
-- スキーマは `@repo/api-schema` の `admin/` に集約。既存と同一なら re-export し、Admin 固有のレスポンスが必要になった時点で新規定義する
-- 認証は当面無し（`PUBLIC_PATHS`）。`ADMIN_USE_DUMMY=true` で DB 不要のダミーモードになる
+- すべて `/api/admin/` 配下に置き、`src/routes/admin-router.ts` にまとめる。Controller は `src/controller/admin/`。Service / Repository は共通のものを使い、admin 専用のものだけを足す
+- スキーマは `@repo/api-schema` の `admin/` に置く。一般ユーザーの API と同じ形なら re-export する
+- **認証**: admin は `admins` テーブル（`users` とは別）。トークンは admin 専用の鍵（`JWT_ADMIN_ACCESS_SECRET` / `JWT_ADMIN_REFRESH_SECRET`）で署名し、payload は `{ adminId }`。refresh の jti は Redis の `admin_refresh_token:{jti}`
+- **`adminAuthMiddleware` は全体ではなく `/api/admin` の mount の中に置く**（`app.use(ADMIN_PATH_PREFIX, adminAuthMiddleware, adminRouter(...))`）。Express 5 の mount は大文字小文字を区別しないので、全体に適用して文字列で比べると `/API/Admin/...` が判定をすり抜ける。一般ユーザーの `authMiddleware` は `/api/admin` を見ない
+- admin の認証をしないパスは `ADMIN_PUBLIC_PATHS`（mount からの相対。google / refresh / logout と、production 以外の dev-login）
+- **admin の登録**: `pnpm --filter @repo/db admin:create --email <email>`。本番は GitHub Actions の「Admin Create」（`docs/onboarding/deploy-prd.md`）。ローカルは seed で `admin@dev.local` が入り、`POST /api/admin/auth/dev-login` でログインできる
 
 ## 環境変数
 

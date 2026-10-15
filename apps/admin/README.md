@@ -91,7 +91,7 @@ app/ → components/ → features/(ロジック)
 ## API 設計方針
 
 - Admin が利用する API はすべて `/api/admin/` プレフィックスを付与する
-- ダミーデータ: 環境変数 `ADMIN_USE_DUMMY=true`（API 側の `.env.local`）で DB 接続なしのダミーデータモードに切替可能
+- ローカルは docker compose の Postgres / Redis と seed のデータで動かす（`pnpm --filter @repo/db db:seed` で dev 用の admin `admin@dev.local` も入る）
 
 ### API 通信方式
 

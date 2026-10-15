@@ -1,9 +1,12 @@
 import express from "express"
 
-import { users } from "@repo/db"
-import { User } from "@repo/domain"
+import { admins, users } from "@repo/db"
+import { Admin, User } from "@repo/domain"
 
+import { ADMIN_PATH_PREFIX } from "../../src/const"
+import { generateAdminAccessToken } from "../../src/lib/admin-jwt"
 import { generateAccessToken } from "../../src/lib/jwt"
+import { adminAuthMiddleware } from "../../src/middleware/admin-auth"
 import { authMiddleware } from "../../src/middleware/auth"
 import { unhandledExceptionHandler } from "../../src/middleware/unhandled-exception-handler"
 
@@ -61,4 +64,45 @@ export const createTestUser = async (overrides?: {
   const token = generateAccessToken(user.id)
 
   return { token, user }
+}
+
+/**
+ * admin の API のテスト用 Express アプリを構築する。
+ * 本番の index.ts と同じく、authMiddleware を全体に、adminAuthMiddleware と Router を /api/admin の mount の中に置く
+ */
+export const createAdminTestApp = (router: express.Router): express.Express => {
+  const app = express()
+  app.use(express.json())
+  app.use(authMiddleware)
+  app.use(ADMIN_PATH_PREFIX, adminAuthMiddleware, router)
+  app.use(unhandledExceptionHandler)
+  return app
+}
+
+/**
+ * テスト用 admin を DB に作成し、admin の access token を返す
+ */
+export const createTestAdmin = async (overrides?: {
+  email?: string
+  name?: string
+}): Promise<{ admin: Admin; token: string }> => {
+  const [row] = await testDb
+    .insert(admins)
+    .values({
+      email: overrides?.email ?? `admin-${Date.now()}@example.com`,
+      name: overrides?.name ?? "Test Admin",
+    })
+    .returning()
+
+  const admin: Admin = {
+    id: row.id,
+    avatarUrl: row.avatarUrl,
+    email: row.email,
+    lastSignedInAt: row.lastSignedInAt,
+    name: row.name,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }
+
+  return { admin, token: generateAdminAccessToken(admin.id) }
 }

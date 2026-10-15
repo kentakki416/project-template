@@ -1,3 +1,5 @@
+export * as adminAuth from "./admin-auth-service"
+export * as admin from "./admin-service"
 export * as auth from "./auth-service"
 export * as health from "./health-service"
 export * as memo from "./memo-service"

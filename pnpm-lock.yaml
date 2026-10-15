@@ -597,6 +597,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@repo/domain':
+        specifier: workspace:^
+        version: link:../domain
       drizzle-orm:
         specifier: 1.0.0-rc.4
         version: 1.0.0-rc.4(@electric-sql/pglite@0.3.2)(@sinclair/typebox@0.27.8)(@types/pg@8.23.1)(effect@3.18.4)(mysql2@3.15.3)(pg@8.23.1)(postgres@3.4.7)(valibot@1.2.0(typescript@5.9.3))(zod@3.25.76)
