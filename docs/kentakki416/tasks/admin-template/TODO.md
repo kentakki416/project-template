@@ -3,7 +3,7 @@
 apps/admin のデモと土台を分け、admin 認証・API に繋いだユーザー管理・データを外から渡すヘッダー・Tooltip を揃え、実プロジェクトではデモを消すだけで使い始められる状態にする。
 
 - 対象: 設計書 `docs/spec/admin-template/`（未作成）→ 設計書 PR → 実装 PR（step ごと。設計書 PR の上に順に積む）
-- 判断待ち: `judge-yourself.md` の Q1〜Q6（⏸ 印の項目）
+- 判断: `judge-yourself.md` の Q1〜Q6 はすべて推奨案で確定（2026-10-15）
 
 ## 1. 調査
 
@@ -15,12 +15,12 @@ apps/admin のデモと土台を分け、admin 認証・API に繋いだユー�
 
 ## 2. 設計書
 
-- [ ] ⏸ Q1〜Q6 README（仕様 / 設計）を書く
+- [ ] README（仕様 / 設計）を書く
 - [ ] step1: デモの隔離
 - [ ] step2: ブランド設定の集約
 - [ ] step3: Tooltip コンポーネント
-- [ ] ⏸ Q1 Q2 Q3 Q6 step4: admins テーブルと admin 認証
-- [ ] ⏸ Q4 Q5 step5: ユーザー管理画面
+- [ ] step4: admins テーブルと admin 認証
+- [ ] step5: ユーザー管理画面
 - [ ] step6: ヘッダー部品にデータを外から渡す
 - [ ] docs/spec/README.md に追記する
 
@@ -33,8 +33,8 @@ apps/admin のデモと土台を分け、admin 認証・API に繋いだユー�
 - [ ] step1 の PR
 - [ ] step2 の PR
 - [ ] step3 の PR
-- [ ] ⏸ Q1 Q2 Q3 Q6 step4 の PR
-- [ ] ⏸ Q4 Q5 step5 の PR
+- [ ] step4 の PR
+- [ ] step5 の PR
 - [ ] step6 の PR
 
 ## 5. 完了
