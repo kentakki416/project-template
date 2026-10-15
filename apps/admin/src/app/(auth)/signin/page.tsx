@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 
 import GoogleSignInButton from "@/components/features/auth/GoogleSignInButton"
 import Alert from "@/components/ui/alert/Alert"
-import { SIGN_IN_ERROR_MESSAGES } from "@/features/auth/sign-in-errors"
+import { SIGN_IN_ERROR_MESSAGES, SignInError } from "@/features/auth/sign-in-errors"
 import { getAccessToken } from "@/libs/auth"
 import { isAccessTokenExpiringSoon } from "@/libs/auth-cookies"
 import { resolveSafeRedirectPath } from "@/libs/safe-redirect"
@@ -38,7 +38,7 @@ export default async function SignIn({ searchParams }: Props) {
    */
   const errorMessage = error
     ? Object.hasOwn(SIGN_IN_ERROR_MESSAGES, error)
-      ? SIGN_IN_ERROR_MESSAGES[error as keyof typeof SIGN_IN_ERROR_MESSAGES]
+      ? SIGN_IN_ERROR_MESSAGES[error as SignInError]
       : SIGN_IN_ERROR_MESSAGES.auth_failed
     : null
 

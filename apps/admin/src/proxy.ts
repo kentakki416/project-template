@@ -19,12 +19,12 @@ const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
   ? ["/api/dev/login"]
   : []
 
+const SIGN_IN_PATH = "/signin"
+
 /**
  * サインインせずに開けるパス。サインイン画面（SIGN_IN_PATH）以外は token の更新もしない
  * （callback・signout・dev login は自分で cookie を書き換えるので、先に更新すると書き換える前の refresh token を無効にする）
  */
-const SIGN_IN_PATH = "/signin"
-
 const PUBLIC_PATHS = [
   SIGN_IN_PATH,
   "/api/auth/callback/google",
