@@ -2,7 +2,7 @@
 
 apps/admin のデモと土台を分け、admin 認証・API に繋いだユーザー管理・データを外から渡すヘッダー・Tooltip を揃え、実プロジェクトではデモを消すだけで使い始められる状態にする。
 
-- 対象: 設計書 `docs/spec/admin-template/`（ブランチ `docs/admin-template-spec`）→ 設計書 PR → 実装 PR（step ごと。設計書 PR の上に順に積む）
+- 対象: 設計書 `docs/spec/admin-template/`（#116）→ 実装 PR（step ごと。base は常に main。前の step のマージ後に main の上に作り直して出す）
 - 判断: `judge-yourself.md` の Q1〜Q6 はすべて推奨案で確定（2026-10-15）
 
 ## 1. 調査
@@ -33,14 +33,17 @@ apps/admin のデモと土台を分け、admin 認証・API に繋いだユー�
 - [x] 設計書用ブランチを切って PR を出す（#116）
 - [x] セルフレビューと CodeRabbit の指摘を直す
 
-## 4. 実装（設計書 PR の上に積む）
+## 4. 実装（base は main）
 
 - [x] step1 の PR（#119）
 - [x] step2 の PR（#120）
 - [x] step3 の PR（#121）
-- [x] step4 の PR（#122）
-- [ ] step5 の PR
+- [x] step1〜3 を main に入れ直す（#123。#119〜#121 は途中のブランチにマージされていた）
+- [x] step4 の PR（#122。base を main に変更）
+- [x] step5 の PR（#124）
+- [x] step6 を実装する（手元。step5 のマージ後に PR）
 - [ ] step6 の PR
+- [x] step7 を実装する（手元。step6 のマージ後に PR）
 - [ ] step7 の PR
 
 ## 5. 完了
