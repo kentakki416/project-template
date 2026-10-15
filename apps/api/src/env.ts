@@ -94,12 +94,18 @@ const apiEnvSchema = z.object({
   REDIS_URL: z.string().url().optional(),
 })
   /**
-   * admin の鍵が一般ユーザーの鍵と同じ値なら起動を止める（写し間違えると、鍵を分けた意味が無くなる）
+   * JWT の鍵 4 つが 1 つでも同じ値なら起動を止める。写し間違えると、
+   * user のトークンが admin の API を通ったり、refresh token が access token として通ったりする
    */
-  .refine(
-    (env) => env.JWT_ADMIN_ACCESS_SECRET !== env.JWT_ACCESS_SECRET && env.JWT_ADMIN_REFRESH_SECRET !== env.JWT_REFRESH_SECRET,
-    { message: "admin の JWT の鍵は一般ユーザーの鍵と別の値にする", path: ["JWT_ADMIN_ACCESS_SECRET"] },
-  )
+  .superRefine((env, ctx) => {
+    const keys = ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "JWT_ADMIN_ACCESS_SECRET", "JWT_ADMIN_REFRESH_SECRET"] as const
+    keys.forEach((key, index) => {
+      const duplicate = keys.slice(0, index).find((other) => env[other] === env[key])
+      if (duplicate) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${key} は ${duplicate} と別の値にする`, path: [key] })
+      }
+    })
+  })
 
 const result = apiEnvSchema.safeParse(process.env)
 if (!result.success) {

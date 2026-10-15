@@ -42,13 +42,13 @@ export const generateAdminRefreshToken = (adminId: number): { jti: string; token
 }
 
 /**
- * admin の Access Token を検証する。payload の adminId が数値でなければ失敗にする
- * （鍵を写し間違えて user のトークン `{ userId }` が署名を通っても、ここで落とす）
+ * admin の Access Token を検証する。payload の adminId が数値でなければ、また jti を持っていれば失敗にする
+ * （鍵を写し間違えて user のトークン `{ userId }` や refresh token `{ adminId, jti }` が署名を通っても、ここで落とす）
  */
 export const verifyAdminAccessToken = (token: string): AdminAccessTokenPayload | null => {
   try {
     const payload = jwt.verify(token, JWT_ADMIN_ACCESS_SECRET)
-    if (typeof payload !== "object" || typeof payload.adminId !== "number") return null
+    if (typeof payload !== "object" || typeof payload.adminId !== "number" || "jti" in payload) return null
     return payload as AdminAccessTokenPayload
   } catch {
     return null

@@ -168,5 +168,5 @@ GitHub / Apple / X 等を追加する場合、`apps/api/src/client/*-oauth.ts` �
 
 | ドキュメント | 内容 |
 |---|---|
-| [`../../apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md) | Admin API 設計方針 / PUBLIC_PATHS |
+| [`../../apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md) | Admin API（admin の認証）/ PUBLIC_PATHS |
 | [`../../apps/web/CLAUDE.md`](../../apps/web/CLAUDE.md) | web の API 通信ルール（Server Component / Server Action / Route Handler の使い分け） |

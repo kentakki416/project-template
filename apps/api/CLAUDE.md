@@ -75,10 +75,10 @@ try/catch を許容するのは次の 2 つだけ。
 
 - すべて `/api/admin/` 配下に置き、`src/routes/admin-router.ts` にまとめる。Controller は `src/controller/admin/`。Service / Repository は共通のものを使い、admin 専用のものだけを足す
 - スキーマは `@repo/api-schema` の `admin/` に置く。一般ユーザーの API と同じ形なら re-export する
-- **認証**: admin は `admins` テーブル（`users` とは別）。トークンは admin 専用の鍵（`JWT_ADMIN_ACCESS_SECRET` / `JWT_ADMIN_REFRESH_SECRET`）で署名し、payload は `{ adminId }`。refresh の jti は Redis の `admin_refresh_token:{jti}`
-- **`adminAuthMiddleware` は全体ではなく `/api/admin` の mount の中に置く**（`app.use(ADMIN_PATH_PREFIX, adminAuthMiddleware, adminRouter(...))`）。Express 5 の mount は大文字小文字を区別しないので、全体に適用して文字列で比べると `/API/Admin/...` が判定をすり抜ける。一般ユーザーの `authMiddleware` は `/api/admin` を見ない
-- admin の認証をしないパスは `ADMIN_PUBLIC_PATHS`（mount からの相対。google / refresh / logout と、production 以外の dev-login）
-- **admin の登録**: `pnpm --filter @repo/db admin:create --email <email>`。本番は GitHub Actions の「Admin Create」（`docs/onboarding/deploy-prd.md`）。ローカルは seed で `admin@dev.local` が入り、`POST /api/admin/auth/dev-login` でログインできる
+- **認証**: admin は `admins` テーブル（`users` とは別）。トークンは admin 専用の鍵（`JWT_ADMIN_ACCESS_SECRET` / `JWT_ADMIN_REFRESH_SECRET`）で署名し、payload は `{ adminId }`。refresh の jti は Redis の `admin_refresh_token:{jti}`。JWT の鍵 4 つが 1 つでも同じ値なら `src/env.ts` が起動を止める
+- **`adminAuthMiddleware` は全体ではなく `/api/admin` の mount の中に置く**（`mountAdminApi`（`src/routes/admin-router.ts`）で mount する。テストの `createAdminTestApp` も同じ関数を使う）。Express 5 の mount は大文字小文字を区別しないので、全体に適用して文字列で比べると `/API/Admin/...` が判定をすり抜ける。一般ユーザーの `authMiddleware` は `/api/admin` を見ない
+- admin の認証をしないパスは `ADMIN_PUBLIC_PATHS`（mount からの相対で、完全一致で比べる。google / refresh / logout と、production 以外の dev-login）
+- **admin の登録**: `pnpm --filter @repo/db admin:create --email <email>`。本番は GitHub Actions の「Admin Create」（`docs/onboarding/deploy-prd.md`）。ローカルは seed で `admin@dev.local` が入り、`POST /api/admin/auth/dev-login` でログインできる（dev-login は `@dev.local` の admin しか受け付けない）
 
 ## 環境変数
 

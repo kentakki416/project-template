@@ -39,6 +39,7 @@ export class DrizzleAdminRepository implements AdminRepository {
       })
       .where(eq(admins.id, id))
       .returning()
+    if (!row) throw new Error(`Admin not found: id=${id}`)
     return this._toDomainAdmin(row)
   }
 

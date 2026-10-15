@@ -240,6 +240,7 @@ green が 200 を返すのを確認 → Actions の「Review pending deployments
 
 管理画面（`apps/admin`）にサインインできるのは、`admins` テーブルに email が登録された Google アカウントだけ。最初の 1 人も 2 人目以降も、Actions → **「Admin Create」** を `environment=prd`・`email=<Google アカウントの email>` で実行して登録する（最後に deploy した migration イメージで `pnpm --filter @repo/db admin:create` を流す。登録済みなら何もしない）。
 
+- Admin Create は**最後に deploy した** migration イメージで動く。admin の認証を入れた版をまだ deploy していない環境では、イメージに `admin:create` が無いうえ `admins` テーブルも無いので失敗する。先に deploy を済ませる
 - 登録した email の Google アカウントで管理画面にサインインすると、名前とアイコンが入る
 - 実行の記録（入力した email を含む）は Actions のログに残る
 

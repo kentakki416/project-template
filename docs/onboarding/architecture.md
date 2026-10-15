@@ -83,7 +83,7 @@ Router → Controller → Service → Repository → (Drizzle / Redis)
 
 - **DI**: `src/index.ts` で Repository → Controller → Router の順にインスタンス化して組み立てる。
 - **Service の引数**: Repository は単一でも複数でも必ず `repo: { xxxRepository }` というオブジェクト引数にまとめる（将来 Repository が増えてもシグネチャを変えずに済む）。
-- **Admin API**: すべて `/api/admin/` 配下に配置してユーザー向け API と分離。Controller / Service は共通、Router (`admin-router.ts`) でマッピングする。
+- **Admin API**: すべて `/api/admin/` 配下に置き、一般ユーザーの API とは認証を分ける（`admins` テーブル・admin 専用の JWT の鍵）。Controller は `src/controller/admin/`、Router は `admin-router.ts`。Service / Repository は共通のものを使い、admin 専用のものだけを足す（詳細は `apps/api/CLAUDE.md` の「Admin API」）。
 
 ## server-side app（cron / worker）の構成
 

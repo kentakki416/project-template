@@ -33,8 +33,11 @@ describe("AdminRepository", () => {
       expect(await adminRepository.findById(row.id)).toEqual(expected)
     })
 
-    it("recordSignIn に profile を渡すと、名前・アイコン・最終サインイン日時が変わる", async () => {
-      const [row] = await testDb.insert(admins).values({ email: "admin@example.com" }).returning()
+    it("recordSignIn に profile を渡すと、名前・アイコン・最終サインイン日時・更新日時が変わる", async () => {
+      const [row] = await testDb
+        .insert(admins)
+        .values({ email: "admin@example.com", updatedAt: new Date("2026-01-01T00:00:00.000Z") })
+        .returning()
       const signedInAt = new Date("2026-10-15T01:02:03.456Z")
 
       const updated = await adminRepository.recordSignIn(row.id, {
@@ -47,7 +50,7 @@ describe("AdminRepository", () => {
         lastSignedInAt: signedInAt,
         name: "From Google",
       })
-      expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(row.updatedAt.getTime())
+      expect(updated.updatedAt.getTime()).toBeGreaterThan(row.updatedAt.getTime())
       expect(await adminRepository.findById(row.id)).toMatchObject({ lastSignedInAt: signedInAt, name: "From Google" })
     })
 
@@ -68,6 +71,10 @@ describe("AdminRepository", () => {
     it("存在しない email / id では null を返す", async () => {
       expect(await adminRepository.findByEmail("missing@example.com")).toBeNull()
       expect(await adminRepository.findById(999999)).toBeNull()
+    })
+
+    it("recordSignIn で存在しない id を渡すと throw する", async () => {
+      await expect(adminRepository.recordSignIn(999999, { signedInAt: new Date() })).rejects.toThrow()
     })
 
     it("同じ email は 2 回登録できない（一意制約）", async () => {

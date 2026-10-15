@@ -99,8 +99,8 @@ describe("POST /api/admin/auth/google", () => {
       expect(await testRedis.keys("admin_refresh_token:*")).toEqual([])
     })
 
-    it("Google で email が未確認なら、登録済みでも 403", async () => {
-      await testDb.insert(admins).values({ email: "admin@example.com" })
+    it("Google で email が未確認なら、登録済みでも 403 で、admin の行も変えない", async () => {
+      const [row] = await testDb.insert(admins).values({ email: "admin@example.com" }).returning()
       mockGetUserInfo.mockResolvedValue({ ...googleUser, emailVerified: false })
 
       const res = await request(app)
@@ -109,6 +109,8 @@ describe("POST /api/admin/auth/google", () => {
 
       expect(res.status).toBe(403)
       expect(await testRedis.keys("admin_refresh_token:*")).toEqual([])
+      const [unchanged] = await testDb.select().from(admins).where(eq(admins.id, row.id))
+      expect(unchanged).toEqual(row)
     })
 
     it("code が無ければ 400", async () => {

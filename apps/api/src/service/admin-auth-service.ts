@@ -19,6 +19,11 @@ export type AuthenticateAdminSuccess = {
   refreshToken: string
 }
 
+/**
+ * dev-login でサインインできる admin の email のドメイン（seed の admin@dev.local）
+ */
+const DEV_ADMIN_EMAIL_DOMAIN = "@dev.local"
+
 type Repositories = {
   adminRepository: AdminRepository
   refreshTokenRepository: RefreshTokenRepository
@@ -82,7 +87,8 @@ export const authenticateAdminWithGoogle = async (
  * 開発環境専用の admin ログイン
  *
  * email で seed 済みの admin（admin@dev.local）を引き当ててトークンを発行し、最終サインイン日時を更新する。
- * production での誤実行を防ぐガードは呼び出し側（index.ts / router / controller / ADMIN_PUBLIC_PATHS）で行う
+ * production での誤実行を防ぐガードは呼び出し側（index.ts / router / controller / ADMIN_PUBLIC_PATHS）で行う。
+ * production 以外でも、@dev.local 以外の admin（admin:create で登録した実在の人）には Google を通さずにはなれない
  */
 export const loginAsDevAdmin = async (
   input: { email: string },
@@ -91,7 +97,12 @@ export const loginAsDevAdmin = async (
 ): Promise<Result<AuthenticateAdminSuccess>> => {
   logger.debug("AdminAuthService: dev-login attempt")
 
-  const admin = await repo.adminRepository.findByEmail(normalizeEmail(input.email))
+  const email = normalizeEmail(input.email)
+  if (!email.endsWith(DEV_ADMIN_EMAIL_DOMAIN)) {
+    return err(notFoundError("Dev admin not found"))
+  }
+
+  const admin = await repo.adminRepository.findByEmail(email)
   if (!admin) {
     return err(notFoundError("Dev admin not found"))
   }

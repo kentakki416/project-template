@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken"
 import request from "supertest"
 
 import { AdminAuthRefreshController } from "../../../../src/controller/admin/auth/refresh"
@@ -65,6 +66,18 @@ describe("POST /api/admin/auth/refresh", () => {
       expect(res.status).toBe(401)
       /** 一般ユーザーの jti には触らない */
       expect(await userRefreshTokenRepository.findUserId(jti)).toBe(1)
+    })
+
+    it("payload が admin の形でも、一般ユーザーの鍵で署名された refresh token は 401", async () => {
+      const { admin } = await createTestAdmin()
+      const jti = "forged-jti"
+      const token = jwt.sign({ adminId: admin.id, jti }, process.env.JWT_REFRESH_SECRET!, { expiresIn: "7d" })
+      await adminRefreshTokenRepository.save(jti, admin.id, REFRESH_TTL_SECONDS)
+
+      const res = await request(app).post("/api/admin/auth/refresh").send({ refresh_token: token })
+
+      expect(res.status).toBe(401)
+      expect(await adminRefreshTokenRepository.findUserId(jti)).toBe(admin.id)
     })
 
     it("admins から消された admin の refresh token は 401 で、jti を消す", async () => {

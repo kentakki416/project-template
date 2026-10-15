@@ -106,10 +106,11 @@ describe("POST /api/auth/google", () => {
       userId: createdUser.id,
     })
 
-    /** Redis に Refresh Token が保存され、userId が紐付いている */
+    /** Redis に Refresh Token が保存され、userId が紐付いている（キーは admin と分けた refresh_token:{jti} のまま） */
     const payload = verifyRefreshToken(res.body.refresh_token)
     expect(payload).not.toBeNull()
     expect(await refreshTokenRepository.findUserId(payload!.jti)).toBe(createdUser.id)
+    expect(await testRedis.get(`refresh_token:${payload!.jti}`)).toBe(String(createdUser.id))
   })
 
   it("既存ユーザーの場合、200 と is_new_user=false で Token を返し Redis に新しい Refresh Token が保存される", async () => {

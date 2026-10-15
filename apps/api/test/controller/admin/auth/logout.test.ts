@@ -42,9 +42,13 @@ describe("POST /api/admin/auth/logout", () => {
   })
 
   describe("異常系", () => {
-    it("一般ユーザーの refresh token でも 200（冪等）で、どちらの jti も残る", async () => {
+    it("一般ユーザーの refresh token でも 200（冪等）で、どの jti も残る", async () => {
       const { jti: userJti, token } = generateRefreshToken(1)
       await userRefreshTokenRepository.save(userJti, 1, REFRESH_TTL_SECONDS)
+      /**
+       * 一般ユーザーの鍵でも検証が通ってしまうと消えるよう、同じ jti を admin のキーにも置いておく
+       */
+      await adminRefreshTokenRepository.save(userJti, 1, REFRESH_TTL_SECONDS)
       const { jti: adminJti } = generateAdminRefreshToken(3)
       await adminRefreshTokenRepository.save(adminJti, 3, REFRESH_TTL_SECONDS)
 
@@ -52,6 +56,7 @@ describe("POST /api/admin/auth/logout", () => {
 
       expect(res.status).toBe(200)
       expect(await userRefreshTokenRepository.findUserId(userJti)).toBe(1)
+      expect(await adminRefreshTokenRepository.findUserId(userJti)).toBe(1)
       expect(await adminRefreshTokenRepository.findUserId(adminJti)).toBe(3)
     })
   })

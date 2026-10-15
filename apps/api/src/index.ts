@@ -9,7 +9,6 @@ import { BullMQJobQueue, TRACK_EVENT_QUEUE_NAME } from "@repo/queue"
 import { createRedisClient } from "@repo/redis"
 
 import { GoogleOAuthClient } from "./client/google-oauth"
-import { ADMIN_PATH_PREFIX } from "./const"
 import { AdminAuthDevLoginController } from "./controller/admin/auth/dev-login"
 import { AdminAuthGoogleController } from "./controller/admin/auth/google"
 import { AdminAuthLogoutController } from "./controller/admin/auth/logout"
@@ -29,7 +28,6 @@ import { MemoListController } from "./controller/memo/list"
 import { MemoUpdateController } from "./controller/memo/update"
 import { UserGetController } from "./controller/user/get"
 import { env } from "./env"
-import { adminAuthMiddleware } from "./middleware/admin-auth"
 import { authMiddleware } from "./middleware/auth"
 import { flushEventsBeforeResponse } from "./middleware/flush-events"
 import { apiRateLimiter } from "./middleware/rate-limit"
@@ -44,7 +42,7 @@ import {
   DrizzleUserRepository,
 } from "./repository/drizzle"
 import { IoRedisHealthRepository, IoRedisRefreshTokenRepository } from "./repository/redis"
-import { adminRouter } from "./routes/admin-router"
+import { adminRouter, mountAdminApi } from "./routes/admin-router"
 import { authRouter } from "./routes/auth-router"
 import { eventRouter } from "./routes/event-router"
 import { healthRouter } from "./routes/health-router"
@@ -245,13 +243,10 @@ app.use(
   })
 )
 /**
- * admin の API。adminAuthMiddleware は全体ではなく mount の中に置く。
- * Express 5 の mount は大文字小文字を区別しないので、全体に適用して文字列で比べると
- * /API/Admin/... が認証の判定をすり抜けて Router に届くため。ここなら Router の前に必ず通る
+ * admin の API。adminAuthMiddleware は mountAdminApi が mount の中に置く
  */
-app.use(
-  ADMIN_PATH_PREFIX,
-  adminAuthMiddleware,
+mountAdminApi(
+  app,
   adminRouter({
     authDevLogin: adminAuthDevLoginController,
     authGoogle: adminAuthGoogleController,

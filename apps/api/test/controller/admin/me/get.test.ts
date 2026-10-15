@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken"
 import request from "supertest"
 
 import { AdminMeGetController } from "../../../../src/controller/admin/me/get"
@@ -44,6 +45,16 @@ describe("GET /api/admin/me", () => {
   describe("異常系", () => {
     it("トークンなしは 401", async () => {
       const res = await request(app).get("/api/admin/me")
+
+      expect(res.status).toBe(401)
+      expect(res.body).toEqual({ error: expect.any(String), status_code: 401 })
+    })
+
+    it("payload が admin の形でも、一般ユーザーの鍵で署名されたトークンは 401", async () => {
+      const { admin } = await createTestAdmin()
+      const token = jwt.sign({ adminId: admin.id }, process.env.JWT_ACCESS_SECRET!, { expiresIn: "15m" })
+
+      const res = await request(app).get("/api/admin/me").set("Authorization", `Bearer ${token}`)
 
       expect(res.status).toBe(401)
     })

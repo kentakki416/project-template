@@ -3,12 +3,11 @@ import express from "express"
 import { admins, users } from "@repo/db"
 import { Admin, User } from "@repo/domain"
 
-import { ADMIN_PATH_PREFIX } from "../../src/const"
 import { generateAdminAccessToken } from "../../src/lib/admin-jwt"
 import { generateAccessToken } from "../../src/lib/jwt"
-import { adminAuthMiddleware } from "../../src/middleware/admin-auth"
 import { authMiddleware } from "../../src/middleware/auth"
 import { unhandledExceptionHandler } from "../../src/middleware/unhandled-exception-handler"
+import { mountAdminApi } from "../../src/routes/admin-router"
 
 import { testDb } from "./setup"
 
@@ -68,13 +67,13 @@ export const createTestUser = async (overrides?: {
 
 /**
  * admin の API のテスト用 Express アプリを構築する。
- * 本番の index.ts と同じく、authMiddleware を全体に、adminAuthMiddleware と Router を /api/admin の mount の中に置く
+ * 本番の index.ts と同じく、authMiddleware を全体に掛け、mountAdminApi で /api/admin に mount する
  */
 export const createAdminTestApp = (router: express.Router): express.Express => {
   const app = express()
   app.use(express.json())
   app.use(authMiddleware)
-  app.use(ADMIN_PATH_PREFIX, adminAuthMiddleware, router)
+  mountAdminApi(app, router)
   app.use(unhandledExceptionHandler)
   return app
 }

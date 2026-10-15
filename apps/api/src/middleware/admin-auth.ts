@@ -5,16 +5,25 @@ import { logContext } from "@repo/logger"
 
 import { ADMIN_PUBLIC_PATHS } from "../const"
 import { verifyAdminAccessToken } from "../lib/admin-jwt"
-import { isPathUnderPrefix } from "../lib/is-path-under-prefix"
 
 export interface AdminAuthRequest extends Request {
   adminId?: number
 }
 
 /**
+ * mount からの相対パスが ADMIN_PUBLIC_PATHS のどれかと完全に一致するか。
+ * 大文字小文字と末尾の `/` は区別しない（Express 5 の Router もこれらを区別せずにルートへ届けるため）。
+ * 下の階層は公開しない（`/auth/google/x` は公開パスではない）
+ */
+const isAdminPublicPath = (path: string): boolean => {
+  const normalizedPath = path.toLowerCase().replace(/\/$/, "")
+  return ADMIN_PUBLIC_PATHS.some(p => p.toLowerCase() === normalizedPath)
+}
+
+/**
  * admin の Access Token で認証する。
  *
- * index.ts で `app.use(ADMIN_PATH_PREFIX, adminAuthMiddleware, adminRouter(...))` と mount の中に置く。
+ * mountAdminApi（routes/admin-router.ts）で `/api/admin` の mount の中に置く。
  * 全体に適用して req.path で判定すると、Express 5 が大文字小文字を区別せずに Router に渡す
  * `/API/Admin/users` のようなパスで、認証の判定だけがすり抜けるため。
  * ここでの req.path は mount からの相対（/auth/google など）。
@@ -22,7 +31,7 @@ export interface AdminAuthRequest extends Request {
  * user のトークンは鍵が違うので verifyAdminAccessToken で必ず失敗する。
  */
 export const adminAuthMiddleware = (req: AdminAuthRequest, res: Response, next: NextFunction) => {
-  if (ADMIN_PUBLIC_PATHS.some(p => isPathUnderPrefix(req.path, p))) {
+  if (isAdminPublicPath(req.path)) {
     return next()
   }
 

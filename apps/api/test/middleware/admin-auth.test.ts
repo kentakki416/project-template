@@ -28,8 +28,14 @@ describe("adminAuthMiddleware", () => {
       expect(res.body).toEqual({ adminId: 7 })
     })
 
-    it("ADMIN_PUBLIC_PATHS はトークンなしで通す（大文字小文字の違いを含む）", async () => {
-      for (const path of ["/api/admin/auth/google", "/api/admin/auth/refresh", "/api/admin/auth/logout", "/API/Admin/Auth/Google"]) {
+    it("ADMIN_PUBLIC_PATHS はトークンなしで通す（大文字小文字と末尾の / の違いを含む）", async () => {
+      for (const path of [
+        "/api/admin/auth/google",
+        "/api/admin/auth/refresh",
+        "/api/admin/auth/logout",
+        "/API/Admin/Auth/Google",
+        "/api/admin/auth/google/",
+      ]) {
         const res = await request(app).post(path)
         expect(res.status).toBe(200)
       }
@@ -71,10 +77,21 @@ describe("adminAuthMiddleware", () => {
       expect(res.status).toBe(401)
     })
 
-    it("公開パスに segment 境界でない文字を足したパスは公開扱いにしない", async () => {
-      const res = await request(app).post("/api/admin/auth/google-foo")
+    it("admin の鍵で署名されていても payload に jti があれば（refresh token の形なら）401", async () => {
+      const token = jwt.sign({ adminId: 7, jti: "jti" }, process.env.JWT_ADMIN_ACCESS_SECRET!, { expiresIn: "15m" })
+
+      const res = await request(app)
+        .get("/api/admin/me")
+        .set("Authorization", `Bearer ${token}`)
 
       expect(res.status).toBe(401)
+    })
+
+    it("公開パスに文字や下の階層を足したパスは公開扱いにしない", async () => {
+      for (const path of ["/api/admin/auth/google-foo", "/api/admin/auth/google/callback"]) {
+        const res = await request(app).post(path)
+        expect(res.status).toBe(401)
+      }
     })
   })
 })
