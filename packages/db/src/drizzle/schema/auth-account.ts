@@ -1,4 +1,7 @@
-import { foreignKey, index, integer, pgTable, serial, text, uniqueIndex } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
+import { check, foreignKey, index, integer, pgTable, serial, text, uniqueIndex } from "drizzle-orm/pg-core"
+
+import { AUTH_PROVIDERS } from "@repo/domain"
 
 import { timestamps } from "./columns"
 import { users } from "./user"
@@ -14,9 +17,9 @@ export const authAccounts = pgTable(
   {
     id: serial("id").primaryKey(),
     /**
-     * "google" | "github" | "credentials" | "dev" など
+     * ログイン方法。値の集合は @repo/domain の AUTH_PROVIDERS（CHECK 制約もそこから作る）
      */
-    provider: text("provider").notNull(),
+    provider: text("provider", { enum: AUTH_PROVIDERS }).notNull(),
     /**
      * プロバイダー側のユーザー ID
      */
@@ -25,6 +28,10 @@ export const authAccounts = pgTable(
     ...timestamps,
   },
   (table) => [
+    check(
+      "auth_accounts_provider_check",
+      sql`${table.provider} IN (${sql.join(AUTH_PROVIDERS.map((provider) => sql`${provider}`), sql`, `)})`,
+    ),
     foreignKey({
       columns: [table.userId],
       foreignColumns: [users.id],

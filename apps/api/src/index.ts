@@ -14,6 +14,8 @@ import { AdminAuthGoogleController } from "./controller/admin/auth/google"
 import { AdminAuthLogoutController } from "./controller/admin/auth/logout"
 import { AdminAuthRefreshController } from "./controller/admin/auth/refresh"
 import { AdminMeGetController } from "./controller/admin/me/get"
+import { AdminUserDetailController } from "./controller/admin/user/detail"
+import { AdminUserListController } from "./controller/admin/user/list"
 import { AuthDevLoginController } from "./controller/auth/dev-login"
 import { AuthGoogleController } from "./controller/auth/google"
 import { AuthLogoutController } from "./controller/auth/logout"
@@ -131,6 +133,8 @@ const adminAuthGoogleController = new AdminAuthGoogleController(
 const adminAuthRefreshController = new AdminAuthRefreshController(adminRepository, adminRefreshTokenRepository)
 const adminAuthLogoutController = new AdminAuthLogoutController(adminRefreshTokenRepository)
 const adminMeGetController = new AdminMeGetController(adminRepository)
+const adminUserListController = new AdminUserListController(userRepository)
+const adminUserDetailController = new AdminUserDetailController(userRepository, authAccountRepository)
 
 /**
  * admin の dev-login Controller も production 以外でだけ生成する
@@ -253,6 +257,8 @@ mountAdminApi(
     authLogout: adminAuthLogoutController,
     authRefresh: adminAuthRefreshController,
     meGet: adminMeGetController,
+    userDetail: adminUserDetailController,
+    userList: adminUserListController,
   })
 )
 app.use(

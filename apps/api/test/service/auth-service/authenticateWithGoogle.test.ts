@@ -23,6 +23,7 @@ const mockAuthAccountCreate = vi.fn<(
 const mockAuthAccountRepository: AuthAccountRepository = {
   create: mockAuthAccountCreate as never,
   findByProvider: mockFindByProvider,
+  findByUserId: vi.fn(),
 }
 
 const mockUserCreate = vi.fn<(
@@ -33,6 +34,7 @@ const mockUserRepository: UserRepository = {
   create: mockUserCreate,
   findByEmail: vi.fn(),
   findById: vi.fn(),
+  search: vi.fn(),
 }
 
 const mockRefreshTokenSave = vi.fn<(_0: string, _1: number, _2: number) => Promise<void>>()
