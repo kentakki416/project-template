@@ -93,10 +93,10 @@ cron / worker も **api と同じ思想のレイヤード**（Repository interfa
 ```
 index.ts              # 起動確認用エントリ（本番では使わない）
 env.ts                # Zod で env 検証（safeParse → process.exit(1)）
+run-task.ts           # DB の生成・切断 / SIGTERM・SIGINT の受信 / 終了コード（成功 0・失敗 1・中断 128+n）
 task/<name>.ts        # 1 ファイル = 1 cron。runTask で包み、Repository 生成 → service を呼ぶだけ
 service/<domain>/     # 業務ロジック（アロー関数 + repo: オブジェクト引数）
 repository/            # interface。実装は drizzle/
-runtime/run-task.ts   # DB の生成・切断 / SIGTERM・SIGINT の受信 / 終了コード（成功 0・失敗 1・中断 128+n）
 ```
 
 **worker**（`apps/worker/src/`）:

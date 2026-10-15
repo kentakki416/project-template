@@ -2,7 +2,7 @@ import { logger } from "@repo/logger"
 
 import { env } from "../env"
 import { DrizzleMemoRepository } from "../repository/drizzle"
-import { runTask } from "../runtime/run-task"
+import { runTask } from "../run-task"
 import * as service from "../service"
 
 /**

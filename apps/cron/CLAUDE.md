@@ -32,7 +32,7 @@ Repository の interface は api / worker と意図的に分離する（api は 
 
 run-once モデルなので、**処理の途中でシグナルを受けて終了した場合はタスクが未完了**を意味する。ここで exit 0 を返すとスケジューラが成功と誤認し、削除が途中で止まっても次回まで気付けない。
 
-task は `src/runtime/run-task.ts` の `runTask(name, async ({ db }) => { ... })` で包む。DB client の生成・切断、シグナルの受信、終了コードは `runTask` が持つので、task 側には書かない。
+task は `src/run-task.ts` の `runTask(name, async ({ db }) => { ... })` で包む。DB client の生成・切断、シグナルの受信、終了コードは `runTask` が持つので、task 側には書かない。
 
 | 結果 | 終了コード |
 | --- | --- |

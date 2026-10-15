@@ -1,7 +1,7 @@
 import { createDrizzleClient, type DrizzleClient } from "@repo/db"
 import { logger } from "@repo/logger"
 
-import { env } from "../env"
+import { env } from "./env"
 
 export type TaskContext = {
   db: DrizzleClient
