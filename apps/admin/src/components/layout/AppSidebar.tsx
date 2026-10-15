@@ -31,7 +31,7 @@ const findSubmenuByPathname = (pathname: string): SubmenuState => {
   return null
 }
 
-const toSubmenuKey = (sectionIndex: number, itemIndex: number): string => `${sectionIndex}-${itemIndex}`
+const buildSubmenuKey = (sectionIndex: number, itemIndex: number): string => `${sectionIndex}-${itemIndex}`
 
 export default function AppSidebar() {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar()
@@ -108,12 +108,12 @@ export default function AppSidebar() {
           {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
             <div
               ref={(el) => {
-                subMenuRefs.current[toSubmenuKey(sectionIndex, itemIndex)] = el
+                subMenuRefs.current[buildSubmenuKey(sectionIndex, itemIndex)] = el
               }}
               className="overflow-hidden transition-all duration-300"
               style={{
                 height: isSubmenuOpen(sectionIndex, itemIndex)
-                  ? `${subMenuHeight[toSubmenuKey(sectionIndex, itemIndex)]}px`
+                  ? `${subMenuHeight[buildSubmenuKey(sectionIndex, itemIndex)]}px`
                   : "0px",
               }}
             >
@@ -161,7 +161,7 @@ export default function AppSidebar() {
      * サブメニューを開いたときに、中身の高さを測って開閉のアニメーションに使う
      */
     if (openSubmenu !== null) {
-      const key = toSubmenuKey(openSubmenu.sectionIndex, openSubmenu.itemIndex)
+      const key = buildSubmenuKey(openSubmenu.sectionIndex, openSubmenu.itemIndex)
       if (subMenuRefs.current[key]) {
         setSubMenuHeight((prevHeights) => ({
           ...prevHeights,
