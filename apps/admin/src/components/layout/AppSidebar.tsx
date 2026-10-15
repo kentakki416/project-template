@@ -1,10 +1,10 @@
 "use client"
-import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import React, { useCallback, useEffect, useRef, useState } from "react"
 
 import { demoNavSection } from "@/components/demo/demo-nav-items"
+import AppLogo from "@/components/layout/AppLogo"
 import { mainNavSection, type NavItem, type NavSection } from "@/components/layout/nav-items"
 import { useSidebar } from "@/features/sidebar/sidebar.context"
 import {
@@ -205,31 +205,7 @@ export default function AppSidebar() {
         }`}
       >
         <Link href="/">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <Image
-                className="dark:hidden"
-                src="/images/logo/logo.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-              />
-              <Image
-                className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-              />
-            </>
-          ) : (
-            <Image
-              src="/images/logo/logo-icon.svg"
-              alt="Logo"
-              width={32}
-              height={32}
-            />
-          )}
+          {isExpanded || isHovered || isMobileOpen ? <AppLogo /> : <AppLogo variant="icon" />}
         </Link>
       </div>
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">

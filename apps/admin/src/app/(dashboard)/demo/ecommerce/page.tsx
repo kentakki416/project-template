@@ -9,9 +9,7 @@ import RecentOrders from "@/components/demo/ecommerce/RecentOrders"
 import StatisticsChart from "@/components/demo/ecommerce/StatisticsChart"
 
 export const metadata: Metadata = {
-  title:
-    "Next.js E-commerce Dashboard | TailAdmin - Next.js Dashboard Template",
-  description: "This is Next.js Home for TailAdmin Dashboard Template",
+  title: "Ecommerce",
 }
 
 export default function Ecommerce() {
