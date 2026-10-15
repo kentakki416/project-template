@@ -13,7 +13,7 @@ import { notificationApi } from "@/features/notification/notification.api"
  *
  * proxy は cookie の期限しか見ないので、ここで api の /api/admin/me を呼び、画面を直接開いたとき・再読み込みのとき
  * （router.refresh を含む）は api が token を確かめる。クライアント側の遷移では layout は描き直されないので、
- * 機密を出す画面は自分で api を呼ぶ。api の 401 は api-client が /api/auth/signout に送る（cookie を消して /signin へ）
+ * 機密を出す画面は自分で api を呼ぶ
  */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [admin, notifications] = await Promise.all([

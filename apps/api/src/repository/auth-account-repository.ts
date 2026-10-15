@@ -4,9 +4,6 @@ import type { TransactionContext } from "./transaction"
 
 /**
  * 認証アカウント作成時の入力
- *
- * provider は @repo/domain の AUTH_PROVIDERS のどれか（DB の CHECK 制約も同じ値の集合）。
- * OAuth トークン系は本アプリでは保持しないため input に含めない。
  */
 export type CreateAuthAccountInput = {
   provider: AuthProvider

@@ -9,7 +9,7 @@ import { apiClient } from "@/libs/api-client"
  */
 export const adminApi = {
   /**
-   * サインイン中の admin。api が 401 を返したら apiClient が /api/auth/signout に送る
+   * サインイン中の admin
    */
   getMe: async (): Promise<GetAdminMeResponse> => {
     const raw = await apiClient.get<unknown>("/api/admin/me")

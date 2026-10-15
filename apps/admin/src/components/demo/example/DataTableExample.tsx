@@ -16,7 +16,7 @@ const LAST_NAMES = ["Curtis", "George", "Geidt", "Rosser", "Dias"]
 const ROLES: Member["role"][] = ["Admin", "Editor", "Viewer"]
 
 /**
- * 固定のサンプル 30 件（ブラウザ側で検索・絞り込み・ページングする見本）
+ * 固定のサンプル 30 件
  */
 const members: Member[] = Array.from({ length: 30 }, (_, i) => {
   const name = `${FIRST_NAMES[i % FIRST_NAMES.length]} ${LAST_NAMES[i % LAST_NAMES.length]}`
@@ -56,7 +56,7 @@ const filters: ClientFilterConfig<Member>[] = [
 ]
 
 /**
- * DataTable の client モードの見本（検索・select の絞り込み・ページングをブラウザ側で行う）
+ * DataTable の client モードの見本
  */
 export default function DataTableExample() {
   return (

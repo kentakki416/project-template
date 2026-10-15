@@ -99,7 +99,6 @@ type ServerModeProps = {
   filters?: FilterConfig[]
   /** 検索設定。指定すると検索バーを表示 */
   search?: SearchConfig
-  /** 指定すると検索・絞り込み・ページングをサーバー側に任せる */
   server: ServerModeConfig
 }
 
@@ -132,7 +131,7 @@ type BaseProps<T> = {
 }
 
 /**
- * 絞り込みの値。select は key、dateRange は `{key}_from` / `{key}_to` に入れる
+ * 絞り込みの値
  */
 type FilterValues = Record<string, string>
 
@@ -155,7 +154,7 @@ const DATE_INPUT_CLASS_NAME = "h-10 focus:ring-brand-500/10"
 const CELL_CLASS_NAME = "px-5 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-400"
 
 /**
- * フィルタが使う値の名前（select は key、dateRange は `{key}_from` / `{key}_to`）
+ * フィルタが使う値の名前
  */
 const listFilterValueKeys = (filter: FilterConfig): string[] =>
   filter.type === "dateRange" ? [`${filter.key}_from`, `${filter.key}_to`] : [filter.key]
@@ -211,8 +210,7 @@ const applySearchParamUpdates = (
 }
 
 /**
- * テーブル。検索・絞り込み・ページングを、ブラウザ側（client モード）か
- * サーバー側（server モード: 状態を URL に持ち、data は 1 ページ分）で行う
+ * テーブル。検索・絞り込み・ページングを、ブラウザ側（client モード）かサーバー側（server モード）で行う
  */
 export default function DataTable<T>(props: DataTableProps<T>) {
   if (props.server) {

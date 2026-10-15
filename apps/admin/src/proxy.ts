@@ -13,7 +13,7 @@ import {
 import { resolveSafeRedirectPath } from "@/libs/safe-redirect"
 
 /**
- * production 以外でのみ公開する dev 専用パス（`/api/dev/login` で dev admin としてログインする）
+ * production 以外でのみ公開する dev 専用パス
  */
 const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
   ? ["/api/dev/login"]
@@ -95,7 +95,6 @@ export const proxy = async (req: NextRequest) => {
   const isPublicPath = PUBLIC_PATHS.some(p => isPathUnderPrefix(pathname, p))
   /**
    * サインイン画面でも更新する。api の一時的な障害でサインイン画面に送られた後、開き直せば元の画面に戻れるように
-   * （更新できたら、サインイン画面が有効な access の cookie を見て redirect に戻す）
    */
   if (isPublicPath && pathname !== SIGN_IN_PATH) {
     return NextResponse.next()
