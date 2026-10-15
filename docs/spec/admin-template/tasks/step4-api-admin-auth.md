@@ -1,0 +1,718 @@
+# step4-api-admin-auth
+
+admin 認証の DB・api・鍵の配布・admin の登録コマンドを作る。admin の画面側（サインイン画面・cookie・proxy）は step5。
+
+この step の後は、api に admin のトークンで入れる（curl とテストで確認する）。admin の画面はまだ認証なしで開ける。
+
+設計: [`../README.md`](../README.md#admin-認証) / [鍵の配布](../README.md#admin-の-jwt-の鍵の配布) / [登録コマンド](../README.md#admin-の登録コマンド) / [ADMIN_USE_DUMMY の廃止](../README.md#admin_use_dummy-の廃止)
+
+## 対応内容
+
+### 変更するファイル
+
+```
+packages/domain/src/
+├── rules/email.ts                    # 新設 normalizeEmail
+├── types/admin.ts                    # 新設 Admin
+└── index.ts
+packages/db/
+├── package.json                      # @repo/domain を dependencies に、admin:create を scripts に
+├── src/drizzle/schema/admin.ts       # 新設
+├── src/drizzle/schema/index.ts
+├── drizzle/migrations/<timestamp>_add_admins/   # db:generate で生成
+├── drizzle/create-admin.ts           # 新設 admin:create コマンド
+└── drizzle/seed.ts                   # dev 用 admin を足す
+packages/schema/src/api-schema/
+├── admin/auth.ts                     # 新設
+├── admin/me.ts                       # 新設
+├── admin/index.ts                    # 新設
+└── index.ts
+apps/api/
+├── src/env.ts                        # JWT_ADMIN_* を足し、ADMIN_USE_DUMMY を消す
+├── src/const/index.ts                # ADMIN_PATH_PREFIX / ADMIN_PUBLIC_PATHS
+├── src/client/google-oauth.ts        # verified_email を取る
+├── src/lib/match-path-prefix.ts      # 新設（auth.ts から移す）
+├── src/lib/admin-jwt.ts              # 新設
+├── src/middleware/auth.ts            # /api/admin を見ない
+├── src/middleware/admin-auth.ts      # 新設
+├── src/repository/admin-repository.ts            # 新設 interface
+├── src/repository/drizzle/admin-repository.ts    # 新設
+├── src/repository/redis/refresh-token-repository.ts  # キーの接頭辞を受け取る
+├── src/service/admin-auth-service.ts # 新設
+├── src/service/admin-service.ts      # 新設
+├── src/service/auth-service.ts       # TokenGenerators / REFRESH_TTL_SECONDS を export
+├── src/controller/admin/auth/{google,refresh,logout,dev-login}.ts  # 新設
+├── src/controller/admin/me/get.ts    # 新設
+├── src/routes/admin-router.ts        # 新設
+├── src/index.ts                      # DI
+├── .env.local                        # dotenvx で JWT_ADMIN_* を足す
+└── test/...                          # 後述
+infra/terraform/aws/env/{dev,min,prd}/main.tf
+scripts/deploy/seed-secrets.sh
+.github/actions/run-one-shot-task/action.yml      # command 入力
+.github/actions/run-deployed-migration/action.yml # command 入力を渡す
+.github/workflows/admin-create.yml               # 新設
+.github/workflows/deploy-aws-min.yml
+turbo.json
+```
+
+ドキュメント: `apps/api/CLAUDE.md`（Admin API 設計方針を実装に合わせる）、`docs/onboarding/deploy-prd.md`（admin の登録手順）、`apps/admin/CLAUDE.md` / `apps/admin/README.md`（`ADMIN_USE_DUMMY` の記述を消す）。`docs/onboarding/auth.md` は画面までそろう step5 で書く。
+
+### `packages/domain`
+
+```typescript
+/** src/types/admin.ts */
+
+/**
+ * 管理画面にサインインできる人
+ */
+export type Admin = {
+  id: number
+  avatarUrl: string | null
+  /**
+   * 小文字にそろえた email
+   */
+  email: string
+  lastSignedInAt: Date | null
+  name: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+```
+
+```typescript
+/** src/rules/email.ts */
+
+/**
+ * email の大文字小文字と前後の空白の差をなくす。admins の照合と登録で同じ形にそろえる
+ */
+export const normalizeEmail = (email: string): string => email.trim().toLowerCase()
+```
+
+`index.ts` に `normalizeEmail` と `Admin` をファイル名順で足す。
+
+### `packages/db`
+
+`package.json` の `dependencies` に `"@repo/domain": "workspace:^"`、`scripts` に `"admin:create": "tsx drizzle/create-admin.ts"` を足す。
+
+```typescript
+/** src/drizzle/schema/admin.ts */
+import { pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core"
+
+import { timestamps } from "./columns"
+
+/**
+ * 管理画面にサインインできる人（事前登録制。users とは関係を持たない）
+ */
+export const admins = pgTable(
+  "admins",
+  {
+    id: serial("id").primaryKey(),
+    avatarUrl: text("avatar_url"),
+    /**
+     * 小文字にそろえて保存する（normalizeEmail）
+     */
+    email: text("email").notNull(),
+    lastSignedInAt: timestamp("last_signed_in_at", { mode: "date", precision: 3 }),
+    name: text("name"),
+    ...timestamps,
+  },
+  (table) => [uniqueIndex("admins_email_key").on(table.email)],
+)
+```
+
+`schema/index.ts` に `export * from "./admin"` を足し、`pnpm --filter @repo/db db:generate --name add_admins` で migration を作る。
+
+```typescript
+/** drizzle/create-admin.ts */
+/* eslint-disable no-console */
+import { parseArgs } from "node:util"
+
+import { normalizeEmail } from "@repo/domain"
+
+import { createDrizzleClient } from "../src/drizzle/client"
+import { admins } from "../src/drizzle/schema"
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/
+
+/**
+ * admins に email を登録する。既にあれば何もしない
+ *
+ * 使い方: pnpm --filter @repo/db admin:create --email someone@example.com
+ * 本番は .github/workflows/admin-create.yml から migration イメージで流す
+ */
+const main = async () => {
+  const { values } = parseArgs({ options: { email: { type: "string" } } })
+  if (!values.email || !EMAIL_PATTERN.test(values.email)) {
+    throw new Error("Usage: admin:create --email <email>")
+  }
+  const email = normalizeEmail(values.email)
+
+  const db = createDrizzleClient()
+  try {
+    const [created] = await db
+      .insert(admins)
+      .values({ email })
+      .onConflictDoNothing({ target: admins.email })
+      .returning({ id: admins.id })
+    console.log(created ? `Created admin (id=${created.id})` : "Admin already exists")
+  } finally {
+    await db.$disconnect()
+  }
+}
+
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})
+```
+
+- ログに email を出さない（Actions のログに入力値は残るが、コマンドの出力にまで重ねない）
+
+`seed.ts` に dev 用の admin を足す（production では seed 自体がスキップされる）。
+
+```typescript
+const DEV_ADMIN_EMAIL = "admin@dev.local"
+
+const seedDevAdmin = async () => {
+  await db
+    .insert(admins)
+    .values({ email: DEV_ADMIN_EMAIL, name: "Admin (dev)" })
+    .onConflictDoNothing({ target: admins.email })
+  console.log(`Seeded dev admin: ${DEV_ADMIN_EMAIL}`)
+}
+```
+
+### `packages/schema`
+
+`api-schema/admin/` を新設し、`api-schema/index.ts` に `export * from "./admin"` を足す（ファイル名順）。リクエストが一般ユーザーの API と同じものは re-export する。
+
+```typescript
+/** api-schema/admin/auth.ts */
+import { z } from "zod"
+
+import {
+  authDevLoginRequestSchema,
+  authGoogleRequestSchema,
+  authLogoutRequestSchema,
+  authLogoutResponseSchema,
+  authRefreshRequestSchema,
+  authRefreshResponseSchema,
+} from "../auth"
+
+/**
+ * サインインした admin
+ */
+const signedInAdminSchema = z.object({
+  id: z.number(),
+  avatar_url: z.string().nullable(),
+  email: z.string(),
+  name: z.string().nullable(),
+})
+
+// ========================================================
+// POST /api/admin/auth/google - admin の Google OAuth 認証
+// ========================================================
+
+/**
+ * 一般ユーザーの Google 認証と同じ（code と redirect_uri）
+ */
+export const adminAuthGoogleRequestSchema = authGoogleRequestSchema
+
+/**
+ * admin の Google 認証のレスポンス。admins に登録が無い email は 403
+ */
+export const adminAuthGoogleResponseSchema = z.object({
+  access_token: z.string(),
+  admin: signedInAdminSchema,
+  refresh_token: z.string(),
+})
+
+// POST /api/admin/auth/dev-login / refresh / logout も同じ形で定義する
+// （dev-login のレスポンスは adminAuthGoogleResponseSchema と同じ形）
+```
+
+```typescript
+/** api-schema/admin/me.ts */
+
+// ========================================================
+// GET /api/admin/me - サインイン中の admin
+// ========================================================
+
+/**
+ * サインイン中の admin のレスポンススキーマ
+ */
+export const getAdminMeResponseSchema = z.object({
+  id: z.number(),
+  avatar_url: z.string().nullable(),
+  email: z.string(),
+  last_signed_in_at: z.string().nullable(),
+  name: z.string().nullable(),
+  created_at: z.string(),
+})
+
+export type GetAdminMeResponse = z.infer<typeof getAdminMeResponseSchema>
+```
+
+各スキーマに `z.infer` の型を並べる（`packages/schema/CLAUDE.md`）。
+
+### `apps/api` の env と鍵
+
+```typescript
+/** src/env.ts（ADMIN_USE_DUMMY を消し、JWT の鍵の並びに足す） */
+
+  /**
+   * admin の Access Token の署名鍵。一般ユーザーの鍵と分け、user のトークンを admin で通さない
+   */
+  JWT_ADMIN_ACCESS_SECRET: z.string().min(32),
+
+  JWT_ADMIN_REFRESH_SECRET: z.string().min(32),
+```
+
+```bash
+cd apps/api
+pnpm exec dotenvx set JWT_ADMIN_ACCESS_SECRET "$(openssl rand -hex 32)" -f .env.local
+pnpm exec dotenvx set JWT_ADMIN_REFRESH_SECRET "$(openssl rand -hex 32)" -f .env.local
+```
+
+`test/vitest.setup.ts` に 32 文字以上の既定値、`turbo.json` の `test:ci.env` に 2 つのキーを足す。
+
+```typescript
+/** src/lib/admin-jwt.ts */
+
+export type AdminAccessTokenPayload = {
+  adminId: number
+  exp?: number
+  iat?: number
+}
+
+export type AdminRefreshTokenPayload = {
+  adminId: number
+  exp?: number
+  iat?: number
+  jti: string
+}
+
+/**
+ * admin の Access Token を生成する。有効期限は一般ユーザーと同じ env を使う
+ */
+export const generateAdminAccessToken = (adminId: number): string =>
+  jwt.sign({ adminId }, JWT_ADMIN_ACCESS_SECRET, { expiresIn: JWT_ACCESS_EXPIRATION })
+
+/** generateAdminRefreshToken / verifyAdminAccessToken / verifyAdminRefreshToken も lib/jwt.ts と同じ形で作る */
+```
+
+### `apps/api` の Google クライアント
+
+`googleUserInfoResponseSchema` に `verified_email: z.boolean()` を足し、`GoogleUserInfo` に `emailVerified: boolean` を足す。一般ユーザーの認証は使わないが、既存のテストの `GoogleUserInfo` のモックにも値を足す。
+
+### `apps/api` のミドルウェア
+
+`auth.ts` の `matchesPathPrefix` を `lib/match-path-prefix.ts` に移し、両方のミドルウェアから使う。
+
+```typescript
+/** src/const/index.ts */
+
+/**
+ * admin の API の接頭辞。ここから下は adminAuthMiddleware だけが認証する
+ */
+export const ADMIN_PATH_PREFIX = "/api/admin"
+
+const ADMIN_DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
+  ? ["/api/admin/auth/dev-login"]
+  : []
+
+/**
+ * admin の API のうち、admin の認証をしないパス
+ */
+export const ADMIN_PUBLIC_PATHS: readonly string[] = [
+  "/api/admin/auth/google",
+  "/api/admin/auth/refresh",
+  ...ADMIN_DEV_ONLY_PUBLIC_PATHS,
+]
+```
+
+```typescript
+/** src/middleware/auth.ts の先頭 */
+
+  /**
+   * admin の API は adminAuthMiddleware が認証する。ここで user のトークンとして
+   * 検証すると、admin のトークンが 401 になる
+   */
+  if (matchesPathPrefix(req.path, ADMIN_PATH_PREFIX)) {
+    return next()
+  }
+```
+
+```typescript
+/** src/middleware/admin-auth.ts */
+
+export interface AdminAuthRequest extends Request {
+  adminId?: number
+}
+
+/**
+ * /api/admin 配下だけを、admin の Access Token で認証する
+ * user のトークンは鍵が違うので verifyAdminAccessToken で必ず失敗する
+ */
+export const adminAuthMiddleware = (req: AdminAuthRequest, res: Response, next: NextFunction) => {
+  if (!matchesPathPrefix(req.path, ADMIN_PATH_PREFIX)) return next()
+  if (ADMIN_PUBLIC_PATHS.some(p => matchesPathPrefix(req.path, p))) return next()
+
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith("Bearer ")) {
+    const errorResponse: ErrorResponse = { error: "No token provided", status_code: 401 }
+    return res.status(401).json(errorResponse)
+  }
+
+  const payload = verifyAdminAccessToken(authHeader.substring(7))
+  if (!payload) {
+    const errorResponse: ErrorResponse = { error: "Invalid or expired token", status_code: 401 }
+    return res.status(401).json(errorResponse)
+  }
+
+  req.adminId = payload.adminId
+  return next()
+}
+```
+
+### `apps/api` の Repository
+
+```typescript
+/** src/repository/admin-repository.ts */
+
+/**
+ * サインインしたときに Google の情報で更新する値
+ */
+export type RecordAdminSignInInput = {
+  avatarUrl: string | null
+  name: string
+  signedInAt: Date
+}
+
+/**
+ * admin リポジトリのインターフェース
+ */
+export interface AdminRepository {
+  findByEmail(email: string): Promise<Admin | null>
+  findById(id: number): Promise<Admin | null>
+  recordSignIn(id: number, data: RecordAdminSignInInput): Promise<Admin>
+}
+```
+
+`DrizzleAdminRepository` は `DrizzleUserRepository` と同じ形で作る（`_toDomainAdmin` で row → domain）。`recordSignIn` は `name` / `avatar_url` / `last_signed_in_at` を更新して `returning()` する。
+
+`IoRedisRefreshTokenRepository` はキーの接頭辞をコンストラクタで受け取る（既定は今の `refresh_token`）。admin 用は `index.ts` で `new IoRedisRefreshTokenRepository(redis, "admin_refresh_token")` として作る。
+
+### `apps/api` の Service
+
+`auth-service.ts` の `TokenGenerators` 型と `REFRESH_TTL_SECONDS` を export する。refresh / logout は admin でも `service.auth.refreshTokens` / `service.auth.logout` をそのまま使う。
+
+```typescript
+/** src/service/admin-auth-service.ts */
+
+export type AuthenticateAdminSuccess = {
+  accessToken: string
+  admin: Admin
+  refreshToken: string
+}
+
+type Repositories = {
+  adminRepository: AdminRepository
+  refreshTokenRepository: RefreshTokenRepository
+}
+
+/**
+ * admin の Google 認証
+ *
+ * Google で確認済みの email が admins に登録されていればトークンを発行する。
+ * 未確認・未登録は 403。admins の行はここでは作らない（事前登録制）
+ */
+export const authenticateAdminWithGoogle = async (
+  input: { code: string; redirectUri: string },
+  repo: Repositories,
+  googleAuthClient: IGoogleOAuthClient,
+  tokenGenerators: TokenGenerators,
+): Promise<Result<AuthenticateAdminSuccess>> => {
+  const googleUser = await googleAuthClient.getUserInfo(input.code, input.redirectUri)
+  if (!googleUser.emailVerified) {
+    return err(forbiddenError("Google email is not verified"))
+  }
+
+  const admin = await repo.adminRepository.findByEmail(normalizeEmail(googleUser.email))
+  if (!admin) {
+    /** email は PII なのでログに出さない */
+    logger.info("AdminAuthService: Google account is not an admin", { googleId: googleUser.id })
+    return err(forbiddenError("Not an admin"))
+  }
+
+  const signedInAdmin = await repo.adminRepository.recordSignIn(admin.id, {
+    avatarUrl: googleUser.picture ?? null,
+    name: googleUser.name,
+    signedInAt: new Date(),
+  })
+
+  return ok({ ...(await issueAdminTokens(admin.id, repo, tokenGenerators)), admin: signedInAdmin })
+}
+
+/**
+ * 開発環境専用の admin ログイン。seed 済みの admin（admin@dev.local）を email で引く
+ * production のガードは呼び出し側（index.ts / router / controller / ADMIN_PUBLIC_PATHS）で行う
+ */
+export const loginAsDevAdmin = async (...) => { /* 見つからなければ 404 */ }
+
+/** issueAdminTokens: generateAccessToken / generateRefreshToken して refresh の jti を保存する（2 関数で共有） */
+```
+
+```typescript
+/** src/service/admin-service.ts */
+
+/**
+ * admin を ID で取得する（GET /api/admin/me）
+ */
+export const getAdminById = async (
+  adminId: number,
+  repo: { adminRepository: AdminRepository },
+): Promise<Result<Admin>> => { /* 無ければ 404 */ }
+```
+
+`service/index.ts` に `export * as admin from "./admin-service"` と `export * as adminAuth from "./admin-auth-service"` を足す。
+
+### `apps/api` の Controller / Router / DI
+
+| Controller | 処理 |
+| --- | --- |
+| `AdminAuthGoogleController` | `service.adminAuth.authenticateAdminWithGoogle` に admin 用の発行関数（`generateAdminAccessToken` / `generateAdminRefreshToken`）と admin 用の refresh token Repository を渡す |
+| `AdminAuthRefreshController` | `service.auth.refreshTokens` に admin 用の検証関数・発行関数・Repository を渡す。検証関数は `{ jti, userId: payload.adminId }` に詰め替える |
+| `AdminAuthLogoutController` | `service.auth.logout` に admin 用の検証関数と Repository を渡す |
+| `AdminAuthDevLoginController` | production なら 404（dev-login と同じ多重ガード） |
+| `AdminMeGetController` | `req.adminId!` で `service.admin.getAdminById` |
+
+```typescript
+/** src/routes/admin-router.ts */
+
+type AdminRouterControllers = {
+  authDevLogin?: AdminAuthDevLoginController
+  authGoogle?: AdminAuthGoogleController
+  authLogout?: AdminAuthLogoutController
+  authRefresh?: AdminAuthRefreshController
+  meGet?: AdminMeGetController
+}
+
+/**
+ * admin の API のルーター（/api/admin に mount する）
+ * 認証は adminAuthMiddleware が済ませている
+ */
+export const adminRouter = (controllers: AdminRouterControllers): Router => {
+  const router = Router()
+
+  /** POST /api/admin/auth/google */
+  if (controllers.authGoogle) {
+    const controller = controllers.authGoogle
+    router.post("/auth/google", async (req, res) => controller.execute(req, res))
+  }
+  /** dev-login / refresh / logout / GET /me も同じ形 */
+
+  return router
+}
+```
+
+`index.ts`:
+
+- `const adminRepository = new DrizzleAdminRepository(db)`、`const adminRefreshTokenRepository = new IoRedisRefreshTokenRepository(redis, "admin_refresh_token")`
+- `app.use(authMiddleware)` の直後に `app.use(adminAuthMiddleware)`
+- `app.use("/api/admin", adminRouter({ ... }))`。dev-login の controller は production 以外でだけ作る
+
+### Terraform
+
+`env/{dev,min,prd}/main.tf` に、既存の JWT の鍵と同じ形で足す。
+
+```hcl
+resource "random_password" "jwt_admin_access_secret" {
+  length  = 64
+  special = false
+
+  lifecycle {
+    ignore_changes = [length, special, override_special, min_lower, min_upper, min_numeric, min_special]
+  }
+}
+# jwt_admin_refresh_secret も同じ
+
+module "app_secrets" {
+  initial_values = {
+    JWT_ADMIN_ACCESS_SECRET  = random_password.jwt_admin_access_secret.result
+    JWT_ADMIN_REFRESH_SECRET = random_password.jwt_admin_refresh_secret.result
+    # 既存のキーはそのまま
+  }
+}
+```
+
+- dev / prd は `local.secret_keys.api` に `"JWT_ADMIN_ACCESS_SECRET", "JWT_ADMIN_REFRESH_SECRET"` を足す
+- min は api が Lambda なので、`deploy-aws-min.yml` の `SECRET_KEYS_JSON` に足す
+- `initial_values` に足すのは新しく作る環境のため。既存の環境は `ignore_changes` で反映されないので `seed-secrets.sh` で入れる
+
+### `scripts/deploy/seed-secrets.sh`
+
+Secrets Manager に無いときだけ生成して足す。既にあれば触らない（作り直すと全 admin のセッションが切れる）。
+
+```bash
+# ============================================================================
+# admin の JWT の鍵: 無ければ生成する
+# ============================================================================
+# module.app_secrets は初回 apply でしか initial_values を書かないため、
+# 鍵を足す前に作った環境にはここで入れる
+echo "==> Admin JWT secrets (generated if missing)"
+for key in JWT_ADMIN_ACCESS_SECRET JWT_ADMIN_REFRESH_SECRET; do
+  if [ -z "$(echo "$CURRENT" | jq -r --arg k "$key" '.[$k] // empty')" ]; then
+    add_kv "$key" "$(openssl rand -hex 32)" "generated"
+  else
+    echo "  - $key (exists, kept)"
+  fi
+done
+```
+
+依存コマンドの確認に `openssl` を足し、冒頭の説明にこの項目を足す。
+
+### admin の登録 workflow
+
+`run-one-shot-task` に `command`（JSON 配列の文字列、省略可）の入力を足し、指定されたらコンテナの起動コマンドを差し替える。コンテナ名はタスク定義の family と同じ（ecs-workload module の規約）。
+
+```bash
+OVERRIDES_ARGS=()
+if [ -n "${COMMAND}" ]; then
+  OVERRIDES_ARGS=(--overrides "$(jq -cn --arg name "${FAMILY}" --argjson command "${COMMAND}" \
+    '{containerOverrides: [{name: $name, command: $command}]}')")
+fi
+RUN_RESULT=$(aws ecs run-task ... "${OVERRIDES_ARGS[@]}")
+```
+
+`run-deployed-migration` にも `command` を足して `run-one-shot-task` に渡す。
+
+```yaml
+# .github/workflows/admin-create.yml
+name: Admin Create
+
+# =============================================================================
+# 管理画面にサインインできる admin を登録する（admins に email を足す）
+# =============================================================================
+# 最後に deploy した migration イメージで packages/db の admin:create を流す。
+# 登録済みの email なら何もしない。
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options: [dev, min, prd]
+      email:
+        description: "admin にする Google アカウントの email"
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-aws-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  create:
+    name: Create admin (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # 入力値をシェルに直接展開しない（コマンドインジェクション対策）。JSON は jq で組み立てる
+      - name: Build command
+        id: command
+        env:
+          EMAIL: ${{ inputs.email }}
+        run: |
+          set -euo pipefail
+          if ! [[ "${EMAIL}" =~ ^[^[:space:]@]+@[^[:space:]@]+$ ]]; then
+            echo "::error::Invalid email"
+            exit 1
+          fi
+          echo "command=$(jq -cn --arg email "${EMAIL}" '["pnpm","--filter","@repo/db","admin:create","--email",$email]')" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - name: Run admin:create
+        uses: ./.github/actions/run-deployed-migration
+        with:
+          environment: ${{ inputs.environment }}
+          task-definition: project-template-${{ inputs.environment }}-migration
+          command: ${{ steps.command.outputs.command }}
+```
+
+`docs/onboarding/deploy-prd.md` に「admin を登録する」手順（この workflow を流す → 管理画面で Google でサインインする）を足す。
+
+### 既存の環境への反映の順番
+
+step4 を main に入れた後、deploy の前に環境ごとに次を行う（`docs/onboarding/deploy-prd.md` にも書く）。
+
+1. `scripts/deploy/seed-secrets.sh <env>` で admin の鍵を Secrets Manager に足す
+2. Terraform を apply する（dev / prd は ECS の `secret_keys` が増える）
+3. deploy する（migration で `admins` ができ、api が新しい鍵を読む）
+4. `Admin Create` workflow で admin を登録する
+
+1 より先に 2 / 3 を行うと、ECS のタスクが起動できない（Secrets Manager に無いキーを参照するため）。
+
+## 動作確認
+
+### テスト
+
+`test/controller/helper.ts` に `createAdminTestApp()`（`authMiddleware` + `adminAuthMiddleware`）と `createTestAdmin()`（admins に行を作り admin の access token を返す）を足す。
+
+| テスト | 種類 | 確認すること |
+| --- | --- | --- |
+| `test/repository/admin-repository.test.ts` | 実 DB | `findByEmail` / `findById` / `recordSignIn`（3 列の更新と `updated_at`） |
+| `test/service/admin-auth-service/authenticateAdminWithGoogle.test.ts` | ユニット | 正常系: 登録済み → トークンと更新済みの admin。異常系: 未確認 email → 403 / 未登録 → 403（どちらもトークンを発行しない・`recordSignIn` を呼ばない）/ email の大文字小文字の違いでも一致する |
+| `test/controller/admin/auth/google.test.ts` | インテグレーション | 正常系: 200・DB の 3 列・Redis の `admin_refresh_token:{jti}`。異常系: 未登録 403 / 未確認 403（Redis に何も残らない） |
+| `test/controller/admin/auth/refresh.test.ts` / `logout.test.ts` | インテグレーション | admin の refresh token でローテーション・無効化できる / user の refresh token では 401 |
+| `test/controller/admin/me/get.test.ts` | インテグレーション | 正常系: admin のトークンで 200。異常系: トークンなし 401 / **user の access token で 401** / 存在しない admin で 404 |
+| `test/controller/user/get.test.ts`（追加） | インテグレーション | **admin の access token で `/api/user` が 401** |
+| `test/middleware/admin-auth.test.ts` | ユニット | `/api/admin` 以外は素通り / `ADMIN_PUBLIC_PATHS` は素通り / `/api/admin-foo` は対象外（segment 境界） |
+
+```bash
+pnpm --filter api test
+```
+
+### 手元で API を叩く
+
+```bash
+pnpm --filter @repo/db db:migrate && pnpm --filter @repo/db db:seed
+pnpm --filter api dev
+
+# dev admin でトークンを取る
+TOKEN=$(curl -s -X POST http://localhost:8080/api/admin/auth/dev-login \
+  -H "Content-Type: application/json" -d '{"email":"admin@dev.local"}' | jq -r .access_token)
+
+curl -s http://localhost:8080/api/admin/me -H "Authorization: Bearer ${TOKEN}" | jq
+# 期待: 200 で admin@dev.local
+
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/api/user -H "Authorization: Bearer ${TOKEN}"
+# 期待: 401（admin のトークンは一般ユーザーの API で使えない）
+```
+
+### admin の登録コマンド
+
+```bash
+pnpm --filter @repo/db admin:create --email Someone@Example.com
+# 期待: Created admin。もう一度流すと Admin already exists。DB には someone@example.com で入る
+pnpm --filter @repo/db admin:create --email not-an-email
+# 期待: 終了コード 1
+```
+
+### workflow
+
+dev で `Admin Create` を流し、ログに `Created admin` が出て終了コード 0 になること。同じ email でもう一度流して `Admin already exists` になること。
