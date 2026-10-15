@@ -87,7 +87,7 @@ export const authenticateAdminWithGoogle = async (
  * 開発環境専用の admin ログイン
  *
  * email で seed 済みの admin（admin@dev.local）を引き当ててトークンを発行し、最終サインイン日時を更新する。
- * production での誤実行を防ぐガードは呼び出し側（index.ts / router / controller / ADMIN_PUBLIC_PATHS）で行う。
+ * production での誤実行を防ぐガードは呼び出し側で行う。
  * production 以外でも、@dev.local 以外の admin（admin:create で登録した実在の人）には Google を通さずにはなれない
  */
 export const loginAsDevAdmin = async (

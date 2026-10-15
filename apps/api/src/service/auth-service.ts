@@ -115,7 +115,7 @@ export type LoginAsDevUserSuccess = {
  * 開発環境専用ログイン
  *
  * email で seed 済みの dev ユーザーを引き当てて Access/Refresh Token を発行する。
- * production での誤実行を防ぐためのガードは呼び出し側（controller / index.ts / PUBLIC_PATHS）で行う。
+ * production での誤実行を防ぐためのガードは呼び出し側で行う。
  * このサービス関数自体は環境非依存。
  */
 export const loginAsDevUser = async (

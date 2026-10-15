@@ -32,7 +32,7 @@ env:
   AWS_REGION: ap-northeast-1
 
   # =============================================================================
-  # 環境ごとに変える値 — prd 作成時は deploy-aws-prd.yml を新設して下記を書き換える
+  # 環境ごとに変える値
   # =============================================================================
   # AWS リソースタグ (Terraform default_tags の Project / Environment と一致させる)
   PROJECT_NAME: project-template
@@ -95,8 +95,8 @@ jobs:
   build:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
-    # GitHub Environments で AWS_ROLE_ARN / AWS_PRIVATE_SUBNET_IDS / AWS_ECS_SECURITY_GROUP_ID を env-scope から取得
-    # prd 用は別ファイル deploy-aws-prd.yml を作る前提（承認ゲートやトリガーが本質的に違うため matrix にしない）
+    # GitHub Environments の env-scope から AWS_ROLE_ARN を取得
+    # prd は別ファイル deploy-aws-prd.yml（承認ゲートやトリガーが本質的に違うため matrix にしない）
     environment: dev
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}

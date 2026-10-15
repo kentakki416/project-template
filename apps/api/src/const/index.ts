@@ -1,9 +1,5 @@
 /**
  * production 以外でのみ公開する dev 専用パス
- *
- * /api/auth/dev-login は seed で投入した dev ユーザーで token を発行する API。
- * production では index.ts でコントローラを生成しないためルート自体が存在しない
- * が、念のため PUBLIC_PATHS からも除外する。
  */
 const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
   ? ["/api/auth/dev-login"]
