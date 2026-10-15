@@ -19,20 +19,21 @@ apps/admin/src/
 ├── components/features/header/UserDropdown.tsx
 ├── components/features/profile/AdminProfileCards.tsx  # 新設
 ├── features/admin/admin.api.ts                   # 新設 getMe
-├── features/notification/notification.api.ts     # 新設 getNotifications / markAllAsRead（空の実装）
+├── features/notification/notification.api.ts     # 新設 notificationApi.getList / markAllAsRead（空の実装）
 ├── features/notification/notification.actions.ts # 新設 markAllAsReadAction
-└── features/notification/notification.types.ts   # 新設 Notification 型
+├── features/notification/notification.entity.ts  # 新設 AdminNotification 型
+└── libs/date.ts                                  # formatRelativeTime を足す
 ```
 
 ### 型
 
 ```typescript
-/** features/notification/notification.types.ts */
+/** features/notification/notification.entity.ts */
 
 /**
  * ヘッダーに出す通知。中身（何を通知するか）はプロジェクトごとに決める
  */
-export type Notification = {
+export type AdminNotification = {
   id: string
   /** 通知を出した人などのアイコン。無ければベルのアイコンを出す */
   avatarUrl?: string
@@ -74,7 +75,7 @@ import "server-only"
  * プロジェクトで通知を作るときは、ここを API の呼び出しに差し替える（画面側は変えなくてよい）
  */
 export const notificationApi = {
-  getList: async (): Promise<Notification[]> => [],
+  getList: async (): Promise<AdminNotification[]> => [],
 
   markAllAsRead: async (): Promise<void> => {},
 }
@@ -100,7 +101,7 @@ export const markAllAsReadAction = async () => {
 
 /**
  * サイドバー付きの画面の枠。サインイン中の admin と通知を取ってシェルに渡す
- * 認証は proxy が済ませている。api の 401（refresh も失敗）はサインイン画面に送る
+ * 認証は proxy が済ませている。api の 401 は api-client が /api/auth/signout に送る（step5）
  */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [admin, notifications] = await Promise.all([
@@ -121,7 +122,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 }
 ```
 
-- `adminApi.getMe` が 401 の `ApiClientError` を投げたら（refresh も失敗した = cookie は消えている）、`redirect("/signin")` する
+- api の 401（proxy で更新した後でも弾かれた）は、api-client が `/api/auth/signout` に送る（cookie を消してから `/signin` へ。step5）。layout では扱わない
 - `AdminShell` は今の `(dashboard)/layout.tsx` の中身（`useSidebar` で本文の左の余白を変える部分）をそのまま移した client component。受け取った props（`admin` / `markAllAsReadAction` / `notifications` / `search`）をそのまま `AppHeader` に渡し、`AppHeader` は `UserDropdown` / `NotificationDropdown` / `HeaderSearch` に配る
 - Server Action は Server Component から client component に props で渡せる（関数の参照が送られる）
 
@@ -132,7 +133,7 @@ type AppHeaderProps = {
   admin: GetAdminMeResponse
   /** 通知をすべて既読にする Server Action。省略すると「すべて既読にする」を出さない */
   markAllAsReadAction?: () => Promise<void>
-  notifications: Notification[]
+  notifications: AdminNotification[]
   /** 省略すると検索欄を出さない */
   search?: HeaderSearchProps
 }
@@ -160,7 +161,7 @@ export type HeaderSearchProps = {
 type NotificationDropdownProps = {
   /** すべて既読にする処理。省略すると「すべて既読にする」を出さない */
   markAllAsReadAction?: () => Promise<void>
-  notifications: Notification[]
+  notifications: AdminNotification[]
 }
 ```
 

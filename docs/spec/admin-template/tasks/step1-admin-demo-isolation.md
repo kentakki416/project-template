@@ -8,6 +8,8 @@ TailAdmin のデモ画面とデモだけが使う部品・画像・CSS を `/dem
 
 ## 対応内容
 
+この step のパスは、特に書かない限り `apps/admin/src/` からの相対（`public/` と設定ファイルは `apps/admin/` から）。
+
 ### ページの移動
 
 `git mv` で移す（中身は import のパスだけ直す）。
@@ -108,7 +110,7 @@ export const demoNavSection: NavSection = {
 | 参照されないファイル: `user/` の 15 枚、`country-08`、`brand-09〜15`、`error/` の 404 以外の 8 枚、`images/favicon.ico`（`app/favicon.ico` と同じ） | 削除 |
 | `logo/` `shape/` `error/404*.svg` | 土台なので残す（ロゴは step2 で置き換える） |
 
-ヘッダーの `UserDropdown` / `NotificationDropdown` の固定のサンプル画像も `/images/demo/user/...` を指すようにする（中身は step7 で props にする）。
+ヘッダーの `UserDropdown` / `NotificationDropdown` の固定のサンプル画像も `/images/demo/user/...` を指すようにする（中身は step7 で props にする）。`UserDropdown` の「Edit profile」「Account settings」「Support」の行き先（`/profile`）も `/demo/profile` にする（`/profile` はデモへ移るので、step7 でマイページを作るまで 404 になる）。
 
 ### CSS
 
@@ -159,8 +161,11 @@ export const demoNavSection: NavSection = {
     ignores: ["src/app/(dashboard)/demo/**", "src/app/(auth)/demo/**", "src/components/demo/**"],
     rules: {
       "import/no-restricted-paths": ["error", {
-        /** zones のパスを eslint を起動した場所ではなく、この設定ファイルの場所から解決する（エディタの ESLint でも効くように） */
-        basePath: import.meta.dirname,
+        /**
+         * zones のパスを eslint を起動した場所ではなく、この設定ファイルの場所から解決する（エディタの ESLint でも効くように）。
+         * __dirname はこのファイルの冒頭で既に作っている（import.meta.dirname は Node 20.11 以上が要るので使わない）
+         */
+        basePath: __dirname,
         zones: [{
           except: ["./demo-nav-items.tsx"],
           from: "./src/components/demo",

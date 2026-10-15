@@ -23,6 +23,7 @@ packages/db/
 ├── drizzle/migrations/<timestamp>_add_admins/   # db:generate で生成
 ├── drizzle/create-admin.ts           # 新設 admin:create コマンド
 └── drizzle/seed.ts                   # dev 用 admin を足す
+packages/logger/src/context.ts        # LogContext に adminId を足す
 packages/schema/src/api-schema/
 ├── admin/auth.ts                     # 新設
 ├── admin/me.ts                       # 新設
@@ -32,11 +33,11 @@ apps/api/
 ├── src/env.ts                        # JWT_ADMIN_* を足し、ADMIN_USE_DUMMY を消す
 ├── src/const/index.ts                # ADMIN_PATH_PREFIX / ADMIN_PUBLIC_PATHS
 ├── src/client/google-oauth.ts        # verified_email を取る
-├── src/lib/match-path-prefix.ts      # 新設（auth.ts から移す）
+├── src/lib/is-path-under-prefix.ts   # 新設（auth.ts の matchesPathPrefix を移して改名）
 ├── src/lib/admin-jwt.ts              # 新設
 ├── src/middleware/auth.ts            # /api/admin を見ない
 ├── src/middleware/admin-auth.ts      # 新設
-├── src/middleware/request-logger.ts  # adminId もログに残す
+├── src/middleware/request-logger.ts  # 完了のログに adminId を足す
 ├── src/repository/admin-repository.ts            # 新設 interface
 ├── src/repository/index.ts                       # admin-repository を足す
 ├── src/repository/drizzle/admin-repository.ts    # 新設
@@ -210,16 +211,6 @@ import {
   authRefreshResponseSchema,
 } from "../auth"
 
-/**
- * サインインした admin
- */
-const signedInAdminSchema = z.object({
-  id: z.number(),
-  avatar_url: z.string().nullable(),
-  email: z.string(),
-  name: z.string().nullable(),
-})
-
 // ========================================================
 // POST /api/admin/auth/google - admin の Google OAuth 認証
 // ========================================================
@@ -234,13 +225,18 @@ export const adminAuthGoogleRequestSchema = authGoogleRequestSchema
  */
 export const adminAuthGoogleResponseSchema = z.object({
   access_token: z.string(),
-  admin: signedInAdminSchema,
+  admin: z.object({
+    id: z.number(),
+    avatar_url: z.string().nullable(),
+    email: z.string(),
+    name: z.string().nullable(),
+  }),
   refresh_token: z.string(),
 })
 
 /**
- * POST /api/admin/auth/dev-login / refresh / logout も同じ形で定義する
- * （dev-login のレスポンスは adminAuthGoogleResponseSchema と同じ形）
+ * POST /api/admin/auth/dev-login / refresh / logout も同じ形で、レスポンスごとに z.object を書き下す
+ * （packages/schema/CLAUDE.md の「共通スキーマは作らない」。既存の auth.ts もそうしている）
  */
 ```
 
@@ -344,10 +340,10 @@ export const verifyAdminAccessToken = (token: string): AdminAccessTokenPayload |
 
 ### `apps/api` のミドルウェア
 
-`auth.ts` の `matchesPathPrefix` を `lib/match-path-prefix.ts` に移し、両方のミドルウェアから使う。**Express 5 の mount と Router は URL の大文字小文字を区別しない**ので、パスの比較は小文字にそろえてから行う。
+`auth.ts` の `matchesPathPrefix` を `lib/is-path-under-prefix.ts` に移し、boolean を返す関数の命名規約（`is` で始める）に合わせて `isPathUnderPrefix` に改名して、両方のミドルウェアから使う。**Express 5 の mount と Router は URL の大文字小文字を区別しない**ので、パスの比較は小文字にそろえてから行う。
 
 ```typescript
-/** src/lib/match-path-prefix.ts */
+/** src/lib/is-path-under-prefix.ts */
 
 /**
  * 完全一致 or path segment 境界での prefix 一致をチェックする（大文字小文字は区別しない）
@@ -355,7 +351,7 @@ export const verifyAdminAccessToken = (token: string): AdminAccessTokenPayload |
  * Express は /API/Admin/users も /api/admin に mount した Router に渡すため、
  * 文字列のまま比べると認証の判定だけがすり抜ける
  */
-export const matchesPathPrefix = (path: string, prefix: string): boolean => {
+export const isPathUnderPrefix = (path: string, prefix: string): boolean => {
   const p = path.toLowerCase()
   const q = prefix.toLowerCase()
   return p === q || p.startsWith(`${q}/`)
@@ -395,7 +391,7 @@ export const ADMIN_PUBLIC_PATHS: readonly string[] = [
    * 大文字小文字の違うパス（/API/ADMIN/...）もここで外れるが、admin の Router に届く前に
    * mount の中の adminAuthMiddleware を必ず通るので、user のトークンでは入れない
    */
-  if (matchesPathPrefix(req.path, ADMIN_PATH_PREFIX)) {
+  if (isPathUnderPrefix(req.path, ADMIN_PATH_PREFIX)) {
     return next()
   }
 ```
@@ -415,7 +411,7 @@ export interface AdminAuthRequest extends Request {
  * user のトークンは鍵が違うので verifyAdminAccessToken で必ず失敗する
  */
 export const adminAuthMiddleware = (req: AdminAuthRequest, res: Response, next: NextFunction) => {
-  if (ADMIN_PUBLIC_PATHS.some(p => matchesPathPrefix(req.path, p))) return next()
+  if (ADMIN_PUBLIC_PATHS.some(p => isPathUnderPrefix(req.path, p))) return next()
 
   const authHeader = req.headers.authorization
   if (!authHeader?.startsWith("Bearer ")) {
@@ -430,7 +426,11 @@ export const adminAuthMiddleware = (req: AdminAuthRequest, res: Response, next: 
   }
 
   req.adminId = payload.adminId
-  return next()
+  /**
+   * requestLogger は全体に掛かっていて、ここより先に動く（userId しか積めない）。
+   * 以降のログに adminId が付くよう、今のログのコンテキストに足して続きを動かす
+   */
+  return logContext.run({ ...logContext.getStore(), adminId: payload.adminId }, () => next())
 }
 ```
 
@@ -440,11 +440,10 @@ export const adminAuthMiddleware = (req: AdminAuthRequest, res: Response, next: 
 /** src/repository/admin-repository.ts */
 
 /**
- * サインインしたときに Google の情報で更新する値
+ * サインインしたときに更新する値。profile は Google から取った名前とアイコン（dev ログインでは渡さず、今の値のまま）
  */
 export type RecordAdminSignInInput = {
-  avatarUrl: string | null
-  name: string
+  profile?: { avatarUrl: string | null; name: string }
   signedInAt: Date
 }
 
@@ -458,13 +457,13 @@ export interface AdminRepository {
 }
 ```
 
-`DrizzleAdminRepository` は `DrizzleUserRepository` と同じ形で作る（`_toDomainAdmin` で row → domain）。`recordSignIn` は `name` / `avatar_url` / `last_signed_in_at` を更新して `returning()` する。
+`DrizzleAdminRepository` は `DrizzleUserRepository` と同じ形で作る（`_toDomainAdmin` で row → domain）。`recordSignIn` は `last_signed_in_at` と、`profile` があれば `name` / `avatar_url` を更新して `returning()` する。
 
 `IoRedisRefreshTokenRepository` はキーの接頭辞をコンストラクタで受け取る（既定は今の `refresh_token`）。admin 用は `index.ts` で `new IoRedisRefreshTokenRepository(redis, "admin_refresh_token")` として作る。
 
 ### `apps/api` の Service
 
-`auth-service.ts` の `TokenGenerators` 型と `REFRESH_TTL_SECONDS` を export する。refresh / logout は admin でも `service.auth.refreshTokens` / `service.auth.logout` をそのまま使う。
+`auth-service.ts` の `TokenGenerators` / `RefreshVerifier` / `RefreshTokensSuccess` 型と `REFRESH_TTL_SECONDS` を export する。logout は admin でも `service.auth.logout` をそのまま使い、refresh は admins にいるかを確かめる `refreshAdminTokens` を通す。
 
 ```typescript
 /** src/service/admin-auth-service.ts */
@@ -505,8 +504,7 @@ export const authenticateAdminWithGoogle = async (
   }
 
   const signedInAdmin = await repo.adminRepository.recordSignIn(admin.id, {
-    avatarUrl: googleUser.picture ?? null,
-    name: googleUser.name,
+    profile: { avatarUrl: googleUser.picture ?? null, name: googleUser.name },
     signedInAt: new Date(),
   })
 
@@ -517,9 +515,30 @@ export const authenticateAdminWithGoogle = async (
  * 開発環境専用の admin ログイン。seed 済みの admin（admin@dev.local）を email で引く
  * production のガードは呼び出し側（index.ts / router / controller / ADMIN_PUBLIC_PATHS）で行う
  */
-export const loginAsDevAdmin = async (...) => { /* 見つからなければ 404 */ }
+export const loginAsDevAdmin = async (...) => { /* 見つからなければ 404。見つかれば recordSignIn(admin.id, { signedInAt }) で最終サインイン日時だけを更新する */ }
 
-/** issueAdminTokens: generateAccessToken / generateRefreshToken して refresh の jti を保存する（2 関数で共有） */
+/**
+ * admin の Refresh Token のローテーション
+ *
+ * auth-service の refreshTokens の前に、admin がまだ admins にいるかを確かめる。
+ * 確かめないと、admins から消した admin も refresh のたびに 7 日延びて使い続けられる。
+ * いなければ jti を消して 401
+ */
+export const refreshAdminTokens = async (
+  input: { refreshToken: string },
+  repo: Repositories,
+  verifier: RefreshVerifier,
+  generators: TokenGenerators,
+): Promise<Result<RefreshTokensSuccess>> => {
+  const payload = verifier(input.refreshToken)
+  if (payload && !(await repo.adminRepository.findById(payload.userId))) {
+    await repo.refreshTokenRepository.delete(payload.jti)
+    return err(unauthorizedError("Admin no longer exists"))
+  }
+  return refreshTokens(input, { refreshTokenRepository: repo.refreshTokenRepository }, verifier, generators)
+}
+
+/** issueAdminTokens: generateAccessToken / generateRefreshToken して refresh の jti を保存する（authenticateAdminWithGoogle と loginAsDevAdmin で共有） */
 ```
 
 ```typescript
@@ -531,17 +550,17 @@ export const loginAsDevAdmin = async (...) => { /* 見つからなければ 404 
 export const getAdminById = async (
   adminId: number,
   repo: { adminRepository: AdminRepository },
-): Promise<Result<Admin>> => { /* 無ければ 404 */ }
+): Promise<Result<Admin>> => { /* 無ければ 401（トークンの admin が admins から消された。api-client がサインイン画面に送る） */ }
 ```
 
-`service/index.ts` に `export * as admin from "./admin-service"` と `export * as adminAuth from "./admin-auth-service"` を足す。
+`service/index.ts` に `export * as adminAuth from "./admin-auth-service"` と `export * as admin from "./admin-service"` を、ファイル名順（`admin-auth-service` → `admin-service`）で足す。
 
 ### `apps/api` の Controller / Router / DI
 
 | Controller | 処理 |
 | --- | --- |
 | `AdminAuthGoogleController` | `service.adminAuth.authenticateAdminWithGoogle` に admin 用の発行関数（`generateAdminAccessToken` / `generateAdminRefreshToken`）と admin 用の refresh token Repository を渡す |
-| `AdminAuthRefreshController` | `service.auth.refreshTokens` に admin 用の検証関数・発行関数・Repository を渡す。検証関数は `{ jti, userId: payload.adminId }` に詰め替える |
+| `AdminAuthRefreshController` | `service.adminAuth.refreshAdminTokens` に admin 用の検証関数・発行関数・Repository を渡す。検証関数は `{ jti, userId: payload.adminId }` に詰め替える |
 | `AdminAuthLogoutController` | `service.auth.logout` に admin 用の検証関数と Repository を渡す |
 | `AdminAuthDevLoginController` | production なら 404（dev-login と同じ多重ガード） |
 | `AdminMeGetController` | `req.adminId!` で `service.admin.getAdminById` |
@@ -579,7 +598,7 @@ export const adminRouter = (controllers: AdminRouterControllers): Router => {
 
 - `const adminRepository = new DrizzleAdminRepository(db)`、`const adminRefreshTokenRepository = new IoRedisRefreshTokenRepository(redis, "admin_refresh_token")`
 - `app.use(ADMIN_PATH_PREFIX, adminAuthMiddleware, adminRouter({ ... }))`。admin の認証ミドルウェアは全体には適用しない（mount の中に置くことで、Router に届くリクエストは必ず admin の認証を通る）。dev-login の controller は production 以外でだけ作る
-- `requestLogger` は `req.adminId` もログに残す（今は `userId` だけで、admin のリクエストが未認証として記録される）
+- ログの `adminId`: `requestLogger` は全体に掛かっていて `adminAuthMiddleware`（mount の中）より先に動くので、`req.adminId` をその時点では読めない。途中のログは `adminAuthMiddleware` が `logContext` に `adminId` を足して積み（上のコード）、`requestLogger` の完了のログ（`res.on("finish")`）は終わった時点の `req.adminId` を読んで足す。`LogContext` に `adminId?: number` を足す
 
 ### Terraform
 
@@ -754,15 +773,16 @@ step4 を main に入れた後、deploy の前に環境ごとに次を行う（`
 
 | テスト | 種類 | 確認すること |
 | --- | --- | --- |
-| `test/repository/admin-repository.test.ts` | 実 DB | `findByEmail` / `findById` / `recordSignIn`（3 列の更新と `updated_at`） |
+| `test/repository/admin-repository.test.ts` | 実 DB | `findByEmail` / `findById` / `recordSignIn`（profile ありは 3 列、なしは `last_signed_in_at` だけが変わる。`updated_at` も変わる） |
+| `test/service/admin-auth-service/refreshAdminTokens.test.ts` | ユニット | 正常系: admins にいればローテーションする。異常系: admins から消えていれば 401 で jti を消す / 検証に失敗したトークンは 401 |
 | `test/service/admin-auth-service/authenticateAdminWithGoogle.test.ts` | ユニット | 正常系: 登録済み → トークンと更新済みの admin。異常系: 未確認 email → 403 / 未登録 → 403（どちらもトークンを発行しない・`recordSignIn` を呼ばない）/ email の大文字小文字の違いでも一致する |
 | `test/controller/admin/auth/google.test.ts` | インテグレーション | 正常系: 200・DB の 3 列・Redis の `admin_refresh_token:{jti}`。異常系: 未登録 403 / 未確認 403（Redis に何も残らない） |
 | `test/controller/admin/auth/refresh.test.ts` | インテグレーション | 正常系: admin の refresh token でローテーションできる。異常系: user の refresh token では 401 |
 | `test/controller/admin/auth/logout.test.ts` | インテグレーション | 正常系: admin の refresh token で無効化でき、access token なしでも呼べる。異常系: user の refresh token でも 200（冪等。一般ユーザーの logout と同じ）で、Redis の `admin_refresh_token:*` は残る |
-| `test/controller/admin/me/get.test.ts` | インテグレーション | 正常系: admin のトークンで 200。異常系: トークンなし 401 / **user の access token で 401** / 存在しない admin で 404 / **user の access token で `/API/ADMIN/me`・`/Api/Admin/me` も 401**（大文字小文字ですり抜けない） |
+| `test/controller/admin/me/get.test.ts` | インテグレーション | 正常系: admin のトークンで 200。異常系: トークンなし 401 / **user の access token で 401** / admins から消した admin のトークンで 401 / **user の access token で `/API/ADMIN/me`・`/Api/Admin/me` も 401**（大文字小文字ですり抜けない） |
 | `test/controller/user/get.test.ts`（追加） | インテグレーション | **admin の access token で `/api/user` が 401** |
 | `test/middleware/admin-auth.test.ts` | ユニット | `ADMIN_PUBLIC_PATHS`（大文字の違いを含む）は素通り / それ以外はトークンなし 401 / `/auth/google-foo` は公開扱いにならない（segment 境界）/ payload に `adminId` が無いトークンは 401 |
-| `test/lib/match-path-prefix.test.ts` | ユニット | 完全一致 / segment 境界 / 大文字小文字を区別しない |
+| `test/lib/is-path-under-prefix.test.ts` | ユニット | 完全一致 / segment 境界 / 大文字小文字を区別しない |
 
 ```bash
 pnpm --filter api test

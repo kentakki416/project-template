@@ -126,7 +126,7 @@ export const formatDateTime = (value: string | Date): string =>
   dateTimeFormatter.format(typeof value === "string" ? new Date(value) : value)
 ```
 
-step6 で日付の絞り込み用の `toStartOfDayIso`、step7 で通知用の `formatRelativeTime` をここに足す。
+step6 で日付の絞り込み用の `convertDateToStartOfDayIso`、step7 で通知用の `formatRelativeTime` をここに足す。
 
 ### ドキュメント
 
@@ -137,7 +137,7 @@ step6 で日付の絞り込み用の `toStartOfDayIso`、step7 で通知用の `
 ```bash
 pnpm --filter admin lint
 pnpm --filter admin build
-grep -rn "TailAdmin\|pimjo" apps/admin/src   # デモの画面の部品の中身を除き、土台に残っていないこと
+grep -rn --exclude-dir=demo "TailAdmin\|pimjo" apps/admin/src   # 土台に残っていないこと（デモは TailAdmin のまま残すので除く）
 ```
 
 `verify-web-page` skill で確認する。

@@ -25,6 +25,8 @@ apps/admin/
 ├── src/app/(auth)/demo/signin/page.tsx     # 新設 今の email + パスワードのフォームをデモへ
 ├── src/app/api/auth/callback/google/route.ts  # 新設
 ├── src/app/api/dev/login/route.ts          # 新設
+├── src/app/api/auth/signout/route.ts       # 新設 cookie を消してサインイン画面へ（api の 401 のとき）
+├── src/libs/app-origin.ts                  # 新設 NEXT_PUBLIC_APP_URL を origin にそろえた値
 ├── src/components/features/auth/GoogleSignInButton.tsx  # 新設
 ├── src/components/demo/auth/SignInForm.tsx # components/features/auth/ から移す
 ├── src/components/demo/demo-nav-items.tsx  # Authentication の Sign In を /demo/signin に
@@ -81,7 +83,22 @@ export const REFRESH_TOKEN_COOKIE = "admin_refresh_token"
 
 `apps/web/src/libs/api-client.ts` の `ApiClientError` と Bearer の付与だけを同じにし、**401 で refresh して再試行する部分は持たない**。Server Component から呼ばれると cookie を書けず、api 側だけ refresh token が作り直されてセッションが切れるため。refresh は proxy で済ませてから画面が描かれる（README の「admin 認証」）。
 
-- 401 は `ApiClientError(401)` を投げる。画面（step7 の layout）が受けてサインイン画面に送る
+- api が 401 を返したら `redirect("/api/auth/signout")` する（`redirect` は Server Component・Server Action・Route Handler のどれからでも使える）。proxy で更新した後でも 401 になるのは、鍵の作り直しや admin の削除などで access token が無効になったとき
+- cookie を消さずに `/signin` に送ってはいけない。サインイン画面は「有効な access の cookie（期限内）」があると元の画面に戻すので、画面 → `/signin` → 画面 → … と往復が止まらなくなる
+- 401 以外のエラーは今までどおり `ApiClientError` を投げる
+
+```typescript
+/** src/app/api/auth/signout/route.ts */
+
+/**
+ * cookie を消してサインイン画面に送る。api-client が 401 を受けたときの行き先
+ * Server Component では cookie を消せないので Route Handler にする
+ */
+export const GET = async (req: NextRequest) => {
+  await clearAuthCookies()
+  return NextResponse.redirect(new URL("/signin", req.url))
+}
+```
 
 ### proxy（`src/proxy.ts`）
 
@@ -109,6 +126,7 @@ const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
 const PUBLIC_PATHS = [
   "/signin",
   "/api/auth/callback/google",
+  "/api/auth/signout",
   /** サインイン・サインアップのフォームの見本（デモ）。サインインしなくても見られる */
   "/demo/signin",
   "/demo/signup",
@@ -132,6 +150,22 @@ export const config = {
 - **refresh が 401 でも cookie は消さない。** 同時に来た別のリクエスト（画面の先読みなど）が先に refresh に成功していると、この refresh token はもう無効になっている。ここで消すと、成功した側が付けた新しい cookie まで消える。そのまま `/signin?redirect=...` に送り、サインイン画面が有効な access の cookie を見つけたら `redirect` に戻す
 - api が落ちている（5xx・通信エラー）ときは、そのまま通す。画面の api 呼び出しが失敗してエラー画面になる（サインイン画面に送ると、api の障害でサインインし直しを求めることになる）
 
+### admin の origin（`src/libs/app-origin.ts`）
+
+`NEXT_PUBLIC_APP_URL` は `z.string().url()` なので、末尾の `/` やパスが付いていても通る（`https://admin.example.com/`）。そのまま使うと、戻り先の origin の比較が必ず失敗し、OAuth の `redirect_uri` も `https://admin.example.com//api/auth/callback/google` になって Google の登録と一致しない。`new URL(env.NEXT_PUBLIC_APP_URL).origin` を一度だけ作り、戻り先の検査と `redirect_uri` の両方で使う。
+
+```typescript
+/**
+ * admin の origin（末尾の / やパスを落とした `https://admin.example.com`）
+ */
+export const APP_ORIGIN = new URL(env.NEXT_PUBLIC_APP_URL).origin
+
+/**
+ * Google の OAuth の redirect_uri。Google Cloud に登録する値と一致させる
+ */
+export const GOOGLE_REDIRECT_URI = `${APP_ORIGIN}/api/auth/callback/google`
+```
+
 ### サインイン後の戻り先（`src/libs/safe-redirect.ts`）
 
 `/` で始まるかどうかの文字列の検査だけでは、`/\evil.example.com` や `/\t/evil.example.com` が通り、ブラウザの URL の解釈で外のサイトになる。URL として解釈してから origin を比べる。
@@ -141,11 +175,11 @@ export const config = {
  * サインイン後の戻り先を、自分の origin の中のパスに限る（オープンリダイレクト対策）
  * 外を指すもの・解釈できないものは "/" にする
  */
-export const toSafeRedirectPath = (value: string | null | undefined, appOrigin: string): string => {
+export const resolveSafeRedirectPath = (value: string | null | undefined): string => {
   if (!value) return "/"
   try {
-    const url = new URL(value, appOrigin)
-    return url.origin === appOrigin ? `${url.pathname}${url.search}` : "/"
+    const url = new URL(value, APP_ORIGIN)
+    return url.origin === APP_ORIGIN ? `${url.pathname}${url.search}` : "/"
   } catch {
     return "/"
   }
@@ -164,14 +198,14 @@ proxy で `redirect` を付けるとき、サインイン画面で読むとき�
  * Google OAuth の開始。state と戻り先を cookie（5 分・httpOnly）に保存して Google の認可画面へ送る
  */
 export const startGoogleOAuth = async (formData: FormData) => {
-  /** web の startGoogleOAuth と同じ。redirect_uri は `${env.NEXT_PUBLIC_APP_URL}/api/auth/callback/google` */
-  /** formData の redirect は toSafeRedirectPath を通して OAUTH_REDIRECT_COOKIE に入れる */
+  /** web の startGoogleOAuth と同じ。redirect_uri は GOOGLE_REDIRECT_URI */
+  /** formData の redirect は resolveSafeRedirectPath を通して OAUTH_REDIRECT_COOKIE に入れる */
 }
 ```
 
 `page.tsx` は Server Component（`searchParams` は Promise なので `await` する）。`(auth)/layout.tsx`（TailAdmin の左右 2 分割）の左側に置く。
 
-- 有効な access の cookie があれば、`toSafeRedirectPath(redirect)` に戻す（サインイン済みでここに来た場合。proxy の refresh の競合の後もここで戻れる）
+- 有効な access の cookie があれば、`resolveSafeRedirectPath(redirect)` に戻す（サインイン済みでここに来た場合。proxy の refresh の競合の後もここで戻れる）
 - 見出し「サインイン」、説明「管理画面に登録された Google アカウントでサインインしてください」
 - `GoogleSignInButton`（今の `SignInForm` の Google ボタンと同じ見た目。`<form action={startGoogleOAuth}>` の submit ボタン。`redirect` を hidden で渡す）
 - エラーは `ui/alert/Alert`（`variant="error"`）で出す
@@ -192,7 +226,8 @@ export const startGoogleOAuth = async (formData: FormData) => {
 `apps/web` の callback と同じ流れで、呼ぶ先・失敗の扱い・戻り先だけ変える。
 
 ```typescript
-const apiRes = await fetch(`${env.API_URL}/api/admin/auth/google`, { /* code, redirect_uri */ })
+/** redirect_uri は startGoogleOAuth と同じ GOOGLE_REDIRECT_URI（Google は完全一致で照合する） */
+const apiRes = await fetch(`${env.API_URL}/api/admin/auth/google`, { /* code, redirect_uri: GOOGLE_REDIRECT_URI */ })
 
 if (apiRes.status === 403) {
   return NextResponse.redirect(new URL("/signin?error=not_admin", req.url))
@@ -204,8 +239,8 @@ if (!apiRes.ok) {
 const json = adminAuthGoogleResponseSchema.parse(await apiRes.json())
 await setAuthCookies(json.access_token, json.refresh_token)
 
-/** 戻り先は cookie から取り出して消し、もう一度 toSafeRedirectPath を通す */
-const redirectTo = toSafeRedirectPath(store.get(OAUTH_REDIRECT_COOKIE)?.value, env.NEXT_PUBLIC_APP_URL)
+/** 戻り先は cookie から取り出して消し、もう一度 resolveSafeRedirectPath を通す */
+const redirectTo = resolveSafeRedirectPath(store.get(OAUTH_REDIRECT_COOKIE)?.value)
 store.delete(OAUTH_REDIRECT_COOKIE)
 return NextResponse.redirect(new URL(redirectTo, req.url))
 ```
@@ -265,7 +300,9 @@ pnpm dev
 | `admin_access_token` だけを消して画面を開く | proxy が refresh し、画面が開く。cookie が新しくなり、Redis の古い `admin_refresh_token:{jti}` が消えている |
 | `admin_refresh_token` を壊れた値にし、`admin_access_token` も消して画面を開く | `/signin?redirect=...` に送られる |
 | api を止めて、`admin_access_token` だけを消して画面を開く | サインイン画面に送られない（エラー画面になる） |
-| ユーザーメニューの「ログアウト」 | `/signin` に戻り、cookie が消え、Redis の `admin_refresh_token:*` が消える |
+| ユーザーメニューの「Sign out」（日本語の「ログアウト」になるのは step7） | `/signin` に戻り、cookie が消え、Redis の `admin_refresh_token:*` が消える |
+| access token を別の鍵で作った値に書き換えて画面を開く（api が 401 を返す） | `/api/auth/signout` を経て `/signin` に送られ、cookie が消えている（`/signin` と画面の往復が起きない） |
+| `NEXT_PUBLIC_APP_URL` を末尾に `/` を付けた値にして Google でサインイン | `redirect_uri` に `//` が入らず、戻り先も保たれる |
 | Google でサインイン（登録済みの email） | `/` に入れる。DB の `admins.name` / `avatar_url` / `last_signed_in_at` が更新される |
 | Google でサインイン（未登録の email） | `/signin?error=not_admin` で権限が無い旨が出る |
 | favicon と `/images/...` の画像 | サインイン前でも読める（サインイン画面にリダイレクトされない） |

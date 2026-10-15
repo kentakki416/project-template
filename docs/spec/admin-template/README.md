@@ -56,7 +56,8 @@
 
 ### アプリ名・ロゴ・表示の設定
 
-- アプリ名・説明・ロゴ・言語・タイムゾーンを 1 つの設定ファイルで変えられる。サイドバー・ヘッダー・サインイン画面のロゴとアプリ名、ブラウザのタブのタイトル（`<ページ名> | <アプリ名>`）がすべてここから決まる
+- アプリ名・説明・言語・タイムゾーンを 1 つの設定ファイルで変えられる。サイドバー・ヘッダー・サインイン画面のロゴの文字、ブラウザのタブのタイトル（`<ページ名> | <アプリ名>`）がすべてここから決まる
+- ロゴは既定ではアプリ名の頭文字のアイコンとアプリ名の文字で描くので、アプリ名を変えれば変わる。画像のロゴにするときはロゴの部品（`AppLogo`）を、favicon は `public/favicon.svg` を差し替える
 - 言語は日本語（`lang="ja"`）。土台の画面の文言（サイドバーの見出し、ヘッダーのメニューなど）は日本語にする。デモの画面の文言は TailAdmin のまま（英語）
 - 日時はすべて設定のタイムゾーン（既定は `Asia/Tokyo`）で表示する
 
@@ -69,12 +70,13 @@
 
 ### admin のサインイン
 
-- サインイン画面には「Google でサインイン」ボタンだけを置く。`admins` に email が登録されている Google アカウントだけがサインインできる
+- production のサインイン画面には「Google でサインイン」ボタンだけを置く（production 以外は dev admin のボタンも出す。後述）。`admins` に email が登録されている Google アカウントだけがサインインできる
   - 登録されていない Google アカウントでは「このアカウントには管理画面の権限がありません」と表示し、サインインさせない
   - Google 側で email が確認済みでないアカウントもサインインさせない
 - サインインした admin の名前とアイコンは、サインインのたびに Google のものに更新される。最終サインイン日時も記録する
 - 一般ユーザー（`users`）としてのサインインと admin のサインインは完全に別。一般ユーザーのトークンでは admin の画面にも API にも入れない（逆も同じ）
-- ログイン状態は、操作が無くても 7 日間保たれる（一般ユーザーと同じ。15 分ごとに裏で更新する）。ユーザーメニューの「ログアウト」でいつでも終えられる
+- ログイン状態は、操作が無くても 7 日間保たれる（一般ユーザーと同じ。15 分の access token の期限が近づくと、次に画面を開いたときに裏で更新する）。ユーザーメニューの「ログアウト」でいつでも終えられる
+- `admins` から消された admin は、次の更新（最長 15 分後）でサインイン画面に戻される
 - ローカルなど production 以外では、サインイン画面に「dev admin でログイン」ボタンを出す。seed で入れた dev 用の admin として、Google を通さずにログインできる
 
 ### admin の登録
@@ -161,8 +163,11 @@ api の中では、admin 用の認証ミドルウェアを `/api/admin` の moun
 **実プロジェクトでデモを消す手順**（`apps/admin/README.md` に書く）:
 
 1. 上の表のディレクトリを消す
-2. `AppSidebar.tsx` から「デモ」の項目の import を消す
-3. `package.json` からデモだけが使う依存を消し、`pnpm install` する（一覧は step1）
+2. `AppSidebar.tsx` の「デモ」のセクション（`demoNavSection`）の import と、セクションの配列からの指定を消す
+3. `proxy.ts` の公開のパスから `/demo/signin` / `/demo/signup` を消す
+4. `eslint.config.mjs` の、デモの import の制限の `ignores` と `except`、`settings.tailwindcss.cssFiles` の `src/components/demo/*.css` を消す
+5. `package.json` からデモだけが使う依存を消し、`pnpm install` する（一覧は step1）
+6. `.claude/skills/design-mock/SKILL.md` が参考の画面としてデモを挙げているので、参照先を実プロジェクトの画面に変える
 
 ### アプリの設定ファイル
 
@@ -201,13 +206,13 @@ api の中では、admin 用の認証ミドルウェアを `/api/admin` の moun
 - **cookie 名を分ける理由**: cookie はポートが違っても同じホストなら共有される。ローカルの web（:3000）と admin（:3030）が同じ名前だと上書きし合う
 - **admin の判定は email**: Google の userinfo の `verified_email` が `true` で、その email（小文字にそろえる）が `admins` にあれば admin とする。`verified_email` が無い応答は未確認として扱う。`admins` は事前登録制で、ログイン時に行を作ることはない
 - **トークンの有効期限**は一般ユーザーと同じ env（`JWT_ACCESS_EXPIRATION` / `JWT_REFRESH_EXPIRATION`）を使う
-- refresh / logout の処理は `service/auth-service.ts` の `refreshTokens` / `logout` をそのまま使う（検証関数・発行関数・Repository を引数で受け取る作りになっているため、admin 用のものを渡すだけでよい）。logout は refresh token だけを受け取る公開のパスにする（access token が切れていてもログアウトできるように）
+- refresh / logout の処理は `service/auth-service.ts` の `refreshTokens` / `logout` を使う（検証関数・発行関数・Repository を引数で受け取る作りになっているため、admin 用のものを渡せばよい）。ただし refresh は、その前に `admins` にまだ行があるかを確かめる（`refreshAdminTokens`）。確かめないと、`admins` から消した admin も refresh のたびに 7 日延びて使い続けられる。logout は refresh token だけを受け取る公開のパスにする（access token が切れていてもログアウトできるように）
 
 **トークンの更新（refresh）は proxy で行う。** Next.js は Server Component の中で cookie を書き換えられない（Server Action と Route Handler だけ）。web の api-client のように「api が 401 なら refresh して cookie を書き直す」を Server Component から呼ぶと、api 側で refresh token は作り直されたのに cookie は古いまま、という状態になりセッションが切れる。そのため admin では次のように分ける。
 
 - `proxy.ts`: access の cookie が無い（または期限まで 30 秒を切っている。payload を検証せずに読んで `exp` を見る）かつ refresh の cookie があれば、`/api/admin/auth/refresh` を呼ぶ。成功したら、レスポンスに新しい cookie を付け、同じリクエストの Cookie ヘッダーも書き換えて先に渡す（その画面の Server Component が新しい access token で api を呼べる）
 - refresh が 401 のときは cookie を消さずに `/signin?redirect=...` へ送る。同時に来た別のリクエストが先に refresh に成功していることがあり（refresh token は 1 回使うと無効になる）、ここで消すと成功した側の新しい cookie まで消すため。サインイン画面は有効な access の cookie があれば `redirect` に戻す
-- api-client（`libs/api-client.ts`）は Bearer を付けて呼ぶだけで、refresh も cookie の書き込みもしない。401 は `ApiClientError` で投げ、画面（layout）がサインイン画面に送る
+- api-client（`libs/api-client.ts`）は Bearer を付けて呼ぶだけで、refresh も cookie の書き込みもしない。api が 401 を返したら（proxy で更新した後でも弾かれた = 鍵の作り直しや admin の削除など）、cookie を消す Route Handler（`/api/auth/signout`）に送り、そこからサインイン画面に送る。cookie を消さずにサインイン画面に送ると、サインイン画面が「有効な access の cookie がある」と見て元の画面に戻し、往復が止まらなくなる
 
 web の api-client にも同じ問題がある（Server Component からの refresh で cookie を書けず、`page.tsx` の try/catch で隠れている）。この機能では直さない。
 
@@ -220,7 +225,7 @@ web の api-client にも同じ問題がある（Server Component からの refr
 | `apps/api/src/env.ts` | 必須（`min(32)`）として足す |
 | `apps/api/.env.local` | dotenvx で足す |
 | `apps/api/test/vitest.setup.ts` / `turbo.json`（`test:ci` の `env`） | テスト用の既定値と、CI で渡すキーに足す |
-| Terraform `env/{dev,min,prd}/main.tf` | `random_password` を 2 つ足し、`module.app_secrets` の `initial_values` と ECS の `secret_keys.api` に足す |
+| Terraform `env/{dev,min,prd}/main.tf` | `random_password` を 2 つ足し、`module.app_secrets` の `initial_values` に足す。dev / prd は ECS の `secret_keys.api` にも足す（min の api は Lambda なので下の workflow で渡す） |
 | `.github/workflows/deploy-aws-min.yml` | Lambda に渡す `SECRET_KEYS_JSON` に足す |
 | `scripts/deploy/seed-secrets.sh` | Secrets Manager に無ければ生成して足す（既にあれば触らない）。今の secret の読み込みに失敗したら止める（今は失敗を `{}` として扱うため、生成した鍵だけで secret 全体を上書きしてしまう） |
 
@@ -259,7 +264,7 @@ web の api-client にも同じ問題がある（Server Component からの refr
 - 中では、状態の持ち方だけが違う 2 つの部品（URL で持つ / state で持つ）が、同じ見た目の部品を描く。`useSearchParams()` は server モードの部品の中だけで呼ぶ（client モードの静的なページで `<Suspense>` が要らないように）
 - 検索語の反映は 300ms 間引く（debounce）。条件を変えたら `page` を外して 1 ページ目に戻す
 - 絞り込みの種類に「期間（`dateRange`）」を足す（server モードだけ）。既存の select と同じポップオーバーに、開始日・終了日の入力（既存の `DatePicker`）を並べる
-- Filter のポップオーバーと日付の入力のカレンダーは、Tooltip と同じく `body` の直下に出す（`@floating-ui/react` / flatpickr の `static: false`）。表の枠の `overflow-hidden` の中に置くと、行が少ないときに切れる
+- Filter のポップオーバーと日付の入力のカレンダーは、Tooltip と同じく `body` の直下に出す（`@floating-ui/react` / flatpickr の `static: false`）。表の枠の `overflow-hidden` の中に置くと、行が少ないときに切れる。カレンダーはポップオーバーの外の要素になるので、ポップオーバーを閉じる「外側のクリック」の判定からカレンダー（`.flatpickr-calendar`）を除く（除かないと日付を選んだ瞬間に閉じる）
 - client モードの見本として、デモに `DataTable` を使う表（`/demo/tables/data-table`）を足す（今は `DataTable` を使う画面が無い）
 - 行のリンク（`getRowHref`）を足す。行のクリックで遷移し、名前のセルは `Link` にしてキーボードでも辿れるようにする
 - 該当 0 件の表示（`emptyMessage`）を足す
@@ -278,7 +283,7 @@ web の api-client にも同じ問題がある（Server Component からの refr
 | `HeaderSearch` | `action`（検索の遷移先のパス）、`placeholder`。省略すると検索欄を出さない |
 
 - 通知は `features/notification/notification.api.ts` の `notificationApi.getList()` で取る。テンプレートでは空配列を返すだけにし、プロジェクトで API に繋ぐ。既読の処理（`markAllAsRead`）も同じファイルに置き、Server Action（`markAllAsReadAction`）を layout → `AdminShell` → `AppHeader` → `NotificationDropdown` と props で渡す
-- api の 401（refresh も済んだ上での 401）は layout でサインイン画面に送る
+- api の 401（proxy で更新した後でも弾かれた）は api-client が `/api/auth/signout` に送る（cookie を消してからサインイン画面へ）。layout と各画面は 401 を扱わない
 - 検索は `<form action="/users">` の GET 送信にする（JavaScript が無くても動き、URL は一覧の検索と同じ `?q=` になる）
 
 ### ADMIN_USE_DUMMY の廃止
@@ -383,7 +388,7 @@ sequenceDiagram
     participant DB as DB / Redis
 
     B->>A: 「Google でサインイン」
-    A-->>B: admin_oauth_state を cookie に保存<br/>Google の認可画面へリダイレクト
+    A-->>B: admin_oauth_state と戻り先（admin_oauth_redirect）を cookie に保存<br/>Google の認可画面へリダイレクト
     B->>G: 認証
     G-->>B: code 付きで {admin}/api/auth/callback/google へ
     B->>A: callback
@@ -394,7 +399,7 @@ sequenceDiagram
     alt 登録済み
         API->>DB: name / avatar_url / last_signed_in_at を更新<br/>admin_refresh_token:{jti} を保存
         API-->>A: admin の access / refresh token
-        A-->>B: admin_access_token / admin_refresh_token を cookie に保存し / へ
+        A-->>B: admin_access_token / admin_refresh_token を cookie に保存し<br/>保存しておいた戻り先（無ければ /）へ
     else 未登録・未確認
         API-->>A: 403
         A-->>B: /signin?error=not_admin へ
@@ -411,9 +416,9 @@ sequenceDiagram
     participant DB as DB
 
     B->>B: 検索欄に入力（300ms 間引く）
-    B->>A: router.replace(/users?q=...&provider=google&page=1)
+    B->>A: router.replace(/users?q=...&provider=google)<br/>条件を変えたので page は外す
     A->>A: URL を読み、登録日を ISO 8601 に変換
-    A->>API: GET /api/admin/users?q=...&provider=google&page=1&per_page=20<br/>Authorization: Bearer (admin JWT)
+    A->>API: GET /api/admin/users?q=...&provider=google&page=1&per_page=20<br/>（page / per_page は既定値で補う）Authorization: Bearer (admin JWT)
     API->>DB: count(*) と 1 ページ分の SELECT
     API->>DB: そのページのユーザーの auth_accounts
     API-->>A: users / total_count / page / per_page

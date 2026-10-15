@@ -46,7 +46,7 @@ apps/admin/src/
 ├── components/demo/example/DataTableExample.tsx # 新設 client モードの見本
 ├── app/(dashboard)/demo/tables/data-table/page.tsx  # 新設
 ├── components/demo/demo-nav-items.tsx           # Tables に Data Table を足す
-├── libs/date.ts                                 # toStartOfDayIso を足す（formatDateTime は step2）
+├── libs/date.ts                                 # convertDateToStartOfDayIso を足す（formatDateTime は step2）
 ├── hooks/useGoBack.ts                           # 履歴が無いときの戻り先を引数で受け取る
 ├── components/layout/nav-items.tsx              # 「ユーザー管理」を足す
 └── components/layout/AppSidebar.tsx             # 選択中の判定を前方一致に
@@ -141,10 +141,16 @@ export const getAdminUserListResponseSchema = z.object({
 // GET /api/admin/users/:id - ユーザー詳細
 // ========================================================
 
+/**
+ * ユーザー詳細の路径パラメータ `:id` を検証するスキーマ
+ */
 export const getAdminUserPathParamSchema = z.object({
   id: z.coerce.number().int().positive(),
 })
 
+/**
+ * ユーザー詳細のレスポンススキーマ。ログイン方法（auth_accounts）を紐付けた順に含む
+ */
 export const getAdminUserResponseSchema = z.object({
   id: z.number(),
   auth_accounts: z.array(z.object({
@@ -306,17 +312,17 @@ export const userApi = {
   },
 
   getList: async (query: GetAdminUserListQueryString): Promise<GetAdminUserListResponse> => {
-    const raw = await apiClient.get<unknown>(`/api/admin/users?${toSearchParams(query)}`)
+    const raw = await apiClient.get<unknown>(`/api/admin/users?${buildAdminUserListSearchParams(query)}`)
     return getAdminUserListResponseSchema.parse(raw)
   },
 }
 ```
 
-`toSearchParams` は `URLSearchParams` で組み立てる（文字列を自分でつなぐと `+09:00` の `+` が空白として届き、api が 400 を返す）。undefined の項目は入れない。
+`buildAdminUserListSearchParams` は `URLSearchParams` で組み立てる（文字列を自分でつなぐと `+09:00` の `+` が空白として届き、api が 400 を返す）。undefined の項目は入れない。
 
 `features/user/user-list-params.ts` は、画面の URL の検索パラメータ（`q` / `provider` / `created_from` / `created_to`（日付・両端を含む）/ `page` / `per_page`）を api のクエリに変換する純粋関数。
 
-- `created_from=2026-10-01` → `created_from=2026-10-01T00:00:00+09:00`（`toStartOfDayIso`。step2 の設定のタイムゾーンで日の始まりを出す）
+- `created_from=2026-10-01` → `created_from=2026-10-01T00:00:00+09:00`（`convertDateToStartOfDayIso`。step2 の設定のタイムゾーンで日の始まりを出す）
 - `created_to=2026-10-31` → `created_before=2026-11-01T00:00:00+09:00`（翌日の始まり。終了日を含めるため）
 - 不正な値（`page=abc`、存在しない provider、日付の形でない文字列）は捨てて既定値にする。URL を手で書き換えられても api の 400 にしない
 
@@ -335,6 +341,12 @@ type ServerModeConfig = {
   /** 条件に合う全件数（フッターとページ数に使う） */
   totalCount: number
 }
+
+/**
+ * server モードで使う URL の検索パラメータの名前は固定にする（画面ごとに変えない）
+ * 検索語は q、ページは page、件数は per_page。絞り込みは FilterConfig の key
+ * search の filterKeys（行のどの項目を検索するか）は server モードでは使わない（検索は api が行う）ので任意にする
+ */
 
 /**
  * フィルタ定義。type を省略したら select（既存）
@@ -367,7 +379,7 @@ type DataTableProps<T> = {
 - 読み込み中は `useTransition` の `isPending` でテーブルを薄くする
 - 絞り込みはポップオーバーの中で選び、「適用」で反映してポップオーバーを閉じる（client モードも同じ）。「リセット」は条件を空にしてすぐ反映する
 - `dateRange` はポップオーバーの中に `DatePicker` を 2 つ（開始・終了）並べる。片方だけでもよい
-- Filter のポップオーバーは `@floating-ui/react`（step3）で `body` の直下に出す。表の枠は `overflow-hidden` なので、中に置くと行が少ないときに切れる
+- Filter のポップオーバーは `@floating-ui/react`（step3）で `body` の直下に出す。表の枠は `overflow-hidden` なので、中に置くと行が少ないときに切れる。外側のクリックで閉じる（`useDismiss`）とき、`outsidePress` で `.flatpickr-calendar` の中のクリックを除く（カレンダーもポップオーバーの外の `body` の直下に出るので、除かないと日付を選んだ瞬間に閉じる）
 - `DatePicker` を直す: `value` を受け取って表示を合わせる（「リセット」で空にできるように）、`onChange` は ref に入れて flatpickr を作り直さない、カレンダーは `static: false` で `body` の直下に出す。日付は flatpickr の `dateStr`（`YYYY-MM-DD`）を使う（`Date` の `toISOString()` は UTC になり、日本時間では前日になる）
 - 行のクリックは `router.push(getRowHref(row))`。キーボードで辿れるよう、名前の列は `UserTable` 側で `Link` にする
 - フッターの文言は日本語にする（「全 N 件中 X〜Y 件」「表示件数」）
@@ -384,7 +396,7 @@ TailAdmin のデモから実測した値に合わせる。検索・Filter・表�
 | 表示件数 | 「Show」「entries」の位置に「表示件数」。文字は `text-gray-500 dark:text-gray-400`（16px）。select は `shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 appearance-none rounded-lg border border-gray-300 bg-transparent py-2 pr-8 pl-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90` + 右に 16px の下向きの矢印 |
 | 検索 | 左に 20px の TailAdmin の虫眼鏡（`left-4`、`text-gray-500 dark:text-gray-400`）。input は `shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pr-4 pl-11 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden sm:w-[300px] sm:min-w-[300px] dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30` |
 | Filter ボタン | `shadow-theme-xs flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 sm:w-auto sm:min-w-[100px] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400` + 20px のスライダーのアイコン（デモの SVG） |
-| ポップオーバー | `absolute right-0 z-10 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800`。項目は `mb-5`、ラベルは `mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300`、入力は検索と同じクラスで `h-10 px-4`。「適用」は `bg-brand-500 hover:bg-brand-600 h-10 w-full rounded-lg px-3 py-2 text-sm font-medium text-white` |
+| ポップオーバー | `w-56 rounded-lg border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800`。デモの位置のクラス（`absolute right-0 z-10 mt-2`）は付けず、floating-ui の `placement: "bottom-end"` と `offset(8)`（= `mt-2`）で同じ位置に置く（`floatingStyles` の位置と二重にずれるため）。`body` の直下に出すので、重なりは `z-99999`（Tooltip と同じ）にする。項目は `mb-5`、ラベルは `mb-2 block text-xs font-medium text-gray-700 dark:text-gray-300`、入力は検索と同じクラスで `h-10 px-4`。「適用」は `bg-brand-500 hover:bg-brand-600 h-10 w-full rounded-lg px-3 py-2 text-sm font-medium text-white` |
 | 見出しの行 | `tr`: `border-b border-gray-200 dark:border-gray-800`。`th`: `px-5 py-4 text-left`、文字は `text-theme-xs font-medium text-gray-500 dark:text-gray-400` |
 | 本文の行 | `tbody`: `divide-y divide-gray-200 dark:divide-gray-800`。`tr`: `transition hover:bg-gray-50 dark:hover:bg-gray-900`（`getRowHref` があれば `cursor-pointer`）。`td`: `px-5 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-400` |
 | フッター | `flex flex-col items-center justify-between gap-4 border-t border-gray-200 px-5 py-4 sm:flex-row dark:border-gray-800`。件数の文は `text-sm font-medium text-gray-500 dark:text-gray-400` で、数字だけ `text-gray-800 dark:text-white/90` |
@@ -434,7 +446,7 @@ const filters: FilterConfig[] = [
 - `AuthProviderBadge` は `ui/badge/Badge`（`variant="light"`、`color` は google: `"primary"`・dev: `"warning"`）。`AUTH_PROVIDER_LABELS` は `{ dev: "開発用", google: "Google" }`
 - `UserNameCell` は TailAdmin の表のアバター + 名前のセル（`RecentOrders` / `BasicTableOne` と同じ見た目）。アイコンが無ければ名前の頭文字（`ui/avatar/AvatarText`）
 
-**詳細（`app/(dashboard)/users/[id]/page.tsx`）**: `params`（Promise）の `id` を数値にできなければ `notFound()`。`userApi.getDetail` を呼び、`UserDetailCards` に渡す。
+**詳細（`app/(dashboard)/users/[id]/page.tsx`）**: `params`（Promise）の `id` を `Number()` にして、`Number.isSafeInteger(id) && id > 0` でなければ `notFound()`（`1.5` / `0` / `-1` を api に渡すと 400 になり、404 の画面にならないため）。`userApi.getDetail` を呼び、`UserDetailCards` に渡す。
 
 - 見た目は TailAdmin のデモのプロフィール画面（https://demo.tailadmin.com/profile ）に合わせる。編集ボタンは置かない
   - 外枠: `rounded-2xl border border-gray-200 bg-white p-5 lg:p-6 dark:border-gray-800 dark:bg-white/3`、見出し `mb-5 text-lg font-semibold text-gray-800 lg:mb-7 dark:text-white/90`
@@ -490,5 +502,7 @@ pnpm --filter api test
 | URL を手で `?page=abc&provider=foo&created_from=xyz` にする | 400 のエラー画面にならず、既定の条件の一覧が出る |
 | Filter で登録日を入れて「リセット」 | 日付の入力が空になり、全件に戻る |
 | 行が 1 件だけのときに Filter を開く | ポップオーバーと日付のカレンダーが表の枠で切れない |
+| Filter で日付を選ぶ | ポップオーバーが閉じずに、選んだ日付が入る |
+| `/users/1.5`・`/users/0` | 「ユーザーが見つかりません」 |
 
 PR には一覧（絞り込みあり）・0 件・詳細のスクリーンショット（ライト / ダーク）を、デモと並べて付ける。
