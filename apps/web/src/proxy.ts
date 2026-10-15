@@ -13,7 +13,6 @@ import {
 
 /**
  * production 以外でのみ公開する dev 専用パス
- * `/api/dev/login?as=alice` を踏むだけでログイン状態にできる開発支援機能
  */
 const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
   ? ["/api/dev/login"]

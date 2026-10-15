@@ -19,9 +19,6 @@ export function MemoSearch() {
 
   useEffect(() => {
     const controller = new AbortController()
-    /**
-     * デバウンス：入力が止まって300ms後に検索する
-     */
     const timer = setTimeout(async () => {
       setStoreIsLoading(true)
       try {
