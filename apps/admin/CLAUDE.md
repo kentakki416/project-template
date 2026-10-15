@@ -17,6 +17,14 @@ pnpm start        # 本番サーバー起動
 - 型・スキーマは `@repo/api-schema/admin/` から import（Admin 固有のレスポンスが必要な場合）
 - Admin 向け API は `/api/admin/` 配下を呼び出す（API 側の方針は `apps/api/CLAUDE.md` の「Admin API」参照）
 
+## 土台とデモ
+
+TailAdmin の画面は「デモ」として URL `/demo/...` の下に分けてある（`src/app/(dashboard)/demo/`・`src/app/(auth)/demo/`・`src/components/demo/`・`public/images/demo/`）。実プロジェクトで消すときの手順は `README.md` の「デモを消す手順」。
+
+- **新しい画面は土台に作る**: `src/app/(dashboard)/{feature}/`。サイドバーの項目は `src/components/layout/nav-items.tsx` の `mainNavSection` に足す
+- **土台からデモを import しない**（lint の `import/no-restricted-paths` で落ちる）。デモの部品を使いたくなったら、props で動く形にして `src/components/ui/` に移す
+- デモだけが使う CSS は `src/components/demo/demo.css`（`(dashboard)/demo/layout.tsx` で読み込む）。`globals.css` に足さない
+
 ## 環境変数
 
 `src/env.ts` に Zod スキーマをインラインで定義し、import 時に `safeParse` → 失敗なら `process.exit(1)`。先頭で `import "server-only"` しているので client component からは import できない。
@@ -37,7 +45,7 @@ cd apps/admin && pnpm exec dotenvx set API_URL "http://localhost:8080" -f .env.l
 
 ## API 接続の下地
 
-admin は DB を直接触らず、必ず Express API を経由する。現状は TailAdmin テンプレートの画面がそのまま入っており **API には未接続**だが、繋ぐための足場は用意してある。
+admin は DB を直接触らず、必ず Express API を経由する。現状の画面は **API には未接続**だが、繋ぐための足場は用意してある。
 
 | ファイル | 状態 | 役割 |
 | --- | --- | --- |
