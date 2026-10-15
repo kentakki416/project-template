@@ -9,6 +9,7 @@
 - [トークン設計](#トークン設計)
 - [cookie と認証ガード](#cookie-と認証ガード)
 - [access token の更新](#access-token-の更新)
+- [admin の認証](#admin-の認証)
 - [なぜ web を間に挟むのか](#なぜ-web-を間に挟むのか)
 - [URL の注意（Next.js Route Handler と Express の混同）](#url-の注意nextjs-route-handler-と-express-の混同)
 - [セキュリティ設計のまとめ](#セキュリティ設計のまとめ)
@@ -109,6 +110,25 @@ flowchart TD
 - **refresh が 401 でも cookie は消さない**: 同時に来た別のリクエスト（画面の先読みなど）が先に更新に成功していると、この refresh token はもう使用済み。ここで消すと、成功した側が付けた新しい cookie まで消える。`/sign-in` は有効な access の cookie があればトップに戻す
 - **api の 401（更新した後でも弾かれた）**: api-client が `/api/auth/signout`（cookie を消す Route Handler）に送り、そこから `/sign-in` へ。cookie を消さずに `/sign-in` に送ると、`/sign-in` がトップに戻して往復が止まらなくなる。api-client の redirect は例外で実現しているので、認証必須の api の呼び出しを try/catch で囲むときは catch の先頭で `unstable_rethrow` する
 
+## admin の認証
+
+管理画面（`apps/admin`）は、一般ユーザーとは別の admin 専用の認証を持つ。流れ（Google OAuth → api が code を検証 → 自前の JWT → httpOnly cookie → proxy で更新）は web と同じで、次が違う。
+
+| | web（一般ユーザー） | admin |
+| --- | --- | --- |
+| サインインできる人 | Google アカウントなら誰でも（初回に `users` を作る） | `admins` に email が登録された Google アカウントだけ（Google で確認済みの email に限る） |
+| api | `/api/auth/*` | `/api/admin/auth/*`（JWT の鍵・Redis のキーも別） |
+| cookie | `app_*` | `admin_*`（ポートが違っても同じホストなら cookie は共有されるので名前を分ける） |
+| サインイン画面 | `/sign-in` | `/signin`（`?redirect=` でサインイン前の画面に戻す） |
+| 公開パスでの更新 | する（行動イベントに `user_id` を付けるため） | しない（サインインの前に見る画面と、cookie を自分で書く Route Handler だけ） |
+| dev ログイン | `/api/dev/login?as=alice` | `/api/dev/login`（`admin@dev.local`） |
+
+- 一般ユーザーのトークンでは admin の画面にも api にも入れない（逆も同じ）。鍵が違うので api の検証で必ず失敗する
+- サインイン後の戻り先は、URL として解釈してから origin を比べ、admin の中のパスだけを許す（`/\evil.example.com` のような値で外に飛ばさない）
+- `admins` から消された admin は、次の更新（最長 15 分後）でサインイン画面に戻される
+
+細かいルールは [`../../apps/admin/CLAUDE.md`](../../apps/admin/CLAUDE.md) の「認証」、api 側は [`../../apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md) の「Admin API」。
+
 ## なぜ web を間に挟むのか
 
 Google の `redirect_uri` を直接 Express api に向けず、web が前段で受けて api に転送する設計にしている。理由:
@@ -156,6 +176,14 @@ GitHub / Apple / X 等を追加する場合、`apps/api/src/client/*-oauth.ts` �
 - `apps/web/src/libs/api-client.ts` — api の呼び出し（401 なら `/api/auth/signout` へ）
 - `apps/web/src/app/api/auth/signout/route.ts` — cookie を消して `/sign-in` へ
 
+**admin (Next.js)**
+- `apps/admin/src/app/(auth)/signin/page.tsx` / `actions.ts` — サインイン画面と `startGoogleOAuth`
+- `apps/admin/src/app/api/auth/callback/google/route.ts` — Google callback Route Handler
+- `apps/admin/src/proxy.ts` — 認証ガードと access token の更新
+- `apps/admin/src/libs/auth-cookies.ts` / `auth.ts` — cookie の名前・属性と読み書き
+- `apps/admin/src/libs/safe-redirect.ts` — サインイン後の戻り先の検査
+- `apps/admin/src/features/auth/auth.actions.ts` — `logoutAction`
+
 **api (Express)**
 - `apps/api/src/controller/auth/google.ts` — `POST /api/auth/google`
 - `apps/api/src/service/auth-service.ts` — `authenticateWithGoogle` / `refreshTokens` / `logout`
@@ -163,6 +191,7 @@ GitHub / Apple / X 等を追加する場合、`apps/api/src/client/*-oauth.ts` �
 - `apps/api/src/lib/jwt.ts` — JWT 発行・検証
 - `apps/api/src/repository/redis/refresh-token-repository.ts` — refresh token の Redis 永続化
 - `apps/api/src/repository/drizzle/auth-account-repository.ts` — User と AuthAccount の DB 操作
+- `apps/api/src/controller/admin/auth/` / `src/service/admin-auth-service.ts` / `src/lib/admin-jwt.ts` — admin の認証
 
 ## 関連ドキュメント
 
@@ -170,3 +199,4 @@ GitHub / Apple / X 等を追加する場合、`apps/api/src/client/*-oauth.ts` �
 |---|---|
 | [`../../apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md) | Admin API（admin の認証）/ PUBLIC_PATHS |
 | [`../../apps/web/CLAUDE.md`](../../apps/web/CLAUDE.md) | web の API 通信ルール（Server Component / Server Action / Route Handler の使い分け） |
+| [`../../apps/admin/CLAUDE.md`](../../apps/admin/CLAUDE.md) | admin の認証（cookie・proxy・dev ログイン・Google の redirect URI） |

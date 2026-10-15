@@ -54,7 +54,7 @@ src/
     ui/                       # 汎用UIコンポーネント（Button, Input等）
     layout/                   # レイアウト系（AppHeader, AppSidebar, Backdrop等）
     features/                 # 機能固有のUIコンポーネント
-      {feature}/              #   例: auth/SignInForm.tsx, header/UserDropdown.tsx
+      {feature}/              #   例: auth/GoogleSignInButton.tsx, header/UserDropdown.tsx
     demo/                     # デモだけが使う部品・CSS・サイドバーの項目
   features/                   # ロジックのみ（レンダリングなし）
     {feature}/
