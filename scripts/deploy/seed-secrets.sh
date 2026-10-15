@@ -5,6 +5,7 @@
 # Application secret (/project-template-<env>/app) に以下を投入する:
 #   1. RDS / ElastiCache の接続情報 (terraform output から自動構築)
 #   2. 外部サービスの secret (環境変数から)
+#   3. admin の JWT の鍵 (JWT_ADMIN_ACCESS_SECRET / JWT_ADMIN_REFRESH_SECRET。無ければ生成)
 #
 # Terraform が管理する JWT_* / NODE_ENV / PORT 等は触らず、merge で追加する。
 # (modules/secrets の ignore_changes により Terraform は secret_string 更新を見ない)
@@ -47,7 +48,7 @@ if [ ! -d "$TF_DIR" ]; then
 fi
 
 # 依存コマンド確認
-for cmd in aws jq terraform; do
+for cmd in aws jq openssl terraform; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "ERROR: '$cmd' not installed" >&2
     exit 1
@@ -59,9 +60,15 @@ echo "==> Seeding secrets for ${SECRET_NAME}"
 # ============================================================================
 # 1. 既存の Secret を取得 (Terraform が投入した JWT 等が入っている)
 # ============================================================================
+# 読み込みに失敗したら止める。失敗を '{}' として続けると、後段で足す値（生成した admin の鍵など）だけで
+# secret 全体を put-secret-value してしまい、DB_PASSWORD や JWT の鍵が消える。
+# secret は Terraform が初期値付きで作るので、読めないのは異常（apply 前・権限不足など）
 CURRENT=$(aws secretsmanager get-secret-value \
   --secret-id "$SECRET_NAME" \
-  --query SecretString --output text 2>/dev/null || echo '{}')
+  --query SecretString --output text) || {
+  echo "ERROR: failed to read ${SECRET_NAME}. Run terraform apply first, or check AWS credentials" >&2
+  exit 1
+}
 
 # 投入する key-value を JSON で組み立てる
 NEW_VALUES=$(jq -n '{}')
@@ -95,6 +102,18 @@ add_kv "FRONTEND_URL"           "${FRONTEND_URL:-}"           "env"
 # 誤って本番の secret に書き込まないため。
 add_kv "DATABASE_URL"           "${EXTERNAL_DATABASE_URL:-}"  "env"
 add_kv "REDIS_URL"              "${EXTERNAL_REDIS_URL:-}"     "env"
+
+# admin の JWT の鍵: 無ければ生成する。module.app_secrets は初回 apply でしか initial_values を
+# 書かないため、鍵を足す前に作った環境にはここで入れる。既にあれば触らない（作り直すと全 admin の
+# セッションが切れる）
+echo "==> Admin JWT secrets (generated if missing)"
+for key in JWT_ADMIN_ACCESS_SECRET JWT_ADMIN_REFRESH_SECRET; do
+  if [ -z "$(echo "$CURRENT" | jq -r --arg k "$key" '.[$k] // empty')" ]; then
+    add_kv "$key" "$(openssl rand -hex 32)" "generated"
+  else
+    echo "  - $key (exists, kept)"
+  fi
+done
 
 # ============================================================================
 # 3. RDS: terraform output + app secret の DB_PASSWORD から DATABASE_URL を構築

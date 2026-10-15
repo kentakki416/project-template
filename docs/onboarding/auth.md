@@ -82,7 +82,7 @@ sequenceDiagram
 - cookie は **`sameSite=lax`**（OAuth コールバックの cross-site 連鎖ナビゲーションでも送信されるようにするため）。
 - 認証ガードは web の **proxy**（`apps/web/src/proxy.ts`。Next.js 16 で middleware から改名）が cookie の有無で行う。未認証は `/sign-in` へリダイレクト。access token の更新もここで行う（次の節）。
 - CSRF 対策として **state**（ランダム文字列）を cookie に保存し、コールバック時に照合する。
-- api 側は現状 `PUBLIC_PATHS` で認証要否を制御する。Admin API（`/api/admin/`）は現時点は認証なし（将来 Admin 専用認証を追加予定）。
+- api 側は `PUBLIC_PATHS` で認証要否を制御する。Admin API（`/api/admin/`）は一般ユーザーとは別の admin 専用の認証（`admins` テーブル・専用の JWT の鍵）で守る（[`apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md) の「Admin API」）。
 
 ## access token の更新
 
@@ -168,5 +168,5 @@ GitHub / Apple / X 等を追加する場合、`apps/api/src/client/*-oauth.ts` �
 
 | ドキュメント | 内容 |
 |---|---|
-| [`../../apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md) | Admin API 設計方針 / PUBLIC_PATHS |
+| [`../../apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md) | Admin API（admin の認証）/ PUBLIC_PATHS |
 | [`../../apps/web/CLAUDE.md`](../../apps/web/CLAUDE.md) | web の API 通信ルール（Server Component / Server Action / Route Handler の使い分け） |

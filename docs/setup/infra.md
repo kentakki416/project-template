@@ -34,6 +34,7 @@ infra apply を始める前に以下を済ませておくこと。Terraform で�
 - [tflint](https://github.com/terraform-linters/tflint) (任意、CI で使うため推奨)
 - [trivy](https://aquasecurity.github.io/trivy/) (任意、CI で使うため推奨)
 - [jq](https://jqlang.github.io/jq/) (`seed-secrets.sh` で必要)
+- openssl (`seed-secrets.sh` で必要。admin の JWT の鍵が Secrets Manager に無いときに生成する)
 
 ## 初回セットアップ手順
 
@@ -162,6 +163,8 @@ export FRONTEND_URL=https://my-app.com
 ./scripts/deploy/seed-secrets.sh dev
 ./scripts/deploy/seed-secrets.sh prd
 ```
+
+- [ ] admin の JWT の鍵（`JWT_ADMIN_ACCESS_SECRET` / `JWT_ADMIN_REFRESH_SECRET`）は、新しい環境なら Terraform が初回 apply で入れる。鍵を足す前に作った環境では、このスクリプトが生成して足す。そのときは ① このスクリプト → ② Terraform apply → ③ deploy の順に行う（理由は [`docs/onboarding/deploy-prd.md`](../onboarding/deploy-prd.md) の「Phase 7」）
 
 ### 10. deploy workflow で ECR にイメージを push
 

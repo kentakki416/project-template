@@ -24,12 +24,12 @@ type Repositories = {
   userRepository: UserRepository
 }
 
-type TokenGenerators = {
+export type TokenGenerators = {
   generateAccessToken: (userId: number) => string
   generateRefreshToken: (userId: number) => { jti: string; token: string }
 }
 
-const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 7
+export const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 7
 
 /**
  * Google アカウントでの認証
@@ -151,7 +151,7 @@ export type RefreshTokensSuccess = {
   refreshToken: string
 }
 
-type RefreshVerifier = (token: string) => { jti: string; userId: number } | null
+export type RefreshVerifier = (token: string) => { jti: string; userId: number } | null
 
 /**
  * Refresh Token のローテーション

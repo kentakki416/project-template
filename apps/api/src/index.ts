@@ -9,6 +9,11 @@ import { BullMQJobQueue, TRACK_EVENT_QUEUE_NAME } from "@repo/queue"
 import { createRedisClient } from "@repo/redis"
 
 import { GoogleOAuthClient } from "./client/google-oauth"
+import { AdminAuthDevLoginController } from "./controller/admin/auth/dev-login"
+import { AdminAuthGoogleController } from "./controller/admin/auth/google"
+import { AdminAuthLogoutController } from "./controller/admin/auth/logout"
+import { AdminAuthRefreshController } from "./controller/admin/auth/refresh"
+import { AdminMeGetController } from "./controller/admin/me/get"
 import { AuthDevLoginController } from "./controller/auth/dev-login"
 import { AuthGoogleController } from "./controller/auth/google"
 import { AuthLogoutController } from "./controller/auth/logout"
@@ -29,6 +34,7 @@ import { apiRateLimiter } from "./middleware/rate-limit"
 import { requestLogger } from "./middleware/request-logger"
 import { unhandledExceptionHandler } from "./middleware/unhandled-exception-handler"
 import {
+  DrizzleAdminRepository,
   DrizzleAuthAccountRepository,
   DrizzleDatabaseHealthRepository,
   DrizzleMemoRepository,
@@ -36,6 +42,7 @@ import {
   DrizzleUserRepository,
 } from "./repository/drizzle"
 import { IoRedisHealthRepository, IoRedisRefreshTokenRepository } from "./repository/redis"
+import { adminRouter, mountAdminApi } from "./routes/admin-router"
 import { authRouter } from "./routes/auth-router"
 import { eventRouter } from "./routes/event-router"
 import { healthRouter } from "./routes/health-router"
@@ -70,6 +77,11 @@ const memoRepository = new DrizzleMemoRepository(db)
 const databaseHealthRepository = new DrizzleDatabaseHealthRepository(db)
 const redisHealthRepository = new IoRedisHealthRepository(redis)
 const refreshTokenRepository = new IoRedisRefreshTokenRepository(redis)
+const adminRepository = new DrizzleAdminRepository(db)
+/**
+ * admin の refresh token は別のキー（admin_refresh_token:{jti}）に置き、一般ユーザーのものと混ぜない
+ */
+const adminRefreshTokenRepository = new IoRedisRefreshTokenRepository(redis, "admin_refresh_token")
 
 /**
  * 外部 SaaS client の DI assembly
@@ -106,6 +118,25 @@ const userGetController = new UserGetController(userRepository)
  */
 const authDevLoginController = process.env.NODE_ENV !== "production"
   ? new AuthDevLoginController(userRepository, refreshTokenRepository)
+  : undefined
+
+/**
+ * Admin Controller のインスタンス化
+ */
+const adminAuthGoogleController = new AdminAuthGoogleController(
+  adminRepository,
+  adminRefreshTokenRepository,
+  googleOAuthClient,
+)
+const adminAuthRefreshController = new AdminAuthRefreshController(adminRepository, adminRefreshTokenRepository)
+const adminAuthLogoutController = new AdminAuthLogoutController(adminRefreshTokenRepository)
+const adminMeGetController = new AdminMeGetController(adminRepository)
+
+/**
+ * admin の dev-login Controller も production 以外でだけ生成する
+ */
+const adminAuthDevLoginController = process.env.NODE_ENV !== "production"
+  ? new AdminAuthDevLoginController(adminRepository, adminRefreshTokenRepository)
   : undefined
 
 /**
@@ -209,6 +240,19 @@ app.use(
   "/api/events",
   eventRouter({
     create: eventCreateController,
+  })
+)
+/**
+ * admin の API。adminAuthMiddleware は mountAdminApi が mount の中に置く
+ */
+mountAdminApi(
+  app,
+  adminRouter({
+    authDevLogin: adminAuthDevLoginController,
+    authGoogle: adminAuthGoogleController,
+    authLogout: adminAuthLogoutController,
+    authRefresh: adminAuthRefreshController,
+    meGet: adminMeGetController,
   })
 )
 app.use(

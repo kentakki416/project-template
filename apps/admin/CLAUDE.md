@@ -15,7 +15,7 @@ pnpm start        # 本番サーバー起動
 `apps/web` と同じ App Router / API 通信ルールに従う（詳細は `apps/web/CLAUDE.md` を参照）。Admin 固有の方針のみここに記載する。
 
 - 型・スキーマは `@repo/api-schema/admin/` から import（Admin 固有のレスポンスが必要な場合）
-- Admin 向け API は `/api/admin/` 配下を呼び出す（API 側の方針は `apps/api/CLAUDE.md` の "Admin API 設計方針" 参照）
+- Admin 向け API は `/api/admin/` 配下を呼び出す（API 側の方針は `apps/api/CLAUDE.md` の「Admin API」参照）
 
 ## 環境変数
 
@@ -54,10 +54,6 @@ admin は DB を直接触らず、必ず Express API を経由する。現状は
 `src/env.ts` はどこからも import されていないため **現状 env 検証は実行されない**（`api-client.ts` が未使用のため）。API に繋いだ時点で初めて検証が走る。
 
 `@repo/*` のうち admin が import できるのは `@repo/api-schema` だけで、これは lint で強制している（`@repo/eslint-config/frontend-boundary`）。
-
-## ダミーモード
-
-API 側で `ADMIN_USE_DUMMY=true`（`apps/api/.env.local`）を設定すると DB なしでダミーデータが返るため、フロント開発時に活用する。
 
 ## 動作確認（必須）
 

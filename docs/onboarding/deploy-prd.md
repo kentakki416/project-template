@@ -189,13 +189,16 @@ export FRONTEND_URL='https://<your-domain>'           # フロント(apex)
 - 自動構築される（export 不要）: `DATABASE_URL` / `REDIS_HOST` / `REDIS_URL`(prd は `rediss://` = TLS)
   - ⚠️ `DATABASE_URL` は **`?sslmode=no-verify`** で構築する（`require` だと pg が TLS で落ちる。[落とし穴 9](#落とし穴-9-db-の-tls-が-pg-で-verify-full-扱いになり-rds-で落ちる)）
 - スクリプトは **merge 方式**（何度でも再実行可。値だけ上書き）
+- admin の JWT の鍵（`JWT_ADMIN_ACCESS_SECRET` / `JWT_ADMIN_REFRESH_SECRET`）は、Secrets Manager に無ければスクリプトが生成して足す（既にあれば触らない）。新しい環境では Terraform が初回 apply で入れるが、**鍵を足す前に作った環境は Terraform では入らない**（`module.app_secrets` は初回 apply でしか書かない）ので、このスクリプトで入れる
 - 確認:
 
 ```bash
 aws secretsmanager get-secret-value --secret-id /<project>-prd/app \
   --query SecretString --output text | jq 'keys'
-# DATABASE_URL / REDIS_* / OAuth / FRONTEND_URL / JWT_* が揃っていること
+# DATABASE_URL / REDIS_* / OAuth / FRONTEND_URL / JWT_*（JWT_ADMIN_* を含む）が揃っていること
 ```
+
+> **既存の環境に admin の鍵を足すときの順番**: ① このスクリプトで鍵を足す → ② Terraform を apply（ECS の `secret_keys` に鍵が増える）→ ③ deploy。① より先に ②・③ を行うと、ECS は Secrets Manager に無いキーを参照してタスクを起動できない。
 
 > api は OAuth 系の値が**非空**でないと起動に失敗する設計。`FRONTEND_URL` は有効な URL が必須。
 > どの key が必須かは `apps/api/src/env.ts`（Zod スキーマ）を参照。
@@ -232,6 +235,14 @@ green が 200 を返すのを確認 → Actions の「Review pending deployments
 
 - `packages/db/drizzle/seed.ts` は **dev 専用データ**（dev users / fixtures）のみを扱い、`NODE_ENV=production` では何もしない
 - 新しいマスタを足すときは migration を 1 本追加する（`pnpm --filter @repo/db db:generate --custom --name=seed_xxx` で空の `migration.sql` を作り、冪等 INSERT を記述）
+
+### admin を登録する
+
+管理画面（`apps/admin`）にサインインできるのは、`admins` テーブルに email が登録された Google アカウントだけ。最初の 1 人も 2 人目以降も、Actions → **「Admin Create」** を `environment=prd`・`email=<Google アカウントの email>` で実行して登録する（最後に deploy した migration イメージで `pnpm --filter @repo/db admin:create` を流す。登録済みなら何もしない）。
+
+- Admin Create は**最後に deploy した** migration イメージで動く。admin の認証を入れた版をまだ deploy していない環境では、イメージに `admin:create` が無いうえ `admins` テーブルも無いので失敗する。先に deploy を済ませる
+- 登録した email の Google アカウントで管理画面にサインインすると、名前とアイコンが入る
+- 実行の記録（入力した email を含む）は Actions のログに残る
 
 ---
 
