@@ -141,8 +141,7 @@ resource "aws_iam_role" "github_actions_min" {
 /**
  * minimal 環境用 GitHub Actions IAM ロール（terraform plan / apply 用）。
  *
- * dev / prd と同じく AdministratorAccess で運用する（下の TODO と共通）。deploy workflow から
- * 使われないよう、GitHub Environment が min-terraform のワークフローからのみ assume できるようにする。
+ * deploy workflow から使われないよう、GitHub Environment が min-terraform のワークフローからのみ assume できるようにする。
  * terraform-aws-env-ci.yml / terraform-aws-env-apply.yml は対象が min のとき min-terraform を使う。
  */
 data "aws_iam_policy_document" "github_actions_min_terraform_trust" {
@@ -350,7 +349,6 @@ resource "aws_iam_role_policy_attachment" "github_actions_admin_prd" {
 # =============================================================================
 # min role (deploy 用) への policy attachment
 # =============================================================================
-# admin は付けず、deploy-aws-min.yml に必要な権限だけにする (ecr_push / ecs_deploy / deploy_min)。
 
 # deploy-aws-min.yml 専用のポリシー (min 専用)。
 # - api (Lambda) の環境変数の設定 → version の発行 → alias live の切り替え

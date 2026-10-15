@@ -6,9 +6,6 @@ import { getAccessToken } from "./auth"
 
 const API_BASE_URL = env.API_URL
 
-/**
- * api に 401 を返されたときの行き先。cookie を消してからサインイン画面に送る Route Handler
- */
 const SIGN_OUT_PATH = "/api/auth/signout"
 
 /** status とボディを保持するので、呼び出し側が元の status をそのまま返せる */
@@ -35,8 +32,6 @@ const buildHeaders = async (extra?: HeadersInit): Promise<HeadersInit> => {
  * api を呼び、成功したレスポンスだけを返す。
  *
  * access token の更新（refresh）はここでは行わない。proxy が画面の描画の前に済ませている。
- * Server Component の中では cookie を書けないため、ここで refresh すると api 側だけ
- * refresh token が作り直され、cookie は古いままになってセッションが切れる。
  *
  * 401（proxy で更新した後でも弾かれた = 鍵の作り直しなどで access token が無効）は、
  * cookie を消す Route Handler に redirect する。cookie を消さずにサインイン画面へ送ると、

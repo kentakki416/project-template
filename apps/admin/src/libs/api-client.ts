@@ -15,9 +15,6 @@ import { getAccessToken } from "./auth"
  */
 const API_BASE_URL = env.API_URL
 
-/**
- * api に 401 を返されたときの行き先。cookie を消してからサインイン画面に送る Route Handler
- */
 const SIGN_OUT_PATH = "/api/auth/signout"
 
 /**

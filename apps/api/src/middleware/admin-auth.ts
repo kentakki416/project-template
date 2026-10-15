@@ -27,8 +27,6 @@ const isAdminPublicPath = (path: string): boolean => {
  * 全体に適用して req.path で判定すると、Express 5 が大文字小文字を区別せずに Router に渡す
  * `/API/Admin/users` のようなパスで、認証の判定だけがすり抜けるため。
  * ここでの req.path は mount からの相対（/auth/google など）。
- *
- * user のトークンは鍵が違うので verifyAdminAccessToken で必ず失敗する。
  */
 export const adminAuthMiddleware = (req: AdminAuthRequest, res: Response, next: NextFunction) => {
   if (isAdminPublicPath(req.path)) {

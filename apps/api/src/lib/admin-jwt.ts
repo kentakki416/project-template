@@ -5,7 +5,7 @@ import jwt, { type Secret, type SignOptions } from "jsonwebtoken"
 import { env } from "../env"
 
 /**
- * admin のトークンの鍵。一般ユーザーの鍵（lib/jwt.ts）と分け、user のトークンを admin の API で通さない。
+ * admin のトークンの鍵。
  * 有効期限は一般ユーザーと同じ env を使う
  */
 const JWT_ADMIN_ACCESS_SECRET: Secret = env.JWT_ADMIN_ACCESS_SECRET
@@ -33,7 +33,7 @@ export const generateAdminAccessToken = (adminId: number): string =>
   jwt.sign({ adminId }, JWT_ADMIN_ACCESS_SECRET, { expiresIn: JWT_ACCESS_EXPIRATION })
 
 /**
- * admin の Refresh Token を生成する。jti は Redis（admin_refresh_token:{jti}）に保存する
+ * admin の Refresh Token を生成する
  */
 export const generateAdminRefreshToken = (adminId: number): { jti: string; token: string } => {
   const jti = randomUUID()

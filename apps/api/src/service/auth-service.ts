@@ -179,7 +179,6 @@ export const refreshTokens = async (
     return err(unauthorizedError("Refresh token has been revoked"))
   }
 
-  /** ローテーション: 旧 jti を破棄して新しい jti を発行 */
   await repo.refreshTokenRepository.delete(payload.jti)
 
   const accessToken = generators.generateAccessToken(userId)
@@ -206,7 +205,6 @@ export const logout = async (
 
   const payload = verifier(input.refreshToken)
   if (!payload) {
-    /** 無効なトークンでも成功扱いにして冪等性を保つ */
     return ok({ ok: true })
   }
   await repo.refreshTokenRepository.delete(payload.jti)

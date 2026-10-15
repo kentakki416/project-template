@@ -11,7 +11,6 @@ import * as service from "../../../service"
 
 /**
  * admin の Refresh Token を無効化してログアウトする API
- * 冪等性のため、無効なトークンでも 200 を返す（一般ユーザーのログアウトと同じ）
  */
 export class AdminAuthLogoutController {
   constructor(private _adminRefreshTokenRepository: RefreshTokenRepository) {}

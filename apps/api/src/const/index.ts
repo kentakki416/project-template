@@ -11,7 +11,6 @@ const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
 
 /**
  * 認証をスキップする公開パス
- * これらのパスではauthMiddlewareが認証チェックをスキップします
  */
 export const PUBLIC_PATHS: readonly string[] = [
   "/api/auth/google",
@@ -22,7 +21,7 @@ export const PUBLIC_PATHS: readonly string[] = [
 ]
 
 /**
- * admin の API を mount するパス。ここから下は adminAuthMiddleware だけが認証する
+ * admin の API を mount するパス。
  */
 export const ADMIN_PATH_PREFIX = "/api/admin"
 
@@ -35,7 +34,6 @@ const ADMIN_DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
 
 /**
  * admin の API のうち、admin の access token を求めないパス（ADMIN_PATH_PREFIX からの相対）
- * 完全一致で比べる（下の階層は公開しない）。大文字小文字と末尾の `/` は区別しない
  * logout は refresh token で本人を確かめるので、access token が切れていても呼べるようにする
  */
 export const ADMIN_PUBLIC_PATHS: readonly string[] = [
@@ -47,7 +45,6 @@ export const ADMIN_PUBLIC_PATHS: readonly string[] = [
 
 /**
  * リクエストログを除外するパス
- * これらのパスではrequestLoggerがログを記録しません
  */
 export const LOG_EXCLUDE_PATHS = [
   "/api/health",
