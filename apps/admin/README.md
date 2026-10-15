@@ -12,6 +12,8 @@ Next.js 16 (App Router) を使用した管理画面アプリケーション
   - [依存の方向](#依存の方向)
   - [設計原則](#設計原則)
   - [コンポーネントの分類基準](#コンポーネントの分類基準)
+- [デモ](#デモ)
+  - [デモを消す手順](#デモを消す手順)
 - [API 設計方針](#api-設計方針)
   - [API 通信方式](#api-通信方式)
 
@@ -29,8 +31,7 @@ Next.js 16 (App Router) を使用した管理画面アプリケーション
 - React 19
 - TypeScript
 - Tailwind CSS v4
-- ApexCharts（チャート）
-- FullCalendar（カレンダー）
+- ApexCharts（グラフ）・FullCalendar（カレンダー）・jvectormap（地図）・react-dropzone（ファイルのドロップ）はデモだけが使う（[デモ](#デモ)）
 
 ## アーキテクチャ
 
@@ -45,12 +46,15 @@ Next.js 16 (App Router) を使用した管理画面アプリケーション
 src/
   app/                        # ルーティング + ページ構成（薄く保つ）
     (auth)/                   # 認証ページ（サイドバーなし、専用レイアウト）
+      demo/                   #   デモ（フォームの見本）
     (dashboard)/              # 管理画面（サイドバー + ヘッダー付きレイアウト）
+      demo/                   #   デモ（TailAdmin の画面と UI 部品の見本。URL は /demo/...）
   components/
     ui/                       # 汎用UIコンポーネント（Button, Input等）
     layout/                   # レイアウト系（AppHeader, AppSidebar, Backdrop等）
     features/                 # 機能固有のUIコンポーネント
-      {feature}/              #   例: auth/SignInForm.tsx, dashboard/DashboardMetrics.tsx
+      {feature}/              #   例: auth/SignInForm.tsx, header/UserDropdown.tsx
+    demo/                     # デモだけが使う部品・CSS・サイドバーの項目
   features/                   # ロジックのみ（レンダリングなし）
     {feature}/
       {feature}.context.tsx   #   状態管理（React Context）
@@ -87,6 +91,30 @@ app/ → components/ → features/(ロジック)
 | **layout/** | ページの構造やレイアウトを決めるコンポーネント | `ui/`を使ってよい |
 
 **判断基準:** ドメイン知識なしで動く → `ui/` / レイアウト系 → `layout/` / それ以外 → `features/{domain}/`
+
+## デモ
+
+TailAdmin の画面（EC のダッシュボード・カレンダー・フォーム / テーブル / UI 部品 / グラフの見本・サインアップ画面など）は、URL `/demo/...` の下にまとめている。サイドバーでは「デモ」の見出しの下に並ぶ。UI 部品の使い方の見本として残しているので、実プロジェクトで要らなくなったら下の手順で消す。
+
+| 置き場所 | 中身 |
+| --- | --- |
+| `src/app/(dashboard)/demo/` | サイドバー付きのデモ画面 |
+| `src/app/(auth)/demo/` | サインアップのフォームの見本 |
+| `src/components/demo/` | デモの画面だけが使う部品・CSS（`demo.css`） |
+| `src/components/demo/demo-nav-items.tsx` | サイドバーの「デモ」の項目 |
+| `public/images/demo/` | デモだけが使う画像 |
+
+土台（`src/components/ui/` など）はデモを import しない。lint（`import/no-restricted-paths`）で強制しているので、デモを消しても土台は壊れない。
+
+route group（`(demo)`）ではなく URL も `/demo` に分けているのは、デモの `/profile`（プロフィールの見本）などが土台の画面と同じ URL になってぶつかるため。
+
+### デモを消す手順
+
+1. 上の表のディレクトリとファイルを消す
+2. `src/components/layout/AppSidebar.tsx` の `demoNavSection` の import と、`navSections` からの指定を消す
+3. `eslint.config.mjs` の、デモの import の制限（`import/no-restricted-paths` の設定ごと）と、`settings.tailwindcss.cssFiles` の `src/components/demo/*.css` を消す
+4. デモだけが使う依存を消す: `pnpm remove @fullcalendar/core @fullcalendar/daygrid @fullcalendar/interaction @fullcalendar/react @fullcalendar/timegrid @react-jvectormap/core @react-jvectormap/world apexcharts react-apexcharts react-dropzone`（`package.json` の `overrides` も消す）
+5. `.claude/skills/design-mock/SKILL.md` が参考の画面としてデモを挙げているので、参照先を実プロジェクトの画面に変える
 
 ## API 設計方針
 
