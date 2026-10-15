@@ -10,9 +10,15 @@ export const authProviderSchema = z.enum(AUTH_PROVIDERS)
 export type AuthProvider = z.infer<typeof authProviderSchema>
 
 /**
- * ユーザー一覧で指定できるページ番号の上限。offset が DB の整数の範囲をあふれないように抑える
+ * ユーザー一覧の 1 ページの件数の既定と上限
  */
-export const ADMIN_USER_LIST_MAX_PAGE = 10_000
+export const ADMIN_USER_LIST_DEFAULT_PER_PAGE = 20
+export const ADMIN_USER_LIST_MAX_PER_PAGE = 100
+
+/**
+ * ユーザー一覧で指定できるページ番号の上限。offset（(page - 1) × per_page）が DB の int4 の範囲をあふれないように抑える
+ */
+export const ADMIN_USER_LIST_MAX_PAGE = Math.floor(2_147_483_647 / ADMIN_USER_LIST_MAX_PER_PAGE)
 
 /**
  * ユーザー一覧の検索語の最大の長さ
@@ -52,7 +58,7 @@ export const getAdminUserListQueryStringSchema = z.object({
   created_before: storableDateTimeSchema.optional(),
   created_from: storableDateTimeSchema.optional(),
   page: z.coerce.number().int().positive().max(ADMIN_USER_LIST_MAX_PAGE).default(1),
-  per_page: z.coerce.number().int().min(1).max(100).default(20),
+  per_page: z.coerce.number().int().min(1).max(ADMIN_USER_LIST_MAX_PER_PAGE).default(ADMIN_USER_LIST_DEFAULT_PER_PAGE),
   provider: authProviderSchema.optional(),
   q: z.string().trim().max(ADMIN_USER_LIST_MAX_QUERY_LENGTH).optional(),
 })
