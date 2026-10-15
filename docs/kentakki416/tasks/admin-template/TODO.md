@@ -35,7 +35,7 @@ apps/admin のデモと土台を分け、admin 認証・API に繋いだユー�
 
 ## 4. 実装（設計書 PR の上に積む）
 
-- [ ] step1 の PR
+- [x] step1 の PR（#119）
 - [ ] step2 の PR
 - [ ] step3 の PR
 - [ ] step4 の PR
