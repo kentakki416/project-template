@@ -15,9 +15,6 @@ import {
 
 /**
  * デモの画面のメニュー。デモを消すときは、このファイルと AppSidebar の import を消す
- *
- * Authentication の Sign In だけは、まだ土台の /signin（email + パスワードのフォーム）を指す。
- * サインイン画面を作り直すときに、今のフォームを /demo/signin に移して行き先を変える
  */
 export const demoNavSection: NavSection = {
   items: [
@@ -78,7 +75,7 @@ export const demoNavSection: NavSection = {
       icon: <PlugInIcon />,
       name: "Authentication",
       subItems: [
-        { name: "Sign In", path: "/signin" },
+        { name: "Sign In", path: "/demo/signin" },
         { name: "Sign Up", path: "/demo/signup" },
       ],
     },

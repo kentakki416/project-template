@@ -54,7 +54,7 @@ src/
     ui/                       # 汎用UIコンポーネント（Button, Input等）
     layout/                   # レイアウト系（AppHeader, AppSidebar, Backdrop等）
     features/                 # 機能固有のUIコンポーネント
-      {feature}/              #   例: auth/SignInForm.tsx, header/UserDropdown.tsx
+      {feature}/              #   例: auth/GoogleSignInButton.tsx, header/UserDropdown.tsx
     demo/                     # デモだけが使う部品・CSS・サイドバーの項目
   features/                   # ロジックのみ（レンダリングなし）
     {feature}/
@@ -111,7 +111,7 @@ TailAdmin の画面（EC のダッシュボード・カレンダー・フォー�
 | 置き場所 | 中身 |
 | --- | --- |
 | `src/app/(dashboard)/demo/` | サイドバー付きのデモ画面 |
-| `src/app/(auth)/demo/` | サインアップのフォームの見本 |
+| `src/app/(auth)/demo/` | サインイン・サインアップのフォームの見本 |
 | `src/components/demo/` | デモの画面だけが使う部品・CSS（`demo.css`） |
 | `src/components/demo/demo-nav-items.tsx` | サイドバーの「デモ」の項目 |
 | `public/images/demo/` | デモだけが使う画像 |
@@ -124,9 +124,10 @@ route group（`(demo)`）ではなく URL も `/demo` に分けているのは�
 
 1. 上の表のディレクトリとファイルを消す
 2. `src/components/layout/AppSidebar.tsx` の `demoNavSection` の import と、`navSections` からの指定を消す
-3. `eslint.config.mjs` の、デモの import の制限（`import/no-restricted-paths` の設定ごと）と、`settings.tailwindcss.cssFiles` の `src/components/demo/*.css` を消す
-4. デモだけが使う依存を消す: `pnpm remove @fullcalendar/core @fullcalendar/daygrid @fullcalendar/interaction @fullcalendar/react @fullcalendar/timegrid @react-jvectormap/core @react-jvectormap/world apexcharts react-apexcharts react-dropzone`（`package.json` の `overrides` も消す）
-5. `.claude/skills/design-mock/SKILL.md` が参考の画面としてデモを挙げているので、参照先を実プロジェクトの画面に変える
+3. `src/proxy.ts` の `PUBLIC_PATHS` から `/demo/signin`・`/demo/signup` を消す
+4. `eslint.config.mjs` の、デモの import の制限（`import/no-restricted-paths` の設定ごと）と、`settings.tailwindcss.cssFiles` の `src/components/demo/*.css` を消す
+5. デモだけが使う依存を消す: `pnpm remove @fullcalendar/core @fullcalendar/daygrid @fullcalendar/interaction @fullcalendar/react @fullcalendar/timegrid @react-jvectormap/core @react-jvectormap/world apexcharts react-apexcharts react-dropzone`（`package.json` の `overrides` も消す）
+6. `.claude/skills/design-mock/SKILL.md` が参考の画面としてデモを挙げているので、参照先を実プロジェクトの画面に変える
 
 ## API 設計方針
 

@@ -32,6 +32,8 @@ TailAdmin の画面は「デモ」として URL `/demo/...` の下に分けて�
 | 変数 | 必須 | デフォルト | 説明 |
 | --- | --- | --- | --- |
 | `API_URL` | no | `http://localhost:8080` | Express API の origin |
+| `GOOGLE_CLIENT_ID` | no | `dummy` | Google OAuth のクライアント ID（web と同じクライアント） |
+| `NEXT_PUBLIC_APP_URL` | yes | - | admin 自身の URL（OAuth の redirect_uri とサインイン後の戻り先の検査に使う）。末尾の `/` は付いていてもよい |
 | `NODE_ENV` | no | `development` | `development` / `test` / `production` |
 
 値は `.env.local` に置き、**dotenvx で暗号化して git にコミットする**（api / web / cron / worker と同じ方式）。復号鍵は root の `.env.keys`（git 管理外）で、各 app の `.env.keys` はそこへの symlink。公開鍵は全 app で共有している。
@@ -43,25 +45,35 @@ TailAdmin の画面は「デモ」として URL `/demo/...` の下に分けて�
 cd apps/admin && pnpm exec dotenvx set API_URL "http://localhost:8080" -f .env.local
 ```
 
-## API 接続の下地
+## API 接続
 
-admin は DB を直接触らず、必ず Express API を経由する。現状の画面は **API には未接続**だが、繋ぐための足場は用意してある。
+admin は DB を直接触らず、必ず Express API を経由する。
 
-| ファイル | 状態 | 役割 |
-| --- | --- | --- |
-| `src/env.ts` | 配線済み（ただし未 import） | `API_URL` を Zod で検証。`server-only` |
-| `src/libs/api-client.ts` | **未使用** | `env.API_URL` を叩く `get` / `post` / `put` / `delete`。`server-only` |
-| `@repo/api-schema` | **未使用**（依存宣言のみ） | API のリクエスト / レスポンス Zod スキーマ |
-
-画面を API に繋ぐときは:
-
-1. Server Component か Route Handler から `apiClient` を呼ぶ（`server-only` なので client component からは import できない）
-2. レスポンスは `@repo/api-schema` のスキーマで parse する。**独自に型を書かない**
+1. Server Component・Server Action・Route Handler から `src/libs/api-client.ts` の `apiClient` を呼ぶ（`server-only` なので client component からは import できない）。admin の access token を Bearer で付ける
+2. レスポンスは `@repo/api-schema` の `admin/` のスキーマで parse する。**独自に型を書かない**
 3. client component にデータが必要な場合は Server Component で取得して props で渡す
 
-`src/env.ts` はどこからも import されていないため **現状 env 検証は実行されない**（`api-client.ts` が未使用のため）。API に繋いだ時点で初めて検証が走る。
-
 `@repo/*` のうち admin が import できるのは `@repo/api-schema` だけで、これは lint で強制している（`@repo/eslint-config/frontend-boundary`）。
+
+## 認証
+
+一般ユーザー（web）とは別の、admin 専用の認証。`admins` に登録された Google アカウントだけがサインインできる（流れと理由は `docs/onboarding/auth.md` の「admin の認証」、設計は `docs/spec/admin-template/README.md` の「admin 認証」）。
+
+- cookie は `admin_access_token` / `admin_refresh_token` / `admin_oauth_state` / `admin_oauth_redirect`（名前と属性は `src/libs/auth-cookies.ts`、読み書きは `src/libs/auth.ts`）。web の `app_*` と同じホストで動くと共有されるので、名前を分けている
+- **`src/proxy.ts` は cookie の有無と期限（exp）しか見ない UX 用のガード。** 署名は api が確かめる。api を呼ばずに機密を描く画面を作らない（偽の cookie でも画面までは開ける）
+- **access token の更新（refresh）は `src/proxy.ts` だけが行う。** `apiClient` は refresh しない（Server Component の中では cookie を書けず、セッションが切れる）
+- `apiClient` は api の 401 で `/api/auth/signout`（cookie を消してサインイン画面へ送る）に redirect する。redirect は例外で実現しているので、**認証必須の API の呼び出しを try/catch で囲むときは catch の先頭で `unstable_rethrow(error)` する**
+- サインインの前に開ける画面・Route Handler は `src/proxy.ts` の `PUBLIC_PATHS` に足す。公開のパスで token を更新するのはサインイン画面だけ
+- サインイン後の戻り先は `src/libs/safe-redirect.ts` の `resolveSafeRedirectPath` を必ず通す（外のサイトに飛ばさない）
+- ログアウトは `src/features/auth/auth.actions.ts` の `logoutAction`
+- ローカルでは `http://localhost:3030/api/dev/login` を開くと、seed で入れた `admin@dev.local` としてログインできる（production では 404）
+
+Google Cloud の OAuth クライアント（web と同じもの）の「承認済みのリダイレクト URI」に、admin の callback を足す。
+
+| 環境 | redirect URI |
+| --- | --- |
+| ローカル | `http://localhost:3030/api/auth/callback/google` |
+| 各環境 | `{NEXT_PUBLIC_APP_URL の origin}/api/auth/callback/google` |
 
 ## 動作確認（必須）
 

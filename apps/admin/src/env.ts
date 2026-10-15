@@ -17,6 +17,20 @@ const adminEnvSchema = z.object({
    */
   API_URL: z.string().url().default("http://localhost:8080"),
 
+  /**
+   * Google OAuth のクライアント ID（web と同じクライアントを使う）
+   */
+  GOOGLE_CLIENT_ID: z.string().default("dummy"),
+
+  /**
+   * admin 自身の URL（OAuth の redirect_uri と、サインイン後の戻り先の検査に使う）。
+   * 末尾の / やパスが付いていてもよい（使う側は libs/app-origin.ts の APP_ORIGIN で origin にそろえる）
+   */
+  NEXT_PUBLIC_APP_URL: z
+    .string()
+    .url()
+    .refine((value) => /^https?:\/\//.test(value), { message: "http:// か https:// で始める" }),
+
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 })
 
