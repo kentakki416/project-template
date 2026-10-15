@@ -12,6 +12,7 @@ Next.js 16 (App Router) を使用した管理画面アプリケーション
   - [依存の方向](#依存の方向)
   - [設計原則](#設計原則)
   - [コンポーネントの分類基準](#コンポーネントの分類基準)
+- [ブランドを変える](#ブランドを変える)
 - [デモ](#デモ)
   - [デモを消す手順](#デモを消す手順)
 - [API 設計方針](#api-設計方針)
@@ -91,6 +92,17 @@ app/ → components/ → features/(ロジック)
 | **layout/** | ページの構造やレイアウトを決めるコンポーネント | `ui/`を使ってよい |
 
 **判断基準:** ドメイン知識なしで動く → `ui/` / レイアウト系 → `layout/` / それ以外 → `features/{domain}/`
+
+## ブランドを変える
+
+| 変えるもの | 場所 |
+| --- | --- |
+| アプリ名・説明・言語・タイムゾーン | `src/config/app.ts`。サイドバー・ヘッダー・サインイン画面のロゴの文字と、タブのタイトル（`<ページ名> \| <アプリ名>`）がここから決まる |
+| ロゴ | `src/components/layout/AppLogo.tsx`。既定はアプリ名の頭文字のアイコン + アプリ名。画像のロゴにするときは中身を `<Image>` に差し替える（呼び出し側は変えない） |
+| favicon | `public/favicon.svg`（`src/app/layout.tsx` の `metadata.icons` で指している） |
+| ブランドの色 | `src/app/globals.css` の `@theme` の `--color-brand-*` |
+
+日時は `src/libs/date.ts` の `formatDateTime()` で、`src/config/app.ts` のタイムゾーンで表示する。Server Component はサーバーのタイムゾーン（本番は UTC のことが多い）で動くので、`toLocaleString()` を直接使わない。
 
 ## デモ
 
