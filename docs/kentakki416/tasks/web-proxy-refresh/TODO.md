@@ -8,17 +8,19 @@ web の api-client が Server Component から refresh すると cookie を書�
 ## 1. 調査
 
 - [x] api-client を呼んでいる箇所を洗い出す
-- [ ] 公開ページ（memo・events）での optional 認証への影響を確認する
+- [x] 公開ページ（memo・events）での optional 認証への影響を確認する
 
 ## 2. 実装
 
-- [ ] proxy で refresh する
-- [ ] api-client から refresh と cookie の書き込みを外す
-- [ ] 401 で cookie を消してサインイン画面へ送る Route Handler
-- [ ] page.tsx の try/catch を見直す
-- [ ] docs/onboarding/auth.md・apps/web/CLAUDE.md を直す
+- [x] proxy で refresh する
+- [x] api-client から refresh と cookie の書き込みを外す
+- [x] 401 で cookie を消してサインイン画面へ送る Route Handler
+- [x] page.tsx の try/catch を見直す
+- [x] docs/onboarding/auth.md・apps/web/CLAUDE.md を直す
 
 ## 3. 確認と PR
 
-- [ ] 画面で動作を確認する
-- [ ] PR を出す
+- [x] 画面で動作を確認する
+- [x] PR を出す（#117）
+- [x] セルフレビューの指摘を直す
+- [ ] main にマージする
