@@ -60,9 +60,10 @@ admin は DB を直接触らず、必ず Express API を経由する。
 一般ユーザー（web）とは別の、admin 専用の認証。`admins` に登録された Google アカウントだけがサインインできる（流れと理由は `docs/onboarding/auth.md` の「admin の認証」、設計は `docs/spec/admin-template/README.md` の「admin 認証」）。
 
 - cookie は `admin_access_token` / `admin_refresh_token` / `admin_oauth_state` / `admin_oauth_redirect`（名前と属性は `src/libs/auth-cookies.ts`、読み書きは `src/libs/auth.ts`）。web の `app_*` と同じホストで動くと共有されるので、名前を分けている
+- **`src/proxy.ts` は cookie の有無と期限（exp）しか見ない UX 用のガード。** 署名は api が確かめる。api を呼ばずに機密を描く画面を作らない（偽の cookie でも画面までは開ける）
 - **access token の更新（refresh）は `src/proxy.ts` だけが行う。** `apiClient` は refresh しない（Server Component の中では cookie を書けず、セッションが切れる）
 - `apiClient` は api の 401 で `/api/auth/signout`（cookie を消してサインイン画面へ送る）に redirect する。redirect は例外で実現しているので、**認証必須の API の呼び出しを try/catch で囲むときは catch の先頭で `unstable_rethrow(error)` する**
-- サインインの前に開ける画面・Route Handler は `src/proxy.ts` の `PUBLIC_PATHS` に足す
+- サインインの前に開ける画面・Route Handler は `src/proxy.ts` の `PUBLIC_PATHS` に足す。公開のパスで token を更新するのはサインイン画面だけ
 - サインイン後の戻り先は `src/libs/safe-redirect.ts` の `resolveSafeRedirectPath` を必ず通す（外のサイトに飛ばさない）
 - ログアウトは `src/features/auth/auth.actions.ts` の `logoutAction`
 - ローカルでは `http://localhost:3030/api/dev/login` を開くと、seed で入れた `admin@dev.local` としてログインできる（production では 404）

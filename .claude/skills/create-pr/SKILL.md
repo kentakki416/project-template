@@ -149,7 +149,7 @@ CHANGED_UI_APPS=$(git diff --name-only "$BASE"..HEAD \
 | app | スクショ取得手段 | 配置先 |
 |---|---|---|
 | `apps/web` | `verify-web-page` skill（Playwright MCP） | `docs/screenshots/{feature}/{before,after}.png` |
-| `apps/admin` | `verify-web-page` skill（同上、admin 認証は将来対応） | `docs/screenshots/{feature}/{before,after}.png` |
+| `apps/admin` | `verify-web-page` skill（同上。先に `/api/dev/login` で dev admin としてログインする） | `docs/screenshots/{feature}/{before,after}.png` |
 | `apps/mobile` | Expo の preview / シミュレータ / 実機。自動取得手段が無いことが多いのでユーザーに依頼 | `docs/screenshots/{feature}/{before,after}.png` |
 
 #### before の扱い（重要）

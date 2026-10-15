@@ -120,7 +120,7 @@ flowchart TD
 | api | `/api/auth/*` | `/api/admin/auth/*`（JWT の鍵・Redis のキーも別） |
 | cookie | `app_*` | `admin_*`（ポートが違っても同じホストなら cookie は共有されるので名前を分ける） |
 | サインイン画面 | `/sign-in` | `/signin`（`?redirect=` でサインイン前の画面に戻す） |
-| 公開パスでの更新 | する（行動イベントに `user_id` を付けるため） | しない（サインインの前に見る画面と、cookie を自分で書く Route Handler だけ） |
+| 公開パスでの更新 | する（行動イベントに `user_id` を付けるため） | サインイン画面（`/signin`）でだけする（api の障害の後に開き直せば元の画面に戻れるように） |
 | dev ログイン | `/api/dev/login?as=alice` | `/api/dev/login`（`admin@dev.local`） |
 
 - 一般ユーザーのトークンでは admin の画面にも api にも入れない（逆も同じ）。鍵が違うので api の検証で必ず失敗する

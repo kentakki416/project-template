@@ -26,7 +26,10 @@ const adminEnvSchema = z.object({
    * admin 自身の URL（OAuth の redirect_uri と、サインイン後の戻り先の検査に使う）。
    * 末尾の / やパスが付いていてもよい（使う側は libs/app-origin.ts の APP_ORIGIN で origin にそろえる）
    */
-  NEXT_PUBLIC_APP_URL: z.string().url(),
+  NEXT_PUBLIC_APP_URL: z
+    .string()
+    .url()
+    .refine((value) => /^https?:\/\//.test(value), { message: "http:// か https:// で始める" }),
 
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 })

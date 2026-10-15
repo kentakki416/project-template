@@ -27,6 +27,10 @@ export const startGoogleOAuth = async (formData: FormData) => {
 
   const params = new URLSearchParams({
     client_id: env.GOOGLE_CLIENT_ID,
+    /**
+     * 権限の無いアカウントで弾かれた後に、別のアカウントを選び直せるようにする
+     */
+    prompt: "select_account",
     redirect_uri: GOOGLE_REDIRECT_URI,
     response_type: "code",
     scope: "openid email profile",

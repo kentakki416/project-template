@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 
 import GoogleSignInButton from "@/components/features/auth/GoogleSignInButton"
 import Alert from "@/components/ui/alert/Alert"
+import { SIGN_IN_ERROR_MESSAGES } from "@/features/auth/sign-in-errors"
 import { getAccessToken } from "@/libs/auth"
 import { isAccessTokenExpiringSoon } from "@/libs/auth-cookies"
 import { resolveSafeRedirectPath } from "@/libs/safe-redirect"
@@ -14,13 +15,6 @@ export const metadata: Metadata = {
 }
 
 const isProduction = process.env.NODE_ENV === "production"
-
-const ERROR_MESSAGES: Record<string, string> = {
-  auth_failed: "サインインに失敗しました。もう一度お試しください",
-  not_admin: "このアカウントには管理画面の権限がありません",
-  oauth_denied: "Google アカウントへのアクセスが拒否されました",
-  state_mismatch: "セッションが切れました。もう一度お試しください",
-}
 
 type Props = {
   searchParams: Promise<{ error?: string; redirect?: string }>
@@ -39,7 +33,14 @@ export default async function SignIn({ searchParams }: Props) {
     redirect(redirectPath)
   }
 
-  const errorMessage = error ? ERROR_MESSAGES[error] ?? ERROR_MESSAGES.auth_failed : null
+  /**
+   * Object.hasOwn で引く（`?error=__proto__` で Object.prototype を取り出して描画で落ちないように）
+   */
+  const errorMessage = error
+    ? Object.hasOwn(SIGN_IN_ERROR_MESSAGES, error)
+      ? SIGN_IN_ERROR_MESSAGES[error as keyof typeof SIGN_IN_ERROR_MESSAGES]
+      : SIGN_IN_ERROR_MESSAGES.auth_failed
+    : null
 
   return (
     <div className="flex w-full flex-1 flex-col lg:w-1/2">

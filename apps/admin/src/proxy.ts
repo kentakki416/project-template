@@ -20,11 +20,13 @@ const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
   : []
 
 /**
- * サインインせずに開けるパス。どれも自分で cookie を書き換える（ログイン・ログアウト）か、
- * サインインの前に見る画面なので、token の更新もしない
+ * サインインせずに開けるパス。サインイン画面（SIGN_IN_PATH）以外は token の更新もしない
+ * （callback・signout・dev login は自分で cookie を書き換えるので、先に更新すると書き換える前の refresh token を無効にする）
  */
+const SIGN_IN_PATH = "/signin"
+
 const PUBLIC_PATHS = [
-  "/signin",
+  SIGN_IN_PATH,
   "/api/auth/callback/google",
   "/api/auth/signout",
   /**
@@ -68,7 +70,7 @@ const requestTokenRefresh = async (refreshToken: string): Promise<RefreshResult>
 }
 
 const redirectToSignIn = (req: NextRequest): NextResponse => {
-  const url = new URL("/signin", req.url)
+  const url = new URL(SIGN_IN_PATH, req.url)
   url.searchParams.set("redirect", resolveSafeRedirectPath(`${req.nextUrl.pathname}${req.nextUrl.search}`))
   return NextResponse.redirect(url)
 }
@@ -83,7 +85,12 @@ const redirectToSignIn = (req: NextRequest): NextResponse => {
  */
 export const proxy = async (req: NextRequest) => {
   const { pathname } = req.nextUrl
-  if (PUBLIC_PATHS.some(p => isPathUnderPrefix(pathname, p))) {
+  const isPublicPath = PUBLIC_PATHS.some(p => isPathUnderPrefix(pathname, p))
+  /**
+   * サインイン画面でも更新する。api の一時的な障害でサインイン画面に送られた後、開き直せば元の画面に戻れるように
+   * （更新できたら、サインイン画面が有効な access の cookie を見て redirect に戻す）
+   */
+  if (isPublicPath && pathname !== SIGN_IN_PATH) {
     return NextResponse.next()
   }
 
@@ -94,7 +101,7 @@ export const proxy = async (req: NextRequest) => {
 
   const refreshToken = req.cookies.get(REFRESH_TOKEN_COOKIE)?.value
   if (refreshToken === undefined) {
-    return redirectToSignIn(req)
+    return isPublicPath ? NextResponse.next() : redirectToSignIn(req)
   }
 
   const result = await requestTokenRefresh(refreshToken)
@@ -108,6 +115,10 @@ export const proxy = async (req: NextRequest) => {
     return res
   }
 
+  if (isPublicPath) {
+    return NextResponse.next()
+  }
+
   /**
    * 401 でも cookie は消さない。同時に来た別のリクエスト（画面の先読みなど）が先に更新に
    * 成功していると、この refresh token はもう使用済みになっている。ここで消すと、
@@ -116,7 +127,7 @@ export const proxy = async (req: NextRequest) => {
    *
    * api の障害など（failed）で access token も無いときも、cookie を消さずにサインイン画面に送る。
    * そのまま通すと画面の api 呼び出しが 401 になり、api-client が cookie を消してしまう
-   * （一時的な障害でログアウトされる）。サインイン画面を開き直せば、もう一度更新を試みる。
+   * （一時的な障害でログアウトされる）。サインイン画面を開き直せば、そこでもう一度更新を試みる。
    */
   if (result.status === "unauthorized" || accessToken === undefined) {
     return redirectToSignIn(req)
