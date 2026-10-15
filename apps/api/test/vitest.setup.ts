@@ -26,14 +26,6 @@ process.env.JWT_ACCESS_EXPIRATION = process.env.JWT_ACCESS_EXPIRATION || "15m"
 process.env.JWT_REFRESH_EXPIRATION = process.env.JWT_REFRESH_EXPIRATION || "7d"
 
 /**
- * test:ci では dotenvx を通さないため DATABASE_URL が未設定。
- * packages/db 側は DEFAULT_URL にフォールバックするが、apiEnvSchema の
- * z.string().url() を満たすためにここでも明示的に補完しておく。
- */
-process.env.DATABASE_URL =
-  process.env.DATABASE_URL || "postgresql://postgres:password@localhost:5433/project-template_test"
-
-/**
  * Controller integration テストの接続先（テスト用 DB / Redis DB 1）。
  * 旧構成では test/controller/setup.ts の先頭で設定していたが、上記理由により
  * ここに移し、controller / service のどちらの実行でも同じ初期化が走るようにする。
