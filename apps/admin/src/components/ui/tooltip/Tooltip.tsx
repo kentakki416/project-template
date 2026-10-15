@@ -12,6 +12,7 @@ import {
   useFocus,
   useHover,
   useInteractions,
+  useMergeRefs,
   useRole,
 } from "@floating-ui/react"
 import React, { cloneElement, useState } from "react"
@@ -118,6 +119,11 @@ export default function Tooltip({
   ])
 
   /**
+   * トリガーに呼び出し側が付けた ref があれば、floating-ui の ref とまとめて付ける（上書きして消さない）
+   */
+  const triggerRef = useMergeRefs([setReference, children.props.ref as React.Ref<Element> | undefined])
+
+  /**
    * flip で反対側に出たときは、矢印の辺と位置も実際の placement で決める
    */
   const side = resolvedPlacement.split("-")[0] as TooltipPlacement
@@ -126,7 +132,7 @@ export default function Tooltip({
 
   return (
     <>
-      {cloneElement(children, getReferenceProps({ ...children.props, ref: setReference }))}
+      {cloneElement(children, getReferenceProps({ ...children.props, ref: triggerRef }))}
       {isOpen && (
         <FloatingPortal>
           <div
