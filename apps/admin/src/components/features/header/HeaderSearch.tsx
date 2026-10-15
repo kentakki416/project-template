@@ -13,7 +13,7 @@ export type HeaderSearchProps = {
 
 /**
  * ヘッダーの検索欄。Enter で action に ?q= を付けて移る。next/form なのでページ全体を読み直さず
- * （ダークモードやサイドバーの開閉が戻らない）、JavaScript が無くても動く。⌘K / Ctrl+K でフォーカスする
+ * （サイドバーの開閉が戻らず、ダークモードで一瞬ライトになることもない）、JavaScript が無くても動く。⌘K / Ctrl+K でフォーカスする
  */
 export default function HeaderSearch({ action, maxLength, placeholder }: HeaderSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null)

@@ -9,12 +9,13 @@ export default function AvatarText({ name, className = "" }: AvatarTextProps) {
   /**
    * 単語ごとの最初の文字（記号は飛ばす。「Admin (dev)」は「AD」）。文字が取れなければ「?」
    */
-  const initials = name
-    .split(/\s+/)
-    .map((word) => word.match(/[\p{L}\p{N}]/u)?.[0] ?? "")
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "?"
+  const initials = Array.from(
+    name
+      .split(/\s+/)
+      .map((word) => word.match(/[\p{L}\p{N}]/u)?.[0] ?? "")
+      .join("")
+      .toUpperCase(),
+  ).slice(0, 2).join("") || "?"
 
   /**
    * 名前から決まる淡い色（同じ名前なら同じ色）

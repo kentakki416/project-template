@@ -59,7 +59,7 @@ admin は DB を直接触らず、必ず Express API を経由する。
 
 ## ヘッダー
 
-`src/app/(dashboard)/layout.tsx`（Server Component）がサインイン中の admin（`/api/admin/me`）と通知を取り、`AdminShell`（client）→ `AppHeader` に props で渡す。layout で `/api/admin/me` を呼ぶので、画面を直接開いたとき・再読み込み（`router.refresh` を含む）のときは api が token を確かめる（proxy は期限しか見ない）。**クライアント側の遷移では layout は描き直されないので、機密を出す画面は自分で api を呼ぶ。**通知が取れなくても画面は出す（空で続ける）。通知の元は `src/features/notification/notification.api.ts` を差し替える（`README.md` の「ヘッダー」）。
+`src/app/(dashboard)/layout.tsx`（Server Component）がサインイン中の admin（`/api/admin/me`）と通知を取り、`AdminShell`（client）→ `AppHeader` に props で渡す。layout で `/api/admin/me` を呼ぶので、画面を直接開いたとき・再読み込み（`router.refresh` を含む）のときは api が token を確かめる（proxy は期限しか見ない）。**クライアント側の遷移では layout は描き直されないので、機密を出す画面は自分で api を呼ぶ**。通知が取れなくても画面は出す（空で続ける）。通知の元は `src/features/notification/notification.api.ts` を差し替える（`README.md` の「ヘッダー」）。
 
 ## 認証
 

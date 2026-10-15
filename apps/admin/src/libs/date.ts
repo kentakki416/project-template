@@ -71,6 +71,11 @@ export const addOneDayToDate = (date: string): string => {
 
 const relativeTimeFormatter = new Intl.RelativeTimeFormat(appConfig.locale, { numeric: "auto" })
 
+/**
+ * 日の単位は「昨日」「一昨日」ではなく「1 日前」の形で出す。経過時間で数えるので、暦の上の昨日とずれるため
+ */
+const dayFormatter = new Intl.RelativeTimeFormat(appConfig.locale, { numeric: "always" })
+
 const SECONDS_PER_MINUTE = 60
 const SECONDS_PER_HOUR = 60 * 60
 const SECONDS_PER_DAY = 60 * 60 * 24
@@ -80,7 +85,7 @@ const SECONDS_PER_DAY = 60 * 60 * 24
 const RELATIVE_TIME_LIMIT_DAYS = 30
 
 /**
- * 今からの経過時間を「5 分前」「3 時間前」「昨日」の形で出す。30 日より前は日時で出す。日時として読めなければ「-」
+ * 今からの経過時間を「5 分前」「3 時間前」「2 日前」の形で出す。30 日より前は日時で出す。日時として読めなければ「-」
  */
 export const formatRelativeTime = (value: string | Date, now: Date = new Date()): string => {
   const date = typeof value === "string" ? new Date(value) : value
@@ -90,6 +95,6 @@ export const formatRelativeTime = (value: string | Date, now: Date = new Date())
   if (seconds < SECONDS_PER_HOUR) return relativeTimeFormatter.format(-Math.floor(seconds / SECONDS_PER_MINUTE), "minute")
   if (seconds < SECONDS_PER_DAY) return relativeTimeFormatter.format(-Math.floor(seconds / SECONDS_PER_HOUR), "hour")
   const days = Math.floor(seconds / SECONDS_PER_DAY)
-  if (days < RELATIVE_TIME_LIMIT_DAYS) return relativeTimeFormatter.format(-days, "day")
+  if (days < RELATIVE_TIME_LIMIT_DAYS) return dayFormatter.format(-days, "day")
   return formatDateTime(date)
 }
