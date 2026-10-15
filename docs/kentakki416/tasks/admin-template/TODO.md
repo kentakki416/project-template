@@ -37,7 +37,7 @@ apps/admin のデモと土台を分け、admin 認証・API に繋いだユー�
 
 - [x] step1 の PR（#119）
 - [x] step2 の PR（#120）
-- [ ] step3 の PR
+- [x] step3 の PR（#121）
 - [ ] step4 の PR
 - [ ] step5 の PR
 - [ ] step6 の PR
