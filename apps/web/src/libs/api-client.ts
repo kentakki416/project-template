@@ -1,8 +1,15 @@
+import { redirect } from "next/navigation"
+
 import { env } from "@/env"
 
-import { clearAuthCookies, getAccessToken, getRefreshToken, setAuthCookies } from "./auth"
+import { getAccessToken } from "./auth"
 
 const API_BASE_URL = env.API_URL
+
+/**
+ * api に 401 を返されたときの行き先。cookie を消してからサインイン画面に送る Route Handler
+ */
+const SIGN_OUT_PATH = "/api/auth/signout"
 
 /** status とボディを保持するので、呼び出し側が元の status をそのまま返せる */
 export class ApiClientError extends Error {
@@ -24,41 +31,33 @@ const buildHeaders = async (extra?: HeadersInit): Promise<HeadersInit> => {
   }
 }
 
-/** refresh API が non-2xx なら cookie をクリアする（＝要再ログイン） */
-const tryRefresh = async (): Promise<boolean> => {
-  const refreshToken = await getRefreshToken()
-  if (!refreshToken) return false
-  const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-    body: JSON.stringify({ refresh_token: refreshToken }),
-    headers: { "Content-Type": "application/json" },
-    method: "POST",
-  })
-  if (!res.ok) {
-    await clearAuthCookies()
-    return false
-  }
-  const json = await res.json() as { access_token: string; refresh_token: string }
-  await setAuthCookies(json.access_token, json.refresh_token)
-  return true
-}
-
 /**
- * 401 なら tryRefresh して 1 回だけ再試行する。retry=false で再帰を 1 段に制限し、
- * 「refresh しても 401」で無限ループにならないようにしている。
+ * api を呼び、成功したレスポンスだけを返す。
+ *
+ * access token の更新（refresh）はここでは行わない。proxy が画面の描画の前に済ませている。
+ * Server Component の中では cookie を書けないため、ここで refresh すると api 側だけ
+ * refresh token が作り直され、cookie は古いままになってセッションが切れる。
+ *
+ * 401（proxy で更新した後でも弾かれた = 鍵の作り直しなどで access token が無効）は、
+ * cookie を消す Route Handler に redirect する。cookie を消さずにサインイン画面へ送ると、
+ * サインイン画面が「有効な access の cookie がある」と見てトップに戻し、往復が止まらなくなる。
+ * それ以外の失敗は ApiClientError を投げる。
+ *
+ * redirect は例外（NEXT_REDIRECT）で実現しているので、呼び出し側の try/catch が握りつぶすと遷移しない。
+ * 認証必須の API の呼び出しを try/catch で囲むときは、catch の先頭で unstable_rethrow する
+ * （ログアウトと行動イベントの中継は、遷移せずに握りつぶしてよい）。
  */
-const fetchWithAuth = async (input: string, init: RequestInit, retry = true): Promise<Response> => {
+const requestApi = async (path: string, init: RequestInit): Promise<Response> => {
   const headers = await buildHeaders(init.headers)
-  const res = await fetch(`${API_BASE_URL}${input}`, { ...init, headers })
-  if (res.status === 401 && retry) {
-    const refreshed = await tryRefresh()
-    if (refreshed) return fetchWithAuth(input, init, false)
+  const res = await fetch(`${API_BASE_URL}${path}`, { ...init, headers })
+  if (res.status === 401) {
+    redirect(SIGN_OUT_PATH)
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => undefined)
+    throw new ApiClientError(res.status, body)
   }
   return res
-}
-
-const throwApiError = async (res: Response): Promise<never> => {
-  const body = await res.json().catch(() => undefined)
-  throw new ApiClientError(res.status, body)
 }
 
 /**
@@ -69,23 +68,19 @@ const throwApiError = async (res: Response): Promise<never> => {
  */
 export const apiClient = {
   delete: async <T = unknown>(path: string): Promise<T> => {
-    const res = await fetchWithAuth(path, { method: "DELETE" })
-    if (!res.ok) await throwApiError(res)
+    const res = await requestApi(path, { method: "DELETE" })
     return res.json() as Promise<T>
   },
   get: async <T>(path: string): Promise<T> => {
-    const res = await fetchWithAuth(path, { method: "GET" })
-    if (!res.ok) await throwApiError(res)
+    const res = await requestApi(path, { method: "GET" })
     return res.json() as Promise<T>
   },
   post: async <T>(path: string, body: unknown): Promise<T> => {
-    const res = await fetchWithAuth(path, { body: JSON.stringify(body), method: "POST" })
-    if (!res.ok) await throwApiError(res)
+    const res = await requestApi(path, { body: JSON.stringify(body), method: "POST" })
     return res.json() as Promise<T>
   },
   put: async <T>(path: string, body: unknown): Promise<T> => {
-    const res = await fetchWithAuth(path, { body: JSON.stringify(body), method: "PUT" })
-    if (!res.ok) await throwApiError(res)
+    const res = await requestApi(path, { body: JSON.stringify(body), method: "PUT" })
     return res.json() as Promise<T>
   },
 }

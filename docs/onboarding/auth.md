@@ -8,6 +8,7 @@
   - [各ステップの補足](#各ステップの補足)
 - [トークン設計](#トークン設計)
 - [cookie と認証ガード](#cookie-と認証ガード)
+- [access token の更新](#access-token-の更新)
 - [なぜ web を間に挟むのか](#なぜ-web-を間に挟むのか)
 - [URL の注意（Next.js Route Handler と Express の混同）](#url-の注意nextjs-route-handler-と-express-の混同)
 - [セキュリティ設計のまとめ](#セキュリティ設計のまとめ)
@@ -79,9 +80,34 @@ sequenceDiagram
 
 - JWT は **httpOnly cookie** に保存する（JavaScript から触れないので XSS で盗まれない）。cookie 操作は web 側（`apps/web/src/libs/auth.ts`）で完結させる。
 - cookie は **`sameSite=lax`**（OAuth コールバックの cross-site 連鎖ナビゲーションでも送信されるようにするため）。
-- 認証ガードは web の **proxy**（`apps/web/src/proxy.ts`。Next.js 16 で middleware から改名）が cookie の有無で行う。未認証は `/sign-in` へリダイレクト。
+- 認証ガードは web の **proxy**（`apps/web/src/proxy.ts`。Next.js 16 で middleware から改名）が cookie の有無で行う。未認証は `/sign-in` へリダイレクト。access token の更新もここで行う（次の節）。
 - CSRF 対策として **state**（ランダム文字列）を cookie に保存し、コールバック時に照合する。
 - api 側は現状 `PUBLIC_PATHS` で認証要否を制御する。Admin API（`/api/admin/`）は現時点は認証なし（将来 Admin 専用認証を追加予定）。
+
+## access token の更新
+
+access token（15 分）の期限が近づいたら、**web の proxy** が refresh token で新しい access / refresh token を受け取る。api-client は更新しない。
+
+```mermaid
+flowchart TD
+    A[リクエスト] --> C{access の cookie があり<br/>期限まで 30 秒以上?}
+    C -- はい --> Z[そのまま通す]
+    C -- いいえ --> D{refresh の cookie がある?}
+    D -- いいえ --> P{公開パス?}
+    P -- はい --> Z
+    P -- いいえ --> S[/sign-in へ]
+    D -- はい --> E[POST /api/auth/refresh]
+    E -- 200 --> F[レスポンスに新しい cookie を付け<br/>リクエストの Cookie ヘッダーも書き換えて通す]
+    E -- 401 --> Q{公開パス?}
+    Q -- はい --> Z
+    Q -- いいえ --> S
+    E -- 5xx / 通信エラー --> Z
+```
+
+- **proxy で行う理由**: Next.js は Server Component の中で cookie を書き換えられない（Server Action と Route Handler だけ）。api-client で「401 なら refresh」をすると、api 側では refresh token が作り直されたのに cookie は古いままになり、次の refresh で失敗してセッションが切れる。proxy なら、レスポンスに新しい cookie を付けると同時に、同じリクエストの Cookie ヘッダーも書き換えて先に渡せるので、その画面の Server Component が新しい access token で api を呼べる
+- **公開パスでも更新する**: ログイン中のユーザーが公開パス（`/memos` など）を開いたときも access token を新しくしておき、行動イベントに `user_id` が付くようにする。更新に失敗しても公開パスはそのまま通す
+- **refresh が 401 でも cookie は消さない**: 同時に来た別のリクエスト（画面の先読みなど）が先に更新に成功していると、この refresh token はもう使用済み。ここで消すと、成功した側が付けた新しい cookie まで消える。`/sign-in` は有効な access の cookie があればトップに戻す
+- **api の 401（更新した後でも弾かれた）**: api-client が `/api/auth/signout`（cookie を消す Route Handler）に送り、そこから `/sign-in` へ。cookie を消さずに `/sign-in` に送ると、`/sign-in` がトップに戻して往復が止まらなくなる。api-client の redirect は例外で実現しているので、認証必須の api の呼び出しを try/catch で囲むときは catch の先頭で `unstable_rethrow` する
 
 ## なぜ web を間に挟むのか
 
@@ -125,8 +151,10 @@ GitHub / Apple / X 等を追加する場合、`apps/api/src/client/*-oauth.ts` �
 - `apps/web/src/app/sign-in/page.tsx` — サインインボタン
 - `apps/web/src/app/sign-in/actions.ts` — `startGoogleOAuth`（Server Action）
 - `apps/web/src/app/api/auth/callback/google/route.ts` — Google callback Route Handler
-- `apps/web/src/libs/auth.ts` — cookie 操作（`setAuthCookies` ほか）
-- `apps/web/src/proxy.ts` — 認証ガード
+- `apps/web/src/libs/auth.ts` — cookie 操作（`setAuthCookies` ほか）と access token の期限の判定
+- `apps/web/src/proxy.ts` — 認証ガードと access token の更新
+- `apps/web/src/libs/api-client.ts` — api の呼び出し（401 なら `/api/auth/signout` へ）
+- `apps/web/src/app/api/auth/signout/route.ts` — cookie を消して `/sign-in` へ
 
 **api (Express)**
 - `apps/api/src/controller/auth/google.ts` — `POST /api/auth/google`

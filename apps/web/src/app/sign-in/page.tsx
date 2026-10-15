@@ -1,5 +1,8 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { redirect } from "next/navigation"
+
+import { getAccessToken, isAccessTokenExpiringSoon } from "@/libs/auth"
 
 import { startGoogleOAuth } from "./actions"
 
@@ -27,6 +30,15 @@ type Props = {
 }
 
 export default async function SignInPage({ searchParams }: Props) {
+  /**
+   * 有効な access の cookie があればトップに戻す。proxy の更新が、同時に来た別のリクエストに
+   * 先を越されて 401 になった場合（新しい cookie は先のリクエストで届いている）の受け口
+   */
+  const accessToken = await getAccessToken()
+  if (accessToken && !isAccessTokenExpiringSoon(accessToken)) {
+    redirect("/")
+  }
+
   const { error } = await searchParams
   const errorMessage = error ? ERROR_MESSAGES[error] ?? "エラーが発生しました。" : null
 

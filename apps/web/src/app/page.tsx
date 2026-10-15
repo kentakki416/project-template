@@ -1,3 +1,5 @@
+import { unstable_rethrow } from "next/navigation"
+
 import type { GetUserResponse } from "@repo/api-schema"
 
 import { RefreshButton } from "@/components/features/user/refresh-button"
@@ -8,8 +10,8 @@ import { getUser } from "@/features/user/get-user"
  * トップページ（認証ユーザー情報サンプル）。
  *
  * 初期データ取得は Server Component 内で server-only な apiClient 経由で行う。
- * ブラウザから Express API を直接叩かないことで、cookie 認証・401 リフレッシュ・
- * origin のサーバ側解決を一貫させる。
+ * ブラウザから Express API を直接叩かないことで、cookie 認証・origin のサーバ側解決を一貫させる。
+ * access token の更新は proxy が済ませている。
  */
 export default async function Home() {
   let user: GetUserResponse | null = null
@@ -17,7 +19,9 @@ export default async function Home() {
 
   try {
     user = await getUser()
-  } catch {
+  } catch (error) {
+    /** 401 のときの apiClient の redirect（NEXT_REDIRECT）は握りつぶさずに投げ直す */
+    unstable_rethrow(error)
     hasError = true
   }
 
