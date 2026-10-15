@@ -4,131 +4,54 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import React, { useCallback, useEffect, useRef, useState } from "react"
 
+import { demoNavSection } from "@/components/demo/demo-nav-items"
+import { mainNavSection, type NavItem, type NavSection } from "@/components/layout/nav-items"
 import { useSidebar } from "@/features/sidebar/sidebar.context"
 import {
-  BoxCubeIcon,
-  CalenderIcon,
   ChevronDownIcon,
-  GridIcon,
   HorizontaLDots,
-  ListIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
-  TableIcon,
-  UserCircleIcon,
 } from "@/icons"
 
-type NavItem = {
-  name: string;
-  icon: React.ReactNode;
-  path?: string;
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
-}
+/**
+ * サイドバーに並べるセクション。デモを消すときは demoNavSection を外す
+ */
+const navSections: NavSection[] = [mainNavSection, demoNavSection]
 
-const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
-  },
-  {
-    icon: <CalenderIcon />,
-    name: "Calendar",
-    path: "/calendar",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
-  },
-
-  {
-    name: "Forms",
-    icon: <ListIcon />,
-    subItems: [{ name: "Form Elements", path: "/forms/elements", pro: false }],
-  },
-  {
-    name: "Tables",
-    icon: <TableIcon />,
-    subItems: [{ name: "Basic Tables", path: "/tables/basic", pro: false }],
-  },
-  {
-    name: "Pages",
-    icon: <PageIcon />,
-    subItems: [
-      { name: "Blank Page", path: "/blank", pro: false },
-    ],
-  },
-]
-
-const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: "Charts",
-    subItems: [
-      { name: "Line Chart", path: "/charts/line", pro: false },
-      { name: "Bar Chart", path: "/charts/bar", pro: false },
-      { name: "Pie Chart", path: "/charts/pie", pro: false },
-      { name: "Radar Chart", path: "/charts/radar", pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    subItems: [
-      { name: "Alerts", path: "/ui/alerts", pro: false },
-      { name: "Avatar", path: "/ui/avatars", pro: false },
-      { name: "Badge", path: "/ui/badge", pro: false },
-      { name: "Buttons", path: "/ui/buttons", pro: false },
-      { name: "Images", path: "/ui/images", pro: false },
-      { name: "Videos", path: "/ui/videos", pro: false },
-    ],
-  },
-  {
-    icon: <PlugInIcon />,
-    name: "Authentication",
-    subItems: [
-      { name: "Sign In", path: "/signin", pro: false },
-      { name: "Sign Up", path: "/signup", pro: false },
-    ],
-  },
-]
-
-type SubmenuState = { type: "main" | "others"; index: number } | null
+type SubmenuState = { itemIndex: number; sectionIndex: number } | null
 
 const findSubmenuByPathname = (pathname: string): SubmenuState => {
-  const menuTypes = [
-    { items: navItems, type: "main" as const },
-    { items: othersItems, type: "others" as const },
-  ]
-  for (const { items, type } of menuTypes) {
-    for (let index = 0; index < items.length; index++) {
-      const nav = items[index]
-      if (nav.subItems?.some((subItem) => subItem.path === pathname)) {
-        return { type, index }
+  for (let sectionIndex = 0; sectionIndex < navSections.length; sectionIndex++) {
+    const items = navSections[sectionIndex].items
+    for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+      if (items[itemIndex].subItems?.some((subItem) => subItem.path === pathname)) {
+        return { itemIndex, sectionIndex }
       }
     }
   }
   return null
 }
 
+const buildSubmenuKey = (sectionIndex: number, itemIndex: number): string => `${sectionIndex}-${itemIndex}`
+
 export default function AppSidebar() {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar()
   const pathname = usePathname()
 
+  const isSubmenuOpen = (sectionIndex: number, itemIndex: number): boolean =>
+    openSubmenu?.sectionIndex === sectionIndex && openSubmenu?.itemIndex === itemIndex
+
   const renderMenuItems = (
-    navItems: NavItem[],
-    menuType: "main" | "others"
+    items: NavItem[],
+    sectionIndex: number
   ) => (
     <ul className="flex flex-col gap-4">
-      {navItems.map((nav, index) => (
+      {items.map((nav, itemIndex) => (
         <li key={nav.name}>
           {nav.subItems ? (
             <button
-              onClick={() => handleSubmenuToggle(index, menuType)}
+              onClick={() => handleSubmenuToggle(sectionIndex, itemIndex)}
               className={`menu-item group  ${
-                openSubmenu?.type === menuType && openSubmenu?.index === index
+                isSubmenuOpen(sectionIndex, itemIndex)
                   ? "menu-item-active"
                   : "menu-item-inactive"
               } cursor-pointer ${
@@ -139,7 +62,7 @@ export default function AppSidebar() {
             >
               <span
                 className={` ${
-                  openSubmenu?.type === menuType && openSubmenu?.index === index
+                  isSubmenuOpen(sectionIndex, itemIndex)
                     ? "menu-item-icon-active"
                     : "menu-item-icon-inactive"
                 }`}
@@ -152,8 +75,7 @@ export default function AppSidebar() {
               {(isExpanded || isHovered || isMobileOpen) && (
                 <ChevronDownIcon
                   className={`ml-auto w-5 h-5 transition-transform duration-200  ${
-                    openSubmenu?.type === menuType &&
-                    openSubmenu?.index === index
+                    isSubmenuOpen(sectionIndex, itemIndex)
                       ? "rotate-180 text-brand-500"
                       : ""
                   }`}
@@ -186,14 +108,13 @@ export default function AppSidebar() {
           {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
             <div
               ref={(el) => {
-                subMenuRefs.current[`${menuType}-${index}`] = el
+                subMenuRefs.current[buildSubmenuKey(sectionIndex, itemIndex)] = el
               }}
               className="overflow-hidden transition-all duration-300"
               style={{
-                height:
-                  openSubmenu?.type === menuType && openSubmenu?.index === index
-                    ? `${subMenuHeight[`${menuType}-${index}`]}px`
-                    : "0px",
+                height: isSubmenuOpen(sectionIndex, itemIndex)
+                  ? `${subMenuHeight[buildSubmenuKey(sectionIndex, itemIndex)]}px`
+                  : "0px",
               }}
             >
               <ul className="mt-2 space-y-1 ml-9">
@@ -208,30 +129,6 @@ export default function AppSidebar() {
                       }`}
                     >
                       {subItem.name}
-                      <span className="flex items-center gap-1 ml-auto">
-                        {subItem.new && (
-                          <span
-                            className={`ml-auto ${
-                              isActive(subItem.path)
-                                ? "menu-dropdown-badge-active"
-                                : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge `}
-                          >
-                            new
-                          </span>
-                        )}
-                        {subItem.pro && (
-                          <span
-                            className={`ml-auto ${
-                              isActive(subItem.path)
-                                ? "menu-dropdown-badge-active"
-                                : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge `}
-                          >
-                            pro
-                          </span>
-                        )}
-                      </span>
                     </Link>
                   </li>
                 ))}
@@ -260,9 +157,11 @@ export default function AppSidebar() {
   }
 
   useEffect(() => {
-    // Set the height of the submenu items when the submenu is opened
+    /**
+     * サブメニューを開いたときに、中身の高さを測って開閉のアニメーションに使う
+     */
     if (openSubmenu !== null) {
-      const key = `${openSubmenu.type}-${openSubmenu.index}`
+      const key = buildSubmenuKey(openSubmenu.sectionIndex, openSubmenu.itemIndex)
       if (subMenuRefs.current[key]) {
         setSubMenuHeight((prevHeights) => ({
           ...prevHeights,
@@ -272,22 +171,22 @@ export default function AppSidebar() {
     }
   }, [openSubmenu])
 
-  const handleSubmenuToggle = (index: number, menuType: "main" | "others") => {
+  const handleSubmenuToggle = (sectionIndex: number, itemIndex: number) => {
     setOpenSubmenu((prevOpenSubmenu) => {
       if (
         prevOpenSubmenu &&
-        prevOpenSubmenu.type === menuType &&
-        prevOpenSubmenu.index === index
+        prevOpenSubmenu.sectionIndex === sectionIndex &&
+        prevOpenSubmenu.itemIndex === itemIndex
       ) {
         return null
       }
-      return { type: menuType, index }
+      return { itemIndex, sectionIndex }
     })
   }
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200
         ${
     isExpanded || isMobileOpen
       ? "w-[290px]"
@@ -336,39 +235,24 @@ export default function AppSidebar() {
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
-            <div>
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderMenuItems(navItems, "main")}
-            </div>
-
-            <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Others"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderMenuItems(othersItems, "others")}
-            </div>
+            {navSections.map((section, sectionIndex) => (
+              <div key={section.title}>
+                <h2
+                  className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                    !isExpanded && !isHovered
+                      ? "lg:justify-center"
+                      : "justify-start"
+                  }`}
+                >
+                  {isExpanded || isHovered || isMobileOpen ? (
+                    section.title
+                  ) : (
+                    <HorizontaLDots />
+                  )}
+                </h2>
+                {renderMenuItems(section.items, sectionIndex)}
+              </div>
+            ))}
           </div>
         </nav>
       </div>
