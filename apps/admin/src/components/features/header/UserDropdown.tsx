@@ -1,10 +1,9 @@
 "use client"
-import Image from "next/image"
 import React, { useState } from "react"
 
 import { GetAdminMeResponse } from "@repo/api-schema"
 
-import AvatarText from "@/components/ui/avatar/AvatarText"
+import UserAvatar from "@/components/ui/avatar/UserAvatar"
 import { Dropdown } from "@/components/ui/dropdown/Dropdown"
 import { DropdownItem } from "@/components/ui/dropdown/DropdownItem"
 import { logoutAction } from "@/features/auth/auth.actions"
@@ -24,7 +23,7 @@ export default function UserDropdown({ admin }: UserDropdownProps) {
   /**
    * 名前が無ければ（Google で一度もサインインしていない admin）email を出す
    */
-  const displayName = admin.name ?? admin.email
+  const displayName = admin.name || admin.email
 
   function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
     e.stopPropagation()
@@ -37,25 +36,14 @@ export default function UserDropdown({ admin }: UserDropdownProps) {
   return (
     <div className="relative">
       <button
-        onClick={toggleDropdown}
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
+        onClick={toggleDropdown}
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          {admin.avatar_url ? (
-            <Image
-              alt={displayName}
-              height={44}
-              referrerPolicy="no-referrer"
-              src={admin.avatar_url}
-              unoptimized
-              width={44}
-            />
-          ) : (
-            <AvatarText className="h-11 w-11" name={displayName} />
-          )}
+        <span className="mr-3">
+          <UserAvatar avatarUrl={admin.avatar_url} name={displayName} size="md" />
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">{displayName}</span>
+        <span className="block max-w-[160px] mr-1 truncate font-medium text-theme-sm">{displayName}</span>
 
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
@@ -78,9 +66,9 @@ export default function UserDropdown({ admin }: UserDropdownProps) {
       </button>
 
       <Dropdown
+        className="absolute right-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
         isOpen={isOpen}
         onClose={closeDropdown}
-        className="absolute right-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
       >
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
@@ -94,10 +82,10 @@ export default function UserDropdown({ admin }: UserDropdownProps) {
         <ul className="flex flex-col gap-1 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">
           <li>
             <DropdownItem
-              onItemClick={closeDropdown}
-              tag="a"
-              href="/profile"
               className={MENU_ITEM_CLASS_NAME}
+              href="/profile"
+              tag="a"
+              onItemClick={closeDropdown}
             >
               <svg
                 className="fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"
@@ -123,8 +111,8 @@ export default function UserDropdown({ admin }: UserDropdownProps) {
          */}
         <form action={logoutAction}>
           <button
-            type="submit"
             className={`w-full mt-3 ${MENU_ITEM_CLASS_NAME}`}
+            type="submit"
           >
             <svg
               className="fill-gray-500 group-hover:fill-gray-700 dark:group-hover:fill-gray-300"

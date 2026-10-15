@@ -5,7 +5,7 @@ import Link from "next/link"
 import { ADMIN_USER_LIST_MAX_QUERY_LENGTH, authProviderSchema, GetAdminUserListResponse } from "@repo/api-schema"
 
 import AuthProviderBadge from "@/components/features/user/AuthProviderBadge"
-import UserAvatar from "@/components/features/user/UserAvatar"
+import UserAvatar from "@/components/ui/avatar/UserAvatar"
 import { Column, DataTable, FilterConfig } from "@/components/ui/table"
 import Tooltip from "@/components/ui/tooltip/Tooltip"
 import { AUTH_PROVIDER_LABELS } from "@/features/user/auth-provider-labels"
@@ -20,7 +20,7 @@ const columns: Column<UserRow>[] = [
     header: "ユーザー",
     render: (row) => (
       <div className="flex items-center gap-3">
-        <UserAvatar avatarUrl={row.avatar_url} name={row.name} size="md" />
+        <UserAvatar avatarUrl={row.avatar_url} name={row.name} size="sm" />
         <Link
           className="text-theme-sm font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400"
           href={`/users/${row.id}`}

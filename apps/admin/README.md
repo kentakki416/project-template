@@ -102,6 +102,8 @@ app/ → components/ → features/(ロジック)
 | favicon | `public/favicon.svg`（`src/app/layout.tsx` の `metadata.icons` で指している） |
 | ブランドの色 | `src/app/globals.css` の `@theme` の `--color-brand-*` |
 
+日時は `src/libs/date.ts` の `formatDateTime()` で、`src/config/app.ts` のタイムゾーンで表示する。Server Component はサーバーのタイムゾーン（本番は UTC のことが多い）で動くので、`toLocaleString()` を直接使わない。
+
 ## ヘッダー
 
 ヘッダーの表示するデータは `src/app/(dashboard)/layout.tsx`（Server Component）で取り、`AdminShell` → `AppHeader` に props で渡す。
@@ -111,8 +113,6 @@ app/ → components/ → features/(ロジック)
 | ユーザーメニュー | サインイン中の admin（`/api/admin/me`） | メニューの項目は `src/components/features/header/UserDropdown.tsx` |
 | 通知 | `src/features/notification/notification.api.ts` の `getList`（テンプレートでは常に空） | 通知を作るときは `getList` / `markAllAsRead` を api の呼び出しに差し替える。画面側は変えなくてよい |
 | 検索 | layout の `search`（行き先と placeholder。入力は `?q=` で渡す） | 行き先を変える。`search` を渡さなければ検索欄を出さない |
-
-日時は `src/libs/date.ts` の `formatDateTime()` で、`src/config/app.ts` のタイムゾーンで表示する。Server Component はサーバーのタイムゾーン（本番は UTC のことが多い）で動くので、`toLocaleString()` を直接使わない。
 
 ## デモ
 

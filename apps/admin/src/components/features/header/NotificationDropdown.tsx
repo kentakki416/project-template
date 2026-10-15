@@ -59,9 +59,9 @@ export default function NotificationDropdown({ markAllAsReadAction, notification
         <BellIcon size={20} />
       </button>
       <Dropdown
+        className="absolute right-[-240px] mt-[17px] flex h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px] lg:right-0"
         isOpen={isOpen}
         onClose={closeDropdown}
-        className="absolute right-[240px] mt-[17px] flex h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px] lg:right-0"
       >
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-800">
           <h5 className="text-lg font-semibold text-gray-800 dark:text-white/90">
@@ -101,11 +101,12 @@ export default function NotificationDropdown({ markAllAsReadAction, notification
                   <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
                     {notification.avatarUrl ? (
                       <Image
+                        unoptimized
                         alt=""
                         className="w-full overflow-hidden rounded-full"
                         height={40}
+                        referrerPolicy="no-referrer"
                         src={notification.avatarUrl}
-                        unoptimized
                         width={40}
                       />
                     ) : (
@@ -124,7 +125,7 @@ export default function NotificationDropdown({ markAllAsReadAction, notification
                     >
                       {notification.body}
                     </span>
-                    <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400" suppressHydrationWarning>
+                    <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
                       {formatRelativeTime(notification.createdAt)}
                     </span>
                   </span>

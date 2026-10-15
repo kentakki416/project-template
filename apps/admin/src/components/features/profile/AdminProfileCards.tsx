@@ -1,9 +1,8 @@
-import Image from "next/image"
 import React from "react"
 
 import { GetAdminMeResponse } from "@repo/api-schema"
 
-import AvatarText from "@/components/ui/avatar/AvatarText"
+import UserAvatar from "@/components/ui/avatar/UserAvatar"
 import { formatDateTime } from "@/libs/date"
 
 type Props = {
@@ -14,9 +13,9 @@ type Props = {
  * マイページのカード。見た目は TailAdmin のデモのプロフィール画面に合わせる（編集のボタンとモーダルは置かない）
  */
 export default function AdminProfileCards({ admin }: Props) {
-  const displayName = admin.name ?? admin.email
+  const displayName = admin.name || admin.email
   const infoItems = [
-    { label: "名前", value: admin.name ?? "-" },
+    { label: "名前", value: admin.name || "-" },
     { label: "メールアドレス", value: admin.email },
     { label: "登録日時", value: formatDateTime(admin.created_at) },
     { label: "最終サインイン日時", value: admin.last_signed_in_at ? formatDateTime(admin.last_signed_in_at) : "-" },
@@ -29,19 +28,7 @@ export default function AdminProfileCards({ admin }: Props) {
       <div className="mb-6 rounded-2xl border border-gray-200 p-5 lg:p-6 dark:border-gray-800">
         <div className="flex w-full flex-col items-start gap-6 sm:flex-row sm:items-center">
           <div className="overflow-hidden rounded-full border border-gray-200 dark:border-gray-800">
-            {admin.avatar_url ? (
-              <Image
-                alt={displayName}
-                className="size-20"
-                height={80}
-                referrerPolicy="no-referrer"
-                src={admin.avatar_url}
-                unoptimized
-                width={80}
-              />
-            ) : (
-              <AvatarText className="size-20" name={displayName} />
-            )}
+            <UserAvatar avatarUrl={admin.avatar_url} name={displayName} size="lg" />
           </div>
           <div className="text-left">
             <h4 className="mb-2 text-lg font-semibold text-gray-800 dark:text-white/90">{displayName}</h4>

@@ -1,25 +1,32 @@
 "use client"
 
+import Form from "next/form"
 import { useEffect, useRef } from "react"
 
 export type HeaderSearchProps = {
   /** 検索の遷移先。入力は ?q= で渡す */
   action: string
+  /** 検索語の最大の長さ（遷移先の検証と合わせる） */
+  maxLength?: number
   placeholder?: string
 }
 
 /**
- * ヘッダーの検索欄。Enter で action に ?q= を付けて移る（JavaScript が無くても動く）。⌘K / Ctrl+K でフォーカスする
+ * ヘッダーの検索欄。Enter で action に ?q= を付けて移る。next/form なのでページ全体を読み直さず
+ * （ダークモードやサイドバーの開閉が戻らない）、JavaScript が無くても動く。⌘K / Ctrl+K でフォーカスする
  */
-export default function HeaderSearch({ action, placeholder }: HeaderSearchProps) {
+export default function HeaderSearch({ action, maxLength, placeholder }: HeaderSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === "k") {
-        event.preventDefault()
-        inputRef.current?.focus()
-      }
+      if (!(event.metaKey || event.ctrlKey) || event.key !== "k") return
+      /**
+       * 検索欄が隠れている幅（lg 未満）では、ブラウザの ⌘K / Ctrl+K を止めない
+       */
+      if (!inputRef.current || inputRef.current.offsetParent === null) return
+      event.preventDefault()
+      inputRef.current.focus()
     }
 
     document.addEventListener("keydown", handleKeyDown)
@@ -30,7 +37,7 @@ export default function HeaderSearch({ action, placeholder }: HeaderSearchProps)
   }, [])
 
   return (
-    <form action={action} method="get">
+    <Form action={action} role="search">
       <div className="relative">
         <span className="absolute -translate-y-1/2 left-4 top-1/2 pointer-events-none">
           <svg
@@ -52,10 +59,11 @@ export default function HeaderSearch({ action, placeholder }: HeaderSearchProps)
         <input
           ref={inputRef}
           aria-label={placeholder ?? "検索"}
+          maxLength={maxLength}
           className="h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
           name="q"
           placeholder={placeholder}
-          type="text"
+          type="search"
         />
 
         <span className="pointer-events-none absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/3 dark:text-gray-400">
@@ -63,6 +71,6 @@ export default function HeaderSearch({ action, placeholder }: HeaderSearchProps)
           <span> K </span>
         </span>
       </div>
-    </form>
+    </Form>
   )
 }

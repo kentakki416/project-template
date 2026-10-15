@@ -3,7 +3,7 @@ import React from "react"
 import { GetAdminUserResponse } from "@repo/api-schema"
 
 import AuthProviderBadge from "@/components/features/user/AuthProviderBadge"
-import UserAvatar from "@/components/features/user/UserAvatar"
+import UserAvatar from "@/components/ui/avatar/UserAvatar"
 import { formatDateTime } from "@/libs/date"
 
 type Props = {

@@ -80,10 +80,11 @@ const SECONDS_PER_DAY = 60 * 60 * 24
 const RELATIVE_TIME_LIMIT_DAYS = 30
 
 /**
- * 今からの経過時間を「5 分前」「3 時間前」「昨日」の形で出す。30 日より前は日時で出す
+ * 今からの経過時間を「5 分前」「3 時間前」「昨日」の形で出す。30 日より前は日時で出す。日時として読めなければ「-」
  */
 export const formatRelativeTime = (value: string | Date, now: Date = new Date()): string => {
   const date = typeof value === "string" ? new Date(value) : value
+  if (Number.isNaN(date.getTime())) return "-"
   const seconds = Math.max(0, Math.floor((now.getTime() - date.getTime()) / 1000))
   if (seconds < SECONDS_PER_MINUTE) return relativeTimeFormatter.format(0, "second")
   if (seconds < SECONDS_PER_HOUR) return relativeTimeFormatter.format(-Math.floor(seconds / SECONDS_PER_MINUTE), "minute")
