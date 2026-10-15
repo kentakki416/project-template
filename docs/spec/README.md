@@ -17,6 +17,7 @@
 | user-behavior-events | 設計中 | ユーザー行動を時系列イベントとして ClickHouse に蓄積する。DB に痕跡が残らない操作（削除・閲覧・離脱）を優先して記録し、運用ログとは別系統にする | [./user-behavior-events/README.md](./user-behavior-events/README.md) |
 | minimal-deploy | 実装中 | アイドル時の固定費をほぼゼロにした本番構成（Lambda + API Gateway + PlanetScale + Upstash、月 ~$7。worker は必要なときだけ Fargate Spot で作る）。実装は env で切り替え、同じアプリ・同じイメージを minimal と prd（ECS）の両方にデプロイできるようにする | [./minimal-deploy/README.md](./minimal-deploy/README.md) |
 | clickhouse-migration | 設計中 | ClickHouse のテーブル・view を版管理して local / dev / min / prd に適用する migration コマンドを用意し、deploy に組み込む。ClickHouse と CDC（Postgres → ClickHouse）を作るかを環境ごとに Terraform のフラグ（`enable_data_warehouse` / `enable_cdc`）で選ぶ | [./clickhouse-migration/README.md](./clickhouse-migration/README.md) |
+| admin-template | 設計中 | `apps/admin` を実プロジェクトでそのまま使えるテンプレートにする。TailAdmin のデモを `/demo` に分け、admin 専用の認証（`admins` テーブル・Google OAuth・専用の JWT の鍵）、API に繋いだユーザー管理（検索・絞り込み・ページング・詳細）、データを外から渡すヘッダー、Tooltip を揃える | [./admin-template/README.md](./admin-template/README.md) |
 | dev-login | 完了 | 開発環境専用ログイン。Google OAuth を介さず seed 済み dev ユーザー（alice/bob）として 1 クリックでログインできる | [./dev-login/README.md](./dev-login/README.md) |
 
 ## ステータスの定義
