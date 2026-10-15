@@ -29,6 +29,12 @@ pnpm start        # 本番サーバー起動
 - **基本**: Server Action (`"use server"`) → Express API。フォーム送信やボタンクリックによる CRUD 操作に使用
 - **Server Action が適さない場合**（ファイルアップロード、外部公開 API 等）: Route Handler を使用
 
+### 認証（access token の更新と 401）
+
+- access token の更新（refresh）は `proxy.ts` だけが行う。`apiClient` で refresh しない（Server Component の中では cookie を書けず、セッションが切れる）
+- `apiClient` は api の 401 で `/api/auth/signout`（cookie を消してサインイン画面へ送る）に redirect する。redirect は例外で実現しているので、**認証必須の API の呼び出しを try/catch で囲むときは catch の先頭で `unstable_rethrow(error)` する**（握りつぶすと遷移しない）
+- 流れと理由は `docs/onboarding/auth.md` の「access token の更新」
+
 ### 禁止事項
 
 - **Server Action をデータ取得（GET 相当）に使ってはならない**。Server Action は mutation 専用。データ取得には Server Component または Route Handler を使う

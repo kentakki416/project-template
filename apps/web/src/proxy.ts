@@ -57,7 +57,7 @@ const matchesPathPrefix = (pathname: string, p: string): boolean =>
   pathname === p || pathname.startsWith(`${p}/`)
 
 type RefreshResult =
-  | { status: "refreshed"; accessToken: string; refreshToken: string }
+  | { accessToken: string; refreshToken: string; status: "refreshed" }
   | { status: "unauthorized" }
   | { status: "failed" }
 
@@ -120,19 +120,26 @@ export const proxy = async (req: NextRequest) => {
       return res
     }
 
+    if (isPublicPath) {
+      return NextResponse.next()
+    }
+
     /**
      * 401 でも cookie は消さない。同時に来た別のリクエスト（画面の先読みなど）が先に更新に
      * 成功していると、この refresh token はもう使用済みになっている。ここで消すと、
      * 成功した側が付けた新しい cookie まで消える。サインイン画面は有効な access の cookie が
      * あればトップに戻す。
+     *
+     * api の障害など（failed）で access token も無いときも、cookie を消さずにサインイン画面に送る。
+     * そのまま通すと画面の api 呼び出しが 401 になり、api-client が cookie を消してしまう
+     * （一時的な障害でログアウトされる）。サインイン画面を開き直せば、もう一度更新を試みる。
      */
-    if (result.status === "unauthorized" && !isPublicPath) {
+    if (result.status === "unauthorized" || accessToken === undefined) {
       return redirectToSignIn(req)
     }
 
     /**
-     * api の障害など（failed）はそのまま通す。サインイン画面に送ると、api の障害で
-     * サインインし直しを求めることになる。画面の api 呼び出しが失敗してエラーを出す
+     * failed で access token はまだ残っている（期限まで 30 秒を切っただけ）ときは、そのまま通す
      */
     return NextResponse.next()
   }
