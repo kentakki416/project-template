@@ -56,10 +56,7 @@ resource "aws_iam_role" "github_actions_dev" {
  * prd 環境用 GitHub Actions IAM ロール（先行作成）。
  *
  * prd Environment が GitHub Settings に作成され、Required reviewers などのゲートが
- * 設定された後に、env/prd 用のワークフローからこの role を使う。dev と違い AdminAccess
- * は **意図的に付けない** ことで最小権限を強制する。当面 scoped policy (ecr_push +
- * ecs_deploy + ssm_deploy_approval) で足りない場合は、env/prd の terraform plan/apply
- * に必要な action を CloudTrail から抽出して scoped policy を拡充していくこと。
+ * 設定された後に、env/prd 用のワークフローからこの role を使う。
  *
  * 許可する GitHub Environment:
  * - prd: 通常の deploy / CI job 用
@@ -315,8 +312,6 @@ resource "aws_iam_policy" "ssm_deploy_approval_prd" {
 # =============================================================================
 # prd role への policy attachment
 # =============================================================================
-# prd は AdminAccess を attach せず scoped policy のみで運用する。env/prd の plan / apply
-# を回す際に不足する権限があれば、scoped policy 側を拡充して対応する（最小権限の強制）。
 
 resource "aws_iam_role_policy_attachment" "ecr_push_prd" {
   role       = aws_iam_role.github_actions_prd.name
