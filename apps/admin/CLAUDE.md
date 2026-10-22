@@ -41,8 +41,8 @@ TailAdmin の画面は「デモ」として URL `/demo/...` の下に分けて�
 `dev` / `build` / `start` はいずれも `dotenvx run -f .env.local -- ` を通す。
 
 ```bash
-# 値を追加・変更するときは手書きせず dotenvx を使う
-cd apps/admin && pnpm exec dotenvx set API_URL "http://localhost:8080" -f .env.local
+# 値を追加・変更するときは手書きせず dotenvx を使う。プロジェクトルートで実行する（理由はルートの README.md の「env は dotenvx で管理する」）
+npx dotenvx set API_URL "http://localhost:8080" -f apps/admin/.env.local
 ```
 
 ## API 接続
