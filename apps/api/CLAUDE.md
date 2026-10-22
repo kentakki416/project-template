@@ -85,8 +85,8 @@ try/catch を許容するのは次の 2 つだけ。
 `src/env.ts` に Zod スキーマをインラインで定義し、import 時に `safeParse` → 失敗なら `process.exit(1)`。値は `.env.local` に置き dotenvx で暗号化して git にコミットする（復号鍵は root の `.env.keys`）。
 
 ```bash
-# 値の追加・変更は手書きせず dotenvx を使う
-pnpm exec dotenvx set KEY "value" -f .env.local
+# 値の追加・変更は手書きせず dotenvx を使う。プロジェクトルートで実行する（理由はルートの README.md の「env は dotenvx で管理する」）
+npx dotenvx set KEY "value" -f apps/api/.env.local
 ```
 
 ## 新エンドポイント追加の手順
