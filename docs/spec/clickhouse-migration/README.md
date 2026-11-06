@@ -223,14 +223,12 @@ flowchart TD
     A[env を検証] --> B[migrations/ の版番号の重複と<br/>cdc-tables.json と views/ の対応を検査]
     B --> C{DATA_WAREHOUSE_CDC}
     C -- materialized_postgresql<br/>（local） --> D[pg_cdc を作り直し、<br/>全テーブルの取り込みを待つ]
-    C -- none（local） --> E[前に作った pg_cdc が<br/>あれば消す]
+    C -- none（local） --> E[前に作った pg_cdc が<br/>残っていれば警告する]
     C -- clickpipes /<br/>none（Cloud） --> F
     D --> F[clickhouse-migrations CLI で<br/>database を作り（無ければ）、<br/>未適用の migration を適用]
     E --> F
     F --> G{DATA_WAREHOUSE_CDC}
-    G -- none（local） --> Y[pg_cdc を読む view を消す]
-    G -- none（Cloud） --> Z[終了]
-    Y --> Z
+    G -- none --> Z[終了]
     G -- materialized_postgresql /<br/>clickpipes --> H[views/*.sql を順に<br/>CREATE OR REPLACE VIEW]
     H --> Z
 ```
@@ -239,7 +237,7 @@ flowchart TD
 - **版管理する migration は view より先に流す。** view が参照する可能性のあるテーブル（将来の集計テーブル等）を先に揃えるため
 - view の元テーブル（`pg_cdc.<table>`）が無いとき、local ではエラー（取り込みを待った上で無いのは異常）、Cloud では警告して skip（ケース 1 の初回の取り込み前）
 - `cdc-tables.json` にあるのに `views/<table>.sql` が無い、またはその逆はエラーにする。一覧と view のずれを PR の段階で気づけるようにする
-- 消えた view の後片付け（ケース 2）は自動ではやらず、版管理する migration に `DROP VIEW IF EXISTS` を書く。view を名前のパターンで自動削除すると、手で作った view を巻き込むため。例外として、`none` でローカルに流すときは `pg_cdc` を読む view を消す（`pg_cdc` が無いと読めない view なので、手で作ったものも残す意味が無い）
+- 消えた view の後片付け（ケース 2）は自動ではやらず、版管理する migration に `DROP VIEW IF EXISTS` を書く。view を名前のパターンで自動削除すると、手で作った view を巻き込むため
 
 ### 環境の差の吸収
 
@@ -269,7 +267,9 @@ WHERE ${CDC_LIVE_FILTER}
 **ローカルも既定では CDC を作らない（`DATA_WAREHOUSE_CDC` の既定は `none`）。** CDC の view を作り込むときだけ `materialized_postgresql` を指定する。
 
 - 取り込むテーブルが変わらない間、MaterializedPostgreSQL は replication slot を進めない。止まった slot が WAL とシステムカタログの古い行（`catalog_xmin`。同じサーバーの全 DB に効く）を残し続け、api のテストの TRUNCATE が遅くなった（実測は [`cdc.md`](../../tech-stack/clickhouse/cdc.md#ローカルの-cdc)）。AWS の環境も CDC を既定で作らないので、ローカルもそろえる
-- `none` でローカル（`http`）の ClickHouse に流すときは、前に作った `pg_cdc` が残っていれば消す（別プロジェクトの Postgres を取り込む `pg_cdc` があれば、作り直しと同じく何も消さずに止まる）。既定を変える前に作った環境から、止まった slot を消すため。`pg_cdc` を読む view も、読めないまま残らないよう消す
+- `none` でローカル（`http`）の ClickHouse に流すときは、前に作った `pg_cdc` が残っていれば、消し方を示す警告を出す。既定を変える前に作った環境に、止まった slot が残っているのに気付けるようにするため
+- 自動では消さない。同じ DB 名を使う別プロジェクトの CDC を自分のものと取り違えたときや、`pg_cdc` を読む手作りの view まで消えてしまうため。消すのは、消し方を見た人がコマンドで行う（[`cdc.md`](../../tech-stack/clickhouse/cdc.md#ローカルの-cdc)）
+- 別プロジェクトの Postgres を取り込む `pg_cdc` があれば、作り直しと同じく止まる（`DATA_WAREHOUSE_URL` が別プロジェクトの ClickHouse を指していて、そちらに database を作ってしまうのを防ぐ）。`pg_cdc` を読む view も、読めないまま残らないよう消す
 
 **CDC を作るとき（`materialized_postgresql`）、ローカルの migration コマンドは CDC の database（`pg_cdc`）を毎回消して作り直す。**
 

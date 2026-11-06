@@ -36,7 +36,7 @@ export const rebuildLocalCdc = async (client: ClickHouseClient, params: LocalCdc
   }
 
   await verifyExistingCdcDatabaseIsOwn(client, params.postgres)
-  await dropCdcDatabase(client)
+  await client.command({ query: `DROP DATABASE IF EXISTS ${CDC_DATABASE} SYNC` })
   /**
    * 対象が空のまま作ると、MaterializedPostgreSQL は DB の全テーブルを取り込んでしまう
    */
@@ -50,23 +50,9 @@ export const rebuildLocalCdc = async (client: ClickHouseClient, params: LocalCdc
   await waitForCdcTables(client, params.tables, params.timeoutMs)
 }
 
-/**
- * 前に作ったローカルの CDC（pg_cdc）が残っていれば消し、消したかを返す（replication slot と publication も消える）。
- * 別プロジェクトの pg_cdc なら、作り直しと同じく何も消さずに止める
- */
-export const dropLocalCdc = async (
-  client: ClickHouseClient,
-  postgres: Pick<LocalCdcParams["postgres"], "database" | "host">,
-): Promise<boolean> => {
-  await verifyExistingCdcDatabaseIsOwn(client, postgres)
-  if (await findCdcEngineFull(client) === undefined) return false
-  await dropCdcDatabase(client)
-  return true
-}
-
-const dropCdcDatabase = async (client: ClickHouseClient): Promise<void> => {
-  await client.command({ query: `DROP DATABASE IF EXISTS ${CDC_DATABASE} SYNC` })
-}
+export const hasLocalCdc = async (client: ClickHouseClient): Promise<boolean> => (
+  await findCdcEngineFull(client) !== undefined
+)
 
 const findCdcEngineFull = async (client: ClickHouseClient): Promise<string | undefined> => {
   const result = await client.query({
@@ -81,14 +67,14 @@ const findCdcEngineFull = async (client: ClickHouseClient): Promise<string | und
 /**
  * 既にある pg_cdc が、このプロジェクトの Postgres を取り込むものか確かめる。違えば消さずに止める。
  */
-const verifyExistingCdcDatabaseIsOwn = async (
+export const verifyExistingCdcDatabaseIsOwn = async (
   client: ClickHouseClient,
   postgres: Pick<LocalCdcParams["postgres"], "database" | "host">,
 ): Promise<void> => {
   const engineFull = await findCdcEngineFull(client)
   if (engineFull !== undefined && !isLocalCdcDatabaseOf(engineFull, postgres)) {
     throw new Error(
-      `refusing to drop ${CDC_DATABASE}: it does not replicate ${postgres.host}/${postgres.database} (${engineFull}). `
+      `refusing to touch ${CDC_DATABASE}: it does not replicate ${postgres.host}/${postgres.database} (${engineFull}). `
       + "DATA_WAREHOUSE_URL may point to another project's ClickHouse. "
       + `If you changed LOCAL_CDC_POSTGRES_* on purpose, drop it yourself: DROP DATABASE ${CDC_DATABASE}`,
     )
