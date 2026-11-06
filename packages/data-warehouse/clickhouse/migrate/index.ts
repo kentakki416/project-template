@@ -13,7 +13,7 @@ import {
 } from "./definition-files"
 import { env, isLocalClickHouse } from "./env"
 import { CDC_TABLES_PATH, MIGRATIONS_DIR, VIEWS_DIR } from "./paths"
-import { dropOwnLocalCdc, rebuildLocalCdc } from "./rebuild-local-cdc"
+import { dropLocalCdc, rebuildLocalCdc } from "./rebuild-local-cdc"
 import { runVersionedMigrations } from "./run-versioned-migrations"
 
 const LOCAL_CDC_TIMEOUT_MS = 60_000
@@ -78,12 +78,11 @@ const main = async (): Promise<void> => {
   } else if (env.DATA_WAREHOUSE_CDC === "none" && isLocalClickHouse) {
     const client = createClient(connection)
     try {
-      const outcome = await dropOwnLocalCdc(client, {
+      const isDropped = await dropLocalCdc(client, {
         database: env.LOCAL_CDC_POSTGRES_DATABASE,
         host: env.LOCAL_CDC_POSTGRES_HOST,
       })
-      if (outcome === "dropped") logger.info("dropped the local cdc left from an earlier run (DATA_WAREHOUSE_CDC=none)")
-      if (outcome === "other_project") logger.warn("left pg_cdc as is: it replicates another project's Postgres")
+      if (isDropped) logger.info("dropped the local cdc left from an earlier run (DATA_WAREHOUSE_CDC=none)")
     } finally {
       await closeClient(client)
     }

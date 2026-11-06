@@ -46,7 +46,7 @@ const envSchema = z
     /**
      * ローカルの MaterializedPostgreSQL が接続する Postgres。
      * **ClickHouse のコンテナから見た**接続先なので、ホストは docker compose のサービス名になる。
-     * DATA_WAREHOUSE_CDC が materialized_postgresql のときだけ使う。
+     * CDC を作るとき（materialized_postgresql）と、none で前に作った pg_cdc がこのプロジェクトのものか見分けるときに使う。
      *
      * TODO: DB 名は docker-compose.yaml の POSTGRES_DB と合わせてプロジェクト名に変更
      */

@@ -51,19 +51,17 @@ export const rebuildLocalCdc = async (client: ClickHouseClient, params: LocalCdc
 }
 
 /**
- * 前に作ったローカルの CDC（pg_cdc）が残っていれば、このプロジェクトのものだけ消す（replication slot と publication も消える）。
- * 別プロジェクトの pg_cdc は消さずに `other_project` を返す。CDC を使わない設定で流したときに、
- * 同じポートで動いている別プロジェクトの CDC を止めないため
+ * 前に作ったローカルの CDC（pg_cdc）が残っていれば消し、消したかを返す（replication slot と publication も消える）。
+ * 別プロジェクトの pg_cdc なら、作り直しと同じく何も消さずに止める
  */
-export const dropOwnLocalCdc = async (
+export const dropLocalCdc = async (
   client: ClickHouseClient,
   postgres: Pick<LocalCdcParams["postgres"], "database" | "host">,
-): Promise<"absent" | "dropped" | "other_project"> => {
-  const engineFull = await findCdcEngineFull(client)
-  if (engineFull === undefined) return "absent"
-  if (!isLocalCdcDatabaseOf(engineFull, postgres)) return "other_project"
+): Promise<boolean> => {
+  await verifyExistingCdcDatabaseIsOwn(client, postgres)
+  if (await findCdcEngineFull(client) === undefined) return false
   await dropCdcDatabase(client)
-  return "dropped"
+  return true
 }
 
 const dropCdcDatabase = async (client: ClickHouseClient): Promise<void> => {
@@ -85,7 +83,7 @@ const findCdcEngineFull = async (client: ClickHouseClient): Promise<string | und
  */
 const verifyExistingCdcDatabaseIsOwn = async (
   client: ClickHouseClient,
-  postgres: LocalCdcParams["postgres"],
+  postgres: Pick<LocalCdcParams["postgres"], "database" | "host">,
 ): Promise<void> => {
   const engineFull = await findCdcEngineFull(client)
   if (engineFull !== undefined && !isLocalCdcDatabaseOf(engineFull, postgres)) {

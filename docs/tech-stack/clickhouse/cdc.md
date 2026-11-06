@@ -59,7 +59,7 @@ DATA_WAREHOUSE_CDC=materialized_postgresql pnpm --filter @repo/data-warehouse dw
 
 - 既定で作らないのは、止まった replication slot が Postgres を遅くするため。MaterializedPostgreSQL は、取り込むテーブル（`users` / `memos`）が変わらない間 slot を進めない（10 秒ごとに読みに来るが、`confirmed_flush_lsn` が止まったまま WAL だけが進むのを実機で確認）。止まった slot は WAL を手放さず、システムカタログの古い行も消させない（`catalog_xmin`。slot の DB だけでなく、同じサーバーの全 DB に効く）
 - api のテストは毎回全テーブルを TRUNCATE し、そのたびにシステムカタログ（`pg_class`）の行を書き換える。古い行が消えずにたまり、このテンプレートから作ったプロジェクトでは `pg_class` の古い行が約 141 万行になって、TRUNCATE 1 回が 40 ミリ秒から 2.6 秒以上になった
-- `DATA_WAREHOUSE_CDC` を付けずに（`none` で）ローカルの ClickHouse に migration コマンドを流すと、前に作った `pg_cdc` が残っていれば消す。消すのはこのプロジェクトの Postgres を取り込むものだけで、別プロジェクトのものは警告を出して残す。`pg_cdc` を読む view（`v_*`）も消す（残すと読んだときに `Database pg_cdc does not exist` になる）
+- `DATA_WAREHOUSE_CDC` を付けずに（`none` で）ローカルの ClickHouse に migration コマンドを流すと、前に作った `pg_cdc` が残っていれば消す。別プロジェクトの Postgres を取り込む `pg_cdc` があれば、CDC を作り直すときと同じく何も消さずに止まる（`DATA_WAREHOUSE_URL` が別プロジェクトの ClickHouse を指している可能性があるため）。`pg_cdc` を読む view（`v_*`）も消す（残すと読んだときに `Database pg_cdc does not exist` になる）
 - AWS の環境も CDC を既定で作らない（[ClickHouse Cloud の CDC](#clickhouse-cloud-の-cdcclickpipes)）。ローカルにだけ CDC があると、本番に無い slot の不具合をローカルだけが抱える
 
 CDC を作るとき（`materialized_postgresql`）は、**migration コマンドが毎回 `pg_cdc` を消して作り直す。**
@@ -115,7 +115,7 @@ bastion は AMI を固定していて、外へは RDS にしか出られない�
 ## CDC の対象を変えるとき
 
 Postgres の変更と同じ PR で、ClickHouse 側の変更も入れる。ファイルはすべて `packages/data-warehouse/clickhouse/` と
-`infra/clickhouse/cdc-tables.json`。ローカルはどのケースも `db:migrate` → `dwh:migrate` を流し直すだけでよい（CDC を毎回作り直すため）。
+`infra/clickhouse/cdc-tables.json`。ローカルで CDC を作っているときは、どのケースも `db:migrate` → `DATA_WAREHOUSE_CDC=materialized_postgresql` を付けた `dwh:migrate` を流し直すだけでよい（CDC を毎回作り直すため）。
 
 | ケース | 変えるもの | ClickHouse Cloud への反映の順序 |
 | --- | --- | --- |
