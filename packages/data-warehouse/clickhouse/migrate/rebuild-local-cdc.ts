@@ -50,7 +50,7 @@ export const rebuildLocalCdc = async (client: ClickHouseClient, params: LocalCdc
   await waitForCdcTables(client, params.tables, params.timeoutMs)
 }
 
-export const hasLocalCdc = async (client: ClickHouseClient): Promise<boolean> => (
+export const hasCdcDatabase = async (client: ClickHouseClient): Promise<boolean> => (
   await findCdcEngineFull(client) !== undefined
 )
 

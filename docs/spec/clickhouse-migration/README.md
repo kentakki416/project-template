@@ -269,7 +269,7 @@ WHERE ${CDC_LIVE_FILTER}
 - 取り込むテーブルが変わらない間、MaterializedPostgreSQL は replication slot を進めない。止まった slot が WAL とシステムカタログの古い行（`catalog_xmin`。同じサーバーの全 DB に効く）を残し続け、api のテストの TRUNCATE が遅くなった（実測は [`cdc.md`](../../tech-stack/clickhouse/cdc.md#ローカルの-cdc)）。AWS の環境も CDC を既定で作らないので、ローカルもそろえる
 - `none` でローカル（`http`）の ClickHouse に流すときは、前に作った `pg_cdc` が残っていれば、消し方を示す警告を出す。既定を変える前に作った環境に、止まった slot が残っているのに気付けるようにするため
 - 自動では消さない。同じ DB 名を使う別プロジェクトの CDC を自分のものと取り違えたときや、`pg_cdc` を読む手作りの view まで消えてしまうため。消すのは、消し方を見た人がコマンドで行う（[`cdc.md`](../../tech-stack/clickhouse/cdc.md#ローカルの-cdc)）
-- 別プロジェクトの Postgres を取り込む `pg_cdc` があれば、作り直しと同じく止まる（`DATA_WAREHOUSE_URL` が別プロジェクトの ClickHouse を指していて、そちらに database を作ってしまうのを防ぐ）。`pg_cdc` を読む view も、読めないまま残らないよう消す
+- 別プロジェクトの Postgres を取り込む `pg_cdc` があれば、作り直しと同じく止まる（`DATA_WAREHOUSE_URL` が別プロジェクトの ClickHouse を指していて、そちらに database を作ってしまうのを防ぐ）
 
 **CDC を作るとき（`materialized_postgresql`）、ローカルの migration コマンドは CDC の database（`pg_cdc`）を毎回消して作り直す。**
 

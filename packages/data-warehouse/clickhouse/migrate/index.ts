@@ -13,7 +13,7 @@ import {
 } from "./definition-files"
 import { env, isLocalClickHouse } from "./env"
 import { CDC_TABLES_PATH, MIGRATIONS_DIR, VIEWS_DIR } from "./paths"
-import { hasLocalCdc, rebuildLocalCdc, verifyExistingCdcDatabaseIsOwn } from "./rebuild-local-cdc"
+import { hasCdcDatabase, rebuildLocalCdc, verifyExistingCdcDatabaseIsOwn } from "./rebuild-local-cdc"
 import { runVersionedMigrations } from "./run-versioned-migrations"
 
 const LOCAL_CDC_TIMEOUT_MS = 60_000
@@ -85,7 +85,7 @@ const main = async (): Promise<void> => {
         database: env.LOCAL_CDC_POSTGRES_DATABASE,
         host: env.LOCAL_CDC_POSTGRES_HOST,
       })
-      if (await hasLocalCdc(client)) {
+      if (await hasCdcDatabase(client)) {
         logger.warn(
           "pg_cdc from an earlier run is still attached (DATA_WAREHOUSE_CDC=none). Its replication slot stops while the replicated tables do not change, "
           + "and keeps WAL and old catalog rows on Postgres. Drop it unless you use the local cdc: DROP DATABASE pg_cdc (see docs/tech-stack/clickhouse/cdc.md)",
