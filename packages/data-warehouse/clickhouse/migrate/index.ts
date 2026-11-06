@@ -15,6 +15,7 @@ import { env, isLocalClickHouse } from "./env"
 import { CDC_TABLES_PATH, MIGRATIONS_DIR, VIEWS_DIR } from "./paths"
 import { hasCdcDatabase, rebuildLocalCdc, verifyExistingCdcDatabaseIsOwn } from "./rebuild-local-cdc"
 import { runVersionedMigrations } from "./run-versioned-migrations"
+import { verifyLocalDatabaseExists } from "./verify-local-database"
 
 const LOCAL_CDC_TIMEOUT_MS = 60_000
 
@@ -31,9 +32,10 @@ const closeClient = async (client: ClickHouseClient): Promise<void> => {
  * ClickHouse の migration
  *
  * 1. 定義ファイルを検査する（DB に触る前に止める）
- * 2. ローカルで CDC を使うなら（materialized_postgresql）CDC を作り直し、使わないなら（none）前に作った CDC が残っていれば警告する
- * 3. 版管理する migration を適用する
- * 4. CDC があれば view を作り直す
+ * 2. ローカルなら、migration を流す database があるか確かめる（別プロジェクトの ClickHouse に繋いでいれば止める）
+ * 3. ローカルで CDC を使うなら（materialized_postgresql）CDC を作り直し、使わないなら（none）前に作った CDC が残っていれば警告する
+ * 4. 版管理する migration を適用する
+ * 5. CDC があれば view を作り直す
  *
  * 設計: docs/spec/clickhouse-migration/README.md
  */
@@ -56,6 +58,15 @@ const main = async (): Promise<void> => {
     password: env.DATA_WAREHOUSE_PASSWORD,
     url: env.DATA_WAREHOUSE_URL,
     username: env.DATA_WAREHOUSE_USER,
+  }
+
+  if (isLocalClickHouse) {
+    const client = createClient(connection)
+    try {
+      await verifyLocalDatabaseExists(client, env.DATA_WAREHOUSE_DATABASE)
+    } finally {
+      await closeClient(client)
+    }
   }
 
   if (env.DATA_WAREHOUSE_CDC === "materialized_postgresql") {
