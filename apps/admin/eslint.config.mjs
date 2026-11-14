@@ -8,6 +8,7 @@ import tailwindcss from "eslint-plugin-tailwindcss"
 
 import eslintConfigCommonRules from "@repo/eslint-config/common-rules"
 import frontendBoundary from "@repo/eslint-config/frontend-boundary"
+import testOnlyExports from "@repo/eslint-config/test-only-exports"
 
 const { commonPlugins, commonRules } = eslintConfigCommonRules
 
@@ -22,7 +23,7 @@ const eslintConfig = defineConfig([
     settings: {
       tailwindcss: {
         config: path.resolve(__dirname, "src/app/globals.css"),
-        cssFiles: ["src/app/globals.css", "src/css/**/*.css"],
+        cssFiles: ["src/app/globals.css", "src/components/demo/*.css", "src/css/**/*.css"],
       },
     },
   },
@@ -70,11 +71,31 @@ const eslintConfig = defineConfig([
       "tailwindcss/classnames-order": "off",
     },
   },
-  /**
-   * フロントが import してよい @repo パッケージの制限。
-   * 詳細は packages/eslint-config/frontend-boundary.js を参照。
-   */
+  {
+    /**
+     * 土台はデモを import しない（デモを消しても土台が壊れないように）。
+     * デモの画面と部品自身は対象外。サイドバーのデモの項目（demo-nav-items.tsx）だけは例外
+     * frontend-boundary の no-restricted-imports とは別のルールなので、設定が上書きし合わない
+     */
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+    ignores: ["src/app/(dashboard)/demo/**", "src/app/(auth)/demo/**", "src/components/demo/**"],
+    rules: {
+      "import/no-restricted-paths": ["error", {
+        /**
+         * zones のパスを eslint を起動した場所ではなく、この設定ファイルの場所から解決する（エディタの ESLint でも効くように）
+         */
+        basePath: __dirname,
+        zones: [{
+          except: ["./demo-nav-items.tsx"],
+          from: "./src/components/demo",
+          message: "土台からデモを import しない。デモを消したときに壊れる",
+          target: "./src",
+        }],
+      }],
+    },
+  },
   ...frontendBoundary,
+  ...testOnlyExports,
 ])
 
 export default eslintConfig

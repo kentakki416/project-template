@@ -6,6 +6,8 @@ name: Terraform AWS Env Apply
 #
 # 運用ルール:
 # - dev: workflow_dispatch から実行。承認ゲートなし
+# - min: workflow_dispatch から実行。承認ゲートなし（minimal 構成）。
+#        GitHub Environment は terraform 用の min-terraform を使う（deploy 用の min とは role を分けている）
 # - prd: workflow_dispatch から実行。`prd` Environment の Required reviewers で承認ゲート（将来）
 #
 # 使い方:
@@ -24,6 +26,7 @@ on:
         type: choice
         options:
           - dev
+          - min
           # TODO: prd 環境が追加されたら以下のコメントを外す。prd Environment には Required reviewers を設定すること
           # - prd
 
@@ -49,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Environment 経由で AWS_ROLE_ARN を取得し、prd の場合は Required reviewers の承認ゲートが効く
-    environment: ${{ inputs.environment }}
+    environment: ${{ inputs.environment == 'min' && 'min-terraform' || inputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,9 +73,15 @@ jobs:
         working-directory: infra/terraform/aws/env/${{ inputs.environment }}
 
       # plan を一度走らせて差分を可視化（apply ログだけだと事後追跡しづらいため）
+      # CLICKHOUSE_* は enable_data_warehouse = true の環境の GitHub Environment にだけ置く (false に戻す apply が終わるまでは消さない)。
+      # 変数の値は tfplan に保存されるので、Apply の step には渡さない
       - name: Terraform Plan
         run: terraform plan -no-color -input=false -lock-timeout=120s -out=tfplan
         working-directory: infra/terraform/aws/env/${{ inputs.environment }}
+        env:
+          TF_VAR_clickhouse_org_id: ${{ secrets.CLICKHOUSE_ORG_ID }}
+          TF_VAR_clickhouse_token_key: ${{ secrets.CLICKHOUSE_TOKEN_KEY }}
+          TF_VAR_clickhouse_token_secret: ${{ secrets.CLICKHOUSE_TOKEN_SECRET }}
 
       - name: Terraform Apply
         run: terraform apply -no-color -input=false -lock-timeout=120s -auto-approve tfplan

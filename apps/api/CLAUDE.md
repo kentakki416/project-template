@@ -7,7 +7,7 @@ Express.js API サーバー（port 8080）。
 ```bash
 pnpm dev           # ホットリロード起動
 pnpm test          # ローカル用（dotenvx で .env.local を復号して vitest run）
-pnpm test:ci       # CI 用（env は外部から渡す前提。generate + migrate + vitest run）
+pnpm test:ci       # CI 用（env は外部から渡す前提。migrate + vitest run）
 pnpm test:watch    # 変更ファイルだけ再実行
 pnpm test:coverage # カバレッジ計測（coverage/ に出力）
 ```
@@ -25,12 +25,12 @@ pnpm test:coverage # カバレッジ計測（coverage/ に出力）
 | Router | `src/routes/` | controllers は optional なオブジェクトで受け、存在する場合のみルート登録 |
 | Controller | `src/controller/{feature}/` | API と 1 対 1。**try-catch を書かない**。`Result` は必ず `sendError` 経由で返す |
 | Service | `src/service/` | `export const` のアロー関数。**戻り値は必ず `Promise<Result<T>>`** |
-| Repository | interface は `src/repository/`、実装は `src/repository/drizzle/` `src/repository/redis/` | **service / controller は `src/repository` バレルから interface だけ import する**（実装ディレクトリから import しない）。DB の実装は Drizzle を DI で使い、`src/repository/prisma/` は切り替え先として残している（`packages/db/README.md`）。**DB の repository を足すときは Drizzle / Prisma の両方に実装し、`test/repository/` の契約テストに加える** |
-| Domain 型 | `@repo/domain` | api / cron / worker で共有。`@repo/api-schema` にも Drizzle / Prisma にも依存しない |
+| Repository | interface は `src/repository/`、実装は `src/repository/drizzle/` `src/repository/redis/` | **service / controller は `src/repository` バレルから interface だけ import する**（実装ディレクトリから import しない）。**DB の repository を足すときは `test/repository/` に実 DB で検証するテストを加える** |
+| Domain 型 | `@repo/domain` | api / cron / worker で共有。`@repo/api-schema` にも Drizzle にも依存しない |
 
 - **Service の Repository 引数は単一でも `repo: { xxxRepository }` のオブジェクトにまとめる**。将来 Repository が増えてもシグネチャを変えずに済むため
 - **DI は `src/index.ts`** で Repository → Controller → Router の順に組み立てる。実装クラスを import してよいのはここと Controller インテグレーションテストだけ
-- **トランザクション**: 抽象は `src/repository/transaction.ts`、実装は `src/repository/drizzle/transaction-runner.ts`（Prisma 版は `src/repository/prisma/`）。`TransactionContext` は不透明トークンなので、service から `tx` で直接クエリを書くことはできない（型エラーになる）
+- **トランザクション**: 抽象は `src/repository/transaction.ts`、実装は `src/repository/drizzle/transaction-runner.ts`。`TransactionContext` は不透明トークンなので、service から `tx` で直接クエリを書くことはできない（型エラーになる）
 
 ## 行動イベントの送出
 
@@ -40,8 +40,6 @@ pnpm test:coverage # カバレッジ計測（coverage/ に出力）
 - **`userId` は `findUserId(req)` で取り出す。** `/api/memo` のように `PUBLIC_PATHS` に含まれるパスは未ログインでも呼べるため `undefined` になりうる。**匿名ユーザーは追跡しない方針**なので、その場合は送出をスキップする
 - **auth middleware は公開パスでも optional 認証を行う。** トークンがあれば `req.userId` を埋め、無くても 401 にしない。早期 return すると公開パスで有効なトークンを渡しても userId が入らず、イベントが永久に記録されない
 - `POST /api/events` は `PUBLIC_PATHS` に含めない（認証必須）。`userId` はボディから受け取らず server 側で解決する
-
-設計: `docs/spec/user-behavior-events/README.md`
 
 ## エラーハンドリング（Result 型）
 
@@ -69,22 +67,24 @@ try/catch を許容するのは次の 2 つだけ。
 - **オブジェクトは一括 assertion にする**。API レスポンス（外部契約）は `toEqual` + `expect.any(...)`（フィールド増減で落ちる方が望ましい）、DB 行（内部状態）は `toMatchObject`
 - **境界値テストは必須**（日付フィルタの境界、条件分岐の境界）
 
-## Admin API 設計方針（未実装）
+## Admin API
 
-Admin 向けエンドポイントはまだ 1 つも実装されていない（`src/routes/` には auth / health / memo / user のみ）。追加するときの方針:
+管理画面（`apps/admin`）用の API。一般ユーザーの API と認証を完全に分ける。
 
-- すべて `/api/admin/` 配下に置き、ユーザー向け API と分離する
-- Controller / Service は共通のものを使い、`admin-router.ts` を新設してマッピングする
-- スキーマは `@repo/api-schema` の `admin/` に集約。既存と同一なら re-export し、Admin 固有のレスポンスが必要になった時点で新規定義する
-- 認証は当面無し（`PUBLIC_PATHS`）。`ADMIN_USE_DUMMY=true` で DB 不要のダミーモードになる
+- すべて `/api/admin/` 配下に置き、`src/routes/admin-router.ts` にまとめる。Controller は `src/controller/admin/`。Service / Repository は共通のものを使い、admin 専用のものだけを足す
+- スキーマは `@repo/api-schema` の `admin/` に置く。一般ユーザーの API と同じ形なら re-export する
+- **認証**: admin は `admins` テーブル（`users` とは別）。トークンは admin 専用の鍵（`JWT_ADMIN_ACCESS_SECRET` / `JWT_ADMIN_REFRESH_SECRET`）で署名し、payload は `{ adminId }`。refresh の jti は Redis の `admin_refresh_token:{jti}`。JWT の鍵 4 つが 1 つでも同じ値なら `src/env.ts` が起動を止める
+- **`adminAuthMiddleware` は全体ではなく `/api/admin` の mount の中に置く**（`mountAdminApi`（`src/routes/admin-router.ts`）で mount する。テストの `createAdminTestApp` も同じ関数を使う）。Express 5 の mount は大文字小文字を区別しないので、全体に適用して文字列で比べると `/API/Admin/...` が判定をすり抜ける。一般ユーザーの `authMiddleware` は `/api/admin` を見ない
+- admin の認証をしないパスは `ADMIN_PUBLIC_PATHS`（mount からの相対で、完全一致で比べる。google / refresh / logout と、production 以外の dev-login）
+- **admin の登録**: `pnpm --filter @repo/db admin:create --email <email>`。dev / min / prd は GitHub Actions の「Admin Create」（`docs/onboarding/deploy-prd.md`）。ローカルは seed で `admin@dev.local` が入り、`POST /api/admin/auth/dev-login` でログインできる（dev-login は `@dev.local` の admin しか受け付けない）
 
 ## 環境変数
 
 `src/env.ts` に Zod スキーマをインラインで定義し、import 時に `safeParse` → 失敗なら `process.exit(1)`。値は `.env.local` に置き dotenvx で暗号化して git にコミットする（復号鍵は root の `.env.keys`）。
 
 ```bash
-# 値の追加・変更は手書きせず dotenvx を使う
-pnpm exec dotenvx set KEY "value" -f .env.local
+# 値の追加・変更は手書きせず dotenvx を使う。プロジェクトルートで実行する（理由はルートの README.md の「env は dotenvx で管理する」）
+npx dotenvx set KEY "value" -f apps/api/.env.local
 ```
 
 ## 新エンドポイント追加の手順

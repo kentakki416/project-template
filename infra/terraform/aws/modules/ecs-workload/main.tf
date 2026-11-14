@@ -18,8 +18,6 @@ resource "aws_cloudwatch_log_group" "this" {
 # - command は与えられたら Dockerfile の CMD を上書き
 # - deploy(CD) は describe-task-definition で latest を取って image を SHA に差し替えて
 #   別リビジョンとして再 register する設計。
-# - terraform applyでtask-definition(latest参照)が新しく作られても、ecs-service側のignore_chagesにより、
-#   実行コンテナは変わらない
 
 resource "aws_ecs_task_definition" "this" {
   family                   = var.name
@@ -41,12 +39,15 @@ resource "aws_ecs_task_definition" "this" {
           for k, v in var.environment : { name = k, value = v }
         ]
 
-        secrets = var.secrets_arn != null ? [
-          for k in var.secret_keys : {
-            name      = k
-            valueFrom = "${var.secrets_arn}:${k}::"
-          }
-        ] : []
+        secrets = concat(
+          var.secrets_arn != null ? [
+            for k in var.secret_keys : {
+              name      = k
+              valueFrom = "${var.secrets_arn}:${k}::"
+            }
+          ] : [],
+          [for k, v in var.additional_secrets : { name = k, valueFrom = v }],
+        )
 
         logConfiguration = {
           logDriver = "awslogs"
@@ -98,7 +99,18 @@ resource "aws_ecs_service" "this" {
   cluster         = var.cluster_arn
   task_definition = data.aws_ecs_task_definition.current[0].arn
   desired_count   = var.desired_count
-  launch_type     = "FARGATE"
+
+  # launch_type と capacity_provider_strategy は同時に指定できない。
+  # capacity_provider が null (既定) なら従来どおり launch_type = FARGATE で起動する。
+  launch_type = var.capacity_provider == null ? "FARGATE" : null
+
+  dynamic "capacity_provider_strategy" {
+    for_each = var.capacity_provider == null ? [] : [var.capacity_provider]
+    content {
+      capacity_provider = capacity_provider_strategy.value
+      weight            = 1
+    }
+  }
 
   network_configuration {
     subnets          = var.subnets
@@ -213,8 +225,6 @@ resource "aws_iam_role_policy_attachment" "ecs_alb_service" {
 # =============================================================================
 # Blue/Green: SSM Parameter (deploy approval flag)
 # =============================================================================
-# 承認: aws ssm put-parameter --name "<param>" --value "approved" --overwrite
-# 拒否: aws ssm put-parameter --name "<param>" --value "rejected" --overwrite
 
 resource "aws_ssm_parameter" "deploy_approval" {
   count = var.enable_blue_green ? 1 : 0

@@ -6,6 +6,7 @@ const vitestPlugin = require("@vitest/eslint-plugin")
 
 const { commonPlugins, commonRules } = require("@repo/eslint-config/common-rules")
 const dbBoundary = require("@repo/eslint-config/db-boundary")
+const testOnlyExports = require("@repo/eslint-config/test-only-exports")
 
 module.exports = defineConfig([
   {
@@ -36,13 +37,10 @@ module.exports = defineConfig([
     },
   },
   {
-    ignores: ["dist/**", "node_modules/**", "src/prisma/generated/**"],
+    ignores: ["dist/**", "node_modules/**"],
   },
-  /**
-   * @repo/db（Prisma / Drizzle）の import 境界。詳細と限界は
-   * packages/eslint-config/db-boundary.js を参照。
-   */
   ...dbBoundary,
+  ...testOnlyExports,
   {
     files: ["test/**/*.ts"],
     plugins: {

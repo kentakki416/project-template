@@ -41,9 +41,6 @@ output "redis_security_group_id" {
 }
 
 # Route53 / DNS
-# hosted zone は Route 53 Domains 購入時に AWS が自動作成するものを使う
-# (Terraform 管理外。env/* は data "aws_route53_zone" "primary" で参照するだけ)
-
 output "api_url" {
   description = "API の HTTPS URL"
   value       = "https://${var.api_subdomain}.${var.domain_name}"
@@ -84,6 +81,11 @@ output "ecs_worker_service_name" {
 output "ecs_migration_task_definition_family" {
   description = "DB migration task definition family (RunTask 引数で使用)"
   value       = module.ecs_migration.task_definition_family
+}
+
+output "ecs_dwh_migration_task_definition_family" {
+  description = "ClickHouse migration task definition family。enable_data_warehouse = false なら null"
+  value       = one(module.ecs_dwh_migration[*].task_definition_family)
 }
 
 output "ecs_cron_task_definition_family" {
@@ -137,4 +139,15 @@ output "redis_address" {
 output "redis_port" {
   description = "Redis port"
   value       = module.elasticache.port
+}
+
+# ClickHouse Cloud
+output "clickhouse_https_host" {
+  description = "ClickHouse Cloud のサービスの HTTPS ホスト名。enable_data_warehouse = false なら null"
+  value       = one(module.clickhouse[*].https_host)
+}
+
+output "clickpipe_state" {
+  description = "ClickPipe の状態 (Running / Snapshot / Failed など)。Failed でも apply は成功するため、apply 後に確認する。enable_cdc = false なら null"
+  value       = one(module.cdc[*].clickpipe_state)
 }

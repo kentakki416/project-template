@@ -3,6 +3,7 @@ import request from "supertest"
 import { users } from "@repo/db"
 
 import { UserGetController } from "../../../src/controller/user/get"
+import { generateAdminAccessToken } from "../../../src/lib/admin-jwt"
 import { generateAccessToken } from "../../../src/lib/jwt"
 import { DrizzleUserRepository } from "../../../src/repository/drizzle/user-repository"
 import { userRouter } from "../../../src/routes/user-router"
@@ -64,6 +65,14 @@ describe("GET /api/user", () => {
 
     expect(res.status).toBe(404)
     expect(res.body).toEqual({ error: expect.any(String), status_code: 404 })
+  })
+
+  it("admin の access token の場合、401 を返す（一般ユーザーの API では使えない）", async () => {
+    const res = await request(app)
+      .get("/api/user")
+      .set("Authorization", `Bearer ${generateAdminAccessToken(1)}`)
+
+    expect(res.status).toBe(401)
   })
 
   it("トークンがない場合、401 を返す", async () => {

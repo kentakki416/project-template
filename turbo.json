@@ -1,30 +1,19 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "concurrency": "15",
+  "concurrency": "20",
   "globalDependencies": [
     "**/.env.*local"
   ],
   "tasks": {
-    "@repo/db#prisma:generate": {
-      "cache": false,
-      "inputs": [
-        "prisma/schema.prisma"
-      ],
-      "outputs": [
-        "generated/**"
-      ]
-    },
     "build": {
       "dependsOn": [
-        "^build",
-        "@repo/db#prisma:generate"
+        "^build"
       ],
       "outputs": [
         ".next/**",
         "!.next/cache/**",
         "dist/**",
-        "build/**",
-        "generated/**"
+        "build/**"
       ]
     },
     "start": {
@@ -53,6 +42,15 @@
         "^build"
       ]
     },
+    "@repo/data-warehouse#test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/infra/clickhouse/cdc-tables.json"
+      ]
+    },
     "test:ci": {
       "cache": false,
       "dependsOn": [
@@ -63,11 +61,25 @@
         "DB_NAME",
         "JWT_ACCESS_EXPIRATION",
         "JWT_ACCESS_SECRET",
+        "JWT_ADMIN_ACCESS_SECRET",
+        "JWT_ADMIN_REFRESH_SECRET",
         "JWT_REFRESH_EXPIRATION",
         "JWT_REFRESH_SECRET",
         "LOGGER_TYPE",
         "NODE_ENV",
         "REDIS_URL"
+      ]
+    },
+    "dwh:migrate:run": {
+      "cache": false,
+      "dependsOn": [
+        "^build"
+      ],
+      "passThroughEnv": [
+        "DATA_WAREHOUSE_*",
+        "LOCAL_CDC_POSTGRES_*",
+        "LOGGER_TYPE",
+        "NODE_ENV"
       ]
     },
     "clean": {

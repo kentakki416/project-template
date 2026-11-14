@@ -27,7 +27,7 @@ const mockRepo: FooRepository = {
 const result = await service.foo.create(input, mockRepo)
 
 // ❌ 非推奨：jest.mock() は import パスに結合してリファクタ耐性が低い
-jest.mock("../repository/prisma/foo-repository")
+jest.mock("../repository/drizzle/foo-repository")
 ```
 
 ### エラーメッセージなどの **文字列は assertion しない**

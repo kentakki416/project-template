@@ -116,6 +116,58 @@ variable "cron_schedule_state" {
 }
 
 # =============================================================================
+# データウェアハウス (ClickHouse Cloud)
+# =============================================================================
+
+variable "enable_data_warehouse" {
+  description = "ClickHouse Cloud のサービスを作り、worker の書き込み先と ClickHouse の migration を有効にするか。CI の apply はフラグの変数を渡さないので、切り替えはこの既定値を変えてコミットする"
+  type        = bool
+  default     = false
+}
+
+/**
+ * ClickHouse Cloud の API の認証情報。Terraform の workflow が GitHub Environment の secret (CLICKHOUSE_*) を TF_VAR_* で渡す。
+ * enable_data_warehouse = false の環境では渡さなくてよい（provider には "unused" を渡す）
+ */
+variable "clickhouse_org_id" {
+  description = "ClickHouse Cloud の organization ID"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "clickhouse_token_key" {
+  description = "ClickHouse Cloud の API キーの key ID"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "clickhouse_token_secret" {
+  description = "ClickHouse Cloud の API キーの secret"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "clickhouse_additional_ip_access_cidrs" {
+  description = "ClickHouse Cloud のサービスへの接続を、NAT の IP に加えて許す送信元の CIDR (分析ツールや手元の IP)。コンソールで足した IP は次の apply で消えるため、ここに足してコミットする"
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_cdc" {
+  description = "Postgres (RDS) から ClickHouse への CDC (ClickPipes + SSH bastion) を作るか。enable_data_warehouse = true のときだけ有効にできる。ClickPipes の CDC 用の計算資源 (約 $73/月) と bastion (月 $10 未満) の固定費がかかる"
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_cdc || var.enable_data_warehouse
+    error_message = "enable_cdc = true には enable_data_warehouse = true が要る"
+  }
+}
+
+# =============================================================================
 # タグ設定
 # =============================================================================
 
@@ -128,8 +180,4 @@ variable "additional_tags" {
 # =============================================================================
 # Secrets (アプリケーション機密)
 # =============================================================================
-# 方針: Terraform は「箱」(Secrets Manager secret) と「初回 JWT 自動生成」までを管理し、
-# 残りの値 (DATABASE_URL / REDIS_HOST / GOOGLE_* / LIVEKIT_* / FRONTEND_URL) は
-# Console / CLI で手動登録する。secret_version は ignore_changes でガード済み。
-#
 # dev/prd で運用差を作らないため変数化はしない。

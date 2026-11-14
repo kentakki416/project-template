@@ -84,9 +84,9 @@ jobs:
         run: pnpm --filter "./packages/*" build
 
       # api だけ `test` が dotenvx で .env.local を復号する（CI に復号鍵は無い）ため
-      # test:ci に分けている。判定ロジックは scripts/ci-turbo-scope.sh 参照。
+      # test:ci に分けている。判定ロジックは scripts/ci/turbo-scope.sh 参照。
       - name: Run tests
-        run: scripts/ci-turbo-scope.sh test:ci 'docker-compose\.yaml' 'infra/'
+        run: scripts/ci/turbo-scope.sh test:ci 'docker-compose\.yaml' 'infra/'
         env:
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           DATABASE_URL: postgresql://postgres:password@localhost:5432/project-template_test

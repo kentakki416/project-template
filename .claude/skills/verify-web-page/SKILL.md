@@ -13,7 +13,7 @@ UI コードを書いた直後に **必ず** 実行する skill。役割は以�
 ## 対象
 
 - `apps/web`（port 3000）
-- `apps/admin`（port 3030）— Admin 認証は将来実装。現状はそのまま navigate
+- `apps/admin`（port 3030）— 先に `http://localhost:3030/api/dev/login` を開いて dev admin（`admin@dev.local`）としてログインしてから navigate する。web 用の `app_access_token` の cookie の注入は admin では効かない（cookie は `admin_*`）。dev admin が無ければ `pnpm --filter @repo/db db:seed`
 
 ## ⚠️ 最重要: ブランチを切る前に before を撮る
 
@@ -80,7 +80,7 @@ curl -s http://localhost:8080/api/health
 | 不要（PUBLIC_PATHS） | `/sign-in` | そのまま `browser_navigate` |
 | 必要 | `/`, `/onboarding`, `/profile/:id`, `/matching/preferences` 等 | Step 3 で cookie を注入 |
 
-`apps/web/src/middleware.ts` の `PUBLIC_PATHS` を見て判定する。
+`apps/web/src/proxy.ts`（admin は `apps/admin/src/proxy.ts`）の `PUBLIC_PATHS` を見て判定する。admin の認証必須ページは、Step 3 の cookie 注入ではなく `/api/dev/login` でログインする。
 
 ### Step 3: 認証必須ページの場合 — JWT を発行して cookie 注入
 

@@ -44,7 +44,6 @@ locals {
 # =============================================================================
 
 # VPCモジュール呼び出し
-# - public (ALB / NAT) / private (ECS) / isolated (RDS / Redis) の 3 階層
 # - NAT Gateway 1 個（dev コスト優先）
 module "vpc" {
   source = "../../modules/vpc"
@@ -78,7 +77,7 @@ module "vpc" {
         subnet_type       = "private"
       }
     },
-    /** isolated subnet: RDS / ElastiCache 配置 (module 制約で subnet_type=private) */
+    /** isolated subnet: RDS / ElastiCache 配置 */
     {
       for i, az in var.availability_zones :
       local.isolated_subnet_keys[i] => {
@@ -195,7 +194,6 @@ module "vpc" {
 #
 # 鍵が変わると既存トークンが全部 invalid になりユーザーが一斉ログアウトするため、
 # 引数 (length / special 等) の意図しない変更で再生成されないよう ignore_changes でガード。
-# 意図的に rotate したいときは `terraform taint random_password.jwt_xxx_secret` を使う。
 resource "random_password" "jwt_access_secret" {
   length  = 64
   special = false
@@ -214,9 +212,28 @@ resource "random_password" "jwt_refresh_secret" {
   }
 }
 
-# DB マスターパスワードの初期値。新規環境の初回 apply でのみ実際に使われる。
-# 以降の実値は app secret 側が正 (modules/secrets の ignore_changes のため、
-# secret 側でローテーションしても Terraform は上書きしない)。
+# admin の JWT の鍵。
+# module.app_secrets は初回 apply でしか initial_values を書かないので、この鍵を足す前に作った
+# 環境には scripts/deploy/seed-secrets.sh で入れる（無ければ生成して足す）
+resource "random_password" "jwt_admin_access_secret" {
+  length  = 64
+  special = false
+
+  lifecycle {
+    ignore_changes = [length, special, override_special, min_lower, min_upper, min_numeric, min_special]
+  }
+}
+
+resource "random_password" "jwt_admin_refresh_secret" {
+  length  = 64
+  special = false
+
+  lifecycle {
+    ignore_changes = [length, special, override_special, min_lower, min_upper, min_numeric, min_special]
+  }
+}
+
+# DB マスターパスワードの初期値。
 # RDS の禁止文字 (スラッシュ / アットマーク / ダブルクォート / スペース) を避けた記号のみ使う。
 resource "random_password" "db_master" {
   length           = 28
@@ -231,8 +248,7 @@ resource "random_password" "db_master" {
 # Application secrets
 # 「箱だけ Terraform で管理 + JWT のみ初回投入」方針:
 # - 初回 apply で JWT (random_password) と基本定数のみ Secrets Manager に書く
-# - 以降は modules/secrets 側の ignore_changes で Terraform は secret_string に触らない
-# - DATABASE_URL / REDIS_HOST / GOOGLE_* / LIVEKIT_* / FRONTEND_URL は scripts/seed-secrets.sh で投入
+# - DATABASE_URL / REDIS_HOST / GOOGLE_* / LIVEKIT_* / FRONTEND_URL は scripts/deploy/seed-secrets.sh で投入
 # - JWT を rotate するときは `terraform taint random_password.jwt_xxx` 後、
 #   Secrets Manager Console で JWT_ACCESS_SECRET / JWT_REFRESH_SECRET を新値で上書き
 #
@@ -245,15 +261,17 @@ module "app_secrets" {
   recovery_window_in_days = 0
 
   initial_values = {
-    JWT_ACCESS_SECRET      = random_password.jwt_access_secret.result
-    JWT_REFRESH_SECRET     = random_password.jwt_refresh_secret.result
-    JWT_ACCESS_EXPIRATION  = "15m"
-    JWT_REFRESH_EXPIRATION = "30d"
+    JWT_ACCESS_SECRET        = random_password.jwt_access_secret.result
+    JWT_REFRESH_SECRET       = random_password.jwt_refresh_secret.result
+    JWT_ADMIN_ACCESS_SECRET  = random_password.jwt_admin_access_secret.result
+    JWT_ADMIN_REFRESH_SECRET = random_password.jwt_admin_refresh_secret.result
+    JWT_ACCESS_EXPIRATION    = "15m"
+    JWT_REFRESH_EXPIRATION   = "30d"
 
     /**
      * DB マスターパスワード。module.rds が ephemeral で読む唯一の情報源。
      * 初回 apply でのみこの random 初期値が入り、以降の変更は secret 側で直接行う。
-     * DATABASE_URL は同じパスワードから scripts/seed-secrets.sh が構築する。
+     * DATABASE_URL は同じパスワードから scripts/deploy/seed-secrets.sh が構築する。
      */
     DB_PASSWORD = random_password.db_master.result
 
@@ -270,18 +288,20 @@ module "app_secrets" {
 # =============================================================================
 # RDS Postgres 16
 # =============================================================================
-# - isolated subnet に配置、SG は ECS のみから 5432 許可 (step1 で定義済み)
-# - master password は app secret の DB_PASSWORD を唯一の情報源とし、ephemeral 経由で
-#   password_wo (write-only) に渡す。tfstate / plan に平文は残らない
-# - DATABASE_URL は apply 後に scripts/seed-secrets.sh で /project-template-dev/app に追加する
-#   (modules/secrets の ignore_changes により Terraform からは触れないため)
+# - isolated subnet に配置
 
 # app secret から DB マスターパスワードを読む。ephemeral resource なので
 # 読んだ値は plan / state のどちらにも保存されない。
-# seeded_secret_id (secret_version 経由) を参照することで、新規環境の初回 apply でも
-# initial_values の投入後に読まれることが保証される。
 ephemeral "aws_secretsmanager_secret_version" "app" {
   secret_id = module.app_secrets.seeded_secret_id
+}
+
+locals {
+  /**
+   * DB マスターパスワードの版。app secret の DB_PASSWORD を変更したら +1 して apply する。
+   * RDS と ClickPipe の両方に渡す (片方だけ上げると、ClickPipe が古いパスワードのまま認証に失敗して CDC が止まる)
+   */
+  db_password_version = 1
 }
 
 module "rds" {
@@ -297,9 +317,23 @@ module "rds" {
   db_name           = "project_template"
   master_username   = "projecttemplate"
 
-  master_password = jsondecode(ephemeral.aws_secretsmanager_secret_version.app.secret_string)["DB_PASSWORD"]
-  # app secret の DB_PASSWORD を変更したら +1 して apply する
-  master_password_version = 1
+  master_password         = jsondecode(ephemeral.aws_secretsmanager_secret_version.app.secret_string)["DB_PASSWORD"]
+  master_password_version = local.db_password_version
+
+  /**
+   * CDC (ClickPipes) 用に論理レプリケーションを常に有効にする。
+   * enable_cdc に連動させると「apply → 再起動 → もう一度 apply」の 2 段になるため、
+   * 再起動が要るのはこのパラメータグループを入れるときの 1 回だけにする (手順は docs/tech-stack/clickhouse/cdc.md)。
+   * slot が無い間は WAL を溜め込まないので、常に有効でも WAL が少し増える程度。
+   */
+  parameters = [
+    { name = "rds.logical_replication", value = "1" },
+    /**
+     * slot が保持できる WAL の上限 (MB)。ClickPipe が止まったまま WAL が溜まり続けて
+     * ディスクが埋まるのを防ぐ。超えると slot が無効になり CDC は止まるが、DB は止まらない
+     */
+    { name = "max_slot_wal_keep_size", value = "5120", apply_method = "immediate" },
+  ]
 
   subnet_ids         = [for k in local.isolated_subnet_keys : module.vpc.subnets[k].id]
   security_group_ids = [module.vpc.security_groups["rds"].id]
@@ -323,9 +357,7 @@ module "rds" {
 # =============================================================================
 # ElastiCache Redis 7
 # =============================================================================
-# - isolated subnet に配置、SG は ECS のみから 6379 許可
-# - dev は 1 ノード / Multi-AZ なし / snapshot なし / TLS なしで最小コスト
-# - REDIS_HOST は apply 後に scripts/seed-secrets.sh で Secrets Manager に投入する
+# - isolated subnet に配置
 
 module "elasticache" {
   source = "../../modules/elasticache"
@@ -353,6 +385,65 @@ module "elasticache" {
   # maintenance: 月曜 19:00-20:00 UTC (JST 月曜 04:00-05:00)
   snapshot_window    = "18:00-19:00"
   maintenance_window = "mon:19:00-mon:20:00"
+
+  tags = local.common_tags
+}
+
+# =============================================================================
+# ClickHouse Cloud (enable_data_warehouse のときだけ)
+# =============================================================================
+# - 接続情報 (DATA_WAREHOUSE_*) は /<prefix>/data-warehouse の secret に入れ、worker と
+#   dwh-migration にだけ渡す
+# - 接続を許すのは、worker と migration のタスクが外へ出る NAT の IP と、
+#   clickhouse_additional_ip_access_cidrs に足した IP (分析ツールなど) だけ
+
+module "clickhouse" {
+  source = "../../modules/clickhouse-service"
+  count  = var.enable_data_warehouse ? 1 : 0
+
+  name            = local.name_prefix
+  region          = var.aws_region
+  secret_name     = "/${local.name_prefix}/data-warehouse"
+  ip_access_cidrs = concat(["${module.vpc.nat_gateway_public_ip}/32"], var.clickhouse_additional_ip_access_cidrs)
+
+  password_version = 1
+
+  credentials_configured = alltrue([
+    for v in [var.clickhouse_org_id, var.clickhouse_token_key, var.clickhouse_token_secret] : v != null && v != ""
+  ])
+
+  tags = local.common_tags
+}
+
+locals {
+  /** ClickHouse の接続情報。enable_data_warehouse = false なら空で、worker も migration も受け取らない */
+  data_warehouse_secrets = var.enable_data_warehouse ? module.clickhouse[0].ecs_secrets : {}
+}
+
+# =============================================================================
+# CDC: Postgres (RDS) → ClickHouse Cloud (enable_cdc のときだけ)
+# =============================================================================
+# - ClickPipes が SSH bastion 経由で RDS の論理レプリケーションを読み、pg_cdc に取り込む
+# - 同期の対象は infra/clickhouse/cdc-tables.json。変えたら apply で ClickPipe に反映する
+
+module "cdc" {
+  source = "../../modules/clickpipes-postgres-cdc"
+  count  = var.enable_cdc ? 1 : 0
+
+  name                  = local.name_prefix
+  service_id            = module.clickhouse[0].service_id
+  vpc_id                = module.vpc.vpc_id
+  public_subnet_id      = module.vpc.subnets[local.public_subnet_keys[0]].id
+  rds_security_group_id = module.vpc.security_groups["rds"].id
+  rds_address           = module.rds.address
+  rds_port              = module.rds.port
+  rds_database          = module.rds.db_name
+  rds_username          = module.rds.master_username
+  rds_password          = jsondecode(ephemeral.aws_secretsmanager_secret_version.app.secret_string)["DB_PASSWORD"]
+  rds_password_version  = local.db_password_version
+
+  /** CDC 対象の一覧の正本。ローカルの migration コマンドも同じファイルを読む */
+  tables = jsondecode(file("${path.module}/../../../../clickhouse/cdc-tables.json"))
 
   tags = local.common_tags
 }
@@ -461,17 +552,13 @@ module "route53_api" {
 # =============================================================================
 # ECS Fargate Cluster
 # =============================================================================
-# 全 workload (API / worker / migration / 将来追加) が共有する cluster と
-# task execution role を作る。各 workload はこの cluster と role を参照する。
 
 module "ecs_cluster" {
   source = "../../modules/ecs-cluster"
 
   name = "${local.name_prefix}-cluster"
 
-  # Task execution role に Secrets Manager Get 権限を持たせる対象 ARN を渡す。
-  # ここで一元管理し、各 workload の task definition は valueFrom で個別キーを引くだけ。
-  secret_arns_readable = [module.app_secrets.secret_arn]
+  secret_arns_readable = concat([module.app_secrets.secret_arn], module.clickhouse[*].secret_arn)
 
   tags = local.common_tags
 }
@@ -494,17 +581,18 @@ locals {
   #
   # **ここに足すキーは Secrets Manager 側に値が存在していること。** ECS は存在
   # しないキーを valueFrom で参照するとタスクの起動自体に失敗する
-  # (ResourceInitializationError)。値は scripts/seed-secrets.sh か
+  # (ResourceInitializationError)。値は scripts/deploy/seed-secrets.sh か
   # module.app_secrets の initial_values で投入する。
   secret_keys = {
     api = [
       "DATABASE_URL", "REDIS_URL",
       "JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET",
+      "JWT_ADMIN_ACCESS_SECRET", "JWT_ADMIN_REFRESH_SECRET",
       "JWT_ACCESS_EXPIRATION", "JWT_REFRESH_EXPIRATION",
       "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
       "FRONTEND_URL", "NODE_ENV", "PORT",
     ]
-    # dev は DATA_WAREHOUSE_TYPE=none で ClickHouse を持たないため接続情報は渡さない
+    # DATA_WAREHOUSE_* は app secret ではなく local.data_warehouse_secrets から渡す
     worker    = ["DATABASE_URL", "REDIS_URL", "NODE_ENV"]
     cron      = ["DATABASE_URL", "NODE_ENV"]
     migration = ["DATABASE_URL"]
@@ -558,13 +646,13 @@ module "ecs_worker" {
   subnets            = local.ecs_common.subnets
   security_groups    = local.ecs_common.security_groups
 
-  secrets_arn = local.ecs_common.secrets_arn
-  secret_keys = local.secret_keys.worker
+  secrets_arn        = local.ecs_common.secrets_arn
+  secret_keys        = local.secret_keys.worker
+  additional_secrets = local.data_warehouse_secrets
 
-  # ClickHouse をホスティングしない環境なので、何も書き込まない実装を使わせる。
   # 秘密情報ではないので secrets ではなく平文の environment で渡す。
   environment = {
-    DATA_WAREHOUSE_TYPE = "none"
+    DATA_WAREHOUSE_TYPE = var.enable_data_warehouse ? "clickhouse" : "none"
   }
 
   # 先に ECR へ image を push してから apply する前提で 1 固定。
@@ -580,8 +668,6 @@ module "ecs_worker" {
 # ECS Workload: DB migration (one-shot task definition、Service なし)
 # =============================================================================
 # - GHA から `aws ecs run-task --task-definition <family>` で起動する想定
-# - 本番 API イメージに devDependencies が混入するのを避けるため、専用 ECR
-#   (project-template-migration) + 専用 Dockerfile (packages/db/Dockerfile.migration) を使う
 # - Dockerfile の CMD = `pnpm --filter @repo/db db:migrate` (drizzle-kit migrate) を
 #   そのまま使うので command override は不要
 
@@ -607,11 +693,43 @@ module "ecs_migration" {
 }
 
 # =============================================================================
+# ECS Workload: ClickHouse migration (one-shot task definition、Service なし)
+# =============================================================================
+# - enable_data_warehouse のときだけ作る
+# - イメージは DB migration と同じで、command で ClickHouse の migration コマンドを起動する
+
+module "ecs_dwh_migration" {
+  source = "../../modules/ecs-workload"
+  count  = var.enable_data_warehouse ? 1 : 0
+
+  name    = "${local.name_prefix}-dwh-migration"
+  image   = "${data.aws_ecr_repository.migration.repository_url}:latest"
+  cpu     = 256
+  memory  = 512
+  command = ["pnpm", "--filter", "@repo/data-warehouse", "dwh:migrate:run"]
+
+  cluster_arn        = local.ecs_common.cluster_arn
+  execution_role_arn = local.ecs_common.execution_role_arn
+  subnets            = local.ecs_common.subnets
+  security_groups    = local.ecs_common.security_groups
+
+  additional_secrets = local.data_warehouse_secrets
+  environment = {
+    DATA_WAREHOUSE_CDC = var.enable_cdc ? "clickpipes" : "none"
+    /** logger を JSON 出力にする (未設定だと development 扱いで色付きのテキストになる) */
+    NODE_ENV = "production"
+  }
+
+  create_service        = false
+  log_retention_in_days = var.log_retention_days
+  tags                  = local.common_tags
+}
+
+# =============================================================================
 # ECS Workload: cron (定期実行タスク。one-shot task definition、Service なし)
 # =============================================================================
 # - task definition のみ作成し、起動は下の cron_schedule (EventBridge Scheduler) が行う
 # - Dockerfile の CMD (cleanup-old-memos) をそのまま使うので command override は不要
-# - deploy workflow が image を差し替えた新 revision を register し、schedule は最新を追従する
 
 module "ecs_cron" {
   source = "../../modules/ecs-workload"

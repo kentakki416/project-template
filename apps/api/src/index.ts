@@ -3,12 +3,19 @@ import express from "express"
 import helmet from "helmet"
 
 import { createDrizzleClient } from "@repo/db"
-import { QueueEventTracker } from "@repo/events"
+import { type EventTracker, NoopEventTracker, QueueEventTracker } from "@repo/events"
 import { logger } from "@repo/logger"
 import { BullMQJobQueue, TRACK_EVENT_QUEUE_NAME } from "@repo/queue"
 import { createRedisClient } from "@repo/redis"
 
 import { GoogleOAuthClient } from "./client/google-oauth"
+import { AdminAuthDevLoginController } from "./controller/admin/auth/dev-login"
+import { AdminAuthGoogleController } from "./controller/admin/auth/google"
+import { AdminAuthLogoutController } from "./controller/admin/auth/logout"
+import { AdminAuthRefreshController } from "./controller/admin/auth/refresh"
+import { AdminMeGetController } from "./controller/admin/me/get"
+import { AdminUserDetailController } from "./controller/admin/user/detail"
+import { AdminUserListController } from "./controller/admin/user/list"
 import { AuthDevLoginController } from "./controller/auth/dev-login"
 import { AuthGoogleController } from "./controller/auth/google"
 import { AuthLogoutController } from "./controller/auth/logout"
@@ -24,10 +31,12 @@ import { MemoUpdateController } from "./controller/memo/update"
 import { UserGetController } from "./controller/user/get"
 import { env } from "./env"
 import { authMiddleware } from "./middleware/auth"
+import { flushEventsBeforeResponse } from "./middleware/flush-events"
 import { apiRateLimiter } from "./middleware/rate-limit"
 import { requestLogger } from "./middleware/request-logger"
 import { unhandledExceptionHandler } from "./middleware/unhandled-exception-handler"
 import {
+  DrizzleAdminRepository,
   DrizzleAuthAccountRepository,
   DrizzleDatabaseHealthRepository,
   DrizzleMemoRepository,
@@ -35,23 +44,19 @@ import {
   DrizzleUserRepository,
 } from "./repository/drizzle"
 import { IoRedisHealthRepository, IoRedisRefreshTokenRepository } from "./repository/redis"
+import { adminRouter, mountAdminApi } from "./routes/admin-router"
 import { authRouter } from "./routes/auth-router"
 import { eventRouter } from "./routes/event-router"
 import { healthRouter } from "./routes/health-router"
 import { memoRouter } from "./routes/memo-router"
 import { userRouter } from "./routes/user-router"
 
-/**
- * インフラ client はプロセス起動時に 1 回だけ生成する。
- * DB は Drizzle 実装を使う（Prisma 実装も repository/prisma に残してあり、ここを差し替えれば切り替えられる）。
- */
 const db = createDrizzleClient({
   onError: (error) => {
     logger.error("db idle client error", error)
   },
 })
 /**
- * onError を渡さないと factory 既定の console.error に落ち、構造化ログに乗らない。
  * Redis は refresh token と queue の両方を載せているため、障害は error として残す。
  */
 const redis = createRedisClient({
@@ -70,6 +75,8 @@ const memoRepository = new DrizzleMemoRepository(db)
 const databaseHealthRepository = new DrizzleDatabaseHealthRepository(db)
 const redisHealthRepository = new IoRedisHealthRepository(redis)
 const refreshTokenRepository = new IoRedisRefreshTokenRepository(redis)
+const adminRepository = new DrizzleAdminRepository(db)
+const adminRefreshTokenRepository = new IoRedisRefreshTokenRepository(redis, "admin_refresh_token")
 
 /**
  * 外部 SaaS client の DI assembly
@@ -102,10 +109,30 @@ const userGetController = new UserGetController(userRepository)
 
 /**
  * dev-login Controller は production 以外でのみ生成する
- * （本番では auth-router でルート自体が登録されない）
  */
 const authDevLoginController = process.env.NODE_ENV !== "production"
   ? new AuthDevLoginController(userRepository, refreshTokenRepository)
+  : undefined
+
+/**
+ * Admin Controller のインスタンス化
+ */
+const adminAuthGoogleController = new AdminAuthGoogleController(
+  adminRepository,
+  adminRefreshTokenRepository,
+  googleOAuthClient,
+)
+const adminAuthRefreshController = new AdminAuthRefreshController(adminRepository, adminRefreshTokenRepository)
+const adminAuthLogoutController = new AdminAuthLogoutController(adminRefreshTokenRepository)
+const adminMeGetController = new AdminMeGetController(adminRepository)
+const adminUserListController = new AdminUserListController(userRepository)
+const adminUserDetailController = new AdminUserDetailController(userRepository, authAccountRepository)
+
+/**
+ * admin の dev-login Controller も production 以外でだけ生成する
+ */
+const adminAuthDevLoginController = process.env.NODE_ENV !== "production"
+  ? new AdminAuthDevLoginController(adminRepository, adminRefreshTokenRepository)
   : undefined
 
 /**
@@ -113,10 +140,12 @@ const authDevLoginController = process.env.NODE_ENV !== "production"
  */
 const memoListController = new MemoListController(memoRepository)
 const memoDetailController = new MemoDetailController(memoRepository)
-/** enqueue するだけ。ClickHouse への書き込みは apps/worker が行う */
-const eventTracker = new QueueEventTracker(
-  new BullMQJobQueue(redis, TRACK_EVENT_QUEUE_NAME),
-)
+/**
+ * 行動イベントの送出先は EVENT_TRACKER_TYPE で選ぶ。
+ */
+const eventTracker: EventTracker = env.EVENT_TRACKER_TYPE === "queue"
+  ? new QueueEventTracker(new BullMQJobQueue(redis, TRACK_EVENT_QUEUE_NAME))
+  : new NoopEventTracker()
 
 const eventCreateController = new EventCreateController(eventTracker)
 
@@ -164,6 +193,10 @@ app.use(authMiddleware)
  */
 app.use(requestLogger)
 
+if (env.FLUSH_EVENTS_BEFORE_RESPONSE) {
+  app.use(flushEventsBeforeResponse(eventTracker))
+}
+
 /**
  * ルーティング
  */
@@ -175,7 +208,6 @@ app.use(
   })
 )
 /**
- * レート制限を API 全体に適用する。
  * ヘルスチェック（/api/health）はロードバランサの死活監視で高頻度に叩かれるため、本ミドル
  * ウェアより前に登録して対象外にしている（制限に巻き込むと target が unhealthy 判定される恐れ）。
  */
@@ -201,6 +233,21 @@ app.use(
     create: eventCreateController,
   })
 )
+/**
+ * admin の API
+ */
+mountAdminApi(
+  app,
+  adminRouter({
+    authDevLogin: adminAuthDevLoginController,
+    authGoogle: adminAuthGoogleController,
+    authLogout: adminAuthLogoutController,
+    authRefresh: adminAuthRefreshController,
+    meGet: adminMeGetController,
+    userDetail: adminUserDetailController,
+    userList: adminUserListController,
+  })
+)
 app.use(
   "/api/memo",
   memoRouter({
@@ -213,8 +260,6 @@ app.use(
 )
 
 /**
- * 想定外例外を捕捉する Express の最終エラーハンドラ
- * 業務 4xx エラーは Controller の sendError 経由で返却されるため、ここを通らない
  * ルーティング定義の最後に登録する必要がある
  */
 app.use(unhandledExceptionHandler)

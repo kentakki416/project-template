@@ -24,12 +24,12 @@ type Repositories = {
   userRepository: UserRepository
 }
 
-type TokenGenerators = {
+export type TokenGenerators = {
   generateAccessToken: (userId: number) => string
   generateRefreshToken: (userId: number) => { jti: string; token: string }
 }
 
-const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 7
+export const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 7
 
 /**
  * Google アカウントでの認証
@@ -115,7 +115,7 @@ export type LoginAsDevUserSuccess = {
  * 開発環境専用ログイン
  *
  * email で seed 済みの dev ユーザーを引き当てて Access/Refresh Token を発行する。
- * production での誤実行を防ぐためのガードは呼び出し側（controller / index.ts / PUBLIC_PATHS）で行う。
+ * production での誤実行を防ぐためのガードは呼び出し側で行う。
  * このサービス関数自体は環境非依存。
  */
 export const loginAsDevUser = async (
@@ -151,7 +151,7 @@ export type RefreshTokensSuccess = {
   refreshToken: string
 }
 
-type RefreshVerifier = (token: string) => { jti: string; userId: number } | null
+export type RefreshVerifier = (token: string) => { jti: string; userId: number } | null
 
 /**
  * Refresh Token のローテーション
@@ -179,7 +179,6 @@ export const refreshTokens = async (
     return err(unauthorizedError("Refresh token has been revoked"))
   }
 
-  /** ローテーション: 旧 jti を破棄して新しい jti を発行 */
   await repo.refreshTokenRepository.delete(payload.jti)
 
   const accessToken = generators.generateAccessToken(userId)
@@ -206,7 +205,6 @@ export const logout = async (
 
   const payload = verifier(input.refreshToken)
   if (!payload) {
-    /** 無効なトークンでも成功扱いにして冪等性を保つ */
     return ok({ ok: true })
   }
   await repo.refreshTokenRepository.delete(payload.jti)

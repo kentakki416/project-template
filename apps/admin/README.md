@@ -6,12 +6,17 @@ Next.js 16 (App Router) を使用した管理画面アプリケーション
 
 - [概要](#概要)
   - [技術スタック](#技術スタック)
+- [ローカルで Google でサインインする](#ローカルで-google-でサインインする)
+  - [うまくいかないとき](#うまくいかないとき)
 - [アーキテクチャ](#アーキテクチャ)
   - [Route Group の構成](#route-group-の構成)
   - [ディレクトリ構成](#ディレクトリ構成)
   - [依存の方向](#依存の方向)
   - [設計原則](#設計原則)
   - [コンポーネントの分類基準](#コンポーネントの分類基準)
+- [ブランドを変える](#ブランドを変える)
+- [デモ](#デモ)
+  - [デモを消す手順](#デモを消す手順)
 - [API 設計方針](#api-設計方針)
   - [API 通信方式](#api-通信方式)
 
@@ -29,8 +34,62 @@ Next.js 16 (App Router) を使用した管理画面アプリケーション
 - React 19
 - TypeScript
 - Tailwind CSS v4
-- ApexCharts（チャート）
-- FullCalendar（カレンダー）
+- ApexCharts（グラフ）・FullCalendar（カレンダー）・jvectormap（地図）・react-dropzone（ファイルのドロップ）はデモだけが使う（[デモ](#デモ)）
+
+## ローカルで Google でサインインする
+
+サインインできるのは、`admins` テーブルに email を登録した Google アカウントだけ。画面を見るだけなら Google の設定は要らない。サインイン画面の「dev admin でログイン」で、seed の `admin@dev.local` として入れる。
+
+前提として、Postgres を起動して migration を流しておく（[`docs/setup/api.md`](../../docs/setup/api.md) の 4・5）。
+
+1. **Google Cloud で OAuth クライアントを用意する**
+
+   OAuth クライアントは web と同じものを使う（api は 1 組の client ID / secret で web と admin の両方の code を交換する）。コミット済みの `.env.local` に入っているクライアントを使うなら、その「承認済みのリダイレクト URI」に `http://localhost:3030/api/auth/callback/google` があるかを確かめ、無ければ足す。この場合は手順 2 を飛ばす。テンプレートから作ったプロジェクトなど、そのクライアントを Google Cloud で触れないときは、種類が「ウェブ アプリケーション」の OAuth クライアントを作って同じ URI を足し、手順 2 で値を差し替える。
+
+   admin は `NEXT_PUBLIC_APP_URL` の origin からこの URI を作り、Google は完全一致で照合する（各環境の値は [`CLAUDE.md` の「認証」](CLAUDE.md#認証)）。OAuth 同意画面がテスト中なら、サインインに使うアカウントをテストユーザーに足す。
+
+2. **自分のクライアントに差し替えるときは、client ID と client secret を `.env.local` に入れる**
+
+   admin と api に、同じクライアントの値を入れる。client secret は api だけが持つ。web でも Google でサインインするなら、web の `GOOGLE_CLIENT_ID` も同じクライアントにそろえ、web の redirect URI（`http://localhost:3000/api/auth/callback/google`）も登録する。
+
+   | ファイル | キー |
+   | --- | --- |
+   | `apps/admin/.env.local` | `GOOGLE_CLIENT_ID` |
+   | `apps/api/.env.local` | `GOOGLE_CLIENT_ID`・`GOOGLE_CLIENT_SECRET` |
+   | `apps/web/.env.local` | `GOOGLE_CLIENT_ID`（web でも Google でサインインするとき） |
+
+   ```bash
+   # プロジェクトルートで実行する（理由はルートの README.md の「env は dotenvx で管理する」）
+   npx dotenvx set GOOGLE_CLIENT_ID "<client ID>" -f apps/admin/.env.local
+   npx dotenvx set GOOGLE_CLIENT_ID "<client ID>" -f apps/api/.env.local
+   npx dotenvx set GOOGLE_CLIENT_SECRET "<client secret>" -f apps/api/.env.local
+   ```
+
+   env は起動したときにしか読まないので、`pnpm dev` を起動し直す。`.env.local` は暗号化してコミットしている、チームで共有のファイル。自分用のクライアントに差し替えたときは、チームで使うと決めるまでコミットしない。
+
+3. **サインインする Google アカウントを `admins` に登録する**
+
+   ```bash
+   pnpm --filter @repo/db admin:create --email <Google アカウントの email>
+   ```
+
+   `DATABASE_URL` を渡さなければ、ローカルの dev DB（`localhost:5433` の `project-template_dev`）に登録する。登録済みなら何もしない。dev / min / prd では GitHub Actions の「Admin Create」で登録する（[`docs/onboarding/deploy-prd.md`](../../docs/onboarding/deploy-prd.md#admin-を登録する)）。
+
+4. **サインインする**
+
+   `http://localhost:3030/signin` の「Google でサインイン」を押し、手順 3 で登録したアカウントを選ぶ。
+
+### うまくいかないとき
+
+| 症状 | 原因 |
+| --- | --- |
+| Google の画面に `redirect_uri_mismatch` が出る | 手順 1 の redirect URI が登録されていない。または `NEXT_PUBLIC_APP_URL` の origin と一致していない |
+| Google の画面に `invalid_client` が出る | `apps/admin/.env.local` の `GOOGLE_CLIENT_ID` が間違っている。または env を変えた後に起動し直していない |
+| Google の画面に `access_denied` が出て先に進めない | OAuth 同意画面がテスト中で、そのアカウントがテストユーザーに入っていない |
+| サインイン画面に「このアカウントには管理画面の権限がありません」が出る | 選んだアカウントの email が `admins` に無い（手順 3）。または Google でその email が確認されていない |
+| サインイン画面に「サインインに失敗しました」が出る | callback に `code`・`state` が届かなかった。または api の呼び出しか応答の処理に失敗した（api が止まっている、api の `GOOGLE_CLIENT_ID`・`GOOGLE_CLIENT_SECRET` が admin と別のクライアントのもの など）。callback の URL、api が起動しているか、api の OAuth の設定を確かめる |
+| サインイン画面に「Google アカウントへのアクセスが拒否されました」が出る | Google の画面でキャンセルした。「Google でサインイン」からやり直す |
+| サインイン画面に「セッションが切れました」が出る | `NEXT_PUBLIC_APP_URL` と違うホスト（`127.0.0.1` など）で開いた。または Google の画面で 5 分以上経った（state の cookie が切れる）。`http://localhost:3030/signin` から開き直す |
 
 ## アーキテクチャ
 
@@ -45,12 +104,15 @@ Next.js 16 (App Router) を使用した管理画面アプリケーション
 src/
   app/                        # ルーティング + ページ構成（薄く保つ）
     (auth)/                   # 認証ページ（サイドバーなし、専用レイアウト）
+      demo/                   #   デモ（フォームの見本）
     (dashboard)/              # 管理画面（サイドバー + ヘッダー付きレイアウト）
+      demo/                   #   デモ（TailAdmin の画面と UI 部品の見本。URL は /demo/...）
   components/
     ui/                       # 汎用UIコンポーネント（Button, Input等）
     layout/                   # レイアウト系（AppHeader, AppSidebar, Backdrop等）
     features/                 # 機能固有のUIコンポーネント
-      {feature}/              #   例: auth/SignInForm.tsx, dashboard/DashboardMetrics.tsx
+      {feature}/              #   例: auth/GoogleSignInButton.tsx, header/UserDropdown.tsx
+    demo/                     # デモだけが使う部品・CSS・サイドバーの項目
   features/                   # ロジックのみ（レンダリングなし）
     {feature}/
       {feature}.context.tsx   #   状態管理（React Context）
@@ -88,10 +150,56 @@ app/ → components/ → features/(ロジック)
 
 **判断基準:** ドメイン知識なしで動く → `ui/` / レイアウト系 → `layout/` / それ以外 → `features/{domain}/`
 
+## ブランドを変える
+
+| 変えるもの | 場所 |
+| --- | --- |
+| アプリ名・説明・言語・タイムゾーン | `src/config/app.ts`。サイドバー・ヘッダー・サインイン画面のロゴの文字と、タブのタイトル（`<ページ名> \| <アプリ名>`）がここから決まる |
+| ロゴ | `src/components/layout/AppLogo.tsx`。既定はアプリ名の頭文字のアイコン + アプリ名。画像のロゴにするときは中身を `<Image>` に差し替える（呼び出し側は変えない） |
+| favicon | `public/favicon.svg`（`src/app/layout.tsx` の `metadata.icons` で指している） |
+| ブランドの色 | `src/app/globals.css` の `@theme` の `--color-brand-*` |
+
+日時は `src/libs/date.ts` の `formatDateTime()` で、`src/config/app.ts` のタイムゾーンで表示する。Server Component はサーバーのタイムゾーン（本番は UTC のことが多い）で動くので、`toLocaleString()` を直接使わない。
+
+## ヘッダー
+
+ヘッダーの表示するデータは `src/app/(dashboard)/layout.tsx`（Server Component）で取り、`AdminShell` → `AppHeader` に props で渡す。
+
+| 部品 | データ | 変えるとき |
+| --- | --- | --- |
+| ユーザーメニュー | サインイン中の admin（`/api/admin/me`） | メニューの項目は `src/components/features/header/UserDropdown.tsx` |
+| 通知 | `src/features/notification/notification.api.ts` の `getList`（テンプレートでは常に空） | 通知を作るときは `getList` / `markAllAsRead` を api の呼び出しに差し替える。画面側は変えなくてよい |
+| 検索 | layout の `search`（行き先と placeholder。入力は `?q=` で渡す） | 行き先を変える。`search` を渡さなければ検索欄を出さない |
+
+## デモ
+
+TailAdmin の画面（EC のダッシュボード・カレンダー・フォーム / テーブル / UI 部品 / グラフの見本・サインアップ画面など）は、URL `/demo/...` の下にまとめている。サイドバーでは「デモ」の見出しの下に並ぶ。UI 部品の使い方の見本として残しているので、実プロジェクトで要らなくなったら下の手順で消す。
+
+| 置き場所 | 中身 |
+| --- | --- |
+| `src/app/(dashboard)/demo/` | サイドバー付きのデモ画面 |
+| `src/app/(auth)/demo/` | サインイン・サインアップのフォームの見本 |
+| `src/components/demo/` | デモの画面だけが使う部品・CSS（`demo.css`） |
+| `src/components/demo/demo-nav-items.tsx` | サイドバーの「デモ」の項目 |
+| `public/images/demo/` | デモだけが使う画像 |
+
+土台（`src/components/ui/` など）はデモを import しない。lint（`import/no-restricted-paths`）で強制しているので、デモを消しても土台は壊れない。
+
+route group（`(demo)`）ではなく URL も `/demo` に分けているのは、デモの `/profile`（プロフィールの見本）などが土台の画面と同じ URL になってぶつかるため。
+
+### デモを消す手順
+
+1. 上の表のディレクトリとファイルを消す
+2. `src/components/layout/AppSidebar.tsx` の `demoNavSection` の import と、`navSections` からの指定を消す
+3. `src/proxy.ts` の `PUBLIC_PATHS` から `/demo/signin`・`/demo/signup` を消す
+4. `eslint.config.mjs` の、デモの import の制限（`import/no-restricted-paths` の設定ごと）と、`settings.tailwindcss.cssFiles` の `src/components/demo/*.css` を消す
+5. デモだけが使う依存を消す: `pnpm remove @fullcalendar/core @fullcalendar/daygrid @fullcalendar/interaction @fullcalendar/react @fullcalendar/timegrid @react-jvectormap/core @react-jvectormap/world apexcharts react-apexcharts react-dropzone`（`package.json` の `overrides` も消す）
+6. `.claude/skills/design-mock/SKILL.md` が参考の画面としてデモを挙げているので、参照先を実プロジェクトの画面に変える
+
 ## API 設計方針
 
 - Admin が利用する API はすべて `/api/admin/` プレフィックスを付与する
-- ダミーデータ: 環境変数 `ADMIN_USE_DUMMY=true`（API 側の `.env.local`）で DB 接続なしのダミーデータモードに切替可能
+- ローカルは docker compose の Postgres / Redis と seed のデータで動かす（`pnpm --filter @repo/db db:seed` で dev 用の admin `admin@dev.local` も入る）
 
 ### API 通信方式
 

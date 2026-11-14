@@ -1,13 +1,9 @@
 import { UnrecoverableError } from "bullmq"
 
-import { isTerminalJobFailure } from "../src/bullmq-queue"
+import { forTesting } from "../src/bullmq-queue"
 
-/**
- * 失敗が「終局（もうリトライされない）」かの判定。
- *
- * これを誤ると log level を誤判定し、アラートが鳴らない（= データ喪失に
- * 気付けない）か、逆に自動回復する失敗で鳴り続ける。
- */
+const { isTerminalJobFailure } = forTesting
+
 describe("isTerminalJobFailure", () => {
   describe("正常系", () => {
     it("試行を使い切っていなければ終局ではない", () => {
@@ -30,10 +26,6 @@ describe("isTerminalJobFailure", () => {
       expect(result).toBe(true)
     })
 
-    /**
-     * BullMQ は UnrecoverableError を attempts の上限を待たず failed set に移す。
-     * 回数だけで判定すると初回失敗を「リトライされる」と誤判定する。
-     */
     it("UnrecoverableError は初回失敗でも終局", () => {
       const result = isTerminalJobFailure({
         attemptsMade: 1,
@@ -46,10 +38,6 @@ describe("isTerminalJobFailure", () => {
   })
 
   describe("境界値", () => {
-    /**
-     * attemptsMade は failed イベントの発火時点で既に加算済み（1 オリジン）。
-     * `+1` して比較すると最終失敗を 1 回早く終局にしてしまう。
-     */
     it("最終試行の 1 つ前は終局ではない", () => {
       const result = isTerminalJobFailure({
         attemptsMade: 2,

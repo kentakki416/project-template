@@ -1,6 +1,6 @@
 # @repo/events
 
-ユーザー行動イベントの **送出抽象** を提供する共通パッケージ。イベントの型（`EventName` / `TrackEventInput`）と `EventTracker` interface を定義し、実装として Queue 経由の `QueueEventTracker` とテスト用の `FakeEventTracker` を持つ。
+ユーザー行動イベントの **送出抽象** を提供する共通パッケージ。イベントの型（`EventName` / `TrackEventInput`）と `EventTracker` interface を定義し、実装として Queue 経由の `QueueEventTracker`、イベントを捨てる `NoopEventTracker`（worker を動かさない環境用。api の `EVENT_TRACKER_TYPE=none`）、テスト用の `FakeEventTracker` を持つ。
 
 書き込み先（ClickHouse）は knows しない。それは `@repo/data-warehouse` と `apps/worker` の責務。
 
@@ -23,13 +23,17 @@
 ```ts
 /** tracker.ts ── 戻り値が void なのは意図的 */
 export interface EventTracker {
+  flush(): Promise<void>
   track(input: TrackEventInput): void
   trackAll(inputs: TrackEventInput[]): void
 }
 ```
 
+> 💡 **`flush()` は service から呼ばない**
+> 送出中のイベントが終わるまで待つメソッドで、reject しない。レスポンスを返した時点で実行環境が凍結される Lambda で、送出が途中で止まらないようにするためのもの。api の middleware（`FLUSH_EVENTS_BEFORE_RESPONSE=true` のときだけ登録）がレスポンスの直前に待つ。service の「await しない」は変わらない。
+
 > 💡 **なぜ interface を挟むのか**
-> service 層を transport から切り離すため。現状は Queue 経由だが、「アプリケーションログに吐いてログ基盤で ClickHouse に流す」方式へ切り替えても **service 層は無変更**で済む。検討の経緯は [deferred-event-delivery.md](../../docs/spec/user-behavior-events/deferred-event-delivery.md) を参照。
+> service 層を transport から切り離すため。現状は Queue 経由だが、「アプリケーションログに吐いてログ基盤で ClickHouse に流す」方式へ切り替えても **service 層は無変更**で済む。
 
 ## 役割
 
@@ -40,7 +44,7 @@ export interface EventTracker {
 
 ## 重複排除は eventId の採番場所で決まる
 
-配送は BullMQ 経由で **at-least-once** なので、worker が insert 後にクラッシュすると同じイベントが 2 回届く。ClickHouse 側は `ReplacingMergeTree` で `event_id` をキーに畳むが、**それが効くかは採番場所で決まる**。
+配送は BullMQ 経由で **at-least-once** なので、同じイベントが 2 回届くことがある（[`docs/tech-stack/bullmq.md`](../../docs/tech-stack/bullmq.md#同じジョブが-2-回以上実行される)）。ClickHouse 側は `event_id` をキーに畳むが（[`docs/tech-stack/clickhouse/query.md`](../../docs/tech-stack/clickhouse/query.md#events-テーブル)）、**それが効くかは採番場所で決まる**。
 
 | 採番場所 | 再配信時 | 結果 |
 | --- | --- | --- |
@@ -94,7 +98,6 @@ export const deleteMemo = async (id: number, repo: MemoRepo, deps: EventDeps) =>
 
 ## 関連
 
-- [`docs/spec/user-behavior-events/README.md`](../../docs/spec/user-behavior-events/README.md) — 行動イベント基盤の全体設計
 - [`packages/queue/`](../queue) — 配送の抽象（BullMQ）
 - [`packages/data-warehouse/`](../data-warehouse) — 書き込み先の抽象と重複対策の詳細
 - [`apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md) — service 層での送出ルール（`userId` の扱い / optional 認証）

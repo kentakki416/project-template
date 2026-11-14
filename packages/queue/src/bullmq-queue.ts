@@ -67,14 +67,13 @@ export class BullMQJobQueue<T> implements JobQueue<T> {
  * 失敗がもうリトライされない「終局」かを判定する。
  *
  * `attemptsMade` は **`failed` イベントの発火時点で既に加算済み**（1 オリジン）。
- * JobProcessor に渡る `attemptsMade` は初回実行時 0 なので混同しないこと。
  * ここで `+1` すると最終失敗を 1 回早く error にしてしまう。
  *
  * 試行回数だけでは判定できない終局もある。ハンドラが `UnrecoverableError` を
  * 投げた場合、BullMQ は `attempts` の上限を待たず即 failed set に移すため、
  * 回数だけで見ると初回失敗が「リトライされる」に誤判定される。
  */
-export const isTerminalJobFailure = (params: {
+const isTerminalJobFailure = (params: {
   attemptsMade: number
   error: Error
   maxAttempts: number
@@ -154,3 +153,8 @@ export const startBullMQWorker = <T>(
     },
   }
 }
+
+/**
+ * テストからだけ使う
+ */
+export const forTesting = { isTerminalJobFailure }

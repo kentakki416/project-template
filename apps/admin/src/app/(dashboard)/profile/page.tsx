@@ -1,29 +1,24 @@
 import { Metadata } from "next"
 import React from "react"
 
-import UserAddressCard from "@/components/features/user-profile/UserAddressCard"
-import UserInfoCard from "@/components/features/user-profile/UserInfoCard"
-import UserMetaCard from "@/components/features/user-profile/UserMetaCard"
+import AdminProfileCards from "@/components/features/profile/AdminProfileCards"
+import PageBreadcrumb from "@/components/layout/PageBreadCrumb"
+import { adminApi } from "@/features/admin/admin.api"
 
 export const metadata: Metadata = {
-  title: "Next.js Profile | TailAdmin - Next.js Dashboard Template",
-  description:
-    "This is Next.js Profile page for TailAdmin - Next.js Tailwind CSS Admin Dashboard Template",
+  title: "マイページ",
 }
 
-export default function Profile() {
+/**
+ * マイページ。サインイン中の admin の情報を出す
+ */
+export default async function ProfilePage() {
+  const admin = await adminApi.getMe()
+
   return (
     <div>
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3 lg:p-6">
-        <h3 className="mb-5 text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-7">
-          Profile
-        </h3>
-        <div className="space-y-6">
-          <UserMetaCard />
-          <UserInfoCard />
-          <UserAddressCard />
-        </div>
-      </div>
+      <PageBreadcrumb pageTitle="マイページ" />
+      <AdminProfileCards admin={admin} />
     </div>
   )
 }

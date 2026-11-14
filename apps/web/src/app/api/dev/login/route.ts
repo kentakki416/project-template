@@ -9,7 +9,7 @@ const API_BASE_URL = env.API_URL
 
 /**
  * dev-login で使えるショートネーム → email のマッピング
- * apps/api/src/prisma/seed.ts の dev ユーザーと一致させる
+ * packages/db/drizzle/seed.ts の dev ユーザーと一致させる
  */
 const DEV_USERS: Record<string, string> = {
   alice: "alice@dev.local",
@@ -22,9 +22,6 @@ const DEV_USERS: Record<string, string> = {
  * 使い方:
  *   GET /api/dev/login?as=alice → alice@dev.local で API の dev-login を叩いて
  *   Access/Refresh Token を Cookie に保存して / にリダイレクトする
- *
- * Server Component から cookies().set() できない制約があるため Route Handler
- * として実装している。production では 404 を返す。
  *
  * 配置方針: route handler は例外なく `app/api/*` 配下に置く（dev 専用も含む）。
  *

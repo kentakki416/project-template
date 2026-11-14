@@ -10,6 +10,7 @@
 - [アサーションの書き方](#アサーションの書き方)
 - [テストの耐久性（文言に依存しない）](#テストの耐久性文言に依存しない)
 - [境界値テスト](#境界値テスト)
+- [テストのためだけの export](#テストのためだけの-export)
 - [関連ドキュメント](#関連ドキュメント)
 
 ## レイヤー別のテスト種別
@@ -18,7 +19,7 @@
 |---|---|---|---|
 | **Service** | ユニットテスト | `apps/api/test/service/` | DB 不要。`vi.fn()` で Repository をモック。高速・並列 |
 | **Controller** | 統合テスト | `apps/api/test/controller/` | 自前インフラ（Postgres / Redis）は**本物**、`supertest` で HTTP から検証 |
-| **Repository**（DB） | 契約テスト | `apps/api/test/repository/` | Postgres は**本物**。Drizzle / Prisma の両実装を `describe.each` で同じケースにかけ、振る舞いが揃っていることを検証 |
+| **Repository**（DB） | 統合テスト | `apps/api/test/repository/` | Postgres は**本物**。SQL・型変換・制約違反を実 DB で検証 |
 | cron / worker | ユニットテスト | 各 `test/` | DB client / Redis を mock（DB / Redis 不要） |
 
 - **Service ユニットテスト**は「何が起きたか（呼び出し・戻り値）」を検証する責務。
@@ -123,6 +124,30 @@ await testDb.insert(transactions).values([
 const res = await request(app).get("/api/transactions").query({ month: 3, year: 2026 })
 expect(res.body.transactions).toHaveLength(2)
 ```
+
+## テストのためだけの export
+
+テストから直接呼びたい内部の関数・定数は、個別に `export` せず、**ファイル末尾の `forTesting` にまとめる**。export している側でも import している側でも、テスト用だとすぐ分かるようにするため。
+
+```typescript
+/** src/bullmq-queue.ts */
+const isTerminalJobFailure = (params: { ... }): boolean => ...  // export しない
+
+/**
+ * テストからだけ使う
+ */
+export const forTesting = { isTerminalJobFailure }
+```
+
+```typescript
+/** test/is-terminal-job-failure.test.ts */
+import { forTesting } from "../src/bullmq-queue"
+
+const { isTerminalJobFailure } = forTesting
+```
+
+- テスト以外のコードから `forTesting` を import・参照すると lint エラーになる（`packages/eslint-config/test-only-exports.js`）
+- `forTesting` を持つファイルは、`index.ts` で `export *` せず名前を列挙して re-export する。`export *` だとパッケージの公開 API に漏れ、同じ index で 2 つ以上あると TS2308 で衝突する（lint では検出できない）
 
 ## 関連ドキュメント
 

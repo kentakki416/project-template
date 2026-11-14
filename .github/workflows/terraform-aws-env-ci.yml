@@ -2,18 +2,14 @@ name: Terraform AWS Env CI
 # infra/terraform/aws/env/* 配下の HCL に対して fmt / validate / tflint / trivy / plan を実施。
 # account 層は別ワークフロー (terraform-aws-account-ci.yml) で扱う。
 #
-# TODO: 現在はdev環境のみ対象。環境が増えたらmatrix strategyで全環境(dev/prd)に対して実行すること
-# 例:
-#   strategy:
-#     matrix:
-#       environment: [dev, prd]
-#   env:
-#     WORKING_DIR: infra/terraform/aws/env/${{ matrix.environment }}
+# validate / trivy / plan は matrix で env ごとに実行する（dev / min）。
+# TODO: prd も CI で plan するときは matrix に prd を足すこと
 
 on:
   pull_request:
     paths:
       - 'infra/terraform/**'
+      - 'infra/clickhouse/cdc-tables.json' # ClickPipe の同期対象として Terraform が読む
       - '.github/workflows/terraform-aws-env-ci.yml'
   push:
     branches:
@@ -21,6 +17,7 @@ on:
       - develop
     paths:
       - 'infra/terraform/**'
+      - 'infra/clickhouse/cdc-tables.json'
       - '.github/workflows/terraform-aws-env-ci.yml'
   workflow_dispatch:
 
@@ -40,7 +37,6 @@ env:
   TERRAFORM_VERSION: '1.12'
   TFLINT_VERSION: 'v0.55.1'
   TRIVY_VERSION: '0.59.1'
-  WORKING_DIR: infra/terraform/aws/env/dev
 
 jobs:
   fmt:
@@ -61,9 +57,15 @@ jobs:
         working-directory: infra/terraform/aws
 
   validate:
-    name: Terraform Validate
+    name: Terraform Validate (${{ matrix.environment }})
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, min]
+    env:
+      WORKING_DIR: infra/terraform/aws/env/${{ matrix.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -86,7 +88,7 @@ jobs:
     name: TFLint
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # TODO: prd環境が増えたら、matrix strategy に従い、${{ matrix.environment }} に変更すること
+    # aws/ 配下を --recursive で 1 回だけ検査する（env/min も含まれる）ため matrix にしない。
     # deep_check=true（.tflint.hcl）による AWS API 問い合わせに OIDC credentials が必要なため
     # environment 経由で env-scope の AWS_ROLE_ARN を引く
     environment: dev
@@ -110,7 +112,6 @@ jobs:
 
       - name: Init TFLint plugins
         env:
-          # GITHUB_TOKEN は GitHub Actions が自動で発行する組み込みトークン
           # tflint --init が内部で GitHub Releases API を叩くため、レート制限回避用に渡す
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: tflint --init --config="$(pwd)/.tflint.hcl"
@@ -121,38 +122,47 @@ jobs:
         working-directory: infra/terraform
 
   trivy:
-    name: Trivy Security Scan
+    name: Trivy Security Scan (${{ matrix.environment }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, min]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # scan-ref / trivy-config / trivyignores のパスは dev 環境のみ対象のためハードコード
-      # TODO: prd環境が増えたら、matrix strategy に従い、aws/env/${{ matrix.environment }} に変更すること
       - name: Run Trivy
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: config
-          scan-ref: infra/terraform/aws/env/dev
-          trivy-config: infra/terraform/aws/env/dev/.trivy.yml
-          trivyignores: infra/terraform/aws/env/dev/.trivyignore
+          scan-ref: infra/terraform/aws/env/${{ matrix.environment }}
+          trivy-config: infra/terraform/aws/env/${{ matrix.environment }}/.trivy.yml
+          trivyignores: infra/terraform/aws/env/${{ matrix.environment }}/.trivyignore
 
 
   plan:
-    name: Terraform Plan
+    name: Terraform Plan (${{ matrix.environment }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [fmt, validate, tflint, trivy]
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, min]
     # PR: 自動 plan + PR コメント投稿。workflow_dispatch: 手動 plan-only（apply 前の事前確認用）。
     # main / develop への push では plan を走らせない（コメント先が無く、apply は terraform-aws-env-apply.yml で別管理）
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    # TODO: prd環境が増えたら、matrix strategy に従い、${{ matrix.environment }} に変更すること
-    environment: dev # GitHub Environments で AWS_ROLE_ARN を環境ごとに分離
+    # GitHub Environments で AWS_ROLE_ARN を環境ごとに分離する。
+    # min は deploy 用 (min) と terraform 用 (min-terraform) で role を分けているため、terraform 用を使う
+    environment: ${{ matrix.environment == 'min' && 'min-terraform' || matrix.environment }}
     permissions:
       id-token: write       # OIDC
       contents: read
       pull-requests: write  # plan 結果を PR コメントに投稿するため
+    env:
+      WORKING_DIR: infra/terraform/aws/env/${{ matrix.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -176,9 +186,14 @@ jobs:
       # continue-on-error で後続のコメント投稿まで必ず到達させ、最後のステップで失敗を再現する。
       # Pattern A 採用のため tfplan バイナリは保存せず、出力テキストのみ tee で tfplan.txt に保管する。
       # apply は terraform-aws-env-apply.yml 側で plan を再生成してから適用するため、ここでは plan を保持しない。
+      # CLICKHOUSE_* は enable_data_warehouse = true の環境の GitHub Environment にだけ置く（ClickHouse のリソースの refresh に要る。false に戻す apply が終わるまでは消さない）
       - name: Terraform Plan
         id: plan
         continue-on-error: true
+        env:
+          TF_VAR_clickhouse_org_id: ${{ secrets.CLICKHOUSE_ORG_ID }}
+          TF_VAR_clickhouse_token_key: ${{ secrets.CLICKHOUSE_TOKEN_KEY }}
+          TF_VAR_clickhouse_token_secret: ${{ secrets.CLICKHOUSE_TOKEN_SECRET }}
         run: |
           set +e
           set -o pipefail
@@ -208,16 +223,17 @@ jobs:
           EXITCODE: ${{ steps.plan.outputs.exitcode }}
           SUMMARY: ${{ steps.summary.outputs.summary }}
           PLAN_PATH: ${{ env.WORKING_DIR }}/tfplan.txt
-          ENVIRONMENT_NAME: dev
+          ENVIRONMENT_NAME: ${{ matrix.environment }}
         with:
           script: |
             const fs = require('fs')
 
-            const marker = '<!-- terraform-plan-comment -->'
+            const envName = process.env.ENVIRONMENT_NAME
+            // env ごとに別コメントにする（matrix の各 job が互いのコメントを上書きしないため）
+            const marker = `<!-- terraform-plan-comment:${envName} -->`
             const exitcode = process.env.EXITCODE
             const summary = process.env.SUMMARY || '(summary unavailable)'
             const planPath = process.env.PLAN_PATH
-            const envName = process.env.ENVIRONMENT_NAME
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
 
             // 失敗時も plan 出力 (tee で tfplan.txt に保存済み) を読んでコメントに含める。

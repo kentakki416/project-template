@@ -23,6 +23,7 @@ const mockAuthAccountCreate = vi.fn<(
 const mockAuthAccountRepository: AuthAccountRepository = {
   create: mockAuthAccountCreate as never,
   findByProvider: mockFindByProvider,
+  findByUserId: vi.fn(),
 }
 
 const mockUserCreate = vi.fn<(
@@ -33,6 +34,7 @@ const mockUserRepository: UserRepository = {
   create: mockUserCreate,
   findByEmail: vi.fn(),
   findById: vi.fn(),
+  search: vi.fn(),
 }
 
 const mockRefreshTokenSave = vi.fn<(_0: string, _1: number, _2: number) => Promise<void>>()
@@ -73,6 +75,7 @@ describe("authenticateWithGoogle", () => {
   it("既存ユーザーの場合、isNewUser=false で Access/Refresh Token を発行する", async () => {
     const mockGoogleUser: GoogleUserInfo = {
       email: "test@example.com",
+      emailVerified: true,
       id: "google-123",
       name: "Test User",
       picture: "https://example.com/avatar.jpg",
@@ -127,6 +130,7 @@ describe("authenticateWithGoogle", () => {
   it("新規ユーザーの場合、tx 内で User + AuthAccount を作成し Access/Refresh Token を発行する", async () => {
     const mockGoogleUser: GoogleUserInfo = {
       email: "newuser@example.com",
+      emailVerified: true,
       id: "google-456",
       name: "New User",
       picture: "https://example.com/new-avatar.jpg",
@@ -163,7 +167,6 @@ describe("authenticateWithGoogle", () => {
       })
     }
     expect(mockTransactionRunner.run).toHaveBeenCalledTimes(1)
-    /** fake runner は tx として undefined を渡すので、第2引数は undefined */
     expect(mockUserCreate).toHaveBeenCalledWith(
       {
         avatarUrl: "https://example.com/new-avatar.jpg",

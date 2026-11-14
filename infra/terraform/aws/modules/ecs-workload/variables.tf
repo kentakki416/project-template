@@ -78,6 +78,12 @@ variable "secret_keys" {
   default     = []
 }
 
+variable "additional_secrets" {
+  description = "secrets_arn 以外の secret から注入する値。環境変数名 → valueFrom (<secret の ARN>:<キー>::)"
+  type        = map(string)
+  default     = {}
+}
+
 variable "task_role_arn" {
   description = "task 内アプリが AWS API を呼ぶときの role ARN。null なら execution_role_arn と同じ"
   type        = string
@@ -106,6 +112,12 @@ variable "assign_public_ip" {
   default     = false
 }
 
+variable "capacity_provider" {
+  description = "service を起動する capacity provider (例: FARGATE_SPOT)。null なら launch_type = FARGATE で起動する。cluster 側で関連付けておくこと (ecs-cluster の capacity_providers)"
+  type        = string
+  default     = null
+}
+
 variable "log_retention_in_days" {
   description = "CloudWatch Logs 保持日数"
   type        = number
@@ -129,8 +141,7 @@ variable "target_group_arn" {
 #   - SSM パラメータ (deploy approval)
 #   - Lambda function (POST_TEST_TRAFFIC_SHIFT 時に承認待機)
 #   - IAM roles: lambda 実行 / ECS lifecycle hook / ECS ALB service role
-# 詳細は docs/spec/aws-deploy/step6-terraform-alb-https.md と
-# modules/ecs-workload/lambda/deployment_hook.mjs を参照。
+# 詳細は modules/ecs-workload/lambda/deployment_hook.mjs を参照。
 
 variable "enable_blue_green" {
   description = "true で ECS Blue/Green デプロイメントを有効化"

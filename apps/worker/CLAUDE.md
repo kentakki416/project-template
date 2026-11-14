@@ -28,7 +28,7 @@ pnpm test   # Vitest（DB / Redis を mock するので DB / Redis 不要）
 
 - **`jobs/<name>.ts`**: 純粋関数（`(deps) => JobProcessor<T>` の factory）。**BullMQ や ioredis を直接 import しない**
 - **`workers/<name>-worker.ts`**: Queue 実装とジョブハンドラを結線するだけ。Queue 実装を切り替えるときの唯一の差分対象
-- **`repository/`**: interface は `repository/<name>.ts`、DB の実装は `repository/drizzle/`（DI で使う）と `repository/prisma/`（切り替え先）。interface の引数・戻り値は `@repo/domain` の型にする。Drizzle / Prisma の型は実装クラスの内側に閉じる（`@repo/eslint-config/db-boundary` が lint で強制。限界は `packages/eslint-config/README.md`）
+- **`repository/`**: interface は `repository/<name>.ts`、DB の実装は `repository/drizzle/`。interface の引数・戻り値は `@repo/domain` の型にする。Drizzle の型は実装クラスの内側に閉じる（`@repo/eslint-config/db-boundary` が lint で強制。限界は `packages/eslint-config/README.md`）
 - **`src/index.ts`**: 接続生成 → Repository インスタンス化 → Worker 起動 → graceful shutdown 登録。**どのデータウェアハウスを使うかを決めるのはここだけ**（`createDataWarehouse({ type: "clickhouse", ... })`）
 
 Repository の interface は api / cron と意図的に分離する（各 app が必要な操作だけを持つ。共有すると不要なメソッドが漏れる）。一方ドメイン型は `@repo/domain` で共有する。
@@ -62,10 +62,11 @@ BullMQ の stalled 検出 / リトライ / ECS deploy 時の SIGKILL で **同�
 ### データウェアハウスを持たない環境
 
 `DATA_WAREHOUSE_TYPE=none` にすると `NoopDataWarehouse` が DI され、行動イベントの
-insert がスキップされる（ジョブは成功扱いで completed になる）。**dev はこの設定**で、
-分析価値の無い環境のために ClickHouse を常駐させないための逃げ道。
+insert がスキップされる（ジョブは成功扱いで completed になる）。AWS では Terraform の
+`enable_data_warehouse = false` の環境（既定は dev / min）がこの設定になる。分析価値の無い環境の
+ために ClickHouse を持たないための逃げ道。
 
-**本番で `none` にしてはいけない。** 呼び出し側から見ると insert は成功するので、
+**イベントを記録する環境で `none` にしてはいけない。** 呼び出し側から見ると insert は成功するので、
 設定を間違えるとイベントが無言で消える。気付けるように insert のたびに
 `data warehouse is disabled, skipped insert` を debug ログに出している。
 

@@ -22,18 +22,12 @@ import { startTrackEventWorker } from "./workers/track-event-worker"
  *   4. ここで `startXxxWorker(...)` を呼んで `consumers` に push
  */
 const main = (): void => {
-  /**
-   * DB は Drizzle 実装を使う（Prisma 実装も repository/prisma に残してあり、ここを差し替えれば切り替えられる）
-   */
   const db = createDrizzleClient({
     onError: (error) => {
       logger.error("db idle client error", error)
     },
     url: env.DATABASE_URL,
   })
-  /**
-   * BullMQ Worker は `maxRetriesPerRequest: null` の Redis 接続が必須 (BullMQ 5.x 要件)
-   */
   const redis = createRedisClient({
     onError: (error) => {
       logger.error("redis connection error", error)
@@ -45,9 +39,6 @@ const main = (): void => {
   /**
    * どのデータウェアハウスを使うかを決めるのはここだけ。
    * Repository 以降は DataWarehouse 抽象にしか依存しない。
-   *
-   * `none` は何も書かない実装になる。ClickHouse をホスティングしない環境
-   * （dev 等）のための選択肢で、env.ts 側で URL の必須判定も外れる。
    */
   const dataWarehouse = env.DATA_WAREHOUSE_TYPE === "none"
     ? createDataWarehouse({ type: "none" })

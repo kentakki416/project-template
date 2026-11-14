@@ -54,8 +54,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile # pnpm-lock.yamlを固定
 
-      # 判定ロジックは scripts/ci-turbo-scope.sh 参照。
+      # 判定ロジックは scripts/ci/turbo-scope.sh 参照。
       - name: Run lint on changed packages
-        run: scripts/ci-turbo-scope.sh lint
+        run: scripts/ci/turbo-scope.sh lint
         env:
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}

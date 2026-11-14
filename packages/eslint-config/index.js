@@ -9,7 +9,6 @@
  *   module.exports = [...baseConfig, { ignores: ["generated/**"] }]
  *
  * 全プロジェクト共通のルールは ./common-rules.js に集約してある。
- * apps/* の eslint.config.* からも同じルールを spread することで一元管理する。
  */
 const { defineConfig } = require("eslint/config")
 const typescriptEslint = require("@typescript-eslint/eslint-plugin")
@@ -17,6 +16,7 @@ const typescriptParser = require("@typescript-eslint/parser")
 const importPlugin = require("eslint-plugin-import")
 
 const { commonPlugins, commonRules } = require("./common-rules")
+const testOnlyExports = require("./test-only-exports")
 
 module.exports = defineConfig([
   {
@@ -44,6 +44,7 @@ module.exports = defineConfig([
     },
     rules: commonRules,
   },
+  ...testOnlyExports,
   {
     ignores: ["node_modules/**", "dist/**"],
   },

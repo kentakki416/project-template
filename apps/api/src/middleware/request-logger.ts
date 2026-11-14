@@ -6,6 +6,7 @@ import { logger, logContext } from "@repo/logger"
 
 import { LOG_EXCLUDE_PATHS } from "../const"
 
+import type { AdminAuthRequest } from "./admin-auth"
 import type { AuthRequest } from "./auth"
 
 /**
@@ -13,7 +14,6 @@ import type { AuthRequest } from "./auth"
  * - 受信時 / 完了時 / 異常切断時の 3 イベントを info / warn で記録する
  * - ステータスコードによる level 分岐はしない（エラー詳細は出さず status / latency / path のみ）
  * - エラーの内容ログは sendError ヘルパ（業務 4xx）と unhandled-exception-handler（想定外例外）の責務
- * - requestId を AsyncLocalStorage に積み、同一リクエストの全ログに自動付与する
  */
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
   /**
@@ -51,6 +51,10 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
     res.on("finish", () => {
       const duration = Date.now() - startTime
       logger.info("API Request Completed", {
+        /**
+         * admin の認証（adminAuthMiddleware）はこのミドルウェアより後に動くので、終わった時点で読む
+         */
+        adminId: (req as AdminAuthRequest).adminId,
         duration,
         method: req.method,
         path: req.path,

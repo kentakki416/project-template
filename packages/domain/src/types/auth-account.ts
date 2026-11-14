@@ -1,3 +1,4 @@
+import { AuthProvider } from "./auth-provider"
 import { User } from "./user"
 
 /**
@@ -9,10 +10,7 @@ import { User } from "./user"
 export type AuthAccount = {
   createdAt: Date
   id: number
-  /**
-     * "google" | "github" | "credentials" など
-     */
-  provider: string
+  provider: AuthProvider
   /**
      * プロバイダー側のユーザー ID
      */

@@ -5,6 +5,7 @@ const tailwindcss = require("eslint-plugin-tailwindcss")
 
 const { commonNamingConvention, commonPlugins, commonRules } = require("@repo/eslint-config/common-rules")
 const frontendBoundary = require("@repo/eslint-config/frontend-boundary")
+const testOnlyExports = require("@repo/eslint-config/test-only-exports")
 
 /**
  * mobile では Expo Router の `unstable_*` 変数を許容するため、
@@ -45,7 +46,7 @@ module.exports = defineConfig([
     rules: {
       ...commonRules,
 
-      /** TypeScript: 命名規則（mobile 固有: Expo Router の unstable_ を除外） */
+      /** TypeScript: 命名規則 */
       "@typescript-eslint/naming-convention": ["error", ...mobileNamingConvention],
 
       /** React: JSX インデント */
@@ -65,11 +66,8 @@ module.exports = defineConfig([
       "tailwindcss/no-custom-classname": "error",
     },
   },
-  /**
-   * フロントが import してよい @repo パッケージの制限。
-   * 詳細は packages/eslint-config/frontend-boundary.js を参照。
-   */
   ...frontendBoundary,
+  ...testOnlyExports,
   /**
    * `EXPO_PUBLIC_*` の参照は src/env.ts に閉じる。
    *

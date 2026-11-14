@@ -18,13 +18,13 @@ Turborepo + pnpm モノレポ。
 ### Packages
 
 - **packages/schema**: Shared Zod schemas (`@repo/api-schema`)
-- **packages/db**: DB スキーマ / マイグレーション / client factory (`@repo/db`)。**Drizzle と Prisma を併存**させ、マイグレーションと DI は Drizzle（`createDrizzleClient`）、Prisma（`createPrismaClient`）は repository 実装の切り替え先として残す（`packages/db/README.md` 参照）
+- **packages/db**: DB スキーマ / マイグレーション / client factory (`@repo/db`)。ORM は Drizzle（`createDrizzleClient`）（`packages/db/README.md` 参照）
 - **packages/logger**: `ILogger` + pino/winston/console/silent + AsyncLocalStorage context (`@repo/logger`)
 - **packages/errors**: `Result<T>` + `ApiError` + 業務エラー生成ヘルパ (`@repo/errors`)
 - **packages/redis**: `createRedisClient` factory（BullMQ / Pub/Sub 対応）(`@repo/redis`)
 - **packages/queue**: Queue 抽象 (`JobQueue<T>` / `JobProcessor<T>` / `JobConsumer`) + BullMQ 実装 (`@repo/queue`)。ハンドラ側は実装を知らないため、SQS / Cloud Tasks 等への差し替えが可能
-- **packages/domain**: api / cron / worker が共有するドメイン型 (`@repo/domain`)。型・定数・純粋関数のみ・依存ゼロ。**Repository interface と Drizzle / Prisma の型は置かない**。enum 的な値の集合はここが SSOT で、api-schema は `z.enum` をここの定数から作り、DB は Drizzle のスキーマでここの定数から `CHECK` 制約を作る（`packages/domain/README.md` 参照）
-- **packages/data-warehouse**: `DataWarehouse` 抽象 + ClickHouse 実装 + `createDataWarehouse` factory (`@repo/data-warehouse`)。分析イベントの書き込み先
+- **packages/domain**: api / cron / worker が共有するドメイン型 (`@repo/domain`)。型・定数・純粋関数のみ・依存ゼロ。**Repository interface と Drizzle の型は置かない**。enum 的な値の集合はここが SSOT で、api-schema は `z.enum` をここの定数から作り、DB は Drizzle のスキーマでここの定数から `CHECK` 制約を作る（`packages/domain/README.md` 参照）
+- **packages/data-warehouse**: `DataWarehouse` 抽象 + ClickHouse 実装 + `createDataWarehouse` factory (`@repo/data-warehouse`)。分析イベントの書き込み先。ClickHouse の DDL（版管理する migration / CDC の view）と migration コマンドは `clickhouse/` に置き、ライブラリの build には含めない（採用理由・CDC・migration の書き方は `docs/tech-stack/clickhouse/`）
 - **packages/events**: 行動イベントの型定義 + `EventTracker` 抽象 + Queue 実装 (`@repo/events`)。送出は fire-and-forget で、失敗を呼び出し元に伝播させない
 - **packages/storage**: `createStorage` factory + local / S3 実装 (`@repo/storage`)
 - **packages/eslint-config** / **packages/typescript-config**: 共有 lint / tsconfig
@@ -45,12 +45,12 @@ Turborepo + pnpm モノレポ。
 - Web → `apps/web/CLAUDE.md`
 - Admin → `apps/admin/CLAUDE.md`
 - Mobile → `apps/mobile/CLAUDE.md`
-- Cron → `apps/cron/CLAUDE.md`（task / repository 構造 / env 検証 / graceful shutdown / Docker / 本番起動想定）
+- Cron → `apps/cron/CLAUDE.md`（task / repository 構造 / env 検証 / runTask と終了コード / Docker / 本番起動想定）
 - Worker → `apps/worker/CLAUDE.md`（Queue 抽象 / BullMQ → 他実装への切り替え方 / 新 Queue の追加手順 / 冪等性）
 - スキーマ → `packages/schema/CLAUDE.md`（スキーマ命名規則）
 - Terraform → `infra/terraform/CLAUDE.md`
 
-アーキテクチャ・規約のトピック別まとめは [`docs/onboarding/`](docs/onboarding/README.md)（人間向けキャッチアップ。正典は各 `CLAUDE.md`）。
+アーキテクチャ・規約のトピック別まとめは [`docs/onboarding/`](docs/onboarding/README.md)（人間向けキャッチアップ。正典は各 `CLAUDE.md`）。Drizzle / ClickHouse / BullMQ などの採用理由と挙動は [`docs/tech-stack/`](docs/tech-stack/README.md)。
 
 ## Common Commands (root)
 
@@ -66,7 +66,7 @@ pnpm test         # テスト
 
 ## Code Style
 
-ESLint v9 flat config。**ファイル変更後は `pnpm lint:fix` を実行する。** ルールの実体は `packages/eslint-config/`。セミコロン / クォート / インデント / import 順 / 命名（case）/ クラスメンバーの修飾子と `_` プレフィックス / `@repo/db`（Drizzle / Prisma）と `@repo/*` の import 境界は**すべて lint が強制する**ので、ここには列挙しない。
+ESLint v9 flat config。**ファイル変更後は `pnpm lint:fix` を実行し、コミットの前に `coding-style` skill で lint が見ない規約（以下）を差分に対して見直す。** ルールの実体は `packages/eslint-config/`。セミコロン / クォート / インデント / import 順 / 命名（case）/ クラスメンバーの修飾子と `_` プレフィックス / `@repo/db`（Drizzle）と `@repo/*` の import 境界は**すべて lint が強制する**ので、ここには列挙しない。
 
 lint で強制できていない規約は以下。
 
@@ -78,8 +78,15 @@ lint で強制できていない規約は以下。
 - **バレルエクスポート（index.ts）はファイル名順**
 - **React JSX props**: callbacks last, shorthand first, reserved first
 - **Function style**: api / cron / worker は `const` + アロー関数、web / admin / mobile のコンポーネントは `function`
+- **コメントに書くのは「名前と型から読めない挙動」か「なぜその選択にしたか（採らなかった案・外部の制約）」だけ**。書きたくなったら、先に名前で表せないか考える
+  - 名前の言い換え・呼び出し元や置き場所・変更の経緯（コミット / PR に書く）はコメントにしない
+  - 同じ制約・理由は、その制約を持つ定義の側に 1 か所だけ書く。呼び出し側では繰り返さない
+  - 内部関数が外側の変数を読み書きするときは、その挙動（何度呼んでも 1 回しか動かない など）を 1 行で書く。引数と戻り値に出ないため
 - **ブロックコメントは `/** */`**（`//` は使わない）。1 行の内容でも複数行形式で書く
 - **web / admin で server 側の処理（API 呼び出し・env 参照）を書くモジュールは先頭に `import "server-only"` を置く**。client component から import されたらビルドが落ちるようにするため（lint では検出できない）
+- **テストのためだけに export する関数・定数は、ファイル末尾の `export const forTesting = { ... }` にまとめる**。個別に `export` しない。テスト側は `const { xxx } = forTesting` で取り出す
+  - `forTesting` を持つファイルを `index.ts` で `export *` しない（名前を列挙して re-export する）。`export *` だと公開 API に漏れ、同じ index で 2 つ以上あると TS2308 で衝突する
+  - テスト以外から `forTesting` を使うと lint エラーになる（`packages/eslint-config/test-only-exports.js`）
 
 lint 設定自体を触るときの注意:
 
@@ -89,7 +96,7 @@ lint 設定自体を触るときの注意:
 
 ## Documentation Guidelines
 
-- 仕様書・設計書は `docs/spec/{feature}/` に置き、**実装前に必ず `design-feature` skill で作成する**（構成・テンプレート・step の書き方は同 skill が持つ）。デザインモックは `design-mock` skill
+- 仕様書・設計書は **main には置かず、`kentakki416` ブランチの `docs/kentakki416/tasks/{feature}/` にだけ置く**（main に merge しないブランチ。読むときは `git fetch origin kentakki416` してから `git show origin/kentakki416:docs/kentakki416/tasks/...`）。**コードのコメントや main のドキュメントから、設計書へのリンク・パスを書かない**（設計書が変わったときに更新漏れが起きるため。辿り方はルートの `README.md` に 1 か所だけ書いてある）。**実装前に必ず `design-feature` skill で作成する**（構成・テンプレート・step の書き方は同 skill が持つ）。デザインモックは `design-mock` skill
 - ドキュメントは日本語で書く
 - **図は Mermaid で書く**（フロー図 / シーケンス図 / ER 図 / 状態遷移図）。ASCII アートは使わない
 

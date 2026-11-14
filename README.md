@@ -3,7 +3,26 @@
 
 Turborepo + pnpm モノレポのフルスタックアプリケーションテンプレート。
 
-Web / Admin / Mobile のフロントエンド、Express の API、定期実行タスク（cron）、常駐 worker と、それらが共有する DB / ロガー / エラー型 / キュー / 分析イベント基盤を最初から揃えています。AWS（ECS Fargate）へのデプロイ用 Terraform と GitHub Actions も含まれます。
+### 特徴
+以下の機能がテンプレートとして含まれています
+
+#### apps(service)
+1. Web / Admin / Mobile のフロントエンド
+2. ExpressのAPI
+3. 定期実行タスク(cron)
+4. 常駐 worker
+
+#### packages（共通機能）
+1. DB
+2. ロガー
+3. エラーハンドリング
+4. キュー
+5. 分析イベント基盤
+
+#### infra / cicd
+1. AWS (ECS Fargate)へのデプロイ基盤
+
+## このテンプレートの使い方
 
 - **このテンプレートから新しいプロジェクトを作る** → [新規プロジェクトを作る](#新規プロジェクトを作る)
 - **既存プロジェクトの開発に参加する** → [ローカル開発を始める](#ローカル開発を始める) → [ドキュメント案内](#ドキュメント案内)
@@ -24,6 +43,7 @@ Web / Admin / Mobile のフロントエンド、Express の API、定期実行�
   - [技術スタック](#技術スタック)
 - [ドキュメント案内](#ドキュメント案内)
   - [アーキテクチャと規約（まずここから）](#アーキテクチャと規約まずここから)
+  - [技術スタックの採用理由と挙動](#技術スタックの採用理由と挙動)
   - [セットアップ・運用](#セットアップ運用)
   - [各 app](#各-app)
   - [仕様・設計](#仕様設計)
@@ -38,13 +58,13 @@ Web / Admin / Mobile のフロントエンド、Express の API、定期実行�
 
 ```bash
 # プロジェクト名を指定する
-./scripts/copy-template.sh ../my-new-app my-new-app
+./scripts/setup/copy-template.sh ../my-new-app my-new-app
 
 # プロジェクト名を省略すると、コピー先のディレクトリ名が使われる
-./scripts/copy-template.sh ~/workspace/my-new-app
+./scripts/setup/copy-template.sh ~/workspace/my-new-app
 ```
 
-`.git` / `node_modules` / ビルド成果物 / `.env.keys`（各 app の symlink を含む）を除いてコピーし、ルート `package.json` の `name` を置換します。
+git 管理のファイルのうちコミット済みの内容（HEAD）だけを、`.env.keys`（各 app の symlink）/ `pnpm-lock.yaml` / `.serena` を除いてコピーし、ルート `package.json` の `name` を置換します。コミットしていない変更はコピーされません。
 
 ### 2. プロジェクト名を置き換える
 
@@ -104,12 +124,12 @@ pnpm install
 # 3. Postgres / Redis / ClickHouse を起動する
 docker compose up -d
 
-# 4. Prisma Client を生成し、Drizzle の migration を適用する
-pnpm --filter @repo/db prisma:generate
+# 4. Drizzle の migration を適用する
 pnpm --filter api db:migrate
 
-# 5. ClickHouse に CDC の view を作る（テーブルが migrate で作られた後にしか作れないため）
-docker exec project-template-clickhouse bash /docker-entrypoint-initdb.d/03-postgres-cdc-views.sh
+# 5. ClickHouse の migration を適用する（events テーブル）
+#    Postgres からの CDC は既定では作らない（docs/tech-stack/clickhouse/cdc.md の「ローカルの CDC」）
+pnpm --filter @repo/data-warehouse dwh:migrate
 
 # 6. 全アプリを起動する
 pnpm dev
@@ -156,7 +176,7 @@ graph TB
     subgraph Packages
         Schema["schema<br/>Zod スキーマ"]
         Domain["domain<br/>共有ドメイン型"]
-        DB["db<br/>Drizzle / Prisma"]
+        DB["db<br/>Drizzle"]
         Logger["logger"]
         Errors["errors<br/>Result&lt;T&gt;"]
         RedisPkg["redis"]
@@ -206,17 +226,19 @@ graph TB
 |---|---|
 | [packages/schema](packages/schema/README.md) | API のリクエスト / レスポンスの Zod スキーマ（`@repo/api-schema`）。フロントと API で共有する |
 | [packages/domain](packages/domain/README.md) | api / cron / worker が共有するドメイン型と純粋関数 |
-| [packages/db](packages/db/README.md) | DB スキーマ / migration / client factory。Drizzle を使い、Prisma は repository 実装の切り替え先として併存 |
+| [packages/db](packages/db/README.md) | DB スキーマ / migration / client factory（Drizzle） |
 | [packages/logger](packages/logger/README.md) | `ILogger` と pino / winston / console / silent 実装 |
 | [packages/errors](packages/errors/README.md) | `Result<T>` / `ApiError` / 業務エラー生成ヘルパ |
 | [packages/redis](packages/redis/README.md) | `createRedisClient` |
 | [packages/queue](packages/queue/README.md) | `JobQueue` / `JobConsumer` の抽象と BullMQ 実装 |
 | [packages/events](packages/events/README.md) | 行動イベントの型と `EventTracker`（fire-and-forget で送出） |
-| [packages/data-warehouse](packages/data-warehouse/README.md) | `DataWarehouse` 抽象と ClickHouse 実装 |
+| [packages/data-warehouse](packages/data-warehouse/README.md) | `DataWarehouse` 抽象と ClickHouse 実装。ClickHouse のテーブル・view の migration |
 | [packages/storage](packages/storage/README.md) | `createStorage` と local / S3 実装 |
 | [packages/eslint-config](packages/eslint-config/README.md) / [packages/typescript-config](packages/typescript-config/README.md) | 共有 lint / tsconfig |
 
 ### 技術スタック
+
+採用した理由と、使うときに知っておくべき挙動は [docs/tech-stack/](docs/tech-stack/README.md) にまとめています（今は Drizzle / ClickHouse / BullMQ）。
 
 #### モノレポ・ビルド
 ![Turborepo](https://img.shields.io/badge/Turborepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)
@@ -226,7 +248,6 @@ graph TB
 ![Express](https://img.shields.io/badge/Express%205-000000?style=for-the-badge&logo=express&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![Drizzle](https://img.shields.io/badge/Drizzle%201.0-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black)
-![Prisma](https://img.shields.io/badge/Prisma%207-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
 ![Zod](https://img.shields.io/badge/Zod-3E67B1?style=for-the-badge&logo=zod&logoColor=white)
 ![BullMQ](https://img.shields.io/badge/BullMQ-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 
@@ -275,7 +296,17 @@ graph TB
 | [naming.md](docs/onboarding/naming.md) | ファイル名 / 変数名 / 関数名の命名規則 |
 | [error-handling.md](docs/onboarding/error-handling.md) | エラーハンドリング（`Result<T>` / 業務エラーと想定外エラー） |
 | [testing.md](docs/onboarding/testing.md) | テスト戦略 / 正常系・異常系の分類 / モック方針 |
-| [auth.md](docs/onboarding/auth.md) | 認証（JWT / httpOnly cookie / middleware ガード） |
+| [auth.md](docs/onboarding/auth.md) | 認証（Google OAuth のサインインの流れ / JWT / httpOnly cookie / proxy ガード） |
+
+### 技術スタックの採用理由と挙動
+
+技術ごとに、採用した理由と使うときに知っておくべき挙動をまとめています。入口は [docs/tech-stack/README.md](docs/tech-stack/README.md) です。
+
+| ドキュメント | 内容 |
+|---|---|
+| [drizzle.md](docs/tech-stack/drizzle.md) | Postgres の ORM（Prisma から移った理由 / マイグレーション / UTC の固定 / CHECK 制約 / リードレプリカ） |
+| [clickhouse/](docs/tech-stack/clickhouse/README.md) | 行動イベントの分析先（採用理由 / 方式の選択 / ホスティング / 集計クエリの注意 / CDC / migration） |
+| [bullmq.md](docs/tech-stack/bullmq.md) | ジョブキュー（採用理由 / at-least-once と冪等性 / jobId / 失敗とリトライ / 差し替えの方針） |
 
 ### セットアップ・運用
 
@@ -283,6 +314,7 @@ graph TB
 |---|---|
 | [docs/setup/api.md](docs/setup/api.md) | API のローカル起動・テスト実行の詳細 |
 | [docs/setup/infra.md](docs/setup/infra.md) | AWS インフラの初回セットアップ |
+| [docs/onboarding/deploy-prd.md](docs/onboarding/deploy-prd.md) | 本番をゼロから立ち上げる手順（AWS + Vercel）と落とし穴 |
 | [infra/README.md](infra/README.md) | インフラ構成 / dev と prd の差分 / デプロイフロー / 日常運用コマンド |
 
 ### 各 app
@@ -300,9 +332,7 @@ graph TB
 
 ### 仕様・設計
 
-| ドキュメント | 内容 |
-|---|---|
-| [docs/spec/README.md](docs/spec/README.md) | 機能仕様の一覧。新機能は実装前にここへ設計書を作る |
+機能の設計書は main には置かず、`kentakki416` ブランチ（main に merge しない）の `docs/kentakki416/tasks/{feature}/` で管理する。機能の一覧は `git fetch origin kentakki416` してから `git show origin/kentakki416:docs/kentakki416/tasks/README.md` で読む。新機能は実装前にそこへ設計書を作る。
 
 ### Claude Code
 
@@ -310,7 +340,7 @@ graph TB
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | Claude Code 向けのプロジェクト全体ガイド |
 | [.claude/README.md](.claude/README.md) | Agents / Commands / Skills の設定 |
-| [docs/mcp.md](docs/mcp.md) | MCP サーバーの一覧・使い方・追加方法 |
+| [docs/onboarding/mcp.md](docs/onboarding/mcp.md) | MCP サーバーの一覧・使い方・追加方法 |
 
 MCP サーバーの設定はルートの `.mcp.json` にあります。起動時に読み込ませるには `claude --mcp-config=./.mcp.json` を使います。
 

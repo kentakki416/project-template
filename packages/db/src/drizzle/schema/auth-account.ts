@@ -1,4 +1,7 @@
-import { foreignKey, index, integer, pgTable, serial, text, uniqueIndex } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
+import { check, foreignKey, index, integer, pgTable, serial, text, uniqueIndex } from "drizzle-orm/pg-core"
+
+import { AUTH_PROVIDERS } from "@repo/domain"
 
 import { timestamps } from "./columns"
 import { users } from "./user"
@@ -8,16 +11,15 @@ import { users } from "./user"
  *
  * OAuth プロバイダの access_token / refresh_token 等は本アプリでは保持しない
  * （プロバイダ側で発行・管理し、アプリは取得した user info を DB に保存後は内部 JWT で完結する）。
- * 制約・index 名は Prisma のマイグレーションと同じにしている（既存 DB と定義を一致させるため）。
  */
 export const authAccounts = pgTable(
   "auth_accounts",
   {
     id: serial("id").primaryKey(),
     /**
-     * "google" | "github" | "credentials" | "dev" など
+     * ログイン方法。値の集合は @repo/domain の AUTH_PROVIDERS（CHECK 制約もそこから作る）
      */
-    provider: text("provider").notNull(),
+    provider: text("provider", { enum: AUTH_PROVIDERS }).notNull(),
     /**
      * プロバイダー側のユーザー ID
      */
@@ -26,6 +28,10 @@ export const authAccounts = pgTable(
     ...timestamps,
   },
   (table) => [
+    check(
+      "auth_accounts_provider_check",
+      sql`${table.provider} IN (${sql.join(AUTH_PROVIDERS.map((provider) => sql`${provider}`), sql`, `)})`,
+    ),
     foreignKey({
       columns: [table.userId],
       foreignColumns: [users.id],
