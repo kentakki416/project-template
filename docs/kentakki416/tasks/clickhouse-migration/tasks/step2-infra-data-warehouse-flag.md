@@ -14,7 +14,7 @@ dev / min / prd の Terraform に `enable_data_warehouse` を足し、`true` の
 
 ```hcl
 variable "enable_data_warehouse" {
-  description = "ClickHouse Cloud のサービスを作り、worker の書き込み先と ClickHouse の migration を有効にするか。CI の apply はフラグの変数を渡さないので、切り替えはこの既定値を変えてコミットする（手順は docs/spec/clickhouse-migration/tasks/step4-ci-deploy-dwh-migration.md）"
+  description = "ClickHouse Cloud のサービスを作り、worker の書き込み先と ClickHouse の migration を有効にするか。CI の apply はフラグの変数を渡さないので、切り替えはこの既定値を変えてコミットする（手順は docs/kentakki416/tasks/clickhouse-migration/tasks/step4-ci-deploy-dwh-migration.md）"
   type        = bool
   default     = false # prd は true
 }
@@ -265,7 +265,7 @@ env:
 | `apps/worker/src/env.ts` / `apps/worker/src/index.ts` / `apps/worker/CLAUDE.md` | `DATA_WAREHOUSE_TYPE` のコメントの「dev 等」を同様に直す |
 | `docs/setup/infra.md` | ClickHouse Cloud の準備と、`enable_data_warehouse` の切り替え手順へのリンク |
 | `infra/README.md` | module の一覧に `clickhouse-service` を、dev / prd の差分表に `enable_data_warehouse` の既定値を足す |
-| `docs/spec/minimal-deploy/README.md` | 「ClickHouse Cloud は prd と同じ扱い・同じ接続先」を、`enable_data_warehouse` で選ぶ旨に直す |
+| `docs/kentakki416/tasks/minimal-deploy/README.md` | 「ClickHouse Cloud は prd と同じ扱い・同じ接続先」を、`enable_data_warehouse` で選ぶ旨に直す |
 
 ## 動作確認
 

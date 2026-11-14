@@ -2,7 +2,7 @@
 
 **回答があるまで、下記に関わる設計・ドキュメント・コードは fix しない。**
 
-- 対象: 設計書 `docs/spec/nonblocking-migration/README.md`（案。推奨案で仮置きしている）
+- 対象: 設計書 `docs/kentakki416/tasks/nonblocking-migration/README.md`（案。推奨案で仮置きしている）
 - 作業の流れ: `TODO.md`
 - ステータス: **回答待ち（未 fix）**
 

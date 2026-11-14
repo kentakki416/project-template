@@ -13,7 +13,7 @@ ClickHouse に置くテーブル・view を **Postgres と同じように版管�
 
 - [`../user-behavior-events/README.md`](../user-behavior-events/README.md) — `events` テーブルの出どころ。テーブル定義の置き場所が `infra/clickhouse/init/` から本 spec の migration に移る
 - [`../minimal-deploy/README.md`](../minimal-deploy/README.md) — min 環境。「Terraform のフラグを唯一の正本にし、deploy は AWS のリソースの有無で判定する」作法（`enable_worker`）を本 spec でも踏襲する
-- [`../../tech-stack/clickhouse/`](../../tech-stack/clickhouse/README.md) — ClickHouse を採用した理由、データウェアハウスへの要件、CDC と view を経由する規約の正本。本 spec の実装でホスティングの表と CDC の手順を更新した
+- [`../../tech-stack/clickhouse/`](../../../tech-stack/clickhouse/README.md) — ClickHouse を採用した理由、データウェアハウスへの要件、CDC と view を経由する規約の正本。本 spec の実装でホスティングの表と CDC の手順を更新した
 - [`./deferred-cdc-operations.md`](./deferred-cdc-operations.md) — MVP 対象外。min の CDC、専用のレプリケーションユーザー、replication slot の監視など
 
 ## 目次
@@ -89,10 +89,10 @@ Postgres（Drizzle）の変更と同じ PR で、ClickHouse 側に必要な変�
 
 | ケース | Postgres | CDC の対象一覧（`cdc-tables.json`） | ClickHouse（`migrations/` / `views/`） | 反映の順序（dev / prd） |
 | --- | --- | --- | --- | --- |
-| 1. CDC 対象テーブルの追加 | テーブルを作る | テーブル名を足す | `views/<table>.sql` を足す | deploy（テーブル作成）→ apply（ClickPipe に追加し、初回の取り込み）→ ClickHouse の migration を再実行（view 作成。[`clickhouse-migrate.yml`](../../../.github/workflows/clickhouse-migrate.yml)） |
+| 1. CDC 対象テーブルの追加 | テーブルを作る | テーブル名を足す | `views/<table>.sql` を足す | deploy（テーブル作成）→ apply（ClickPipe に追加し、初回の取り込み）→ ClickHouse の migration を再実行（view 作成。[`clickhouse-migrate.yml`](../../../../.github/workflows/clickhouse-migrate.yml)） |
 | 2. テーブルの名前変更・削除 | **2 回に分けて出す。** 1 回目は ClickHouse 側だけ。2 回目で Postgres を変える | 1 回目で外す | 1 回目: `views/<table>.sql` を消し、`DROP VIEW IF EXISTS` の migration を足す。2 回目: `DROP TABLE IF EXISTS pg_cdc.<table>` の migration を足す。名前変更なら 2 回目に新しい名前でケース 1 も行う | 1 回目: deploy → apply（ClickPipe から外す）→ 2 回目: deploy |
 | 3. 列の追加 | 列を足す | 不要 | **不要** | deploy のみ。ClickHouse に列が増えた後の migration 実行で view に出る |
-| 4. 列の型・名前の変更 | 型・名前を変える | 不要 | 不要 | deploy → ClickPipe 全体を再同期（ClickHouse Cloud のコンソールの Resync）→ ClickHouse の migration を再実行（[`clickhouse-migrate.yml`](../../../.github/workflows/clickhouse-migrate.yml)） |
+| 4. 列の型・名前の変更 | 型・名前を変える | 不要 | 不要 | deploy → ClickPipe 全体を再同期（ClickHouse Cloud のコンソールの Resync）→ ClickHouse の migration を再実行（[`clickhouse-migrate.yml`](../../../../.github/workflows/clickhouse-migrate.yml)） |
 | 5. 列の削除 | 列を消す | 不要 | 消した列名を view の除外列に足す | deploy のみ |
 | 6. ClickHouse だけの変更 | - | - | `migrations/` にファイルを足す | deploy のみ |
 
@@ -267,9 +267,9 @@ WHERE ${CDC_LIVE_FILTER}
 
 **ローカルも既定では CDC を作らない（`DATA_WAREHOUSE_CDC` の既定は `none`）。** CDC の view を作り込むときだけ `materialized_postgresql` を指定する。
 
-- 取り込むテーブルが変わらない間、MaterializedPostgreSQL は replication slot を進めない。止まった slot が WAL とシステムカタログの古い行（`catalog_xmin`。同じサーバーの全 DB に効く）を残し続け、api のテストの TRUNCATE が遅くなった（実測は [`cdc.md`](../../tech-stack/clickhouse/cdc.md#ローカルの-cdc)）。AWS の環境も CDC を既定で作らないので、ローカルもそろえる
+- 取り込むテーブルが変わらない間、MaterializedPostgreSQL は replication slot を進めない。止まった slot が WAL とシステムカタログの古い行（`catalog_xmin`。同じサーバーの全 DB に効く）を残し続け、api のテストの TRUNCATE が遅くなった（実測は [`cdc.md`](../../../tech-stack/clickhouse/cdc.md#ローカルの-cdc)）。AWS の環境も CDC を既定で作らないので、ローカルもそろえる
 - `none` でローカル（`http`）の ClickHouse に流すときは、前に作った `pg_cdc` が残っていれば、消し方を示す警告を出す。既定を変える前に作った環境に、止まった slot が残っているのに気付けるようにするため
-- 自動では消さない。同じ DB 名を使う別プロジェクトの CDC を自分のものと取り違えたときや、`pg_cdc` を読む手作りの view まで消えてしまうため。消すのは、消し方を見た人がコマンドで行う（[`cdc.md`](../../tech-stack/clickhouse/cdc.md#ローカルの-cdc)）
+- 自動では消さない。同じ DB 名を使う別プロジェクトの CDC を自分のものと取り違えたときや、`pg_cdc` を読む手作りの view まで消えてしまうため。消すのは、消し方を見た人がコマンドで行う（[`cdc.md`](../../../tech-stack/clickhouse/cdc.md#ローカルの-cdc)）
 - 別プロジェクトの Postgres を取り込む `pg_cdc` があれば、作り直しと同じく止まる（`DATA_WAREHOUSE_URL` が別プロジェクトの ClickHouse を指していて、そちらに database を作ってしまうのを防ぐ）
 - ローカル（`http`）では、CDC の設定に関係なく、`DATA_WAREHOUSE_DATABASE` の database が既にあるかも確かめ、無ければ止める。docker compose の `CLICKHOUSE_DB` が初回の起動時に作るので、無いのは別プロジェクトの ClickHouse に繋いでいる可能性が高い。どのプロジェクトも既定で CDC を作らなくなると、`pg_cdc` ではこの取り違えに気付けないため
 

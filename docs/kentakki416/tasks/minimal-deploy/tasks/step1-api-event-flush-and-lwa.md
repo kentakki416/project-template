@@ -18,7 +18,7 @@ export interface EventTracker {
    *
    * Lambda はレスポンスを返した時点で実行環境を凍結するため、await していない送出が
    * 止まったまま失われうる。レスポンスの前にこれを待つことで取りこぼしを防ぐ
-   * （docs/spec/minimal-deploy/README.md「Lambda の凍結とイベント送出」）。
+   * （docs/kentakki416/tasks/minimal-deploy/README.md「Lambda の凍結とイベント送出」）。
    */
   flush(): Promise<void>
   track(input: TrackEventInput): void
@@ -145,7 +145,7 @@ runner ステージに 1 行足す。**バージョンはタグと digest の両
 ```dockerfile
 # Lambda Web Adapter: minimal 構成（Lambda）で Express をそのまま動かすための extension。
 # Lambda の実行環境だけが /opt/extensions を読むので、ECS では起動せず何もしない。
-# 設計: docs/spec/minimal-deploy/README.md「api を Lambda で動かす」
+# 設計: docs/kentakki416/tasks/minimal-deploy/README.md「api を Lambda で動かす」
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0@sha256:17cfd08eff1dfea3f6a9a1e9c65fdac80aa4919b6085e746615530f43f57d2f1 /lambda-adapter /opt/extensions/lambda-adapter
 ```
 

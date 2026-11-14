@@ -55,7 +55,7 @@ import type { TrackEventInput } from "./event"
  *
  * この interface を挟んでいるのは transport を差し替えられるようにするため。
  * MVP は Queue 実装だが、ログ経由へ切り替えても service 層は変更不要
- * （docs/spec/user-behavior-events/deferred-event-delivery.md）。
+ * （docs/kentakki416/tasks/user-behavior-events/deferred-event-delivery.md）。
  */
 export interface EventTracker {
   track(input: TrackEventInput): void

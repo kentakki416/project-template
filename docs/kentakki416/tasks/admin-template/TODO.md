@@ -2,7 +2,7 @@
 
 apps/admin のデモと土台を分け、admin 認証・API に繋いだユーザー管理・データを外から渡すヘッダー・Tooltip を揃え、実プロジェクトではデモを消すだけで使い始められる状態にする。
 
-- 対象: 設計書 `docs/spec/admin-template/`（#116）→ 実装 PR（step ごと。base は常に main。前の step のマージ後に main の上に作り直して出す）
+- 対象: 設計書 `docs/kentakki416/tasks/admin-template/`（#116）→ 実装 PR（step ごと。base は常に main。前の step のマージ後に main の上に作り直して出す）
 - 判断: `judge-yourself.md` の Q1〜Q6 はすべて推奨案で確定（2026-10-15）
 
 ## 1. 調査
@@ -24,7 +24,7 @@ apps/admin のデモと土台を分け、admin 認証・API に繋いだユー�
 - [x] step5: admin 認証（画面）
 - [x] step6: ユーザー管理
 - [x] step7: ヘッダー・マイページ
-- [x] docs/spec/README.md に追記する
+- [x] docs/kentakki416/tasks/README.md に追記する
 - [x] コードと突き合わせてレビューする
 - [x] ユーザーに内容と step の切り方を確認する
 
@@ -49,5 +49,5 @@ apps/admin のデモと土台を分け、admin 認証・API に繋いだユー�
 ## 5. 完了
 
 - [ ] すべての PR を main にマージする
-- [ ] docs/spec/README.md の状態を「完了」にする
+- [ ] docs/kentakki416/tasks/README.md の状態を「完了」にする
 - [ ] TODO.md / judge-yourself.md を削除する

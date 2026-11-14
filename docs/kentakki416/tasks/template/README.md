@@ -1,6 +1,6 @@
 # {機能名}（テンプレート）
 
-このファイルは `docs/spec/{feature}/README.md` のテンプレート。`design-feature` skill が新機能設計時にこの構造に従う。`{feature}` はディレクトリ名で kebab-case（例：`typing-engine`, `github-auth`）。
+このファイルは `docs/kentakki416/tasks/{feature}/README.md` のテンプレート。`design-feature` skill が新機能設計時にこの構造に従う。`{feature}` はディレクトリ名で kebab-case（例：`typing-engine`, `github-auth`）。
 
 冒頭の段落で機能の目的を 1〜2 段落で記述する。「何のための機能で、誰が何のために使うか」を簡潔に伝える。
 

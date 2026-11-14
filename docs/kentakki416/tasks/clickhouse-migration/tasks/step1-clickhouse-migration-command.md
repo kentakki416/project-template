@@ -358,7 +358,7 @@ Drizzle と同じイメージに同梱する（ECR リポジトリを増やさ�
 | `docs/setup/api.md` | ClickHouse の初期化に触れていれば同様に置き換える |
 | `packages/db/README.md` | DB の作り直し手順の 4（CDC を張り直す）を migration コマンドに置き換える。1 の `DROP DATABASE pg_cdc` は残す（Postgres の DB を消すには replication slot を先に外す必要がある） |
 | `infra/clickhouse/users.d/materialized-postgresql.xml` | コメントの参照先を `packages/data-warehouse/clickhouse/README.md` にする |
-| `docs/spec/user-behavior-events/tasks/step1-infra-clickhouse.md` | 実装済みの step なので書き換えない |
+| `docs/kentakki416/tasks/user-behavior-events/tasks/step1-infra-clickhouse.md` | 実装済みの step なので書き換えない |
 
 ## 動作確認
 

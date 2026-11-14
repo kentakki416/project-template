@@ -2,7 +2,7 @@
 
 **回答があるまで、下記に関わる設計・ドキュメント・コードは fix しない。**
 
-- 対象: 設計書 `docs/spec/admin-template/`（未作成）
+- 対象: 設計書 `docs/kentakki416/tasks/admin-template/`（未作成）
 - 作業の流れ: `TODO.md`
 - ステータス: **回答済み（全 Q 推奨案。2026-10-15）**。設計書に反映中
 

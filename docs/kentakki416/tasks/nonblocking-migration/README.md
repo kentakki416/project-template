@@ -15,7 +15,7 @@
 
 - [`../clickhouse-migration/README.md`](../clickhouse-migration/README.md) — migration イメージと deploy の migrate ジョブの構成。本 spec は同じイメージ・同じジョブに処理を足す
 - [`../minimal-deploy/README.md`](../minimal-deploy/README.md) — min 環境は PgBouncer（transaction pooling）経由で接続する。セッション単位の機能が使えない制約を本 spec も受ける
-- [`../../tech-stack/drizzle.md`](../../tech-stack/drizzle.md) — マイグレーションの挙動の正本。「CREATE INDEX CONCURRENTLY は書けない」の手動手順を、本 spec の仕組みで置き換える
+- [`../../tech-stack/drizzle.md`](../../../tech-stack/drizzle.md) — マイグレーションの挙動の正本。「CREATE INDEX CONCURRENTLY は書けない」の手動手順を、本 spec の仕組みで置き換える
 
 ## 目次
 

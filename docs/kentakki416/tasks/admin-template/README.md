@@ -12,7 +12,7 @@
 ## 関連 spec
 
 - [`../dev-login/README.md`](../dev-login/README.md) — admin の dev ログインは同じ作り（seed 済みの admin で、Google を通さずにログインする）
-- [`../../onboarding/auth.md`](../../onboarding/auth.md) — 一般ユーザーの認証（Google OAuth → 自前 JWT）。admin 認証は同じ流れで、鍵・cookie・テーブルを分ける
+- [`../../onboarding/auth.md`](../../../onboarding/auth.md) — 一般ユーザーの認証（Google OAuth → 自前 JWT）。admin 認証は同じ流れで、鍵・cookie・テーブルを分ける
 
 ## 目次
 
@@ -189,7 +189,7 @@ api の中では、admin 用の認証ミドルウェアを `/api/admin` の moun
 
 ### admin 認証
 
-一般ユーザーの認証（[`docs/onboarding/auth.md`](../../onboarding/auth.md)）と同じ流れ（Google OAuth → api が code を検証 → 自前の JWT → httpOnly cookie）で、次を分ける。
+一般ユーザーの認証（[`docs/onboarding/auth.md`](../../../onboarding/auth.md)）と同じ流れ（Google OAuth → api が code を検証 → 自前の JWT → httpOnly cookie）で、次を分ける。
 
 | | 一般ユーザー | admin |
 | --- | --- | --- |

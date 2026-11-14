@@ -2,7 +2,7 @@
 
 ClickHouse の DDL（events / CDC の view）を版管理して local / dev / min / prd に適用でき、deploy がフラグを見て ClickHouse・CDC の反映要否を判定できる状態にする。
 
-- 対象: 設計書 `docs/spec/clickhouse-migration/`（このブランチ）→ 設計書 PR → 実装 PR（step ごと）
+- 対象: 設計書 `docs/kentakki416/tasks/clickhouse-migration/`（このブランチ）→ 設計書 PR → 実装 PR（step ごと）
 - 判断: `judge-yourself.md` の Q1〜Q6 はすべて推奨案（a）で確定
 
 ## 1. 調査
@@ -24,7 +24,7 @@ ClickHouse の DDL（events / CDC の view）を版管理して local / dev / mi
 - [x] step3: Terraform の enable_cdc（ClickPipes / bastion / RDS）
 - [x] step4: deploy workflow への組み込み
 - [x] deferred（CDC の運用強化）を書く
-- [x] docs/spec/README.md に追記する
+- [x] docs/kentakki416/tasks/README.md に追記する
 
 ## 3. 設計書 PR
 
@@ -46,5 +46,5 @@ ClickHouse の DDL（events / CDC の view）を版管理して local / dev / mi
 - [ ] account の apply（deploy 用ロールの権限、#113）
 - [ ] dev で enable_data_warehouse = true にして動作確認（step2・step4）
 - [ ] CDC を使うときだけ、dev で enable_cdc = true にして動作確認（step3・step4）
-- [ ] docs/spec/README.md の状態を「完了」にする
+- [ ] docs/kentakki416/tasks/README.md の状態を「完了」にする
 - [ ] TODO.md / judge-yourself.md を削除する
