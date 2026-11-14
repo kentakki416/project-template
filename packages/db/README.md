@@ -8,6 +8,10 @@ ORM / マイグレーションツールは Drizzle（`drizzle-orm` / `drizzle-ki
 
 - [ディレクトリ構成](#ディレクトリ構成)
 - [コマンド](#コマンド)
+- [マイグレーション](#マイグレーション)
+  - [マイグレーションのフォルダ](#マイグレーションのフォルダ)
+  - [行数の多いテーブルに index を足す](#行数の多いテーブルに-index-を足す)
+  - [守ること](#守ること)
 - [client の生成と DI](#client-の生成と-di)
 
 ## ディレクトリ構成
@@ -44,7 +48,46 @@ packages/db/
 
 `DB_NAME=project-template_test` を付けると、接続先の DB 名だけをテスト用に差し替えられる（client / drizzle-kit とも同じ規則）。
 
-テーブルを変えるときは `src/drizzle/schema/` を変えて `db:generate` し、生成された SQL を確認してから `db:migrate` する（[マイグレーションの挙動](../../docs/tech-stack/drizzle.md#マイグレーション)）。行数の多いテーブルに index を足すときは、index に `.concurrently()` を付ける（[行数の多いテーブルの index は online.sql で作る](../../docs/tech-stack/drizzle.md#行数の多いテーブルの-index-は-onlinesql-で作る)）。
+## マイグレーション
+
+テーブルを変えるときは、スキーマを変えてマイグレーションを作り、適用する。
+
+1. `src/drizzle/schema/` のテーブル定義を変える
+2. `pnpm --filter api db:generate --name=<変更の名前>` でマイグレーションを作る
+3. 生成された `drizzle/migrations/<日時>_<名前>/` の SQL を目で確認する
+4. `pnpm --filter api db:migrate` でローカルの DB に適用する
+5. スキーマとマイグレーションのフォルダを一緒にコミットする（dev / prd には deploy の migrate ジョブが適用する）
+
+### マイグレーションのフォルダ
+
+| ファイル | 流し方 | 中身 |
+| --- | --- | --- |
+| `migration.sql` | 未適用分をまとめて 1 トランザクション。途中で失敗すると全部ロールバックされる | テーブル・カラム・制約の変更 |
+| `online.sql`（ある場合だけ） | `migration.sql` の適用後に、トランザクションの外で 1 文ずつ | `CREATE INDEX CONCURRENTLY`（書き込みを止めずに index を作る） |
+| `snapshot.json` | 流さない | その時点のスキーマ。drizzle-kit が次の差分を出すのに使う |
+
+`db:migrate` はこの順に両方を流す。ローカル・テスト・CI・本番で同じコマンドを使う。
+
+### 行数の多いテーブルに index を足す
+
+通常の `CREATE INDEX` は、作成が終わるまで対象テーブルへの書き込みを止める。行数の多いテーブルでは、スキーマの index に `.concurrently()` を付ける。
+
+```ts
+(table) => [index("auth_accounts_user_id_idx").on(table.userId).concurrently()]
+```
+
+- `db:generate` が、生成した `CREATE INDEX CONCURRENTLY` を `online.sql` に移す（手で SQL を動かさない）
+- `db:migrate` が、`migration.sql` の後に `online.sql` を流して index を作る。適用済みのフォルダは `drizzle.__online_migrations` テーブルに記録する
+- 作成が途中で失敗しても、次の `db:migrate` が作りかけの index を消して作り直す
+- 行数の少ないテーブルや、同じマイグレーションで作るテーブルの index は、`.concurrently()` を付けなくてよい
+
+### 守ること
+
+- **適用済みのマイグレーションのファイルは書き換えない。** 書き換えても適用済みの DB には反映されず、新しく作る DB とだけ食い違う。直すときは新しいマイグレーションを足す
+- **`.concurrently()` で作った index の名前は変えない。** 名前を変えるときは、消して作り直す（`db:migrate` が適用の前に検出して止める）
+- `online.sql` に書けるのは `CREATE [UNIQUE] INDEX CONCURRENTLY IF NOT EXISTS` と `DROP INDEX CONCURRENTLY IF EXISTS` だけ
+
+仕組みと制約の詳細は [`docs/tech-stack/drizzle.md`](../../docs/tech-stack/drizzle.md#マイグレーション)。
 
 ## client の生成と DI
 
