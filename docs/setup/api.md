@@ -85,8 +85,6 @@ cd <project-root>
 pnpm --filter @repo/data-warehouse dwh:migrate
 ```
 
-ローカル DB を空から作り直す手順は [`packages/db/README.md`](../../packages/db/README.md#ローカル-db-の作り直し) を参照。
-
 ## 6. 開発サーバー起動
 
 ```bash

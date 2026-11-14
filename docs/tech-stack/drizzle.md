@@ -11,7 +11,7 @@ Postgres の ORM とマイグレーションツール（`drizzle-orm` / `drizzle
   - [1.0 RC に固定している理由](#10-rc-に固定している理由)
 - [挙動と注意点](#挙動と注意点)
   - [マイグレーション](#マイグレーション)
-  - [CREATE INDEX CONCURRENTLY は書けない](#create-index-concurrently-は書けない)
+  - [行数の多いテーブルの index は online.sql で作る](#行数の多いテーブルの-index-は-onlinesql-で作る)
   - [接続](#接続)
   - [enum 的な列は const から CHECK 制約を作る](#enum-的な列は-const-から-check-制約を作る)
   - [リードレプリカ](#リードレプリカ)
@@ -61,15 +61,20 @@ Prisma に戻す予定が無く、残すと次の手間だけが続くため。
 - `db:generate` は列のリネームなど判断が要る差分で対話的に確認を求める。生成された SQL は必ず目で確認してからコミットする
 - `drizzle-kit migrate` は DB が無いときに作らない。ローカルの test DB（`project-template_test`）は `infra/postgres/init/` の初期化スクリプトが Postgres の初回起動時に作る
 
-### CREATE INDEX CONCURRENTLY は書けない
+### 行数の多いテーブルの index は online.sql で作る
 
-全体が 1 つのトランザクションで流れるため、トランザクション内で実行できない `CREATE INDEX CONCURRENTLY` はマイグレーションに書けない（書くと `cannot run inside a transaction block` で失敗する）。
+`db:migrate` は未適用の `migration.sql` をまとめて 1 トランザクションで流すので、トランザクション内で実行できない `CREATE INDEX CONCURRENTLY` は `migration.sql` に書けない（書くと `cannot run inside a transaction block` で失敗する）。通常の `CREATE INDEX` は作成が終わるまで対象テーブルへの書き込みを止めるので、行数の多いテーブルの index は、マイグレーションのフォルダに置く `online.sql` で作る。
 
-行数の多いテーブルに index を足すとき（通常の `CREATE INDEX` だと作成中の書き込みがブロックされる）は、マイグレーションとは別の手順にする。
-
-1. 対象環境の DB で `CREATE INDEX CONCURRENTLY "<index 名>" ON ...` を手動で実行する
-2. 同じ名前の index をスキーマに足して `db:generate` する
-3. 生成された `CREATE INDEX` を `CREATE INDEX IF NOT EXISTS` に書き換える（手動で作った環境では何もせず、新しく作る DB では普通に作られる）
+- **スキーマの index に `.concurrently()` を付けて `db:generate` する。** 生成された `CREATE INDEX CONCURRENTLY` は、`IF NOT EXISTS` を付けて同じフォルダの `online.sql` に移る（手で SQL を動かさない）
+- `db:migrate` は `migration.sql` を適用した後、未適用の `online.sql` をトランザクションの外で 1 文ずつ流す。ローカル・テスト・CI・本番で同じ
+- 適用済みのフォルダは `drizzle.__online_migrations` テーブルに記録する。途中で失敗したフォルダは記録されず、次の `db:migrate` で先頭から流し直す
+- `CREATE INDEX CONCURRENTLY` が途中で失敗すると無効な index が残る。次の実行で消して作り直し、作成後に有効になったことを確かめる
+- `.concurrently()` を付けた index をスキーマから消すと、`db:generate` が `DROP INDEX` を `DROP INDEX CONCURRENTLY IF EXISTS` にして `online.sql` に移す
+- `online.sql` に書けるのは `CREATE [UNIQUE] INDEX CONCURRENTLY IF NOT EXISTS` と `DROP INDEX CONCURRENTLY IF EXISTS` だけ（どちらも何度流しても同じ結果になる）
+- `online.sql` は、未適用の `migration.sql` がすべて流れた後に流れる。空の DB では古い `online.sql` の対象のテーブルやカラムがもう無いことがあるので、同じ index への最後の文と、最新の `snapshot.json` にある index を基準に、今のスキーマに要る文だけを流す
+- **`.concurrently()` で作った index の名前は変えない。** `migration.sql` に `ALTER INDEX ... RENAME` が入ると、空の DB では index がまだ無く失敗する（`db:migrate` が適用の前に検出して止める）。名前を変えるときは、消して作り直す
+- 行数の少ないテーブルや、同じマイグレーションで作るテーブルの index は、`.concurrently()` を付けなくてよい
+- deploy の migrate ジョブがタスクの終了を待つのは 10 分まで（`aws ecs wait tasks-stopped`）。作成が 10 分を超える index は、待ちの上限を伸ばしてから流す
 
 ### 接続
 
@@ -134,7 +139,7 @@ const [fresh] = await db.$primary.select().from(users).where(eq(users.id, id))
 
 ## 関連ドキュメント
 
-- [`packages/db/README.md`](../../packages/db/README.md) — ディレクトリ構成・コマンド・ローカル DB の作り直し・client の生成と DI
+- [`packages/db/README.md`](../../packages/db/README.md) — ディレクトリ構成・コマンド・client の生成と DI
 - [`packages/domain/README.md`](../../packages/domain/README.md) — enum 的な値の集合の定義元
 - [`docs/onboarding/architecture.md`](../onboarding/architecture.md) — Repository の層と DI
 - [Drizzle 公式ドキュメント](https://orm.drizzle.team/)
