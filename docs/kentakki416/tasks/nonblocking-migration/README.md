@@ -153,7 +153,7 @@ drizzle-kit `1.0.0-rc.4` と Postgres 16 の使い捨てコンテナで確かめ
 
 - マイグレーションのフォルダに `online.sql` を置く。`migration.sql` と同じ名前・同じ順序で版管理される
 - index はスキーマが唯一の定義元。`.concurrently()` を付けた index は、`db:generate` の後処理が `migration.sql` から `online.sql` に移し、`IF NOT EXISTS` を付ける。手で SQL を削らない
-- `.concurrently()` で作った index をスキーマから消したときの `DROP INDEX` も、`DROP INDEX CONCURRENTLY IF EXISTS` にして `online.sql` に移す（`migration.sql` に残すと、空の DB で失敗する）
+- `online.sql` で作った index をスキーマから消したときの `DROP INDEX` は、`migration.sql` に残して `IF EXISTS` を付ける（素のままだと、空の DB で失敗する。`online.sql` に移すと、同じマイグレーションが同じ名前の index を `migration.sql` で作り直すときに、DROP が後になって失敗する）
 - `VALIDATE CONSTRAINT` は `online.sql` に手で書く（Drizzle は `NOT VALID` / `VALIDATE` を生成しない。`NOT VALID` は `migration.sql` を手で直す）
 
 **書ける文を絞る**
@@ -168,7 +168,8 @@ drizzle-kit `1.0.0-rc.4` と Postgres 16 の使い捨てコンテナで確かめ
 
 - `db:migrate` = `drizzle-kit migrate` → オンライン操作の実行。ローカル・テスト・CI も同じコマンドなので、index がある環境と無い環境に分かれない（空のテーブルでは一瞬で終わる）
 - 適用済みのフォルダは `drizzle.__online_migrations` テーブルに記録し、次からは飛ばす。記録が無いと、後のマイグレーションで消した index を毎回作っては消すことになるため
-- drizzle-kit は `migration.sql` を先にすべて流すので、`online.sql` との前後関係が失われる。空の DB では、古い `online.sql` の対象のテーブルやカラムがもう無いことがある。流す文は「同じ index への最後の文か」と「最新の `snapshot.json` にその index があるか」で選び、空の DB も適用済みの DB も同じ状態に収束させる（詳細は [step1](./tasks/step1-db-online-index.md#流す文の選び方)）
+- drizzle-kit は `migration.sql` を先にすべて流すので、`online.sql` との前後関係が失われる。空の DB では、古い `online.sql` の対象のテーブルやカラムがもう無いことがある。流す文は「同じ index への最後の文か」と「`snapshot.json` から求めた今のスキーマにその index があるか」で選び、空の DB も適用済みの DB も同じ状態に収束させる（詳細は [step1](./tasks/step1-db-online-index.md#流す文の選び方)）
+- 今のスキーマの index は、各 snapshot が親（`prevIds`）から増やした・減らした分を積み上げて求める。名前順で最後の snapshot だけを見ると、別々のブランチで作ったマイグレーションが並んだときに、もう一方で足した index を落とす
 - `.concurrently()` で作った index の `ALTER INDEX`（rename）は、適用前にエラーにする。名前を変えるときは、消して作り直す
 - `db:generate` / `db:migrate` は、drizzle-kit を子プロセスで呼ぶ TypeScript のスクリプトにする（`pnpm db:generate --name=x` の引数を drizzle-kit に渡すため）
 - 1 文ずつ、トランザクションを張らずに流す。フォルダの全文が成功したら記録する。途中で失敗したら記録せず、次の実行で先頭からやり直す（文が冪等なので安全）
