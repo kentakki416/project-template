@@ -69,9 +69,9 @@ Prisma に戻す予定が無く、残すと次の手間だけが続くため。
 - `db:migrate` は `migration.sql` を適用した後、未適用の `online.sql` をトランザクションの外で 1 文ずつ流す。ローカル・テスト・CI・本番で同じ
 - 適用済みのフォルダは `drizzle.__online_migrations` テーブルに記録する。途中で失敗したフォルダは記録されず、次の `db:migrate` で先頭から流し直す
 - `CREATE INDEX CONCURRENTLY` が途中で失敗すると無効な index が残る。次の実行で消して作り直し、作成後に有効になったことを確かめる
-- `.concurrently()` を付けた index をスキーマから消すと、`db:generate` が `DROP INDEX` を `DROP INDEX CONCURRENTLY IF EXISTS` にして `online.sql` に移す
+- `online.sql` で作った index をスキーマから消すと、`db:generate` が `migration.sql` の `DROP INDEX` に `IF EXISTS` を付ける（空の DB では、`online.sql` が流れる前で index がまだ無いため）
 - `online.sql` に書けるのは `CREATE [UNIQUE] INDEX CONCURRENTLY IF NOT EXISTS` と `DROP INDEX CONCURRENTLY IF EXISTS` だけ（どちらも何度流しても同じ結果になる）
-- `online.sql` は、未適用の `migration.sql` がすべて流れた後に流れる。空の DB では古い `online.sql` の対象のテーブルやカラムがもう無いことがあるので、同じ index への最後の文と、最新の `snapshot.json` にある index を基準に、今のスキーマに要る文だけを流す
+- `online.sql` は、未適用の `migration.sql` がすべて流れた後に流れる。空の DB では古い `online.sql` の対象のテーブルやカラムがもう無いことがあるので、同じ index への最後の文と、`snapshot.json` から求めた今のスキーマの index を基準に、今のスキーマに要る文だけを流す
 - **`.concurrently()` で作った index の名前は変えない。** `migration.sql` に `ALTER INDEX ... RENAME` が入ると、空の DB では index がまだ無く失敗する（`db:migrate` が適用の前に検出して止める）。名前を変えるときは、消して作り直す
 - 行数の少ないテーブルや、同じマイグレーションで作るテーブルの index は、`.concurrently()` を付けなくてよい
 - deploy の migrate ジョブがタスクの終了を待つのは 10 分まで（`aws ecs wait tasks-stopped`）。作成が 10 分を超える index は、待ちの上限を伸ばしてから流す

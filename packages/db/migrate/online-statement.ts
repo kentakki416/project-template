@@ -9,8 +9,6 @@ const CREATE_INDEX_PATTERN = new RegExp(
 
 const DROP_INDEX_PATTERN = new RegExp(String.raw`^DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS\s+${QUALIFIED_NAME}$`, "i")
 
-const SQL_COMMENT = /--[^\n]*|\/\*[\s\S]*?\*\//g
-
 export const DEFAULT_SCHEMA = "public"
 
 const INVALID_STATEMENT_MESSAGE
@@ -33,7 +31,58 @@ export const quoteIdentifier = (identifier: string): string => `"${identifier.re
 
 export const buildIndexKey = (schema: string, indexName: string): string => `${schema}.${indexName}`
 
-export const removeSqlComments = (sql: string): string => sql.replace(SQL_COMMENT, "")
+/**
+ * SQL をコメントを除いた文に分ける。
+ *
+ * 部分 index の WHERE に書いた文字列リテラルの中の `;` や `--` を、文の区切りやコメントと取り違えないよう、
+ * 引用符の中かどうかを追いながら読む。
+ */
+export const splitSqlStatements = (sql: string): string[] => {
+  const statements: string[] = []
+  let current = ""
+  let position = 0
+  while (position < sql.length) {
+    const char = sql[position]
+    if (char === "'" || char === "\"") {
+      const closing = findClosingQuote(sql, position)
+      current += sql.slice(position, closing + 1)
+      position = closing + 1
+    } else if (sql.startsWith("--", position)) {
+      const lineEnd = sql.indexOf("\n", position)
+      position = lineEnd === -1 ? sql.length : lineEnd
+    } else if (sql.startsWith("/*", position)) {
+      const commentEnd = sql.indexOf("*/", position + 2)
+      position = commentEnd === -1 ? sql.length : commentEnd + 2
+    } else if (char === ";") {
+      statements.push(current)
+      current = ""
+      position += 1
+    } else {
+      current += char
+      position += 1
+    }
+  }
+  statements.push(current)
+  return statements.map((statement) => statement.trim()).filter((statement) => statement.length > 0)
+}
+
+/**
+ * 引用符の中では、同じ引用符を 2 つ続けたものが 1 文字の引用符を表す
+ */
+const findClosingQuote = (sql: string, openingPosition: number): number => {
+  const quote = sql[openingPosition]
+  let position = openingPosition + 1
+  while (position < sql.length) {
+    if (sql[position] !== quote) {
+      position += 1
+    } else if (sql[position + 1] === quote) {
+      position += 2
+    } else {
+      return position
+    }
+  }
+  return sql.length - 1
+}
 
 const parseStatement = (sql: string): OnlineStatement | undefined => {
   const created = CREATE_INDEX_PATTERN.exec(sql)
@@ -63,14 +112,9 @@ const parseStatement = (sql: string): OnlineStatement | undefined => {
  * 書ける文を、何度流しても同じ結果になるものに限る（途中で失敗したフォルダを、先頭から流し直せるようにするため）
  */
 export const parseOnlineSql = (onlineSql: string): OnlineStatement[] => {
-  const statements = removeSqlComments(onlineSql)
-    .split(";")
-    .map((statement) => statement.trim())
-    .filter((statement) => statement.length > 0)
-
   const invalidStatements: string[] = []
   const parsed: OnlineStatement[] = []
-  for (const statement of statements) {
+  for (const statement of splitSqlStatements(onlineSql)) {
     const onlineStatement = parseStatement(statement)
     if (onlineStatement) {
       parsed.push(onlineStatement)

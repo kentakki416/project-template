@@ -36,6 +36,15 @@ describe("parseOnlineSql", () => {
       expect(parseOnlineSql(sql)).toHaveLength(1)
     })
 
+    it("文字列リテラルの中の ; と -- を、文の区切りやコメントと取り違えない", () => {
+      const sql = "CREATE INDEX CONCURRENTLY IF NOT EXISTS \"items_note_idx\" ON \"items\" (\"note\") WHERE \"note\" <> 'a;b--c''d';\nDROP INDEX CONCURRENTLY IF EXISTS \"old_idx\";"
+
+      expect(parseOnlineSql(sql)).toMatchObject([
+        { indexName: "items_note_idx", sql: "CREATE INDEX CONCURRENTLY IF NOT EXISTS \"items_note_idx\" ON \"items\" (\"note\") WHERE \"note\" <> 'a;b--c''d'" },
+        { indexName: "old_idx" },
+      ])
+    })
+
     it("引用符の無い識別子は小文字にする", () => {
       expect(parseOnlineSql("DROP INDEX CONCURRENTLY IF EXISTS Items_Owner_Id_Idx;")).toMatchObject([
         { indexName: "items_owner_id_idx" },

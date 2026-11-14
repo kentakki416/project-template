@@ -8,7 +8,7 @@ describe("verifyMigrationFiles", () => {
       expect(
         verifyMigrationFiles([
           { migrationSql: "ALTER TABLE \"items\" ADD COLUMN \"owner_id\" integer;", name: "0001_add", onlineSql: CREATE_ONLINE },
-          { migrationSql: "-- moved\n", name: "0002_drop", onlineSql: "DROP INDEX CONCURRENTLY IF EXISTS \"items_owner_id_idx\";\n" },
+          { migrationSql: "DROP INDEX IF EXISTS \"items_owner_id_idx\";", name: "0002_drop", onlineSql: undefined },
         ]),
       ).toEqual([])
     })
@@ -35,7 +35,7 @@ describe("verifyMigrationFiles", () => {
       expect(problems).toEqual([expect.stringContaining("0001_add/migration.sql has an INDEX CONCURRENTLY statement")])
     })
 
-    it("online.sql が作った index を、後の migration.sql が DROP / ALTER していれば問題を返す", () => {
+    it("online.sql が作った index を、後の migration.sql が IF EXISTS 無しで DROP するか、ALTER していれば問題を返す", () => {
       const problems = verifyMigrationFiles([
         { migrationSql: "SELECT 1;", name: "0001_add", onlineSql: CREATE_ONLINE },
         { migrationSql: "DROP INDEX \"items_owner_id_idx\";", name: "0002_drop", onlineSql: undefined },
@@ -43,8 +43,8 @@ describe("verifyMigrationFiles", () => {
       ])
 
       expect(problems).toEqual([
-        expect.stringContaining("0002_drop/migration.sql changes the index public.items_owner_id_idx"),
-        expect.stringContaining("0003_rename/migration.sql changes the index public.items_owner_id_idx"),
+        expect.stringContaining("0002_drop/migration.sql drops the index public.items_owner_id_idx"),
+        expect.stringContaining("0003_rename/migration.sql alters the index public.items_owner_id_idx"),
       ])
     })
 

@@ -687,7 +687,7 @@ module "ecs_worker" {
 # ECS Workload: DB migration (one-shot task definition、Service なし)
 # =============================================================================
 # - GHA から `aws ecs run-task --task-definition <family>` で起動する想定
-# - Dockerfile の CMD = `pnpm --filter @repo/db db:migrate` (drizzle-kit migrate) を
+# - Dockerfile の CMD = `pnpm --filter @repo/db db:migrate` (drizzle-kit migrate の後に online.sql を流す) を
 #   そのまま使うので command override は不要
 
 module "ecs_migration" {

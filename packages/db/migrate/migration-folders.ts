@@ -43,6 +43,12 @@ export const readMigrationFolders = async (migrationsDir: string): Promise<Migra
   )
 }
 
+type Snapshot = {
+  id: string
+  indexKeys: Set<string>
+  prevIds: string[]
+}
+
 type SnapshotEntity = {
   entityType?: unknown
   name?: unknown
@@ -50,19 +56,12 @@ type SnapshotEntity = {
 }
 
 /**
- * 最新の snapshot.json から、今のスキーマにある index を取り出す。
- *
  * snapshot.json は drizzle-kit の内部形式なので、読めない形なら黙って空にせず止める
  */
-export const readSchemaIndexKeys = async (migrationsDir: string): Promise<Set<string>> => {
-  const folderNames = await readFolderNames(migrationsDir)
-  const latestName = folderNames[folderNames.length - 1]
-  if (!latestName) return new Set()
-
-  const snapshotPath = path.join(migrationsDir, latestName, SNAPSHOT_FILE_NAME)
-  const snapshot: { ddl?: unknown } = JSON.parse(await readFile(snapshotPath, "utf8"))
-  if (!Array.isArray(snapshot.ddl)) {
-    throw new Error(`unsupported snapshot format (ddl is not an array): ${snapshotPath}`)
+const readSnapshot = async (snapshotPath: string): Promise<Snapshot> => {
+  const snapshot: { ddl?: unknown, id?: unknown, prevIds?: unknown } = JSON.parse(await readFile(snapshotPath, "utf8"))
+  if (typeof snapshot.id !== "string" || !Array.isArray(snapshot.prevIds) || !Array.isArray(snapshot.ddl)) {
+    throw new Error(`unsupported snapshot format (id / prevIds / ddl): ${snapshotPath}`)
   }
 
   const indexKeys = new Set<string>()
@@ -73,5 +72,30 @@ export const readSchemaIndexKeys = async (migrationsDir: string): Promise<Set<st
     }
     indexKeys.add(buildIndexKey(entity.schema, entity.name))
   }
-  return indexKeys
+  return { id: snapshot.id, indexKeys, prevIds: snapshot.prevIds.map(String) }
+}
+
+/**
+ * 今のスキーマにある index を、snapshot.json から求める。
+ *
+ * 名前順で最後の snapshot だけを見ると、同じ時点から別々のブランチで作ったマイグレーションが並んだとき、
+ * 最後の snapshot に、もう一方のブランチで足した index が入っていない。
+ * そこで、各 snapshot が親（prevIds）から増やした・減らした index を、フォルダの順に積み上げる。
+ */
+export const readSchemaIndexKeys = async (migrationsDir: string): Promise<Set<string>> => {
+  const folderNames = await readFolderNames(migrationsDir)
+  const snapshots = await Promise.all(folderNames.map(async (name) => readSnapshot(path.join(migrationsDir, name, SNAPSHOT_FILE_NAME))))
+  const snapshotsById = new Map(snapshots.map((snapshot) => [snapshot.id, snapshot]))
+
+  const schemaIndexKeys = new Set<string>()
+  for (const snapshot of snapshots) {
+    const parentIndexKeys = new Set(snapshot.prevIds.flatMap((prevId) => [...(snapshotsById.get(prevId)?.indexKeys ?? [])]))
+    for (const indexKey of parentIndexKeys) {
+      if (!snapshot.indexKeys.has(indexKey)) schemaIndexKeys.delete(indexKey)
+    }
+    for (const indexKey of snapshot.indexKeys) {
+      if (!parentIndexKeys.has(indexKey)) schemaIndexKeys.add(indexKey)
+    }
+  }
+  return schemaIndexKeys
 }
