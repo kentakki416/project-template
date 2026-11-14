@@ -95,7 +95,7 @@ A（index を `online.sql` で足す）の後に、B（`migration.sql` だけ）
 - **`online.sql` が無いうちは DB に何も作らない。** 既存の環境の挙動を変えず、最初の `online.sql` を足した PR で初めて履歴のテーブルができる
 - **取り出す文の無い `migration.sql` は 1 文字も変えない。** 後処理は全フォルダを見るので、空白の違いだけで適用済みのマイグレーションを書き換えないようにする
 - **`db:generate` / `db:migrate` は TypeScript のスクリプトにする。** `"a && b"` の scripts では `pnpm db:generate --name=x` の引数が後ろのコマンドに付いてしまう。子プロセスで drizzle-kit を呼び、入出力を引き継ぐ（generate の対話をそのまま使う）
-- **排他は持たない。** min 環境は PgBouncer（transaction pooling）経由で、セッション単位の advisory lock が使えない。deploy の concurrency group が直列にしている
+- **排他は持たない。** min 環境は PgBouncer（transaction pooling）経由で、セッション単位の advisory lock が使えない。deploy の concurrency group が直列にしている。ローカルなどで 2 つの `db:migrate` が重なったときのために、無効な index が別のセッションで作成中（`pg_stat_progress_create_index` に行がある）なら、消さずにエラーで止める
 - **実 DB を使う自動テストは入れない。** 実行部は SQL を流す口（`SqlExecutor`）と「ここまで適用する」関数（`migrateThrough`）を受け取る形にして、偽物でユニットテストする。実 DB での挙動は、使い捨ての Postgres で手動で確かめる
 
 ## 対応内容
@@ -110,10 +110,10 @@ packages/db/
 │   ├── tsconfig.json
 │   ├── paths.ts                    # マイグレーションのディレクトリ、drizzle-kit のパス
 │   ├── online-statement.ts         # online.sql の解析（書ける文の判定、index 名と schema の取り出し）
-│   ├── migration-folders.ts        # フォルダの読み込み
+│   ├── migration-folders.ts        # フォルダの読み込み、どのフォルダまでを drizzle-kit に見せるかの選択
 │   ├── split-online-statements.ts  # generate の後処理（CREATE INDEX CONCURRENTLY を online.sql に移す）
 │   ├── verify-migration-files.ts   # 適用前の検査
-│   ├── run-online-migrations.ts    # フォルダの順の適用
+│   ├── run-migrations.ts    # フォルダの順の適用
 │   ├── run-drizzle-kit.ts          # drizzle-kit の起動
 │   ├── generate.ts                 # db:generate の入口
 │   └── migrate.ts                  # db:migrate の入口
@@ -217,7 +217,7 @@ export const moveOnlineStatements = async (migrationsDir: string): Promise<strin
 | `migration.sql` に `INDEX CONCURRENTLY` がある | トランザクション内で実行できない |
 | `online.sql` に書けない文がある | 冪等でない文を流さない |
 
-### `packages/db/migrate/run-online-migrations.ts`
+### `packages/db/migrate/run-migrations.ts`
 
 ```typescript
 export type SqlExecutor = {
@@ -281,8 +281,7 @@ CREATE TABLE IF NOT EXISTS "drizzle"."__online_migrations" ("name" text PRIMARY 
 const migrateThroughFolder = async (folders: MigrationFolder[], lastFolderName: string, args: string[]): Promise<void> => {
   const partialMigrationsDir = await mkdtemp(path.join(tmpdir(), "drizzle-migrations-"))
   try {
-    for (const folder of folders) {
-      if (folder.name > lastFolderName) break
+    for (const folder of selectFoldersThrough(folders, lastFolderName)) {
       await cp(path.join(MIGRATIONS_DIR, folder.name), path.join(partialMigrationsDir, folder.name), { recursive: true })
     }
     await runDrizzleKit("migrate", args, { migrationsDir: partialMigrationsDir })
