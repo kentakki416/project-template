@@ -7,9 +7,6 @@ import { generateAccessToken } from "../../src/lib/jwt"
 import { AdminAuthRequest } from "../../src/middleware/admin-auth"
 import { createAdminTestApp } from "../controller/helper"
 
-/**
- * adminAuthMiddleware を通ったら adminId を返すだけの Router
- */
 const echoRouter = Router()
 echoRouter.all(/.*/, (req: AdminAuthRequest, res: express.Response) => {
   res.status(200).json({ adminId: req.adminId ?? null })

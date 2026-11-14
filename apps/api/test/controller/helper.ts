@@ -11,13 +11,6 @@ import { mountAdminApi } from "../../src/routes/admin-router"
 
 import { testDb } from "./setup"
 
-/**
- * テスト用Expressアプリを構築する
- * 本番と同じミドルウェア構成を再現する
- *
- * 想定外例外ハンドラをルート登録後に適用したい場合は、
- * `createTestApp()` → ルート登録 → `attachUnhandledExceptionHandler(app)` の順に呼び出す
- */
 export const createTestApp = (): express.Express => {
   const app = express()
   app.use(express.json())
@@ -26,17 +19,12 @@ export const createTestApp = (): express.Express => {
 }
 
 /**
- * ルート登録後に想定外例外ハンドラを登録する
- * （Express の仕様上、エラーハンドラはルートの後に登録する必要がある）
+ * Express のエラーハンドラはルートの後に登録する必要があるので、ルートを登録してから呼ぶ
  */
 export const attachUnhandledExceptionHandler = (app: express.Express): void => {
   app.use(unhandledExceptionHandler)
 }
 
-/**
- * テスト用ユーザーをDBに作成し、JWTトークンを返す
- * 認証必須のAPIテストで、リクエスト前に呼び出して使用する
- */
 export const createTestUser = async (overrides?: {
   avatarUrl?: string
   email?: string
@@ -65,10 +53,6 @@ export const createTestUser = async (overrides?: {
   return { token, user }
 }
 
-/**
- * admin の API のテスト用 Express アプリを構築する。
- * 本番の index.ts と同じく、authMiddleware を全体に掛け、mountAdminApi で /api/admin に mount する
- */
 export const createAdminTestApp = (router: express.Router): express.Express => {
   const app = express()
   app.use(express.json())
@@ -78,9 +62,6 @@ export const createAdminTestApp = (router: express.Router): express.Express => {
   return app
 }
 
-/**
- * テスト用 admin を DB に作成し、admin の access token を返す
- */
 export const createTestAdmin = async (overrides?: {
   email?: string
   name?: string

@@ -3,10 +3,7 @@ import type { Redis } from "@repo/redis"
 import type { RefreshTokenRepository } from "../refresh-token-repository"
 
 /**
- * ioredis 実装の Refresh Token リポジトリ
- *
- * キーは `{keyPrefix}:{jti}`。一般ユーザーは既定の `refresh_token`、admin は `admin_refresh_token` で作り、
- * 同じ Redis の中で混ざらないようにする
+ * keyPrefix を一般ユーザーと admin で分けて、同じ Redis の中で jti が混ざらないようにする
  */
 export class IoRedisRefreshTokenRepository implements RefreshTokenRepository {
   private _keyPrefix: string
