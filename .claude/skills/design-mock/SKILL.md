@@ -25,7 +25,7 @@ Step 5: ユーザーが OK
 Step 6: docs/kentakki416/tasks/{feature}/README.md に「UI 設計」セクションを追記（確定仕様）
 ```
 
-> **設計書は main には置かず、`kentakki416` ブランチの `docs/kentakki416/tasks/{feature}/` にだけ置く。** モックのコードは作業ブランチに置き、設計書は `kentakki416` ブランチを別の作業ツリー（`git fetch origin kentakki416` → `git worktree add <dir> kentakki416`）で開いて読み書きする。作業ブランチを切り替えないので、Step 6 でもモックのファイルをそのまま読める。設計書はコミットまで行い、push はユーザーに依頼する。
+> **設計書は main には置かず、`kentakki416` ブランチの `docs/kentakki416/tasks/{feature}/` にだけ置く。** モックのコードは作業ブランチに置き、設計書は `kentakki416` ブランチを checkout した別の作業ツリーで読み書きする。`git worktree list` で既に checkout している作業ツリーがあればそれを使い、無ければ `git worktree add <dir> kentakki416` で開く（同じブランチは 2 か所に checkout できない）。編集の前に `git pull --ff-only origin kentakki416` で最新にする。作業ブランチを切り替えないので、Step 6 でもモックのファイルをそのまま読める。設計書はコミットまで行い、push はユーザーに依頼する。
 
 ## 進め方
 
