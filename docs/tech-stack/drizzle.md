@@ -84,15 +84,19 @@ drizzle-kit は `migration.sql` を 1 つのトランザクションで流すの
 | 変更 | 素直に書いたとき | 止めない書き方 |
 | --- | --- | --- |
 | index の追加 | 作成が終わるまで書き込みを止める | index に `.concurrently()` を付ける（[上の節](#行数の多いテーブルの-index-は-onlinesql-で作る)） |
+| index の削除 | 読み書きを止めるロックを取るが、一瞬で終わる | そのままでよい（止めずに消したいときは、`online.sql` に `DROP INDEX CONCURRENTLY IF EXISTS` を書く） |
 | カラムの追加（NULL 可、または default が定数） | テーブルを書き換えないので一瞬で終わる | そのままでよい |
-| カラムの追加（default が行ごとに変わる式。`gen_random_uuid()` など） | 全行を書き換え、終わるまで読み書きを止める | default 無しで追加 → 既存の行の値を埋める → default を設定 |
-| CHECK 制約 / 外部キーの追加 | 全行を検査する間、ロックを保持する | `NOT VALID` を付けて追加し、次のリリースのマイグレーションで `VALIDATE CONSTRAINT` する |
-| カラムに `NOT NULL` を付ける | 全行を検査する間、読み書きを止める | `CHECK (col IS NOT NULL) NOT VALID` を追加 → 次のリリースで `VALIDATE CONSTRAINT` → `SET NOT NULL` → CHECK を削除 |
+| カラムの追加（default が行ごとに変わる式。`gen_random_uuid()` など） | 全行を書き換え、終わるまで読み書きを止める | default 無しで追加 → default を設定（`SET DEFAULT` は以降の INSERT にだけ効き、書き換えない）→ 既存の行の値を埋める |
+| CHECK 制約 / 外部キーの追加 | 全行を検査する間、CHECK は対象テーブルの読み書きを、外部キーは両方のテーブルの書き込みを止める | `NOT VALID` を付けて追加し、それを適用した後の deploy で `VALIDATE CONSTRAINT` する |
+| UNIQUE 制約の追加（カラムの `.unique()` など） | index を作る間、読み書きを止める | 制約ではなく unique index にして、`uniqueIndex(...).concurrently()` で作る |
+| カラムに `NOT NULL` を付ける | 全行を検査する間、読み書きを止める | `CHECK (col IS NOT NULL) NOT VALID` を追加 → それを適用した後の deploy で `VALIDATE CONSTRAINT` → `SET NOT NULL` → CHECK を削除 |
 | カラムの型の変更 | 多くの場合、全行を書き換えて読み書きを止める | 新しいカラムを追加 → アプリが両方に書く → 既存の行の値を埋める → 読み先を切り替え → 古いカラムを削除 |
 | 既存の行の値を埋める（全行の `UPDATE`） | 1 つの長いトランザクションになり、更新した行のロックを最後まで保持する | [次の節](#既存の行の値を埋める) |
 
 - `NOT VALID` と `VALIDATE CONSTRAINT` は drizzle-kit が生成しない。生成された `migration.sql` に `NOT VALID` を手で足し、`VALIDATE CONSTRAINT` は `db:generate --custom` で作ったマイグレーションに書く
-- `VALIDATE CONSTRAINT` を次のリリースに分けるのは、同じ deploy の未適用分が 1 つのトランザクションで流れるため。同じトランザクションに入ると、制約の追加で取った強いロックを、検査が終わるまで保持する
+- `VALIDATE CONSTRAINT` を別の deploy に分けるのは、同じ deploy の未適用分が 1 つのトランザクションで流れるため。同じトランザクションに入ると、制約の追加で取った強いロックを、検査が終わるまで保持する。deploy は手動で起動するので、`NOT VALID` の PR と `VALIDATE CONSTRAINT` の PR を両方マージしてから deploy しない（`NOT VALID` を各環境に適用してから、`VALIDATE CONSTRAINT` の PR をマージする）
+- `VALIDATE CONSTRAINT` は書き込みを止めないが、全行を検査する間 deploy の migrate ジョブが待つ。ジョブがタスクの終了を待つのは 10 分まで（上の節）
+- 一瞬で終わる変更も、強いロックを取るときに長いトランザクションの後ろで待つと、その後ろに来た読み書きも一緒に待たされる。待ち時間の上限（`lock_timeout`）は設定していないので、行数の多いテーブルへの変更は、長いトランザクションが走っていない時間帯に deploy する
 - `@repo/domain` の定数に値を足すと、`CHECK` を差し替える SQL が生成される（[後述](#enum-的な列は-const-から-check-制約を作る)）。行数の多いテーブルでは、上の「CHECK 制約の追加」の書き方に直す
 
 ### 既存の行の値を埋める
@@ -105,7 +109,7 @@ drizzle-kit は `migration.sql` を 1 つのトランザクションで流すの
 | 行数の少ないテーブル | `db:generate --custom` で作ったマイグレーションに `UPDATE` を書く |
 | 行数の多いテーブル | 手動で、少しずつに分けた `UPDATE`（未処理の行を数千行ずつ選んで更新し、その都度 commit する）を流す。終わってから、制約を付けるマイグレーションを入れる |
 
-新しく作る DB には既存の行が無いので、手動で流した `UPDATE` を、全環境で再現できる形で残す必要は無い。
+手動の `UPDATE` は、既に行のある環境（dev / min / prd と、データを入れたローカル）ごとに流す。新しく作る DB には既存の行が無いので、マイグレーションのように、後から作る環境でも再現できる形で残す必要は無い。
 
 ### 接続
 
@@ -145,7 +149,7 @@ export const users = pgTable(
 CONSTRAINT "users_membership_tier_check" CHECK ("membership_tier" IN ('bronze', 'silver', 'gold'))
 ```
 
-- **値を足したら `db:generate` する。** `CHECK` を差し替える SQL（`DROP CONSTRAINT ..., ADD CONSTRAINT ...`）が自動で生成される。差し替え時に既存の全行を検査するので、行数の多いテーブルでは実行時間に注意する
+- **値を足したら `db:generate` する。** `CHECK` を差し替える SQL（`DROP CONSTRAINT ..., ADD CONSTRAINT ...`）が自動で生成される。差し替え時に既存の全行を検査するので、行数の多いテーブルでは [`NOT VALID` を使う書き方](#行数の多いテーブルで書き込みを止める変更)にする
 - 値を消すときは、その値を持つ行が残っているとマイグレーションが失敗する（不正な状態のまま進まない）
 - DB が値を保証するので、Repository で `isMembershipTier` による検証は不要
 - **domain に値を足すと API 契約も変わる。** 値の追加は API 契約の変更としてレビューする（`packages/domain/README.md`）
