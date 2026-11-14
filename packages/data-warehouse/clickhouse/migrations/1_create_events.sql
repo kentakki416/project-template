@@ -1,6 +1,6 @@
 -- ユーザー行動イベント
 --
--- 設計: docs/spec/user-behavior-events/README.md
+-- 設計: docs/kentakki416/tasks/user-behavior-events/README.md
 --
 -- ReplacingMergeTree にしているのは BullMQ が at-least-once で
 -- 同じイベントが 2 回届きうるため。ORDER BY 末尾の event_id が重複排除キーになる。

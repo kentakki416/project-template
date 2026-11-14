@@ -9,7 +9,7 @@ import type { TrackEventInput } from "./event"
  *
  * この interface を挟んでいるのは transport を差し替えられるようにするため。
  * 現状は Queue 実装だが、ログ経由へ切り替えても service 層は変更不要。
- * 詳細は docs/spec/user-behavior-events/deferred-event-delivery.md を参照。
+ * 詳細は docs/kentakki416/tasks/user-behavior-events/deferred-event-delivery.md を参照。
  */
 export interface EventTracker {
   /**
@@ -17,7 +17,7 @@ export interface EventTracker {
    *
    * Lambda はレスポンスを返した時点で実行環境を凍結するため、await していない送出が
    * 止まったまま失われうる。レスポンスの前にこれを待つことで取りこぼしを防ぐ
-   * （docs/spec/minimal-deploy/README.md「Lambda の凍結とイベント送出」）。
+   * （docs/kentakki416/tasks/minimal-deploy/README.md「Lambda の凍結とイベント送出」）。
    */
   flush(): Promise<void>
   track(input: TrackEventInput): void

@@ -332,7 +332,7 @@ graph TB
 
 ### 仕様・設計
 
-機能の設計書（`docs/spec/`）は main には置かず、`kentakki416` ブランチで管理する（main に merge しないブランチ）。新機能は実装前にそこへ設計書を作る。
+機能の設計書は main には置かず、`kentakki416` ブランチ（main に merge しない）の `docs/kentakki416/tasks/{feature}/` で管理する。機能の一覧は `git fetch origin kentakki416` してから `git show origin/kentakki416:docs/kentakki416/tasks/README.md` で読む。新機能は実装前にそこへ設計書を作る。
 
 ### Claude Code
 

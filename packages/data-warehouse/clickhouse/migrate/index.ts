@@ -37,7 +37,7 @@ const closeClient = async (client: ClickHouseClient): Promise<void> => {
  * 4. 版管理する migration を適用する
  * 5. CDC があれば view を作り直す
  *
- * 設計: docs/spec/clickhouse-migration/README.md
+ * 設計: docs/kentakki416/tasks/clickhouse-migration/README.md
  */
 const main = async (): Promise<void> => {
   const [migrations, cdcTables, views] = await Promise.all([

@@ -409,7 +409,7 @@ module "elasticache" {
 #   dwh-migration にだけ渡す
 # - 接続を許すのは、worker と migration のタスクが外へ出る NAT の IP と、
 #   clickhouse_additional_ip_access_cidrs に足した IP (分析ツールなど) だけ
-# 設計: docs/spec/clickhouse-migration/README.md
+# 設計: docs/kentakki416/tasks/clickhouse-migration/README.md
 
 module "clickhouse" {
   source = "../../modules/clickhouse-service"

@@ -94,7 +94,7 @@ enqueue に `jobId` を渡すと、同じ `jobId` のジョブが Redis に残�
 
 Worker はジョブを待つ間も、取り出しや stalled の検出のために Redis へ定期的にコマンドを送る。
 **コマンド数で課金される Redis（Upstash の Pay as You Go）では、ジョブが無くても費用が積み上がる。**
-min で worker を作るときは Upstash を Fixed プランにする（`docs/spec/minimal-deploy/README.md`）。
+min で worker を作るときは Upstash を Fixed プランにする（`docs/kentakki416/tasks/minimal-deploy/README.md`）。
 
 ## 差し替えられるようにしている
 
