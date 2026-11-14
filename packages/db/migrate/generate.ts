@@ -10,7 +10,7 @@ const main = async (): Promise<void> => {
   await runDrizzleKit("generate", process.argv.slice(2))
   const changedFolderNames = await moveOnlineStatements(MIGRATIONS_DIR)
   for (const folderName of changedFolderNames) {
-    console.log(`Rewrote ${folderName} (statements that run outside the transaction go to online.sql)`)
+    console.log(`Moved online statements to ${folderName}/online.sql`)
   }
 }
 

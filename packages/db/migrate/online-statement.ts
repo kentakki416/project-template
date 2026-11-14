@@ -1,4 +1,4 @@
-export const IDENTIFIER = String.raw`(?:"(?:[^"]|"")+"|[A-Za-z_][A-Za-z0-9_$]*)`
+const IDENTIFIER = String.raw`(?:"(?:[^"]|"")+"|[A-Za-z_][A-Za-z0-9_$]*)`
 
 const QUALIFIED_NAME = String.raw`(?:(${IDENTIFIER})\s*\.\s*)?(${IDENTIFIER})`
 
@@ -9,7 +9,7 @@ const CREATE_INDEX_PATTERN = new RegExp(
 
 const DROP_INDEX_PATTERN = new RegExp(String.raw`^DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS\s+${QUALIFIED_NAME}$`, "i")
 
-export const DEFAULT_SCHEMA = "public"
+const DEFAULT_SCHEMA = "public"
 
 const INVALID_STATEMENT_MESSAGE
   = "online.sql accepts only CREATE [UNIQUE] INDEX CONCURRENTLY IF NOT EXISTS and DROP INDEX CONCURRENTLY IF EXISTS"
@@ -24,12 +24,10 @@ export type OnlineStatement = {
 /**
  * 引用符の無い識別子は Postgres が小文字にたたむ
  */
-export const normalizeIdentifier = (identifier: string): string =>
+const normalizeIdentifier = (identifier: string): string =>
   identifier.startsWith("\"") ? identifier.slice(1, -1).replace(/""/g, "\"") : identifier.toLowerCase()
 
 export const quoteIdentifier = (identifier: string): string => `"${identifier.replace(/"/g, "\"\"")}"`
-
-export const buildIndexKey = (schema: string, indexName: string): string => `${schema}.${indexName}`
 
 /**
  * SQL をコメントを除いた文に分ける。

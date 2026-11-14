@@ -58,23 +58,23 @@ packages/db/
     - `online.sql` ※ .concurrently()をつけたindexの差分がある時だけ生成される
     - `snapshot.json`
 4. `pnpm --filter api db:migrate` でローカルの DB に適用する
-5. スキーマとマイグレーションのフォルダを一緒にコミットする（dev / prd には deploy の migrate ジョブが適用する）
+5. スキーマとマイグレーションのフォルダを一緒にコミットする（dev / min / prd には deploy の migrate ジョブが適用する）
 
 ### `db:generate` が生成するファイル
 
 | ファイル | 流し方 | 中身 |
 | --- | --- | --- |
-| `migration.sql` | 未適用分をまとめて 1 トランザクション。途中で失敗すると全部ロールバックされる | テーブル・カラム・制約の変更 |
-| `online.sql`（ある場合だけ） | `migration.sql` の適用後に、トランザクションの外で 1 文ずつ | `CREATE INDEX CONCURRENTLY`（書き込みを止めずに index を作る） |
+| `migration.sql` | 未適用分をまとめて 1 トランザクション（`online.sql` を持つフォルダがあれば、そこで区切る）。途中で失敗すると、そのトランザクションの分はロールバックされる | テーブル・カラム・制約の変更 |
+| `online.sql`（ある場合だけ） | 同じフォルダの `migration.sql` の適用後に、トランザクションの外で 1 文ずつ | `CREATE INDEX CONCURRENTLY`（書き込みを止めずに index を作る） |
 | `snapshot.json` | 流さない | その時点のスキーマ。drizzle-kit が次の差分を出すのに使う |
 
-`db:migrate` はこの順に両方を流す。ローカル・テスト・CI・本番で同じコマンドを使う。
+`db:migrate` は、フォルダの名前順に両方を流す。ローカル・テスト・CI・本番で同じコマンドを使う。`drizzle-kit migrate` を直接実行すると `online.sql` が飛ばされるので、必ず `db:migrate` を使う。
 
 ### `online.sql` の役割
 
 通常の `CREATE INDEX` は、作成が終わるまで対象テーブルへの書き込みを止める。行数の多いテーブルでは、スキーマの index に `.concurrently()` を付けて、書き込みを止めない `CREATE INDEX CONCURRENTLY` で作る。
 
-ただし `CREATE INDEX CONCURRENTLY` は、Postgres の制約でトランザクションの中では実行できない。Drizzle は `migration.sql` を 1 つのトランザクションで流すので、この文だけを `online.sql` に分け、`migration.sql` の後にトランザクションの外で流す。
+ただし `CREATE INDEX CONCURRENTLY` は、Postgres の制約でトランザクションの中では実行できない。Drizzle は `migration.sql` を 1 つのトランザクションで流すので、この文だけを `online.sql` に分け、同じフォルダの `migration.sql` の後にトランザクションの外で流す。
 
 ```ts
 (table) => [index("auth_accounts_user_id_idx").on(table.userId).concurrently()]

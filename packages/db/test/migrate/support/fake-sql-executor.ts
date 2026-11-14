@@ -1,4 +1,4 @@
-import { buildIndexKey, parseOnlineSql } from "../../../migrate/online-statement"
+import { parseOnlineSql } from "../../../migrate/online-statement"
 import type { SqlExecutor } from "../../../migrate/run-online-migrations"
 
 type FakeState = {
@@ -12,6 +12,8 @@ type FakeState = {
    */
   indexes?: Record<string, boolean>
 }
+
+const buildIndexKey = (schema: string, indexName: string): string => `${schema}.${indexName}`
 
 /**
  * オンライン操作の実行部が使う SQL にだけ答える executor の偽物。実行した SQL を記録する
