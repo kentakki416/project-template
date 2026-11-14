@@ -9,10 +9,9 @@ ORM / マイグレーションツールは Drizzle（`drizzle-orm` / `drizzle-ki
 - [ディレクトリ構成](#ディレクトリ構成)
 - [コマンド](#コマンド)
 - [マイグレーション](#マイグレーション)
-  - [マイグレーションのフォルダ](#マイグレーションのフォルダ)
-  - [行数の多いテーブルに index を足す](#行数の多いテーブルに-index-を足す)
-  - [守ること](#守ること)
-- [client の生成と DI](#client-の生成と-di)
+  - [`db:generate` が生成するファイル](#dbgenerate-が生成するファイル)
+  - [`online.sql` の役割](#onlinesql-の役割)
+- [コーディング規約](#コーディング規約)
 
 ## ディレクトリ構成
 
@@ -54,11 +53,14 @@ packages/db/
 
 1. `src/drizzle/schema/` のテーブル定義を変える
 2. `pnpm --filter api db:generate --name=<変更の名前>` でマイグレーションを作る
-3. 生成された `drizzle/migrations/<日時>_<名前>/` の SQL を目で確認する
+3. `drizzle/migrations/<日時>_<名前>/`配下に以下のファイルが生成される
+    - `migration.sql`
+    - `online.sql` ※ .concurrently()をつけたindexの差分がある時だけ生成される
+    - `snapshot.json`
 4. `pnpm --filter api db:migrate` でローカルの DB に適用する
 5. スキーマとマイグレーションのフォルダを一緒にコミットする（dev / prd には deploy の migrate ジョブが適用する）
 
-### マイグレーションのフォルダ
+### `db:generate` が生成するファイル
 
 | ファイル | 流し方 | 中身 |
 | --- | --- | --- |
@@ -68,31 +70,23 @@ packages/db/
 
 `db:migrate` はこの順に両方を流す。ローカル・テスト・CI・本番で同じコマンドを使う。
 
-### 行数の多いテーブルに index を足す
+### `online.sql` の役割
 
-通常の `CREATE INDEX` は、作成が終わるまで対象テーブルへの書き込みを止める。行数の多いテーブルでは、スキーマの index に `.concurrently()` を付ける。
+通常の `CREATE INDEX` は、作成が終わるまで対象テーブルへの書き込みを止める。行数の多いテーブルでは、スキーマの index に `.concurrently()` を付けて、書き込みを止めない `CREATE INDEX CONCURRENTLY` で作る。
+
+ただし `CREATE INDEX CONCURRENTLY` は、Postgres の制約でトランザクションの中では実行できない。Drizzle は `migration.sql` を 1 つのトランザクションで流すので、この文だけを `online.sql` に分け、`migration.sql` の後にトランザクションの外で流す。
 
 ```ts
 (table) => [index("auth_accounts_user_id_idx").on(table.userId).concurrently()]
 ```
 
-- `db:generate` が、生成した `CREATE INDEX CONCURRENTLY` を `online.sql` に移す（手で SQL を動かさない）
-- `db:migrate` が、`migration.sql` の後に `online.sql` を流して index を作る。適用済みのフォルダは `drizzle.__online_migrations` テーブルに記録する
-- 作成が途中で失敗しても、次の `db:migrate` が作りかけの index を消して作り直す
-- 行数の少ないテーブルや、同じマイグレーションで作るテーブルの index は、`.concurrently()` を付けなくてよい
 
-### 守ること
+## コーディング規約
 
-- **適用済みのマイグレーションのファイルは書き換えない。** 書き換えても適用済みの DB には反映されず、新しく作る DB とだけ食い違う。直すときは新しいマイグレーションを足す
-- **`.concurrently()` で作った index の名前は変えない。** 名前を変えるときは、消して作り直す（`db:migrate` が適用の前に検出して止める）
-- `online.sql` に書けるのは `CREATE [UNIQUE] INDEX CONCURRENTLY IF NOT EXISTS` と `DROP INDEX CONCURRENTLY IF EXISTS` だけ
-
-仕組みと制約の詳細は [`docs/tech-stack/drizzle.md`](../../docs/tech-stack/drizzle.md#マイグレーション)。
-
-## client の生成と DI
-
-- **factory だけを export し、singleton は持たない。** 接続は各 app の `src/index.ts`（cron は `src/task/*.ts`）で 1 回だけ生成し、Repository に DI する。
-- テーブル定義（`memos` / `users` …）とクエリ演算子（`eq` / `and` …）も `@repo/db` から import する。使ってよいのは各 app の `src/repository/**` だけ（`@repo/eslint-config/db-boundary` が lint で強制）。
+- **factory だけを export し、singleton は持たない。** 
+  - 接続は各 app の `src/index.ts`（cron は `src/task/*.ts`）で 1 回だけ生成し、Repository に DI する。
+- テーブル定義（`memos` / `users` …）とクエリ演算子（`eq` / `and` …）も `@repo/db` から import する。
+  - 使ってよいのは各 app の `src/repository/**` だけ（`@repo/eslint-config/db-boundary` が lint で強制）。
 - `onError` に各 app の logger を渡す。
 
 ```ts
