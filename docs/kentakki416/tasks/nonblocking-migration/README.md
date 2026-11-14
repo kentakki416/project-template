@@ -67,8 +67,8 @@ Postgres 12 以降を前提にする（ローカルと CI は 16）。「止め�
 
 | 経路 | 置き場所 | 流し方 | 載せるもの |
 | --- | --- | --- | --- |
-| 1. トランザクション内のマイグレーション | `migrations/{name}/migration.sql` | 今までどおり。未適用分をまとめて 1 トランザクション | 一瞬で終わる DDL（テーブル / カラムの追加、`NOT VALID` の制約など） |
-| 2. オンライン操作 | `migrations/{name}/online.sql` | 経路 1 の commit 後に、トランザクションの外で 1 文ずつ | 時間はかかるが書き込みを止めないもの（`CREATE INDEX CONCURRENTLY` / `DROP INDEX CONCURRENTLY` / `VALIDATE CONSTRAINT`） |
+| 1. トランザクション内のマイグレーション | `migrations/{name}/migration.sql` | 未適用分をまとめて 1 トランザクション（`online.sql` を持つフォルダがあれば、そこで区切る） | 一瞬で終わる DDL（テーブル / カラムの追加、`NOT VALID` の制約など） |
+| 2. オンライン操作 | `migrations/{name}/online.sql` | 同じフォルダの `migration.sql` の commit 後に、トランザクションの外で 1 文ずつ | 時間はかかるが書き込みを止めないもの（`CREATE INDEX CONCURRENTLY` / `DROP INDEX CONCURRENTLY` / `VALIDATE CONSTRAINT`） |
 | 3. バックフィル | `packages/db/drizzle/backfills/{name}.ts` | deploy とは別に手動で起動。バッチごとに commit | 既存の行の値を埋める・移す処理 |
 
 - 経路 1 と 2 は `db:migrate` の 1 コマンドで続けて流れる。ローカル・テスト・CI・本番で同じ
@@ -134,7 +134,8 @@ drizzle-kit `1.0.0-rc.4` と Postgres 16 の使い捨てコンテナで確かめ
 | `.concurrently()` を付けた index をスキーマから消して `db:generate` | 素の `DROP INDEX "..."` が生成される（`CONCURRENTLY` は付かない） |
 | その `DROP INDEX` を `migration.sql` に残して、空の DB に `db:migrate` | `index does not exist` で失敗する（`online.sql` は後で流れるため、index がまだ無い） |
 | コメントだけ・空の `migration.sql` | 適用できる |
-| `snapshot.json` | `ddl` 配列に `entityType: "indexes"` の要素があり、`name`・`schema`・`concurrently` を持つ（version 8） |
+| `drizzle.config.ts` の `out` を差し替えて、途中までのフォルダだけを見せて `migrate` | そこまでだけが適用される。DB のほうが進んでいても、エラーにならず何も変わらない |
+| index を足したフォルダまで適用 → `online.sql` → 残り（index のあるカラムの rename）を適用 | 空の DB でも通り、index は rename 後のカラムを指す |
 
 コードから読み取ったもの。
 
@@ -152,26 +153,25 @@ drizzle-kit `1.0.0-rc.4` と Postgres 16 の使い捨てコンテナで確かめ
 **定義の置き場所**
 
 - マイグレーションのフォルダに `online.sql` を置く。`migration.sql` と同じ名前・同じ順序で版管理される
-- index はスキーマが唯一の定義元。`.concurrently()` を付けた index は、`db:generate` の後処理が `migration.sql` から `online.sql` に移し、`IF NOT EXISTS` を付ける。手で SQL を削らない
-- `online.sql` で作った index をスキーマから消したときの `DROP INDEX` は、`migration.sql` に残して `IF EXISTS` を付ける（素のままだと、空の DB で失敗する。`online.sql` に移すと、同じマイグレーションが同じ名前の index を `migration.sql` で作り直すときに、DROP が後になって失敗する）
-- `VALIDATE CONSTRAINT` は `online.sql` に手で書く（Drizzle は `NOT VALID` / `VALIDATE` を生成しない。`NOT VALID` は `migration.sql` を手で直す）
+- index はスキーマが唯一の定義元。`.concurrently()` を付けた index は、`db:generate` の後処理が `migration.sql` から `online.sql` に移し、`IF NOT EXISTS` を付ける。手で SQL を動かさない
+- `VALIDATE CONSTRAINT` は `online.sql` に手で書く（Drizzle は `NOT VALID` / `VALIDATE` を生成しない。`NOT VALID` は `migration.sql` を手で直す）。step1 では扱わない
 
 **書ける文を絞る**
 
-`online.sql` に書けるのは次の 3 種類だけにし、それ以外は実行前にエラーにする。どれも何度流しても同じ結果になる。
+`online.sql` に書ける文を次に限り、それ以外は実行前にエラーにする。どれも何度流しても同じ結果になる。
 
 - `CREATE [UNIQUE] INDEX CONCURRENTLY IF NOT EXISTS ...`
 - `DROP INDEX CONCURRENTLY IF EXISTS ...`
-- `ALTER TABLE ... VALIDATE CONSTRAINT ...`
+- `ALTER TABLE ... VALIDATE CONSTRAINT ...`（後の step で足す）
 
 **流し方**
 
-- `db:migrate` = `drizzle-kit migrate` → オンライン操作の実行。ローカル・テスト・CI も同じコマンドなので、index がある環境と無い環境に分かれない（空のテーブルでは一瞬で終わる）
-- 適用済みのフォルダは `drizzle.__online_migrations` テーブルに記録し、次からは飛ばす。記録が無いと、後のマイグレーションで消した index を毎回作っては消すことになるため
-- drizzle-kit は `migration.sql` を先にすべて流すので、`online.sql` との前後関係が失われる。空の DB では、古い `online.sql` の対象のテーブルやカラムがもう無いことがある。流す文は「同じ index への最後の文か」と「`snapshot.json` から求めた今のスキーマにその index があるか」で選び、空の DB も適用済みの DB も同じ状態に収束させる（詳細は [step1](./tasks/step1-db-online-index.md#流す文の選び方)）
-- 今のスキーマの index は、各 snapshot が親（`prevIds`）から増やした・減らした分を積み上げて求める。名前順で最後の snapshot だけを見ると、別々のブランチで作ったマイグレーションが並んだときに、もう一方で足した index を落とす
-- `.concurrently()` で作った index の `ALTER INDEX`（rename）は、適用前にエラーにする。名前を変えるときは、消して作り直す
-- `db:generate` / `db:migrate` は、drizzle-kit を子プロセスで呼ぶ TypeScript のスクリプトにする（`pnpm db:generate --name=x` の引数を drizzle-kit に渡すため）
+- **フォルダの名前順に、`migration.sql` と `online.sql` を交互に流す。** `online.sql` を持つ未適用のフォルダごとに、そこまでの `migration.sql` を適用してから、そのフォルダの `online.sql` を流す。最後に残りの `migration.sql` を適用する
+  - `online.sql` を、書かれた時点のスキーマに対して流すため。未適用の `migration.sql` を全部適用してから流す作り（最初の実装）は、空の DB で、後のマイグレーションの変更（カラムの rename、index の作り直し、別ブランチのマイグレーション）と順序が入れ替わって壊れた
+  - drizzle-kit migrate は「ここまで適用する」を指定できないので、そこまでのフォルダだけを写した一時ディレクトリを見せて流す（`drizzle.config.ts` の `out` を環境変数 `DRIZZLE_MIGRATIONS_DIR` で差し替える）
+  - 代償: 未適用分は 1 トランザクションでなくなり、`online.sql` を持つフォルダごとに区切って commit される。`drizzle-kit migrate` を直接実行すると `online.sql` が飛ばされるので、必ず `db:migrate` を使う
+- `db:generate` / `db:migrate` は、drizzle-kit を子プロセスで呼ぶ TypeScript のスクリプトにする（`pnpm db:generate --name=x` の引数を drizzle-kit に渡すため）。ローカル・テスト・CI も同じコマンドなので、index がある環境と無い環境に分かれない
+- `online.sql` を適用したフォルダは `drizzle.__online_migrations` テーブルに記録し、次からは飛ばす
 - 1 文ずつ、トランザクションを張らずに流す。フォルダの全文が成功したら記録する。途中で失敗したら記録せず、次の実行で先頭からやり直す（文が冪等なので安全）
 - `CREATE INDEX` の前に、同じ名前の無効な index（`pg_index.indisvalid = false`）があれば `DROP INDEX CONCURRENTLY` する。作成後に有効になっていなければエラーにする
 - 同時実行の排他は deploy の concurrency group に任せ、advisory lock は使わない（min の PgBouncer で使えないため）
@@ -229,7 +229,7 @@ botchan-platform は、Drizzle の migrate の後にスクリプト（`ensure-on
 
 - min（PgBouncer 経由）で `CREATE INDEX CONCURRENTLY` と `PGOPTIONS` の `lock_timeout` が通るか（通らなければ、migration のタスクにだけ PgBouncer を通さない接続文字列を渡す）
 - squawk が drizzle-kit の生成する SQL（`--> statement-breakpoint` のコメント付き）をそのまま読めるか、ファイル全体を 1 トランザクションとみなす設定ができるか（できなければ自作のチェックにする。Q3 の b）
-- drizzle-kit を上げたときに、フォルダ内の `online.sql` を無視する挙動と、`snapshot.json` の形式が変わらないか（RC に固定しているので、上げるときに上の表の確認をやり直す）
+- drizzle-kit を上げたときに、フォルダ内の `online.sql` を無視する挙動と、途中までのフォルダだけを見せて適用できる挙動が変わらないか（RC に固定しているので、上げるときに上の表の確認をやり直す）
 
 ### MVP 対象外（将来検討）
 

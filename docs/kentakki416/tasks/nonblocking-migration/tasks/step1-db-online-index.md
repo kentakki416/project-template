@@ -1,12 +1,12 @@
-# step1: index をトランザクションの外で作る・消す（online.sql）
+# step1: index をトランザクションの外で作る（online.sql）
 
-`.concurrently()` を付けた index を、`db:generate` が `online.sql` に振り分け、`db:migrate` が `migration.sql` の適用後にトランザクションの外で流すようにする。README の「経路 2: オンライン操作」のうち、**index の作成と削除だけ**を扱う最初の step。
+`.concurrently()` を付けた index を、`db:generate` が `online.sql` に振り分け、`db:migrate` がトランザクションの外で流すようにする。README の「経路 2: オンライン操作」のうち、**index の作成（と、手で書く削除）だけ**を扱う最初の step。
 
 この step の前は、`db:generate` / `db:migrate` は drizzle-kit をそのまま呼ぶだけで、`CREATE INDEX CONCURRENTLY` を書く手段が無い。この step の後は、スキーマに `.concurrently()` を付けるだけで、ローカル・テスト・CI・本番のどこでも同じコマンドで index が作られる。
 
 `VALIDATE CONSTRAINT`、`lock_timeout`、deploy の待ちの上限、危険な DDL の検出、バックフィルは後の step で扱う。
 
-> この step ファイルは実装（PR #136）と同時に書いた。コードの正本は PR で、ここには構成と主要な処理だけを載せる。
+> この step ファイルは実装（PR #136）と並行して書いた。コードの正本は PR で、ここには構成と主要な処理だけを載せる。最初の実装（未適用の `migration.sql` を全部適用してから `online.sql` を流す）は、セルフレビューで順序の入れ替わりによる誤りが 3 件見つかり、下の「フォルダの順に交互に流す」作りに変えた。
 
 ## 目次
 
@@ -14,7 +14,7 @@
 - [依存](#依存)
 - [処理フロー](#処理フロー)
   - [処理の流れ](#処理の流れ)
-- [流す文の選び方](#流す文の選び方)
+- [流す順序](#流す順序)
 - [設計方針](#設計方針)
 - [対応内容](#対応内容)
 - [動作確認](#動作確認)
@@ -24,8 +24,8 @@
 
 | コマンド | 変更前 | 変更後 |
 |---|---|---|
-| `pnpm --filter @repo/db db:generate` | `drizzle-kit generate` | `drizzle-kit generate` → `online.sql` への振り分け |
-| `pnpm --filter @repo/db db:migrate` | `drizzle-kit migrate` | ファイルの検査 → `drizzle-kit migrate` → 未適用の `online.sql` の適用 |
+| `pnpm --filter @repo/db db:generate` | `drizzle-kit generate` | `drizzle-kit generate` → `CREATE INDEX CONCURRENTLY` を `online.sql` に移す |
+| `pnpm --filter @repo/db db:migrate` | `drizzle-kit migrate` | ファイルの検査 → フォルダの名前順に `migration.sql` と `online.sql` を適用 |
 
 - 引数（`--name=...`、`--custom`）は drizzle-kit にそのまま渡す
 - `apps/api` の `db:generate` / `db:migrate` / `test` / `test:ci`、migration イメージの `CMD` は、上のコマンドを呼んでいるので変更しない
@@ -34,7 +34,7 @@
 
 | 依存先 | 何を使うか | 本 step での扱い |
 |---|---|---|
-| drizzle-kit `1.0.0-rc.4` | フォルダ内の `online.sql` を無視する挙動、`snapshot.json`（version 8）の `ddl` 配列 | 必須前提。版を上げるときに確認し直す |
+| drizzle-kit `1.0.0-rc.4` | フォルダ内の `online.sql` を無視する挙動、`out` に渡したディレクトリのマイグレーションだけを適用する挙動 | 必須前提。版を上げるときに確認し直す |
 | deploy の concurrency group | 同じ環境で `db:migrate` が同時に走らないこと | 必須前提（排他は自前で持たない） |
 
 ## 処理フロー
@@ -44,70 +44,59 @@ flowchart TD
     A[db:migrate] --> B[全フォルダの migration.sql / online.sql を読む]
     B --> C{ファイルに問題がある?}
     C -->|はい| X[エラーで終了。DB には触らない]
-    C -->|いいえ| D[drizzle-kit migrate<br/>未適用の migration.sql を 1 トランザクションで適用]
-    D --> E{online.sql が 1 つでもある?}
-    E -->|いいえ| Z[終了]
-    E -->|はい| F[snapshot.json から、今のスキーマの index を求める]
-    F --> G[履歴のテーブルを無ければ作り、適用済みのフォルダを読む]
-    G --> H[未適用のフォルダを名前順に処理]
-    H --> I{この文は要る?}
-    I -->|いいえ| H
-    I -->|CREATE| J{同じ名前の無効な index がある?}
-    J -->|はい| K[DROP INDEX CONCURRENTLY]
-    K --> L
-    J -->|いいえ| L[CREATE INDEX CONCURRENTLY IF NOT EXISTS]
-    L --> M{有効になった?}
-    M -->|いいえ| Y[エラーで終了。フォルダは記録しない]
-    M -->|はい| N
-    I -->|DROP| N[フォルダの全文が終わったら履歴に記録]
-    N --> H
+    C -->|いいえ| D{online.sql が 1 つでもある?}
+    D -->|いいえ| E[drizzle-kit migrate を 1 回流して終了]
+    D -->|はい| F[履歴のテーブルを無ければ作り、適用済みのフォルダを読む]
+    F --> G{online.sql が未適用のフォルダがある?}
+    G -->|はい| H[そのフォルダまでの migration.sql を適用<br/>そこまでのフォルダだけを見せて drizzle-kit migrate]
+    H --> I{同じ名前の無効な index がある?}
+    I -->|はい| J[DROP INDEX CONCURRENTLY]
+    J --> K
+    I -->|いいえ| K[online.sql を 1 文ずつ、トランザクションの外で流す]
+    K --> L{index が有効になった?}
+    L -->|いいえ| Y[エラーで終了。フォルダは記録しない]
+    L -->|はい| M[フォルダを履歴に記録]
+    M --> G
+    G -->|いいえ| N[残りの migration.sql を適用<br/>全フォルダで drizzle-kit migrate]
 ```
 
 ### 処理の流れ
 
 1. 全フォルダの `migration.sql` と `online.sql` を名前順に読む（`readMigrationFolders`）
 2. ファイルを検査する（`verifyMigrationFiles`）。問題があれば、drizzle-kit を起動せずにエラーで終わる
-3. `drizzle-kit migrate` を子プロセスで起動し、未適用の `migration.sql` を適用する
-4. `online.sql` が 1 つも無ければ終わる（DB に接続せず、履歴のテーブルも作らない）
-5. 全フォルダの `snapshot.json` から、今のスキーマにある index を求める（`readSchemaIndexKeys`。各 snapshot が親から増減した分を積み上げる。読めない形ならエラー）
-6. `drizzle.__online_migrations` テーブルを無ければ作り、適用済みのフォルダ名を読む
-7. 全フォルダの `online.sql` の文を順に並べ、流す文を決める（`planStatements`。下の表）
-8. 未適用のフォルダを名前順に、1 文ずつトランザクションを張らずに流す
-9. `CREATE` の前に、同じ名前の無効な index があれば `DROP INDEX CONCURRENTLY` する。作成後に有効でなければエラー
-10. フォルダの全文が成功したら、フォルダ名を履歴に記録する（失敗したフォルダは記録せず、次の実行で先頭から流し直す）
+3. `online.sql` が 1 つも無ければ、`drizzle-kit migrate` を 1 回流して終わる（DB に接続せず、履歴のテーブルも作らない）
+4. `drizzle.__online_migrations` テーブルを無ければ作り、`online.sql` を適用済みのフォルダ名を読む
+5. `online.sql` が未適用のフォルダを名前順に処理する。まず、そのフォルダまでの `migration.sql` を適用する（そこまでのフォルダだけを写した一時ディレクトリを `DRIZZLE_MIGRATIONS_DIR` に渡して `drizzle-kit migrate`）
+6. そのフォルダの `online.sql` を、1 文ずつトランザクションを張らずに流す
+7. `CREATE` の前に、同じ名前の無効な index があれば `DROP INDEX CONCURRENTLY` する。作成後に有効でなければエラー
+8. フォルダの全文が成功したら、フォルダ名を履歴に記録する（失敗したフォルダは記録せず、次の実行で先頭から流し直す）
+9. 最後に、全フォルダで `drizzle-kit migrate` を流して、残りの `migration.sql` を適用する
 
-## 流す文の選び方
+## 流す順序
 
-drizzle-kit は未適用の `migration.sql` を先にすべて流すので、`online.sql` との前後関係が失われる。空の DB では、古い `online.sql` の対象のテーブルやカラムがもう無いことがある。そこで「同じ index への最後の文か」と「今のスキーマにその index があるか」で流す文を選ぶ。
+A（index を `online.sql` で足す）の後に、B（`migration.sql` だけ）、C（`online.sql` あり）が続く場合。
 
-| 文 | 流す条件 |
+| DB の状態 | 流れる順 |
 |---|---|
-| `CREATE INDEX` | 同じ index への最後の文で、かつ今のスキーマにその index がある |
-| `DROP INDEX` | 後に同じ index への文がある（作り直すための DROP）、または今のスキーマにその index が無い |
+| 空の DB | A までの `migration.sql` → A の `online.sql` → C までの `migration.sql`（B と C）→ C の `online.sql` → 残り（無し） |
+| A まで適用済み | C までの `migration.sql`（B と C）→ C の `online.sql` → 残り（無し） |
+| すべて適用済み | 全フォルダで `drizzle-kit migrate`（何も適用しない） |
 
-| 場面 | 適用済みの DB | 空の DB |
-|---|---|---|
-| A で作る | A: CREATE | A: CREATE |
-| A で作り、B で消す | B の `migration.sql` が `DROP INDEX IF EXISTS` | B の `migration.sql` の DROP は何も起きない。A: 飛ばす |
-| A で作り、B で定義を変える（`.concurrently()` のまま） | B の `migration.sql` が DROP、B: CREATE | A: 飛ばす、B: CREATE |
-| A で作り、B で `.concurrently()` を外して定義を変える | B の `migration.sql` が DROP と CREATE | B の `migration.sql` が CREATE。A: CREATE（同じ名前があるので何も起きない） |
-| A で作り、後でテーブルごと消す（DROP の文は無い） | —（テーブルと一緒に消える） | A: 飛ばす |
-| A で作り、B の `online.sql` に手で DROP を書き、後で `.concurrently()` 無しで足し直す | B: DROP（その後 `migration.sql` が作る） | A: 飛ばす、B: 飛ばす（`migration.sql` が作ったものを消さない） |
+`online.sql` は必ず、同じフォルダの `migration.sql` の直後に流れる。B がカラムの rename でも、A の index は rename の前に作られ、Postgres が rename に追従させる。
 
 ## 設計方針
 
+- **フォルダの順に交互に流す。** `online.sql` を、書かれた時点のスキーマに対して流すため。未適用の `migration.sql` を全部適用してから流す作りは、空の DB で順序が入れ替わる（index のあるカラムを後で rename すると `column does not exist` で止まる）。入れ替わりを個別に補う処理（`snapshot.json` の解析、流す文の選別、`DROP INDEX` の書き換え）は、補うたびに別の場面が漏れたのでやめた
+- **「ここまで適用する」は、見せるフォルダを絞って実現する。** drizzle-kit migrate に適用の上限を指定する手段が無い。`drizzle.config.ts` の `out` を環境変数で差し替え、そこまでのフォルダを写した一時ディレクトリを渡す
+- **未適用分が 1 トランザクションでなくなることは受け入れる。** トランザクションの外で流す文を順序どおりに挟む以上、区切りは避けられない。区切りは `online.sql` を持つフォルダだけで、途中で失敗しても流し直せば続きから進む
 - **`online.sql` に書ける文を 2 種類に限る**（`CREATE [UNIQUE] INDEX CONCURRENTLY IF NOT EXISTS` / `DROP INDEX CONCURRENTLY IF EXISTS`）。どちらも何度流しても同じ結果になるので、途中で失敗したフォルダを先頭から流し直せる。それ以外の文は、DB に触る前にエラーにする
-- **`online.sql` で作った index の `DROP INDEX` は、`migration.sql` に残して `IF EXISTS` を付ける。** `.concurrently()` を付けた index を消すと、drizzle-kit は素の `DROP INDEX` を生成する。そのままだと、空の DB では index がまだ無く（`online.sql` は後で流れる）、`index does not exist` で失敗する。`online.sql` に移す案は、同じマイグレーションが同じ名前の index を `migration.sql` で作り直すとき（`.concurrently()` を外して定義を変える）に DROP が後になって失敗するので採らない
-- **流す文は、`snapshot.json` から求めた今のスキーマを基準に選ぶ。** 「テーブルが無ければ飛ばす」「カラムが無ければ飛ばす」と個別に判定するより、今のスキーマにある index だけを作るほうが漏れが無い。`snapshot.json` は内部形式なので、読めなければ黙って空にせずエラーで止める
-- **今のスキーマの index は、snapshot の親子関係（`id` / `prevIds`）に沿って増減を積み上げて求める。** 別々のブランチで作ったマイグレーションが main に並ぶと、名前順で最後の snapshot には、もう一方のブランチで足した index が入っていない
-- **書き換える文の無い `migration.sql` は 1 文字も変えない。** 後処理は全フォルダを見るので、空白の違いだけで適用済みのマイグレーションを書き換えないようにする
-- **履歴はフォルダ単位で持つ。** 文ごとに持つと、文を書き足したときの扱いが複雑になる。文が冪等なので、フォルダ単位で足りる
+- **`db:generate` が移すのは `CREATE INDEX CONCURRENTLY` だけ。** `.concurrently()` の index を消したときの素の `DROP INDEX` は `migration.sql` に残す（フォルダの順に流すので、空の DB でも index がある状態で流れる。ロックは一瞬）。書き込みを止めずに消したいときは、`online.sql` に `DROP INDEX CONCURRENTLY IF EXISTS` を手で書く
+- **履歴はフォルダ単位で持つ。** 文が冪等なので、フォルダ単位で足りる
 - **`online.sql` が無いうちは DB に何も作らない。** 既存の環境の挙動を変えず、最初の `online.sql` を足した PR で初めて履歴のテーブルができる
-- **`.concurrently()` で作った index の `ALTER INDEX`（rename）は、適用前にエラーにする。** 空の DB では index がまだ無く失敗するため。名前を変えるときは、消して作り直す
+- **取り出す文の無い `migration.sql` は 1 文字も変えない。** 後処理は全フォルダを見るので、空白の違いだけで適用済みのマイグレーションを書き換えないようにする
 - **`db:generate` / `db:migrate` は TypeScript のスクリプトにする。** `"a && b"` の scripts では `pnpm db:generate --name=x` の引数が後ろのコマンドに付いてしまう。子プロセスで drizzle-kit を呼び、入出力を引き継ぐ（generate の対話をそのまま使う）
 - **排他は持たない。** min 環境は PgBouncer（transaction pooling）経由で、セッション単位の advisory lock が使えない。deploy の concurrency group が直列にしている
-- **`statement_timeout` は付けない。** `CONCURRENTLY` は対象テーブルを触る既存のトランザクションの終了を待つので、時間で切ると無効な index が残る
-- **実 DB を使う自動テストは入れない。** 実行部は SQL を流す口（`SqlExecutor`）を受け取る形にして、偽の executor でユニットテストする。実 DB での挙動は、使い捨ての Postgres で手動で確かめる
+- **実 DB を使う自動テストは入れない。** 実行部は SQL を流す口（`SqlExecutor`）と「ここまで適用する」関数（`migrateThrough`）を受け取る形にして、偽物でユニットテストする。実 DB での挙動は、使い捨ての Postgres で手動で確かめる
 
 ## 対応内容
 
@@ -115,15 +104,16 @@ drizzle-kit は未適用の `migration.sql` を先にすべて流すので、`on
 
 ```
 packages/db/
+├── drizzle/
+│   └── drizzle.config.ts           # out を DRIZZLE_MIGRATIONS_DIR で差し替えられるようにする
 ├── migrate/
 │   ├── tsconfig.json
 │   ├── paths.ts                    # マイグレーションのディレクトリ、drizzle-kit のパス
 │   ├── online-statement.ts         # online.sql の解析（書ける文の判定、index 名と schema の取り出し）
-│   ├── migration-folders.ts        # フォルダの読み込み、snapshot.json からの index の読み出し
-│   ├── online-index-keys.ts        # online.sql が作った index を、フォルダの順に積み上げる
-│   ├── split-online-statements.ts  # generate の後処理（migration.sql → online.sql への振り分け）
+│   ├── migration-folders.ts        # フォルダの読み込み
+│   ├── split-online-statements.ts  # generate の後処理（CREATE INDEX CONCURRENTLY を online.sql に移す）
 │   ├── verify-migration-files.ts   # 適用前の検査
-│   ├── run-online-migrations.ts    # online.sql の適用
+│   ├── run-online-migrations.ts    # フォルダの順の適用
 │   ├── run-drizzle-kit.ts          # drizzle-kit の起動
 │   ├── generate.ts                 # db:generate の入口
 │   └── migrate.ts                  # db:migrate の入口
@@ -149,6 +139,19 @@ packages/db/
 
 `devDependencies` に `vitest` を足す。`eslint.config.js` は `packages/data-warehouse` と同じく、`migrate/**/*.ts` の型情報を `migrate/tsconfig.json` から取る。
 
+### `packages/db/drizzle/drizzle.config.ts`
+
+```typescript
+export default defineConfig({
+  dbCredentials: {
+    url: buildConnectionString(),
+  },
+  dialect: "postgresql",
+  out: process.env.DRIZZLE_MIGRATIONS_DIR ?? "./drizzle/migrations",
+  schema: "./src/drizzle/schema/index.ts",
+})
+```
+
 ### `packages/db/migrate/online-statement.ts`
 
 ```typescript
@@ -160,14 +163,9 @@ export type OnlineStatement = {
 }
 
 export const parseOnlineSql = (onlineSql: string): OnlineStatement[] => {
-  const statements = removeSqlComments(onlineSql)
-    .split(";")
-    .map((statement) => statement.trim())
-    .filter((statement) => statement.length > 0)
-
   const invalidStatements: string[] = []
   const parsed: OnlineStatement[] = []
-  for (const statement of statements) {
+  for (const statement of splitSqlStatements(onlineSql)) {
     const onlineStatement = parseStatement(statement)
     if (onlineStatement) {
       parsed.push(onlineStatement)
@@ -182,7 +180,7 @@ export const parseOnlineSql = (onlineSql: string): OnlineStatement[] => {
 }
 ```
 
-`schema` は、`CREATE` では対象テーブルの schema、`DROP` では index 名に付いた schema。省略時は `public`。
+`splitSqlStatements` は、引用符の中かどうかを追いながら文に分ける（部分 index の `WHERE` に書いた文字列リテラルの中の `;` や `--` を、文の区切りやコメントと取り違えない）。`schema` は、`CREATE` では対象テーブルの schema、`DROP` では index 名に付いた schema。省略時は `public`。
 
 ### `packages/db/migrate/split-online-statements.ts`
 
@@ -195,16 +193,20 @@ const convertToOnlineStatement = (statement: string): string | undefined => {
   return undefined
 }
 
-const addIfExistsToOnlineIndexDrop = (statement: string, onlineIndexKeys: Set<string>): string => {
-  const dropped = DROP_INDEX_PATTERN.exec(statement)
-  if (!dropped) return statement
-  const [, dropIndex, qualifiedName, indexSchema, indexName] = dropped
-  const indexKey = buildIndexKey(indexSchema ? normalizeIdentifier(indexSchema) : DEFAULT_SCHEMA, normalizeIdentifier(indexName))
-  return onlineIndexKeys.has(indexKey) ? `${dropIndex}IF EXISTS ${qualifiedName};` : statement
+export const moveOnlineStatements = async (migrationsDir: string): Promise<string[]> => {
+  const changedFolderNames: string[] = []
+  for (const folder of await readMigrationFolders(migrationsDir)) {
+    const { migrationSql, onlineStatements } = splitOnlineStatements(folder.migrationSql)
+    if (onlineStatements.length === 0) continue
+    await writeFile(path.join(migrationsDir, folder.name, MIGRATION_FILE_NAME), migrationSql)
+    await writeFile(path.join(migrationsDir, folder.name, ONLINE_FILE_NAME), `${folder.onlineSql ?? ""}${onlineStatements.join("\n")}\n`)
+    changedFolderNames.push(folder.name)
+  }
+  return changedFolderNames
 }
 ```
 
-`migration.sql` は `--> statement-breakpoint` で文に分ける。`CREATE INDEX CONCURRENTLY` は `online.sql` に移し、`online.sql` で作った index の `DROP INDEX` には `IF EXISTS` を付ける。すべての文を移したら、`migration.sql` にはコメントの 1 行だけを残す（drizzle-kit はコメントだけのファイルを適用できる）。書き換える文が無ければ、ファイルを 1 文字も変えない。
+`migration.sql` は `--> statement-breakpoint` で文に分ける。すべての文を移したら、`migration.sql` にはコメントの 1 行だけを残す（drizzle-kit はコメントだけのファイルを適用できる）。
 
 ### `packages/db/migrate/verify-migration-files.ts`
 
@@ -213,7 +215,6 @@ const addIfExistsToOnlineIndexDrop = (statement: string, onlineIndexKeys: Set<st
 | 問題 | 理由 |
 |---|---|
 | `migration.sql` に `INDEX CONCURRENTLY` がある | トランザクション内で実行できない |
-| `migration.sql` が、前の `online.sql` で作った index を `IF EXISTS` 無しで `DROP` している、または `ALTER` している | 空の DB では index がまだ無い |
 | `online.sql` に書けない文がある | 冪等でない文を流さない |
 
 ### `packages/db/migrate/run-online-migrations.ts`
@@ -221,6 +222,12 @@ const addIfExistsToOnlineIndexDrop = (statement: string, onlineIndexKeys: Set<st
 ```typescript
 export type SqlExecutor = {
   query: (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>
+}
+
+type RunMigrationsParams = {
+  folders: MigrationFolder[]
+  log: (message: string) => void
+  migrateThrough: (lastFolderName?: string) => Promise<void>
 }
 
 const createIndex = async (executor: SqlExecutor, statement: OnlineStatement, log: (message: string) => void): Promise<void> => {
@@ -235,25 +242,29 @@ const createIndex = async (executor: SqlExecutor, statement: OnlineStatement, lo
   }
 }
 
-const planStatements = (folders: MigrationFolder[], schemaIndexKeys: Set<string>): PlannedStatement[] => {
-  const statements = folders.flatMap((folder) =>
-    folder.onlineSql === undefined ? [] : parseOnlineSql(folder.onlineSql).map((statement) => ({ folderName: folder.name, statement })),
-  )
-  const lastPositionByIndexKey = new Map<string, number>()
-  statements.forEach(({ statement }, position) => {
-    lastPositionByIndexKey.set(buildIndexKey(statement.schema, statement.indexName), position)
-  })
+export const runMigrations = async (executor: SqlExecutor, params: RunMigrationsParams): Promise<string[]> => {
+  await createHistoryTable(executor)
+  const appliedFolderNames = await findAppliedFolderNames(executor)
 
-  return statements.map(({ folderName, statement }, position) => {
-    const indexKey = buildIndexKey(statement.schema, statement.indexName)
-    const isLast = lastPositionByIndexKey.get(indexKey) === position
-    const isInSchema = schemaIndexKeys.has(indexKey)
-    return {
-      folderName,
-      shouldRun: statement.kind === "createIndex" ? isLast && isInSchema : !isLast || !isInSchema,
-      statement,
+  const newlyAppliedFolderNames: string[] = []
+  for (const folder of params.folders) {
+    if (folder.onlineSql === undefined || appliedFolderNames.has(folder.name)) continue
+
+    await params.migrateThrough(folder.name)
+    for (const statement of parseOnlineSql(folder.onlineSql)) {
+      params.log(`running: ${statement.sql}`)
+      if (statement.kind === "createIndex") {
+        await createIndex(executor, statement, params.log)
+      } else {
+        await executor.query(statement.sql)
+      }
     }
-  })
+    await executor.query(`INSERT INTO ${HISTORY_TABLE} ("name") VALUES ($1) ON CONFLICT ("name") DO NOTHING`, [folder.name])
+    newlyAppliedFolderNames.push(folder.name)
+  }
+
+  await params.migrateThrough()
+  return newlyAppliedFolderNames
 }
 ```
 
@@ -267,24 +278,43 @@ CREATE TABLE IF NOT EXISTS "drizzle"."__online_migrations" ("name" text PRIMARY 
 ### `packages/db/migrate/migrate.ts`
 
 ```typescript
+const migrateThroughFolder = async (folders: MigrationFolder[], lastFolderName: string, args: string[]): Promise<void> => {
+  const partialMigrationsDir = await mkdtemp(path.join(tmpdir(), "drizzle-migrations-"))
+  try {
+    for (const folder of folders) {
+      if (folder.name > lastFolderName) break
+      await cp(path.join(MIGRATIONS_DIR, folder.name), path.join(partialMigrationsDir, folder.name), { recursive: true })
+    }
+    await runDrizzleKit("migrate", args, { migrationsDir: partialMigrationsDir })
+  } finally {
+    await rm(partialMigrationsDir, { force: true, recursive: true })
+  }
+}
+
 const main = async (): Promise<void> => {
+  const args = process.argv.slice(2)
   const folders = await readMigrationFolders(MIGRATIONS_DIR)
   const problems = verifyMigrationFiles(folders)
   if (problems.length > 0) {
     throw new Error(`invalid migration files:\n${problems.join("\n")}`)
   }
 
-  await runDrizzleKit("migrate", process.argv.slice(2))
+  if (folders.every((folder) => folder.onlineSql === undefined)) {
+    await runDrizzleKit("migrate", args)
+    return
+  }
 
-  if (folders.every((folder) => folder.onlineSql === undefined)) return
-
-  const schemaIndexKeys = await readSchemaIndexKeys(MIGRATIONS_DIR)
   const client = new Client({ connectionString: buildConnectionString() })
   await client.connect()
   try {
-    const appliedFolderNames = await runOnlineMigrations(
+    const appliedFolderNames = await runMigrations(
       { query: (sql, params) => client.query(sql, params) },
-      { folders, log: (message) => console.log(`[online] ${message}`), schemaIndexKeys },
+      {
+        folders,
+        log: (message) => console.log(`[online] ${message}`),
+        migrateThrough: async (lastFolderName) =>
+          lastFolderName === undefined ? runDrizzleKit("migrate", args) : migrateThroughFolder(folders, lastFolderName, args),
+      },
     )
     console.log(`[online] applied ${appliedFolderNames.length} online migration(s)`)
   } finally {
@@ -296,49 +326,51 @@ const main = async (): Promise<void> => {
 ### ドキュメント
 
 - `docs/tech-stack/drizzle.md`: 「CREATE INDEX CONCURRENTLY は書けない」（手動の手順）を、「行数の多いテーブルの index は online.sql で作る」に書き換える
-- `packages/db/README.md`: ディレクトリ構成とコマンドの説明を更新する
+- `packages/db/README.md`: 「マイグレーション」の節を足し、ディレクトリ構成とコマンドの説明を更新する
 
 ## 動作確認
 
 | 区分 | 内容 |
 |---|---|
-| ユニットテスト | `packages/db/test/migrate/*.test.ts`（解析 / 振り分け / 適用前の検査 / 実行。実行は偽の `SqlExecutor`） |
+| ユニットテスト | `packages/db/test/migrate/*.test.ts`（解析 / 振り分け / 適用前の検査 / フォルダの順の適用。適用は偽の `SqlExecutor` と `migrateThrough`） |
 | Lint / Build | `pnpm turbo run build lint test --filter=@repo/db` がすべて成功 |
 | 実 DB | 使い捨ての Postgres 16 に `db:generate` / `db:migrate` を流す（下の手順） |
 
 ユニットテストの抜粋。
 
 ```typescript
-describe("runOnlineMigrations", () => {
+describe("runMigrations", () => {
   describe("正常系", () => {
-    it("無効な index が残っていれば、消してから作り直す", async () => {
-      const fake = createFakeSqlExecutor({ indexes: { [OWNER_INDEX_KEY]: false } })
-
-      await run(fake, [buildFolder("0002_add", [CREATE_OWNER_INDEX])], [OWNER_INDEX_KEY])
-
-      expect(fake.indexStatements()).toEqual([
-        "DROP INDEX CONCURRENTLY IF EXISTS \"public\".\"items_owner_id_idx\"",
-        CREATE_OWNER_INDEX,
-      ])
-      expect(fake.indexes.get(OWNER_INDEX_KEY)).toBe(true)
-    })
-
-    it("空の DB では、後のマイグレーションで消した index は作らず、DROP だけを流す", async () => {
+    it("online.sql を持つフォルダまでの migration.sql を適用してから online.sql を流し、最後に残りを適用する", async () => {
       const fake = createFakeSqlExecutor()
 
-      const applied = await run(fake, [buildFolder("0002_add", [CREATE_OWNER_INDEX]), buildFolder("0003_drop", [DROP_OWNER_INDEX])], [])
+      const { appliedFolderNames, steps } = await run(fake, [
+        buildFolder("0001_init"),
+        buildFolder("0002_add", [CREATE_OWNER_INDEX]),
+        buildFolder("0003_rename_column"),
+        buildFolder("0004_add", [CREATE_NAME_INDEX]),
+        buildFolder("0005_last"),
+      ])
 
-      expect(applied).toEqual(["0002_add", "0003_drop"])
-      expect(fake.indexStatements()).toEqual([DROP_OWNER_INDEX])
+      expect(steps).toEqual([
+        "migrate through 0002_add",
+        CREATE_OWNER_INDEX,
+        "migrate through 0004_add",
+        CREATE_NAME_INDEX,
+        "migrate through the last folder",
+      ])
+      expect(appliedFolderNames).toEqual(["0002_add", "0004_add"])
     })
   })
 
   describe("異常系", () => {
-    it("index の作成に失敗したら throw し、そのフォルダは履歴に記録しない", async () => {
+    it("index の作成に失敗したら throw し、そのフォルダを履歴に記録せず、先の migration.sql も適用しない", async () => {
       const fake = createFakeSqlExecutor({ failingIndexKeys: [OWNER_INDEX_KEY] })
 
-      await expect(run(fake, [buildFolder("0002_add", [CREATE_OWNER_INDEX])], [OWNER_INDEX_KEY])).rejects.toThrow("could not create unique index")
+      const { appliedFolderNames, steps } = await run(fake, [buildFolder("0002_add", [CREATE_OWNER_INDEX]), buildFolder("0003_last")])
 
+      expect(appliedFolderNames).toEqual(new Error("could not create unique index \"items_owner_id_idx\""))
+      expect(steps).toEqual(["migrate through 0002_add", CREATE_OWNER_INDEX])
       expect([...fake.appliedFolderNames]).toEqual([])
     })
   })
@@ -351,12 +383,12 @@ describe("runOnlineMigrations", () => {
 2. どれかのテーブルの index に `.concurrently()` を付けて `db:generate --name=check` する（`online.sql` に `CREATE INDEX CONCURRENTLY IF NOT EXISTS` が入ること）
 3. `db:migrate` する（index が有効で、`drizzle.__online_migrations` テーブルに記録されること）。もう一度流して何も起きないこと
 4. `pg_index.indisvalid` を `false` にして履歴を消し、`db:migrate` する（作り直されて有効になること）
-5. index をスキーマから消して `db:generate` する（`migration.sql` の `DROP INDEX` に `IF EXISTS` が付くこと）
-6. 適用済みの DB と空の DB の両方で `db:migrate` する（どちらも成功し、index が無いこと）
+5. `db:generate --custom` で、index のあるカラムを rename するマイグレーションを足す。適用済みの DB と空の DB の両方で `db:migrate` する（どちらも成功し、index が rename 後のカラムを指すこと）
+6. index をスキーマから消して `db:generate` する。適用済みの DB と空の DB の両方で `db:migrate` する（どちらも成功し、index が無いこと）
 
 ## 次の step での利用
 
-- **`VALIDATE CONSTRAINT` の step**: `online-statement.ts` の書ける文に `ALTER TABLE ... VALIDATE CONSTRAINT` を足す。index と違って `snapshot.json` に「検査済みか」は無いので、流す文の選び方を制約用に足す
-- **`lock_timeout` と待ちの上限の step**: `migrate.ts` が drizzle-kit を起動するところに `PGOPTIONS` とやり直しを足す。deploy の one-shot タスクの待ちを 10 分から伸ばす
+- **`VALIDATE CONSTRAINT` の step**: `online-statement.ts` の書ける文に `ALTER TABLE ... VALIDATE CONSTRAINT` を足す。`runMigrations` の流し方はそのまま使える
+- **`lock_timeout` と待ちの上限の step**: `run-drizzle-kit.ts` が drizzle-kit を起動するところに `PGOPTIONS` とやり直しを足す。deploy の one-shot タスクの待ちを 10 分から伸ばす
 - **危険な DDL の検出の step**: `verify-migration-files.ts` は「この仕組みで壊れる書き方」だけを見る。書き込みを止める DDL の検出（squawk）は CI に別に足す
-- **意図的に省略したもの**: 実 DB を使う自動テスト、同時実行の排他、`REINDEX CONCURRENTLY`、パーティションテーブル、min 環境（PgBouncer 経由）での確認
+- **意図的に省略したもの**: 実 DB を使う自動テスト、同時実行の排他、`REINDEX CONCURRENTLY`、パーティションテーブル、min 環境（PgBouncer 経由）での確認、`.concurrently()` の index を消すときの `DROP INDEX` を自動で `CONCURRENTLY` にすること
