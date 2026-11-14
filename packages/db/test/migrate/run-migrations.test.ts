@@ -1,5 +1,5 @@
 import type { MigrationFolder } from "../../migrate/migration-folders"
-import { runMigrations } from "../../migrate/run-online-migrations"
+import { runMigrations } from "../../migrate/run-migrations"
 
 import { createFakeSqlExecutor } from "./support/fake-sql-executor"
 

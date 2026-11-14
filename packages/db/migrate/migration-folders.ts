@@ -38,3 +38,9 @@ export const readMigrationFolders = async (migrationsDir: string): Promise<Migra
     })),
   )
 }
+
+/**
+ * 名前順で lastFolderName までのフォルダを返す（フォルダ名の先頭は生成した日時なので、名前順が適用順になる）
+ */
+export const selectFoldersThrough = (folders: MigrationFolder[], lastFolderName: string): MigrationFolder[] =>
+  folders.filter((folder) => folder.name <= lastFolderName)

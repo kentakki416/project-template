@@ -138,7 +138,7 @@ const [fresh] = await db.$primary.select().from(users).where(eq(users.id, id))
 
 ## 関連ドキュメント
 
-- [`packages/db/README.md`](../../packages/db/README.md) — ディレクトリ構成・コマンド・client の生成と DI
+- [`packages/db/README.md`](../../packages/db/README.md) — ディレクトリ構成・コマンド・マイグレーションの手順・コーディング規約
 - [`packages/domain/README.md`](../../packages/domain/README.md) — enum 的な値の集合の定義元
 - [`docs/onboarding/architecture.md`](../onboarding/architecture.md) — Repository の層と DI
 - [Drizzle 公式ドキュメント](https://orm.drizzle.team/)

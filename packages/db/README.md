@@ -40,7 +40,7 @@ packages/db/
 | コマンド | 実体 | 用途 |
 | --- | --- | --- |
 | `db:generate` | `drizzle-kit generate` + 後処理 | スキーマの差分からマイグレーション SQL を作る（DB 接続は不要）。`CREATE INDEX CONCURRENTLY` は `online.sql` に移す |
-| `db:migrate` | `drizzle-kit migrate` + `online.sql` の適用 | 未適用のマイグレーションを適用する。ローカル / CI / 本番の migration イメージで共通 |
+| `db:migrate` | `migration.sql`（`drizzle-kit migrate`）と `online.sql` を、フォルダの順に適用 | 未適用のマイグレーションを適用する。ローカル / CI / 本番の migration イメージで共通 |
 | `db:push` | `drizzle-kit push` | マイグレーションを作らずにスキーマを DB へ直接反映する（ローカルでの試行錯誤用） |
 | `db:seed` | `tsx drizzle/seed.ts` | 開発用ユーザー（alice / bob）を投入する。何度流してもよい |
 | `db:studio` | `drizzle-kit studio` | Drizzle Studio を起動する。画面は `https://local.drizzle.studio` から読み込まれるが、DB への接続はローカルのまま |

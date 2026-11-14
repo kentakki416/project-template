@@ -7,10 +7,10 @@ import { Client } from "pg"
 
 import { buildConnectionString } from "../src/connection-string"
 
-import { type MigrationFolder, readMigrationFolders } from "./migration-folders"
+import { type MigrationFolder, readMigrationFolders, selectFoldersThrough } from "./migration-folders"
 import { MIGRATIONS_DIR } from "./paths"
 import { runDrizzleKit } from "./run-drizzle-kit"
-import { runMigrations } from "./run-online-migrations"
+import { runMigrations } from "./run-migrations"
 import { verifyMigrationFiles } from "./verify-migration-files"
 
 /**
@@ -20,8 +20,7 @@ import { verifyMigrationFiles } from "./verify-migration-files"
 const migrateThroughFolder = async (folders: MigrationFolder[], lastFolderName: string, args: string[]): Promise<void> => {
   const partialMigrationsDir = await mkdtemp(path.join(tmpdir(), "drizzle-migrations-"))
   try {
-    for (const folder of folders) {
-      if (folder.name > lastFolderName) break
+    for (const folder of selectFoldersThrough(folders, lastFolderName)) {
       await cp(path.join(MIGRATIONS_DIR, folder.name), path.join(partialMigrationsDir, folder.name), { recursive: true })
     }
     await runDrizzleKit("migrate", args, { migrationsDir: partialMigrationsDir })

@@ -1,5 +1,5 @@
 import { parseOnlineSql } from "../../../migrate/online-statement"
-import type { SqlExecutor } from "../../../migrate/run-online-migrations"
+import type { SqlExecutor } from "../../../migrate/run-migrations"
 
 type FakeState = {
   appliedFolderNames?: string[]
