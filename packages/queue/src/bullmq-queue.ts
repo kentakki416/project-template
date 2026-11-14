@@ -10,10 +10,6 @@ import type {
   StartWorkerOptions,
 } from "./types"
 
-/**
- * 別実装（SQS / Cloud Tasks 等）に切り替えるときは同じ `JobQueue<T>` を実装した
- * クラスを用意し、app 側の生成箇所だけ差し替える。ハンドラは影響を受けない。
- */
 export class BullMQJobQueue<T> implements JobQueue<T> {
   private _queue: Queue<T>
 
@@ -81,7 +77,9 @@ const isTerminalJobFailure = (params: {
   params.attemptsMade >= params.maxAttempts
   || params.error instanceof UnrecoverableError
 
-/** 渡す Redis は `maxRetriesPerRequest: null` が必須（BullMQ 5.x の要件） */
+/**
+ * 渡す Redis は `maxRetriesPerRequest: null` が必須（BullMQ 5.x の要件）
+ */
 export const startBullMQWorker = <T>(
   redis: Redis,
   options: StartWorkerOptions<T>,
@@ -102,9 +100,7 @@ export const startBullMQWorker = <T>(
   )
 
   /**
-   * Worker も EventEmitter で、Redis 一時切断などで `error` を emit する。
-   * `error` リスナが無いと Node の規約で throw され、常駐 worker プロセスが
-   * クラッシュするため必ず登録する（日常的に起こる Redis 瞬断で落とさない）。
+   * Queue と同じく `error` リスナを登録する。無いと、日常的に起こる Redis の瞬断で常駐の worker プロセスが落ちる
    */
   worker.on("error", (err) => {
     logger.error(
@@ -154,7 +150,4 @@ export const startBullMQWorker = <T>(
   }
 }
 
-/**
- * テストからだけ使う
- */
 export const forTesting = { isTerminalJobFailure }

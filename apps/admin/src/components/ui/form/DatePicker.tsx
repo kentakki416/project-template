@@ -11,11 +11,15 @@ import Hook = flatpickr.Options.Hook
 import DateOption = flatpickr.Options.DateOption
 
 type PropsType = {
-  /** 見えるラベルが無いときの読み上げ用の名前 */
+  /**
+   * 見えるラベルが無いときの読み上げ用の名前
+   */
   ariaLabel?: string;
   defaultDate?: DateOption;
   id: string;
-  /** 入力欄に足すクラス（高さなど。同じ種類のクラスは上書きする） */
+  /**
+   * 入力欄に足すクラス（高さなど。同じ種類のクラスは上書きする）
+   */
   inputClassName?: string;
   label?: string;
   mode?: "single" | "multiple" | "range" | "time";

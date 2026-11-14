@@ -64,7 +64,6 @@ describe("POST /api/admin/auth/refresh", () => {
       const res = await request(app).post("/api/admin/auth/refresh").send({ refresh_token: token })
 
       expect(res.status).toBe(401)
-      /** 一般ユーザーの jti には触らない */
       expect(await userRefreshTokenRepository.findUserId(jti)).toBe(1)
     })
 

@@ -65,9 +65,6 @@ const redis = createRedisClient({
   },
 })
 
-/**
- * Repository の DI assembly
- */
 const userRepository = new DrizzleUserRepository(db)
 const authAccountRepository = new DrizzleAuthAccountRepository(db)
 const transactionRunner = new DrizzleTransactionRunner(db)
@@ -78,20 +75,11 @@ const refreshTokenRepository = new IoRedisRefreshTokenRepository(redis)
 const adminRepository = new DrizzleAdminRepository(db)
 const adminRefreshTokenRepository = new IoRedisRefreshTokenRepository(redis, "admin_refresh_token")
 
-/**
- * 外部 SaaS client の DI assembly
- */
 const googleOAuthClient = new GoogleOAuthClient(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET)
 
-/**
- * Health Controller のインスタンス化
- */
 const healthLivenessController = new HealthLivenessController()
 const healthReadinessController = new HealthReadinessController(databaseHealthRepository, redisHealthRepository)
 
-/**
- * Auth Controller のインスタンス化
- */
 const authGoogleController = new AuthGoogleController(
   authAccountRepository,
   userRepository,
@@ -102,21 +90,12 @@ const authGoogleController = new AuthGoogleController(
 const authRefreshController = new AuthRefreshController(refreshTokenRepository)
 const authLogoutController = new AuthLogoutController(refreshTokenRepository)
 
-/**
- * User Controller のインスタンス化（認証中ユーザー自身の取得）
- */
 const userGetController = new UserGetController(userRepository)
 
-/**
- * dev-login Controller は production 以外でのみ生成する
- */
 const authDevLoginController = process.env.NODE_ENV !== "production"
   ? new AuthDevLoginController(userRepository, refreshTokenRepository)
   : undefined
 
-/**
- * Admin Controller のインスタンス化
- */
 const adminAuthGoogleController = new AdminAuthGoogleController(
   adminRepository,
   adminRefreshTokenRepository,
@@ -128,21 +107,12 @@ const adminMeGetController = new AdminMeGetController(adminRepository)
 const adminUserListController = new AdminUserListController(userRepository)
 const adminUserDetailController = new AdminUserDetailController(userRepository, authAccountRepository)
 
-/**
- * admin の dev-login Controller も production 以外でだけ生成する
- */
 const adminAuthDevLoginController = process.env.NODE_ENV !== "production"
   ? new AdminAuthDevLoginController(adminRepository, adminRefreshTokenRepository)
   : undefined
 
-/**
- * Memo Controller のインスタンス化
- */
 const memoListController = new MemoListController(memoRepository)
 const memoDetailController = new MemoDetailController(memoRepository)
-/**
- * 行動イベントの送出先は EVENT_TRACKER_TYPE で選ぶ。
- */
 const eventTracker: EventTracker = env.EVENT_TRACKER_TYPE === "queue"
   ? new QueueEventTracker(new BullMQJobQueue(redis, TRACK_EVENT_QUEUE_NAME))
   : new NoopEventTracker()
@@ -168,9 +138,6 @@ app.set("trust proxy", 1)
  */
 app.use(helmet())
 
-/**
- * cors設定のミドルウェア
- */
 app.use(
   cors({
     credentials: true,
@@ -178,28 +145,16 @@ app.use(
   })
 )
 
-/**
- * jsonを変換するミドルウェア
- */
 app.use(express.json())
 
-/**
- * 認証ミドルウェア
- */
 app.use(authMiddleware)
 
-/**
- * リクエストのロギングミドルウェア
- */
 app.use(requestLogger)
 
 if (env.FLUSH_EVENTS_BEFORE_RESPONSE) {
   app.use(flushEventsBeforeResponse(eventTracker))
 }
 
-/**
- * ルーティング
- */
 app.use(
   "/api/health",
   healthRouter({
@@ -233,9 +188,6 @@ app.use(
     create: eventCreateController,
   })
 )
-/**
- * admin の API
- */
 mountAdminApi(
   app,
   adminRouter({
@@ -260,13 +212,10 @@ app.use(
 )
 
 /**
- * ルーティング定義の最後に登録する必要がある
+ * すべてのルートの後に登録しないと、ルートで投げられた例外を受け取れない
  */
 app.use(unhandledExceptionHandler)
 
-/**
- * サーバー起動
- */
 const server = app.listen(env.PORT, () => {
   logger.info("API server running", {
     environment: env.NODE_ENV,
@@ -275,10 +224,6 @@ const server = app.listen(env.PORT, () => {
   })
 })
 
-/**
- * Graceful shutdown
- * SIGTERM / SIGINT を受けたら HTTP server を閉じてから DB / Redis を切断
- */
 const shutdown = async (signal: string): Promise<void> => {
   logger.info("Shutdown initiated", { signal })
   server.close(async () => {
@@ -293,9 +238,6 @@ const shutdown = async (signal: string): Promise<void> => {
 process.on("SIGTERM", () => void shutdown("SIGTERM"))
 process.on("SIGINT", () => void shutdown("SIGINT"))
 
-/**
- * 予期しない例外をキャッチ（念のため）
- */
 process.on("uncaughtException", (error) => {
   logger.error("Uncaught exception", error)
   process.exit(1)

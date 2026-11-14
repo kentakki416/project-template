@@ -11,7 +11,6 @@ export interface AdminAuthRequest extends Request {
 }
 
 /**
- * mount からの相対パスが ADMIN_PUBLIC_PATHS のどれかと完全に一致するか。
  * 大文字小文字と末尾の `/` は区別しない（Express 5 の Router もこれらを区別せずにルートへ届けるため）。
  * 下の階層は公開しない（`/auth/google/x` は公開パスではない）
  */
@@ -20,12 +19,10 @@ const isAdminPublicPath = (path: string): boolean => {
   return ADMIN_PUBLIC_PATHS.some(p => p.toLowerCase() === normalizedPath)
 }
 
-/**
- * admin の Access Token で認証する。
- *
- * ここでの req.path は mount からの相対（/auth/google など）。
- */
 export const adminAuthMiddleware = (req: AdminAuthRequest, res: Response, next: NextFunction) => {
+  /**
+   * ここでの req.path は mount からの相対パス（/auth/google など）
+   */
   if (isAdminPublicPath(req.path)) {
     return next()
   }

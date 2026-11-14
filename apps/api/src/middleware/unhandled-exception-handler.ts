@@ -5,18 +5,6 @@ import { logger } from "@repo/logger"
 
 import { RequestSchemaMismatchError, ResponseSchemaMismatchError } from "../lib/parse-schema"
 
-/**
- * ルート内で throw された想定外例外を捕捉する Express の最終エラーハンドラ
- * 業務 4xx エラー（Service の Result.err）は Controller の sendError 経由で返却されるため、ここを通らない
- *
- * 捕捉対象:
- * - RequestSchemaMismatchError    → 400 + warn ログ（クライアント入力不正）
- * - ResponseSchemaMismatchError   → 500 + error ログ（サーバ起因の契約違反、Zod issues 付き）
- * - その他の throw（DB 障害等）   → 500 + error ログ（スタック付き）
- *
- * Express の「引数が4つのミドルウェア」はエラーハンドラとして扱われるため
- * シグネチャは (err, req, res, next) で固定
- */
 export const unhandledExceptionHandler = (err: unknown, req: Request, res: Response, next: NextFunction) => {
   /**
    * レスポンスを送信済みなら、もう書き込めない。Express の既定のエラーハンドラに渡して、接続を閉じさせる
@@ -52,8 +40,7 @@ export const unhandledExceptionHandler = (err: unknown, req: Request, res: Respo
   }
 
   /**
-   * 想定外の例外は 500 Internal Server Error
-   * （Service 層が外部 API のレスポンスを zod 検証した際の素の ZodError もここに落ちる）
+   * Service が外部 API のレスポンスを Zod で検証して投げる素の ZodError も、ここで 500 にする
    */
   logger.error(
     "Unhandled exception",

@@ -17,9 +17,6 @@ type Props = {
   params: Promise<{ id: string }>
 }
 
-/**
- * ユーザー詳細。基本情報と、紐付けているログイン方法を出す
- */
 export default async function UserDetailPage({ params }: Props) {
   /**
    * 1.5 / 0 / -1 / DB の範囲を超える ID を api に渡すと 400 になり、404 の画面にならないので、ここで弾く

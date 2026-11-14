@@ -6,13 +6,6 @@ import type { EventTracker } from "@repo/events"
 import { findUserId } from "../../lib/find-user-id"
 import { parseRequest, parseResponse } from "../../lib/parse-schema"
 
-/**
- * 行動イベント受信 API
- *
- * フロント（web / admin / mobile）がバッファリングしたイベントをまとめて受け取る。
- *
- * - 受け取った配列は 1 回の `trackAll()` でまとめて enqueue する（1 リクエスト = 1 ジョブ）
- */
 export class EventCreateController {
   constructor(private _eventTracker: EventTracker) {}
 

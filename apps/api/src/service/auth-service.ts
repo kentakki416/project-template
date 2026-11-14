@@ -31,14 +31,6 @@ export type TokenGenerators = {
 
 export const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 7
 
-/**
- * Google アカウントでの認証
- *
- * Next.js 側で取得した Authorization Code を Google で検証し、UserInfo を取得する。
- * 既存ユーザーが居なければ User + AuthAccount を作成し、Access/Refresh Token を発行する。
- *
- * 業務エラー（現状なし）は Result.err として返し、外部サービス障害などの予期しないエラーは throw する。
- */
 export const authenticateWithGoogle = async (
   input: { code: string; redirectUri: string },
   repo: Repositories,
@@ -111,13 +103,6 @@ export type LoginAsDevUserSuccess = {
   user: User
 }
 
-/**
- * 開発環境専用ログイン
- *
- * email で seed 済みの dev ユーザーを引き当てて Access/Refresh Token を発行する。
- * production での誤実行を防ぐためのガードは呼び出し側で行う。
- * このサービス関数自体は環境非依存。
- */
 export const loginAsDevUser = async (
   input: { email: string },
   repo: {
@@ -153,14 +138,6 @@ export type RefreshTokensSuccess = {
 
 export type RefreshVerifier = (token: string) => { jti: string; userId: number } | null
 
-/**
- * Refresh Token のローテーション
- *
- * 受け取った Refresh Token を検証し、Redis 上の jti と一致する場合は旧 jti を破棄して
- * 新しい Access Token + Refresh Token を発行する（1 回使用で無効化）。
- *
- * 検証失敗・既に無効化済み・userId 不一致はすべて 401 で返す。
- */
 export const refreshTokens = async (
   input: { refreshToken: string },
   repo: { refreshTokenRepository: RefreshTokenRepository },
@@ -190,12 +167,6 @@ export const refreshTokens = async (
   return ok({ accessToken, refreshToken })
 }
 
-/**
- * ログアウト
- *
- * Refresh Token を検証して Redis から jti を削除する。冪等性を保つため、
- * 検証失敗時もエラーにせず 200 を返す（呼び出し元の Result.ok = true）。
- */
 export const logout = async (
   input: { refreshToken: string },
   repo: { refreshTokenRepository: RefreshTokenRepository },
@@ -204,6 +175,9 @@ export const logout = async (
   logger.info("AuthService: Logout")
 
   const payload = verifier(input.refreshToken)
+  /**
+   * 何度呼ばれても同じ結果になるように、Refresh Token の検証に失敗してもエラーにしない
+   */
   if (!payload) {
     return ok({ ok: true })
   }

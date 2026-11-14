@@ -7,15 +7,6 @@ export type TrackEventDeps = {
   eventRepository: EventRepository
 }
 
-/**
- * `track-event` ジョブハンドラ
- *
- * 1 ジョブに複数イベントが入っているので、まとめて 1 回の INSERT にする。
- * ClickHouse は小さな INSERT を大量に受けるとマージ負荷で劣化するため。
- *
- * **ここでは await して失敗を伝播させる**（送出側の fire-and-forget と逆）。
- * 握りつぶすと BullMQ がジョブを成功扱いにしてリトライが効かなくなる。
- */
 export const trackEvent = (
   deps: TrackEventDeps,
 ): JobProcessor<TrackEventJobData> =>
@@ -23,6 +14,10 @@ export const trackEvent = (
     const { events } = message.data
     if (events.length === 0) return
 
+    /**
+     * 1 ジョブのイベントを 1 回の INSERT にまとめる（ClickHouse は小さな INSERT を大量に受けるとマージの負荷で遅くなる）。
+     * 失敗を握りつぶすと BullMQ がジョブを成功として扱いリトライしないので、await して throw させる
+     */
     await deps.eventRepository.insertAll(events)
 
     logger.debug("trackEvent: inserted", {

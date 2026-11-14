@@ -14,16 +14,14 @@ import { useSidebar } from "@/features/sidebar/sidebar.context"
 
 export type AppHeaderProps = {
   admin: GetAdminMeResponse
-  /** 通知をすべて既読にする Server Action */
   markAllAsReadAction?: () => Promise<void>
   notifications: AdminNotification[]
-  /** 省略すると検索欄を出さない */
+  /**
+   * 省略すると検索欄を出さない
+   */
   search?: HeaderSearchProps
 }
 
-/**
- * ヘッダー。表示するデータ（admin・通知・検索の行き先）は props で受け取り、下の部品に配る
- */
 export default function AppHeader({ admin, markAllAsReadAction, notifications, search }: AppHeaderProps) {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false)
 
@@ -81,7 +79,6 @@ export default function AppHeader({ admin, markAllAsReadAction, notifications, s
                 />
               </svg>
             )}
-            {/* Cross Icon */}
           </button>
 
           <Link href="/" className="lg:hidden">

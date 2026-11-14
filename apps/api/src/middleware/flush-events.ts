@@ -3,11 +3,13 @@ import type { NextFunction, Request, Response } from "express"
 import type { EventTracker } from "@repo/events"
 import { logger } from "@repo/logger"
 
-/** flush を待つ上限。Queue が遅くてもレスポンスを止めすぎないため */
+/**
+ * Queue が遅くてもレスポンスを止めすぎないように、flush を待つ時間に上限を置く
+ */
 const FLUSH_TIMEOUT_MS = 3000
 
 /**
- * flush を上限付きで待つ。上限に達したら warn を残して先に進む（送出中のイベントは失われうる）
+ * 上限に達したら warn を残して先に進む（送出中のイベントは失われうる）
  */
 const waitForFlush = async (eventTracker: EventTracker): Promise<void> => {
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -22,12 +24,6 @@ const waitForFlush = async (eventTracker: EventTracker): Promise<void> => {
   }
 }
 
-/**
- * レスポンスを返す前に、送出中の行動イベントを送り切る middleware。
- *
- * res.end を包んで flush を待ってから返す。
- * service 側の「送出は await しない」という規約はそのまま（待つのはここだけ）。
- */
 export const flushEventsBeforeResponse = (eventTracker: EventTracker) =>
   (_req: Request, res: Response, next: NextFunction): void => {
     const end = res.end.bind(res) as (...args: unknown[]) => Response
@@ -48,7 +44,4 @@ export const flushEventsBeforeResponse = (eventTracker: EventTracker) =>
     next()
   }
 
-/**
- * テストからだけ使う
- */
 export const forTesting = { FLUSH_TIMEOUT_MS, waitForFlush }

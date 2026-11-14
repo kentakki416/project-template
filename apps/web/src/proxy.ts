@@ -11,18 +11,19 @@ import {
   REFRESH_TOKEN_COOKIE_OPTIONS,
 } from "@/libs/auth"
 
-/**
- * production 以外でのみ公開する dev 専用パス
- */
 const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
   ? ["/api/dev/login"]
   : []
 
-/** memo はユーザー非依存で、Express 側も `/api/memo` を公開にしている */
 const PUBLIC_PATHS = [
+  /**
+   * memo はユーザー非依存で、Express 側も `/api/memo` を公開にしている
+   */
   "/memos",
   "/api/memos",
-  /** リダイレクトすると sendBeacon がサインインページの HTML を受け取ってしまう */
+  /**
+   * リダイレクトすると sendBeacon がサインインページの HTML を受け取ってしまう
+   */
   "/api/events",
   "/sign-in",
   "/api/auth/callback/google",
@@ -138,7 +139,7 @@ export const proxy = async (req: NextRequest) => {
     }
 
     /**
-     * failed で access token はまだ残っている（期限まで 30 秒を切っただけ）ときは、そのまま通す
+     * failed で access token はまだ残っている（期限が近いだけ）ときは、そのまま通す
      */
     return NextResponse.next()
   }
@@ -151,7 +152,9 @@ export const proxy = async (req: NextRequest) => {
 }
 
 export const config = {
-  /** _next, _next/static, _next/image, favicon, public 配下を除外 */
+  /**
+   * _next/static, _next/image, favicon.ico, public/ 配下を除外
+   */
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|public/).*)",
   ],

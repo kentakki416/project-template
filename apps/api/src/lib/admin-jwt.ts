@@ -4,10 +4,6 @@ import jwt, { type Secret, type SignOptions } from "jsonwebtoken"
 
 import { env } from "../env"
 
-/**
- * admin のトークンの鍵。
- * 有効期限は一般ユーザーと同じ env を使う
- */
 const JWT_ADMIN_ACCESS_SECRET: Secret = env.JWT_ADMIN_ACCESS_SECRET
 const JWT_ADMIN_REFRESH_SECRET: Secret = env.JWT_ADMIN_REFRESH_SECRET
 const JWT_ACCESS_EXPIRATION = env.JWT_ACCESS_EXPIRATION as SignOptions["expiresIn"]
@@ -26,15 +22,9 @@ export type AdminRefreshTokenPayload = {
   jti: string
 }
 
-/**
- * admin の Access Token を生成する
- */
 export const generateAdminAccessToken = (adminId: number): string =>
   jwt.sign({ adminId }, JWT_ADMIN_ACCESS_SECRET, { expiresIn: JWT_ACCESS_EXPIRATION })
 
-/**
- * admin の Refresh Token を生成する
- */
 export const generateAdminRefreshToken = (adminId: number): { jti: string; token: string } => {
   const jti = randomUUID()
   const token = jwt.sign({ adminId, jti }, JWT_ADMIN_REFRESH_SECRET, { expiresIn: JWT_REFRESH_EXPIRATION })
@@ -55,9 +45,6 @@ export const verifyAdminAccessToken = (token: string): AdminAccessTokenPayload |
   }
 }
 
-/**
- * admin の Refresh Token を検証する。adminId が数値、jti が文字列でなければ失敗にする
- */
 export const verifyAdminRefreshToken = (token: string): AdminRefreshTokenPayload | null => {
   try {
     const payload = jwt.verify(token, JWT_ADMIN_REFRESH_SECRET)

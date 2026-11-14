@@ -4,9 +4,6 @@ import { logger } from "@repo/logger"
 
 import { AuthAccountRepository, SearchUsersResult, UserRepository } from "../repository"
 
-/**
- * ユーザーIDからユーザー情報を取得
- */
 export const getUserById = async (
   userId: number,
   repo: { userRepository: UserRepository }
@@ -28,8 +25,7 @@ export const getUserById = async (
 }
 
 /**
- * ユーザーを検索する（admin のユーザー一覧）。page は 1 始まり。
- * 全件数を超えたページを指定されたら、users は空で totalCount はそのまま返す（エラーにしない）
+ * page は 1 始まり。全件数を超えたページでは、users を空にして totalCount はそのまま返す（エラーにしない）
  */
 export const searchUsers = async (
   input: {
@@ -48,17 +44,11 @@ export const searchUsers = async (
     limit: input.perPage,
     offset: (input.page - 1) * input.perPage,
     provider: input.provider,
-    /**
-     * 空の検索語は条件にしない
-     */
     query: input.query || undefined,
   })
   return ok(result)
 }
 
-/**
- * ユーザーの詳細を、紐付けているログイン方法と合わせて取得する（admin のユーザー詳細）。無ければ 404
- */
 export const getUserDetail = async (
   userId: number,
   repo: { authAccountRepository: AuthAccountRepository; userRepository: UserRepository }

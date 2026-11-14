@@ -50,9 +50,6 @@ describe("UserRepository", () => {
   })
 })
 
-/**
- * 検索のテスト用にユーザーを入れる。createdAt と providers を指定できる
- */
 const insertUser = async (input: { createdAt?: Date; email?: string; name?: string; providers?: AuthProvider[] }) => {
   const [row] = await testDb
     .insert(users)

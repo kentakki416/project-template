@@ -21,9 +21,6 @@ import type { CreateUserInput, SearchUsersInput, SearchUsersResult, UserReposito
 
 import { resolveDrizzleClient } from "./transaction-runner"
 
-/**
- * Drizzleの型
- */
 type UserRow = typeof users.$inferSelect
 
 /**
@@ -31,9 +28,6 @@ type UserRow = typeof users.$inferSelect
  */
 const escapeLikePattern = (value: string): string => value.replace(/[\\%_]/g, (c) => `\\${c}`)
 
-/**
- * Drizzle実装のユーザーリポジトリ
- */
 export class DrizzleUserRepository implements UserRepository {
   private _db: DrizzleClient
 
@@ -53,9 +47,6 @@ export class DrizzleUserRepository implements UserRepository {
     return this._toDomainUser(row)
   }
 
-  /**
-   * ユーザーを検索する。新しい順（同じ作成日時は id の降順）に limit 件を返し、条件に合う全件数も返す
-   */
   public async search(input: SearchUsersInput): Promise<SearchUsersResult> {
     const pattern = input.query ? `%${escapeLikePattern(input.query)}%` : undefined
     /**
@@ -129,9 +120,6 @@ export class DrizzleUserRepository implements UserRepository {
     return this._toDomainUser(row)
   }
 
-  /**
-   * Drizzleの型 → ドメインの型に変換
-   */
   private _toDomainUser(row: UserRow): User {
     return {
       avatarUrl: row.avatarUrl,

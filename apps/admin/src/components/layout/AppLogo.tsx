@@ -3,9 +3,13 @@ import React from "react"
 import { appConfig } from "@/config/app"
 
 type AppLogoProps = {
-  /** inverse は暗い背景（サインイン画面の右側）用に文字を白にする */
+  /**
+   * inverse は暗い背景（サインイン画面の右側）用に文字を白にする
+   */
   tone?: "default" | "inverse"
-  /** icon は折りたたんだサイドバー用に頭文字のアイコンだけを出す */
+  /**
+   * icon は折りたたんだサイドバー用に頭文字のアイコンだけを出す
+   */
   variant?: "full" | "icon"
 }
 

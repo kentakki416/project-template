@@ -25,27 +25,27 @@ import Pagination from "./Pagination"
  */
 const DatePicker = dynamic(async () => import("../form/DatePicker"), { ssr: false })
 
-/**
- * テーブルカラム定義
- */
 export type Column<T> = {
-  /** セルに足すクラス名 */
+  /**
+   * セルに足すクラス名
+   */
   className?: string
-  /** カラムヘッダー（Tooltip なども入れられる） */
   header: ReactNode
-  /** T のキーを指定して単純にテキスト表示する場合 */
+  /**
+   * 指定すると、行のその項目をテキストで表示する
+   */
   key?: keyof T
-  /** カスタム描画関数。key より優先される */
+  /**
+   * key より優先される
+   */
   render?: (row: T) => ReactNode
 }
 
-/**
- * 検索設定
- */
 type SearchConfig = {
-  /** 検索語の最大の長さ（server モードで api の検証と合わせる） */
+  /**
+   * 検索語の最大の長さ（server モードで api の検証と合わせる）
+   */
   maxLength?: number
-  /** プレースホルダーテキスト */
   placeholder?: string
 }
 
@@ -56,13 +56,11 @@ type ClientSearchConfig<T> = SearchConfig & {
   filterKeys: (keyof T)[]
 }
 
-/**
- * ページネーション設定
- */
 type PaginationConfig = {
-  /** 最初の件数。省略したら pageSizeOptions の先頭。client モードだけで使う（server モードの件数は server.perPage） */
+  /**
+   * 最初の件数。省略したら pageSizeOptions の先頭。client モードだけで使う（server モードの件数は server.perPage）
+   */
   defaultPageSize?: number
-  /** 1ページあたりの表示件数の選択肢 */
   pageSizeOptions?: number[]
 }
 
@@ -90,22 +88,32 @@ export type ClientFilterConfig<T> = { key: keyof T & string; label: string; opti
 type ServerModeConfig = {
   page: number
   perPage: number
-  /** 条件に合う全件数（フッターとページ数に使う） */
+  /**
+   * 条件に合う全件数（フッターとページ数に使う）
+   */
   totalCount: number
 }
 
 type ServerModeProps = {
-  /** フィルタ定義。指定するとフィルタのボタンを表示 */
+  /**
+   * フィルタ定義。指定するとフィルタのボタンを表示
+   */
   filters?: FilterConfig[]
-  /** 検索設定。指定すると検索バーを表示 */
+  /**
+   * 検索設定。指定すると検索バーを表示
+   */
   search?: SearchConfig
   server: ServerModeConfig
 }
 
 type ClientModeProps<T> = {
-  /** フィルタ定義。指定するとフィルタのボタンを表示 */
+  /**
+   * フィルタ定義。指定するとフィルタのボタンを表示
+   */
   filters?: ClientFilterConfig<T>[]
-  /** 検索設定。指定すると検索バーを表示 */
+  /**
+   * 検索設定。指定すると検索バーを表示
+   */
   search?: ClientSearchConfig<T>
   server?: undefined
 }
@@ -116,23 +124,20 @@ type ClientModeProps<T> = {
 type DataTableProps<T> = BaseProps<T> & (ServerModeProps | ClientModeProps<T>)
 
 type BaseProps<T> = {
-  /** カラム定義 */
   columns: Column<T>[]
-  /** テーブルに表示するデータ配列 */
   data: T[]
-  /** 該当 0 件のときの表示 */
   emptyMessage?: string
-  /** 行のリンク先。指定すると行のクリックで遷移する */
+  /**
+   * 行のリンク先。指定すると行のクリックで遷移する
+   */
   getRowHref?: (row: T) => string
-  /** 各行のユニークキーを取得する関数 */
   getRowKey: (row: T) => string | number
-  /** ページネーション設定。指定するとページネーションを表示 */
+  /**
+   * ページネーション設定。指定するとページネーションを表示
+   */
   pagination?: PaginationConfig
 }
 
-/**
- * 絞り込みの値
- */
 type FilterValues = Record<string, string>
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [5, 10, 20]
@@ -153,9 +158,6 @@ const DATE_INPUT_CLASS_NAME = "h-10 focus:ring-brand-500/10"
 
 const CELL_CLASS_NAME = "px-5 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-400"
 
-/**
- * フィルタが使う値の名前
- */
 const listFilterValueKeys = (filter: FilterConfig): string[] =>
   filter.type === "dateRange" ? [`${filter.key}_from`, `${filter.key}_to`] : [filter.key]
 
@@ -282,9 +284,6 @@ function ServerStateDataTable<T>({
     })
   }
 
-  /**
-   * 検索語は 300ms 間引いて URL に書く
-   */
   useEffect(() => {
     const trimmedQuery = query.trim()
     if (trimmedQuery === urlQuery) return
@@ -408,21 +407,29 @@ type DataTableViewProps<T> = {
   filters?: FilterConfig[]
   getRowHref?: (row: T) => string
   getRowKey: (row: T) => string | number
-  /** 読み込み中（server モードで URL を変えた直後）。テーブルを薄くする */
+  /**
+   * 読み込み中（server モードで URL を変えた直後）。テーブルを薄くする
+   */
   isPending: boolean
   onFiltersApply: (values: FilterValues) => void
   onPageChange: (page: number) => void
   onPerPageChange: (size: number) => void
   onQueryChange: (query: string) => void
-  /** 指定すると表示件数の選択を出す */
+  /**
+   * 指定すると表示件数の選択を出す
+   */
   pageSizeOptions?: number[]
   perPage: number
   query: string
   rows: T[]
   searchMaxLength?: number
-  /** 指定すると検索バーを出す */
+  /**
+   * 指定すると検索バーを出す
+   */
   searchPlaceholder?: string
-  /** 指定するとフッター（件数とページ番号）を出す */
+  /**
+   * 指定するとフッター（件数とページ番号）を出す
+   */
   totalCount?: number
 }
 

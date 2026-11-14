@@ -9,17 +9,15 @@ import { AdminAuthRequest } from "../../../middleware/admin-auth"
 import { AdminRepository } from "../../../repository"
 import * as service from "../../../service"
 
-/**
- * GET /api/admin/me
- *
- * サインイン中の admin を返す。req.adminId は adminAuthMiddleware が確定済みの前提
- */
 export class AdminMeGetController {
   constructor(private _adminRepository: AdminRepository) {}
 
   public async execute(req: AdminAuthRequest, res: Response) {
     logger.info("AdminMeGetController: Fetching signed-in admin")
 
+    /**
+     * /me は ADMIN_PUBLIC_PATHS に無いので、adminAuthMiddleware を通った時点で req.adminId は必ずある
+     */
     const result = await service.admin.getAdminById(req.adminId!, { adminRepository: this._adminRepository })
 
     if (!result.ok) {
