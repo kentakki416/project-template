@@ -13,8 +13,7 @@ export const metadata: Metadata = {
 const isProduction = process.env.NODE_ENV === "production"
 
 /**
- * dev-login で使えるショートネーム
- * packages/db/drizzle/seed.ts と apps/web/src/app/api/dev/login/route.ts と一致させる
+ * apps/web/src/app/api/dev/login/route.ts の DEV_USERS のキーと一致させる
  */
 const DEV_LOGIN_USERS = ["alice", "bob"] as const
 

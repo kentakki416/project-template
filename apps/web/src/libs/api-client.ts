@@ -8,7 +8,9 @@ const API_BASE_URL = env.API_URL
 
 const SIGN_OUT_PATH = "/api/auth/signout"
 
-/** status とボディを保持するので、呼び出し側が元の status をそのまま返せる */
+/**
+ * status とボディを保持するので、呼び出し側が元の status をそのまま返せる
+ */
 export class ApiClientError extends Error {
   constructor(
     public readonly status: number,
