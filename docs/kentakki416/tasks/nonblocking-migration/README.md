@@ -1,6 +1,6 @@
 # ノンブロッキングなマイグレーション
 
-> **状態: 案。** `docs/kentakki416/tasks/nonblocking-migration/judge-yourself.md` の Q1 は a で確定した。Q2〜Q4 は未回答で、（Q2）のように印を付けた節は推奨案で書いた仮の内容。実装は 1 つの PR にまとめず、step ごとに進める。
+> **状態: 案。** `docs/kentakki416/tasks/nonblocking-migration/judge-yourself.md` の Q1 は a、Q3 は c（CI での検出は入れない）で確定した。Q2・Q4 は未回答で、（Q2）のように印を付けた節は推奨案で書いた仮の内容。実装は 1 つの PR にまとめず、step ごとに進める。
 
 行数の多いテーブルに対する **index の追加・カラムの追加や制約の変更・データの移行を、書き込みを止めずに本番へ適用できるようにする。**
 
@@ -30,7 +30,7 @@
   - [経路 1: トランザクション内のマイグレーション](#経路-1-トランザクション内のマイグレーション)
   - [経路 2: オンライン操作](#経路-2-オンライン操作)
   - [経路 3: バックフィル（Q2）](#経路-3-バックフィルq2)
-  - [危険な DDL の検出（Q3）](#危険な-ddl-の検出q3)
+  - [危険な DDL の検出](#危険な-ddl-の検出)
   - [deploy への組み込み（Q4）](#deploy-への組み込みq4)
   - [botchan-platform との違い](#botchan-platform-との違い)
   - [未確認の事項](#未確認の事項)
@@ -103,7 +103,7 @@ Postgres 12 以降を前提にする（ローカルと CI は 16）。「止め�
 
 ### 守られること
 
-- **書き込みを止める DDL は PR の CI で落ちる。** 既存のテーブルへの `CONCURRENTLY` 無しの index 作成、`NOT VALID` 無しの制約の追加、`NOT NULL` の付与、型の変更など。行数が少なく止めてよいと判断したときは、SQL に除外のコメントと理由を書いて通す
+- **書き込みを止める DDL の検出は、レビューに任せる。** CI での検出は入れない（[危険な DDL の検出](#危険な-ddl-の検出)）。どの変更が止めるかは、上の表と `docs/tech-stack/drizzle.md` に書く
 - **ロック待ちは数秒で打ち切る。** 経路 1 は `lock_timeout` を付けて流し、待たされたら失敗してやり直す。後ろの読み書きを巻き込まない
 - **作りかけの index を残さない。** `CREATE INDEX CONCURRENTLY` が途中で失敗すると無効な index が残る。次の実行で無効な index を消して作り直し、最後に有効になったことを確かめる
 - **バックフィルが終わる前に制約を付けようとすると、deploy が止まる。** `VALIDATE CONSTRAINT` が失敗するので、不正な状態のまま api が切り替わらない
@@ -146,7 +146,7 @@ drizzle-kit `1.0.0-rc.4` と Postgres 16 の使い捨てコンテナで確かめ
 ### 経路 1: トランザクション内のマイグレーション
 
 - `db:migrate` は `PGOPTIONS` で `lock_timeout`（5 秒）を付けて `drizzle-kit migrate` を呼ぶ。ロック待ちで失敗したら、間隔を空けて数回やり直す（全体が 1 トランザクションなので、失敗すれば何も適用されていない）
-- 経路 1 に時間のかかる文を入れない。先に取ったロックを、後ろの文が終わるまで（commit まで）保持するため。これは [検出](#危険な-ddl-の検出q3) で担保する
+- 経路 1 に時間のかかる文を入れない。先に取ったロックを、後ろの文が終わるまで（commit まで）保持するため。CI での検出は入れないので（[危険な DDL の検出](#危険な-ddl-の検出)）、レビューと `docs/tech-stack/drizzle.md` の説明で担保する
 
 ### 経路 2: オンライン操作
 
@@ -196,12 +196,21 @@ drizzle-kit `1.0.0-rc.4` と Postgres 16 の使い捨てコンテナで確かめ
 - バックフィルは 10 分を超えうるので、one-shot タスクの待ち方を、上限を指定できるポーリングに変える。上限を超えたら workflow は失敗させるが、タスクは止めない（ログで続きを追える）
 - 終わったバックフィルの定義は、制約を付けるリリース（契約側）の後に消す
 
-### 危険な DDL の検出（Q3）
+### 危険な DDL の検出
 
-- CI で、PR が足した `migration.sql` を [squawk](https://github.com/sbdchd/squawk)（Postgres のマイグレーション用 linter。npm の `squawk-cli`）にかける。過去のマイグレーションは対象にしない
-- 主に使うルール: `require-concurrent-index-creation`（同じトランザクションで作ったテーブルは対象外）/ `constraint-missing-not-valid` / `adding-foreign-key-constraint` / `adding-not-nullable-field` / `adding-field-with-default` / `changing-column-type` / `ban-concurrent-index-creation-in-transaction`
-- 止めてよいと判断した文は、`-- squawk-ignore <rule>` と理由のコメントを付けて通す（どの文を意図して通したかが SQL に残る）
-- 全行の `UPDATE` は squawk では検出できない見込み。`migration.sql` に `UPDATE` / `DELETE` があれば警告する小さなチェックを足す
+**CI での検出は入れない**（Q3 は c で確定。2026-11-14）。squawk は行数を見ないので、指摘は「この書き方は、行数が多いテーブルだと書き込みを止める」という注意で、実際に問題が起きるかは判定しない。今のテーブルの規模では、ほぼすべてが除外コメントを書いて通すだけになる。行数の多いテーブルができて、複数人がマイグレーションを書くようになったら入れる。
+
+入れるときのために、[squawk](https://github.com/sbdchd/squawk) 2.72.0 を drizzle-kit の生成する形の SQL にかけて確かめた結果を残す。
+
+- drizzle-kit の SQL（`--> statement-breakpoint` 付き）をそのまま読める。設定は `.squawk.toml` に `pg_version = "16.0"` と `assume_in_transaction = true`
+- 検出できた: 既存テーブルへの素の `CREATE INDEX`（`require-concurrent-index-creation`。同じファイルで作ったテーブルは対象外）/ `NOT VALID` の無い CHECK 制約（`constraint-missing-not-valid`）/ 外部キーの追加（`adding-foreign-key-constraint`）/ `SET NOT NULL`（`adding-not-nullable-field`）/ 型の変更（`changing-column-type`）/ 行ごとに変わる default 付きのカラム追加（`adding-field-with-default`）/ default の無い `NOT NULL` のカラム追加（`adding-required-field`）/ UNIQUE 制約の追加（`disallowed-unique-constraint`）
+- 検出しなかった（正しい）: `NOT VALID` 付きの制約、NULL 可・定数の default のカラム追加
+- 検出できない: 全行の `UPDATE`、`migration.sql` に残った `CREATE INDEX CONCURRENTLY`（後者は `db:migrate` の事前検査が止める）
+- 指摘が 1 件でもあれば終了コード 1。`-- squawk-ignore <rule>` を文の直前に書くと、その文だけ通る（次の文には効かない）
+- 既定のルールのままでは、既存の 3 つのマイグレーションに 42 件出る。書き方の好みのルール 8 つ（`prefer-*`、`require-lock-timeout`、`require-statement-timeout`）を除外すると 1 件（適用済みの CHECK 制約の追加）になる。CI では、PR で足した `migration.sql` だけを対象にする
+- `@repo/domain` の定数に値を足すと、CHECK 制約の `DROP` + `ADD` が生成され、毎回 `constraint-missing-not-valid`（と `ban-drop-constraint`）が出る
+- 旧バージョンの api が壊れる変更（`renaming-column`、`ban-drop-column`、`ban-drop-constraint`、`require-concurrent-index-deletion`）も既定で出る。書き込みを止める DDL だけを見るなら、これらも除外する
+- npm の `squawk-cli` で入る（バイナリは OS ごとの optionalDependencies。postinstall は無い。Apache-2.0 / MIT）。CI を落とさずに PR へコメントするだけの `upload-to-github` もある
 
 ### deploy への組み込み（Q4）
 
@@ -228,7 +237,6 @@ botchan-platform は、Drizzle の migrate の後にスクリプト（`ensure-on
 実装の step で確かめ、だめなら括弧内の代替にする。
 
 - min（PgBouncer 経由）で `CREATE INDEX CONCURRENTLY` と `PGOPTIONS` の `lock_timeout` が通るか（通らなければ、migration のタスクにだけ PgBouncer を通さない接続文字列を渡す）
-- squawk が drizzle-kit の生成する SQL（`--> statement-breakpoint` のコメント付き）をそのまま読めるか、ファイル全体を 1 トランザクションとみなす設定ができるか（できなければ自作のチェックにする。Q3 の b）
 - drizzle-kit を上げたときに、フォルダ内の `online.sql` を無視する挙動と、途中までのフォルダだけを見せて適用できる挙動が変わらないか（RC に固定しているので、上げるときに上の表の確認をやり直す）
 
 ### MVP 対象外（将来検討）
@@ -247,7 +255,7 @@ botchan-platform は、Drizzle の migrate の後にスクリプト（`ensure-on
 | 1 | 経路 2 のうち index の作成・削除: `online.sql` の実行部、`db:generate` の後処理、`drizzle.__online_migrations` テーブル、`db:migrate` への組み込み（[step1](./tasks/step1-db-online-index.md)、PR #136） |
 | 1b | 経路 2 に `VALIDATE CONSTRAINT` を足す |
 | 2 | 経路 1 の `lock_timeout` とやり直し、one-shot タスクの待ちの上限 |
-| 3 | 危険な DDL の検出（CI） |
+| 3 | （入れない）危険な DDL の検出（CI）。Q3 は c で確定 |
 | 4 | 経路 3: バックフィルの実行部と「Postgres Backfill」workflow |
 | 5 | `docs/tech-stack/drizzle.md` と `packages/db/README.md` の手順を書き換える |
 
