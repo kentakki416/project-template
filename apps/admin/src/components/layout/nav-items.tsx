@@ -12,9 +12,6 @@ export type NavItem = {
   subItems?: { name: string; path: string }[]
 }
 
-/**
- * サイドバーのセクション（見出し + 項目）
- */
 export type NavSection = {
   items: NavItem[]
   title: string

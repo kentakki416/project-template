@@ -8,9 +8,6 @@ const AUTH_PROVIDER_COLORS = {
   google: "primary",
 } as const satisfies Record<AuthProvider, "primary" | "warning">
 
-/**
- * ログイン方法のバッジ
- */
 export default function AuthProviderBadge({ provider }: { provider: AuthProvider }) {
   return (
     <Badge color={AUTH_PROVIDER_COLORS[provider]} size="sm" variant="light">

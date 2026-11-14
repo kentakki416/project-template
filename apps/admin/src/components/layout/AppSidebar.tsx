@@ -12,9 +12,6 @@ import {
   HorizontaLDots,
 } from "@/icons"
 
-/**
- * サイドバーに並べるセクション
- */
 const navSections: NavSection[] = [mainNavSection, demoNavSection]
 
 type SubmenuState = { itemIndex: number; sectionIndex: number } | null

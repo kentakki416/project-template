@@ -35,9 +35,6 @@ const resolveTimeZoneOffsetAt = (time: number): string => {
   return name?.match(/[+-]\d{2}:\d{2}/)?.[0] ?? "+00:00"
 }
 
-/**
- * `+09:00` を分（540）にする
- */
 const convertOffsetToMinutes = (offset: string): number => {
   const sign = offset.startsWith("-") ? -1 : 1
   const [hours, minutes] = offset.slice(1).split(":").map(Number)
@@ -60,9 +57,6 @@ const resolveTimeZoneOffset = (date: string): string => {
 export const convertDateToStartOfDayIso = (date: string): string =>
   `${date}T00:00:00${resolveTimeZoneOffset(date)}`
 
-/**
- * 日付（`YYYY-MM-DD`）の翌日の日付
- */
 export const addOneDayToDate = (date: string): string => {
   const next = new Date(`${date}T00:00:00Z`)
   next.setUTCDate(next.getUTCDate() + 1)
@@ -85,7 +79,7 @@ const SECONDS_PER_DAY = 60 * 60 * 24
 const RELATIVE_TIME_LIMIT_DAYS = 30
 
 /**
- * 今からの経過時間を「5 分前」「3 時間前」「2 日前」の形で出す。30 日より前は日時で出す。日時として読めなければ「-」
+ * 今からの経過時間を「5 分前」「3 時間前」「2 日前」の形で出す。日時として読めなければ「-」を返す
  */
 export const formatRelativeTime = (value: string | Date, now: Date = new Date()): string => {
   const date = typeof value === "string" ? new Date(value) : value

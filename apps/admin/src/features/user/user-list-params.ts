@@ -9,9 +9,6 @@ import {
 
 import { addOneDayToDate, convertDateToStartOfDayIso } from "@/libs/date"
 
-/**
- * ユーザー一覧の 1 ページの件数の選択肢
- */
 export const USER_LIST_PAGE_SIZE_OPTIONS = [10, 20, 50]
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -25,9 +22,6 @@ const MAX_FILTER_YEAR = 9998
 
 type SearchParams = Record<string, string | string[] | undefined>
 
-/**
- * 検索パラメータの値を 1 つの文字列にする（同じ名前が複数あれば先頭）
- */
 const pickFirstValue = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value
 
@@ -98,7 +92,7 @@ export const buildAdminUserListSearchParams = (query: GetAdminUserListQueryStrin
 }
 
 /**
- * 画面の検索パラメータの page だけを差し替えた文字列（最後のページに移すとき）
+ * 画面の検索パラメータの page だけを差し替えた文字列にする
  */
 export const buildUserListPageSearchParams = (searchParams: SearchParams, page: number): string => {
   const params = new URLSearchParams()
