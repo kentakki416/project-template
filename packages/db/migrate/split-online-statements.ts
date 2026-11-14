@@ -62,8 +62,11 @@ export const moveOnlineStatements = async (migrationsDir: string): Promise<strin
   for (const folder of await readMigrationFolders(migrationsDir)) {
     const { migrationSql, onlineStatements } = splitOnlineStatements(folder.migrationSql)
     if (onlineStatements.length === 0) continue
-    await writeFile(path.join(migrationsDir, folder.name, MIGRATION_FILE_NAME), migrationSql)
+    /**
+     * online.sql を先に書く。途中で失敗しても、取り出した文がどちらかのファイルに残る
+     */
     await writeFile(path.join(migrationsDir, folder.name, ONLINE_FILE_NAME), `${folder.onlineSql ?? ""}${onlineStatements.join("\n")}\n`)
+    await writeFile(path.join(migrationsDir, folder.name, MIGRATION_FILE_NAME), migrationSql)
     changedFolderNames.push(folder.name)
   }
   return changedFolderNames

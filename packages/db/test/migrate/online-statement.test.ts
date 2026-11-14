@@ -45,6 +45,20 @@ describe("parseOnlineSql", () => {
       ])
     })
 
+    it("dollar quote の中の ; を、文の区切りと取り違えない", () => {
+      const sql = "CREATE INDEX CONCURRENTLY IF NOT EXISTS \"items_note_idx\" ON \"items\" (\"note\") WHERE \"note\" <> $$a;b$$ AND \"tag\" <> $t$c;d$t$;\nDROP INDEX CONCURRENTLY IF EXISTS \"old_idx\";"
+
+      expect(parseOnlineSql(sql)).toMatchObject([{ indexName: "items_note_idx" }, { indexName: "old_idx" }])
+    })
+
+    it("語の間のブロックコメントは空白にする", () => {
+      const sql = "CREATE INDEX CONCURRENTLY IF NOT EXISTS \"items_enabled_idx\" ON \"items\" (\"id\") WHERE \"enabled\"/*理由*/IS TRUE;"
+
+      expect(parseOnlineSql(sql)).toMatchObject([
+        { sql: "CREATE INDEX CONCURRENTLY IF NOT EXISTS \"items_enabled_idx\" ON \"items\" (\"id\") WHERE \"enabled\" IS TRUE" },
+      ])
+    })
+
     it("引用符の無い識別子は小文字にする", () => {
       expect(parseOnlineSql("DROP INDEX CONCURRENTLY IF EXISTS Items_Owner_Id_Idx;")).toMatchObject([
         { indexName: "items_owner_id_idx" },

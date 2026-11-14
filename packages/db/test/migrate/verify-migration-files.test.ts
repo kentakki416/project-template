@@ -13,6 +13,14 @@ describe("verifyMigrationFiles", () => {
       ).toEqual([])
     })
 
+    it("文字列の中の INDEX CONCURRENTLY は問題にしない", () => {
+      expect(
+        verifyMigrationFiles([
+          { migrationSql: "INSERT INTO \"messages\" (\"body\") VALUES ('CREATE INDEX CONCURRENTLY');", name: "0001_seed", onlineSql: undefined },
+        ]),
+      ).toEqual([])
+    })
+
     it("コメントの中の INDEX CONCURRENTLY は問題にしない", () => {
       expect(
         verifyMigrationFiles([{ migrationSql: "-- CREATE INDEX CONCURRENTLY は online.sql に移した\nSELECT 1;", name: "0001", onlineSql: undefined }]),

@@ -105,6 +105,19 @@ describe("runMigrations", () => {
       expect(fake.indexes.get(OWNER_INDEX_KEY)).toBe(false)
     })
 
+    it("無効な index が別のセッションで作成中なら、消さずに throw する", async () => {
+      const fake = createFakeSqlExecutor({
+        buildingIndexNames: ["\"public\".\"items_owner_id_idx\""],
+        indexes: { [OWNER_INDEX_KEY]: false },
+      })
+
+      const { appliedFolderNames, steps } = await run(fake, [buildFolder("0002_add", [CREATE_OWNER_INDEX])])
+
+      expect(appliedFolderNames).toEqual(new Error("index \"public\".\"items_owner_id_idx\" is being built by another session. Run db:migrate again after it finishes"))
+      expect(steps).toEqual(["migrate through 0002_add"])
+      expect([...fake.appliedFolderNames]).toEqual([])
+    })
+
     it("作成後も index が無効なら throw する", async () => {
       const fake = createFakeSqlExecutor()
       const executor = {

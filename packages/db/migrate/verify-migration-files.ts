@@ -1,7 +1,10 @@
 import type { MigrationFolder } from "./migration-folders"
 import { parseOnlineSql, splitSqlStatements } from "./online-statement"
 
-const CONCURRENTLY_PATTERN = /\bINDEX\s+CONCURRENTLY\b/i
+/**
+ * 文の先頭だけを見る（INSERT する文字列の中の「INDEX CONCURRENTLY」を、index の操作と取り違えない）
+ */
+const CONCURRENTLY_PATTERN = /^(?:CREATE\s+(?:UNIQUE\s+)?INDEX|DROP\s+INDEX|REINDEX\b[^;]*?)\s+CONCURRENTLY\b/i
 
 /**
  * DB に触る前に、マイグレーションのファイルを検査して問題の一覧を返す（問題が無ければ空）

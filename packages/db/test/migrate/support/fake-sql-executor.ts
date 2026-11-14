@@ -4,6 +4,10 @@ import type { SqlExecutor } from "../../../migrate/run-online-migrations"
 type FakeState = {
   appliedFolderNames?: string[]
   /**
+   * 別のセッションが作成中の index（引用符付きの名前。例: "public"."items_owner_id_idx"）
+   */
+  buildingIndexNames?: string[]
+  /**
    * CREATE INDEX を失敗させる index。失敗すると、実物と同じく無効な index が残る
    */
   failingIndexKeys?: string[]
@@ -26,6 +30,9 @@ export const createFakeSqlExecutor = (state: FakeState = {}) => {
   const executor: SqlExecutor = {
     query: async (sql, params = []) => {
       queries.push(sql)
+      if (sql.includes("pg_stat_progress_create_index")) {
+        return { rows: state.buildingIndexNames?.includes(String(params[0])) ? [{}] : [] }
+      }
       if (sql.includes("pg_catalog.pg_index")) {
         const valid = indexes.get(buildIndexKey(String(params[0]), String(params[1])))
         return { rows: valid === undefined ? [] : [{ valid }] }

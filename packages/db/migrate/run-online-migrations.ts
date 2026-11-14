@@ -43,12 +43,26 @@ const findIndexValidity = async (executor: SqlExecutor, statement: OnlineStateme
   return rows.length > 0 ? rows[0].valid === true : undefined
 }
 
+const isIndexBeingBuilt = async (executor: SqlExecutor, qualifiedName: string): Promise<boolean> => {
+  const { rows } = await executor.query(
+    "SELECT 1 FROM pg_catalog.pg_stat_progress_create_index WHERE index_relid = pg_catalog.to_regclass($1)",
+    [qualifiedName],
+  )
+  return rows.length > 0
+}
+
 const createIndex = async (executor: SqlExecutor, statement: OnlineStatement, log: (message: string) => void): Promise<void> => {
   const qualifiedName = `${quoteIdentifier(statement.schema)}.${quoteIdentifier(statement.indexName)}`
   /**
    * CREATE INDEX CONCURRENTLY が途中で失敗すると無効な index が残り、IF NOT EXISTS はそれを「ある」とみなして何もしない
    */
   if (await findIndexValidity(executor, statement) === false) {
+    /**
+     * 作成中の index も無効として見える。別の db:migrate が作成中なら、消さずに止める
+     */
+    if (await isIndexBeingBuilt(executor, qualifiedName)) {
+      throw new Error(`index ${qualifiedName} is being built by another session. Run db:migrate again after it finishes`)
+    }
     log(`dropping invalid index ${qualifiedName} left by a failed build`)
     await executor.query(`DROP INDEX CONCURRENTLY IF EXISTS ${qualifiedName}`)
   }

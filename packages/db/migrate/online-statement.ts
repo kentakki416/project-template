@@ -32,8 +32,8 @@ export const quoteIdentifier = (identifier: string): string => `"${identifier.re
 /**
  * SQL をコメントを除いた文に分ける。
  *
- * 部分 index の WHERE に書いた文字列リテラルの中の `;` や `--` を、文の区切りやコメントと取り違えないよう、
- * 引用符の中かどうかを追いながら読む。
+ * 部分 index の WHERE に書いた文字列リテラル（引用符・dollar quote）の中の `;` や `--` を、
+ * 文の区切りやコメントと取り違えないよう、文字列の中かどうかを追いながら読む。
  */
 export const splitSqlStatements = (sql: string): string[] => {
   const statements: string[] = []
@@ -41,16 +41,24 @@ export const splitSqlStatements = (sql: string): string[] => {
   let position = 0
   while (position < sql.length) {
     const char = sql[position]
+    const dollarQuoteEnd = char === "$" ? findDollarQuoteEnd(sql, position) : undefined
     if (char === "'" || char === "\"") {
       const closing = findClosingQuote(sql, position)
       current += sql.slice(position, closing + 1)
       position = closing + 1
+    } else if (dollarQuoteEnd !== undefined) {
+      current += sql.slice(position, dollarQuoteEnd)
+      position = dollarQuoteEnd
     } else if (sql.startsWith("--", position)) {
       const lineEnd = sql.indexOf("\n", position)
       position = lineEnd === -1 ? sql.length : lineEnd
     } else if (sql.startsWith("/*", position)) {
       const commentEnd = sql.indexOf("*/", position + 2)
       position = commentEnd === -1 ? sql.length : commentEnd + 2
+      /**
+       * Postgres はコメントを空白として扱う。詰めると前後の語がつながる（`enabled/*理由*\/IS TRUE`）
+       */
+      current += " "
     } else if (char === ";") {
       statements.push(current)
       current = ""
@@ -62,6 +70,20 @@ export const splitSqlStatements = (sql: string): string[] => {
   }
   statements.push(current)
   return statements.map((statement) => statement.trim()).filter((statement) => statement.length > 0)
+}
+
+const DOLLAR_QUOTE_TAG = /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/
+
+/**
+ * position が dollar quote（`$$...$$` / `$tag$...$tag$`）の開始なら、閉じた直後の位置を返す。
+ * 識別子の途中の `$`（`a$b$c`）は、dollar quote の開始ではない。
+ */
+const findDollarQuoteEnd = (sql: string, position: number): number | undefined => {
+  if (position > 0 && /[A-Za-z0-9_$]/.test(sql[position - 1])) return undefined
+  const tag = DOLLAR_QUOTE_TAG.exec(sql.slice(position))?.[0]
+  if (!tag) return undefined
+  const closing = sql.indexOf(tag, position + tag.length)
+  return closing === -1 ? sql.length : closing + tag.length
 }
 
 /**
