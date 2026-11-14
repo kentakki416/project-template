@@ -6,14 +6,10 @@ import type { JobQueue, TrackEventJobData } from "@repo/queue"
 import type { TrackEventInput } from "./event"
 import type { EventTracker } from "./tracker"
 
-/**
- * queue へ enqueue するだけの EventTracker
- *
- * enqueue を await せず、失敗しても呼び出し元に伝播させない。
- * Redis が落ちていてもユーザーのリクエストは成功させるため。
- */
 export class QueueEventTracker implements EventTracker {
-  /** 送出中の enqueue。flush() で待つために保持する（失敗は catch 済み） */
+  /**
+   * flush() で待つために、送出中の enqueue を持つ。失敗は catch 済みなので reject しない
+   */
   private readonly _pending = new Set<Promise<void>>()
   private readonly _queue: JobQueue<TrackEventJobData>
 

@@ -10,9 +10,6 @@ const cronEnvSchema = z
       .enum(["pino", "winston", "console", "silent"])
       .default("pino"),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
-    /**
-     * cleanup-old-memos が削除対象とする「何日以上前の memo か」の閾値
-     */
     CLEANUP_MEMO_OLDER_THAN_DAYS: z.coerce.number().int().positive().default(90),
   })
   .superRefine((env, ctx) => {
