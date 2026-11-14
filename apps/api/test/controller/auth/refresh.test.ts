@@ -45,10 +45,8 @@ describe("POST /api/auth/refresh", () => {
       refresh_token: expect.any(String),
     })
 
-    /** 旧 jti は Redis から削除されている */
     expect(await refreshTokenRepository.findUserId(oldJti)).toBeNull()
 
-    /** 新 jti は Redis に保存されている */
     const newPayload = verifyRefreshToken(res.body.refresh_token)
     expect(newPayload).not.toBeNull()
     expect(await refreshTokenRepository.findUserId(newPayload!.jti)).toBe(userId)

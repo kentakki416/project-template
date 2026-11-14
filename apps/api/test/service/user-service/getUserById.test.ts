@@ -3,7 +3,6 @@ import { User } from "@repo/domain"
 import { UserRepository } from "../../../src/repository"
 import { getUserById } from "../../../src/service/user-service"
 
-// モック
 const mockFindById = vi.fn<(_0: number) => Promise<User | null>>()
 
 const mockUserRepository: UserRepository = {
@@ -19,7 +18,6 @@ describe("getUserById", () => {
   })
 
   it("ユーザーが存在する場合、ok: true とユーザー情報を返す", async () => {
-    // Arrange
     const mockUser: User = {
       avatarUrl: "https://example.com/avatar.jpg",
       createdAt: new Date(),
@@ -31,10 +29,8 @@ describe("getUserById", () => {
 
     mockFindById.mockResolvedValue(mockUser)
 
-    // Act
     const result = await getUserById(1, { userRepository: mockUserRepository })
 
-    // Assert
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.value).toEqual(mockUser)
@@ -44,13 +40,10 @@ describe("getUserById", () => {
   })
 
   it("ユーザーが存在しない場合、ok: false と NOT_FOUND エラーを返す", async () => {
-    // Arrange
     mockFindById.mockResolvedValue(null)
 
-    // Act
     const result = await getUserById(999, { userRepository: mockUserRepository })
 
-    // Assert
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.error.type).toBe("NOT_FOUND")
@@ -62,11 +55,9 @@ describe("getUserById", () => {
   })
 
   it("データベースエラー時にエラーをスローする", async () => {
-    // Arrange
     const mockError = new Error("Database connection failed")
     mockFindById.mockRejectedValue(mockError)
 
-    // Act & Assert
     await expect(getUserById(1, { userRepository: mockUserRepository })).rejects.toThrow(
       "Database connection failed"
     )

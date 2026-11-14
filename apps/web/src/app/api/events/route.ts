@@ -5,8 +5,6 @@ import { createEventRequestSchema } from "@repo/api-schema"
 import { eventApi } from "@/features/event/event.api"
 
 /**
- * POST /api/events
- *
  * ブラウザから行動イベントを受け取り、Express API へ中継する BFF。
  * ブラウザは Express を直接叩けないため（認証 cookie は httpOnly で
  * apiClient 側でのみ扱う）、この Route Handler を経由する。

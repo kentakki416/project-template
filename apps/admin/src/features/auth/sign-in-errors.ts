@@ -1,5 +1,5 @@
 /**
- * サインイン画面の `?error=` の値と、画面に出す文言。Google の callback もこのキーで送る
+ * サインイン画面の `?error=` の値と、画面に出す文言
  */
 export const SIGN_IN_ERROR_MESSAGES = {
   auth_failed: "サインインに失敗しました。もう一度お試しください",

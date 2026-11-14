@@ -2,10 +2,6 @@
 
 import { useRouter } from "next/navigation"
 
-/**
- * Server Component が取得したユーザー情報を再取得するボタン。
- * `router.refresh()` で現在のルートの Server Component を再実行する。
- */
 export function RefreshButton() {
   const router = useRouter()
 

@@ -7,11 +7,6 @@ import { sendError } from "../../../lib/send-error"
 import { AuthAccountRepository, UserRepository } from "../../../repository"
 import * as service from "../../../service"
 
-/**
- * GET /api/admin/users/:id
- *
- * ユーザーの詳細を、紐付けているログイン方法と合わせて返す
- */
 export class AdminUserDetailController {
   constructor(
     private _userRepository: UserRepository,

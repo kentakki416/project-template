@@ -45,7 +45,6 @@ describe("DELETE /api/memo/:id", () => {
     expect(res.status).toBe(200)
     expect(res.body.message).toBeDefined()
 
-    // DBから実際に削除されていることを確認
     const [deleted] = await testDb.select().from(memos).where(eq(memos.id, memo.id))
     expect(deleted).toBeUndefined()
   })

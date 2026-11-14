@@ -3,15 +3,12 @@ import { z } from "zod"
 import { AUTH_PROVIDERS } from "@repo/domain"
 
 /**
- * ログイン方法のスキーマ。admin の絞り込みの選択肢は `authProviderSchema.options` から作る
+ * ログイン方法のスキーマ
  */
 export const authProviderSchema = z.enum(AUTH_PROVIDERS)
 
 export type AuthProvider = z.infer<typeof authProviderSchema>
 
-/**
- * ユーザー一覧の 1 ページの件数の既定と上限
- */
 export const ADMIN_USER_LIST_DEFAULT_PER_PAGE = 20
 export const ADMIN_USER_LIST_MAX_PER_PAGE = 100
 
@@ -20,9 +17,6 @@ export const ADMIN_USER_LIST_MAX_PER_PAGE = 100
  */
 export const ADMIN_USER_LIST_MAX_PAGE = Math.floor(2_147_483_647 / ADMIN_USER_LIST_MAX_PER_PAGE)
 
-/**
- * ユーザー一覧の検索語の最大の長さ
- */
 export const ADMIN_USER_LIST_MAX_QUERY_LENGTH = 100
 
 /**

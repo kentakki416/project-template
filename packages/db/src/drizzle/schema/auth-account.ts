@@ -16,13 +16,7 @@ export const authAccounts = pgTable(
   "auth_accounts",
   {
     id: serial("id").primaryKey(),
-    /**
-     * ログイン方法。値の集合は @repo/domain の AUTH_PROVIDERS（CHECK 制約もそこから作る）
-     */
     provider: text("provider", { enum: AUTH_PROVIDERS }).notNull(),
-    /**
-     * プロバイダー側のユーザー ID
-     */
     providerAccountId: text("provider_account_id").notNull(),
     userId: integer("user_id").notNull(),
     ...timestamps,

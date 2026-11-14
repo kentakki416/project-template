@@ -6,15 +6,9 @@ import type { TransactionContext } from "../transaction"
 
 import { resolveDrizzleClient } from "./transaction-runner"
 
-/**
- * Drizzleの型
- */
 type AuthAccountRow = typeof authAccounts.$inferSelect
 type UserRow = typeof users.$inferSelect
 
-/**
- * Drizzle実装の認証アカウントリポジトリ
- */
 export class DrizzleAuthAccountRepository implements AuthAccountRepository {
   private _db: DrizzleClient
 
@@ -48,9 +42,6 @@ export class DrizzleAuthAccountRepository implements AuthAccountRepository {
     }
   }
 
-  /**
-   * ユーザーのログイン方法を、紐付けた順（created_at の昇順）に返す
-   */
   public async findByUserId(userId: number): Promise<AuthAccount[]> {
     const rows = await this._db
       .select()
@@ -74,9 +65,6 @@ export class DrizzleAuthAccountRepository implements AuthAccountRepository {
     return this._toDomainAuthAccount(row)
   }
 
-  /**
-   * Drizzleの型 → ドメインの型に変換
-   */
   private _toDomainUser(row: UserRow): User {
     return {
       avatarUrl: row.avatarUrl,

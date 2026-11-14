@@ -70,9 +70,6 @@ type Props = {
   users: UserRow[]
 }
 
-/**
- * ユーザー一覧の表（DataTable の server モード）
- */
 export default function UserTable({ page, perPage, totalCount, users }: Props) {
   return (
     <DataTable

@@ -1,13 +1,7 @@
-/**
- * production 以外でのみ公開する dev 専用パス
- */
 const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
   ? ["/api/auth/dev-login"]
   : []
 
-/**
- * 認証をスキップする公開パス
- */
 export const PUBLIC_PATHS: readonly string[] = [
   "/api/auth/google",
   "/api/auth/refresh",
@@ -16,21 +10,15 @@ export const PUBLIC_PATHS: readonly string[] = [
   ...DEV_ONLY_PUBLIC_PATHS,
 ]
 
-/**
- * admin の API を mount するパス。
- */
 export const ADMIN_PATH_PREFIX = "/api/admin"
 
-/**
- * production 以外でのみ公開する admin の dev 専用パス（ADMIN_PATH_PREFIX からの相対）
- */
 const ADMIN_DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
   ? ["/auth/dev-login"]
   : []
 
 /**
- * admin の API のうち、admin の access token を求めないパス（ADMIN_PATH_PREFIX からの相対）
- * logout は refresh token で本人を確かめるので、access token が切れていても呼べるようにする
+ * ADMIN_PATH_PREFIX からの相対パス。
+ * logout は refresh token で本人を確かめるので、access token が切れていても呼べるように含める
  */
 export const ADMIN_PUBLIC_PATHS: readonly string[] = [
   "/auth/google",
@@ -39,9 +27,6 @@ export const ADMIN_PUBLIC_PATHS: readonly string[] = [
   ...ADMIN_DEV_ONLY_PUBLIC_PATHS,
 ]
 
-/**
- * リクエストログを除外するパス
- */
 export const LOG_EXCLUDE_PATHS = [
   "/api/health",
   "/api/health/ready",

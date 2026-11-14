@@ -41,7 +41,7 @@ export const REFRESH_TOKEN_COOKIE_OPTIONS = {
 const ACCESS_TOKEN_REFRESH_MARGIN_SECONDS = 30
 
 /**
- * access token の期限が近い（または読めない）か。proxy とサインイン画面が使う。
+ * access token の期限が近い（または読めない）か。
  * 署名は検証しない（検証は api が行う）。payload の exp を読むだけ
  */
 export const isAccessTokenExpiringSoon = (token: string): boolean => {

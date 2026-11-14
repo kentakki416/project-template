@@ -15,9 +15,6 @@ const FIRST_NAMES = ["Lindsey", "Kaiya", "Zain", "Ahmad", "Leo", "Madelyn", "Eme
 const LAST_NAMES = ["Curtis", "George", "Geidt", "Rosser", "Dias"]
 const ROLES: Member["role"][] = ["Admin", "Editor", "Viewer"]
 
-/**
- * 固定のサンプル 30 件
- */
 const members: Member[] = Array.from({ length: 30 }, (_, i) => {
   const name = `${FIRST_NAMES[i % FIRST_NAMES.length]} ${LAST_NAMES[i % LAST_NAMES.length]}`
   return {

@@ -7,11 +7,6 @@ import { sendError } from "../../../lib/send-error"
 import { UserRepository } from "../../../repository"
 import * as service from "../../../service"
 
-/**
- * GET /api/admin/users
- *
- * ユーザーを検索・絞り込みし、1 ページ分と全件数を返す
- */
 export class AdminUserListController {
   constructor(private _userRepository: UserRepository) {}
 

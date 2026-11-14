@@ -85,7 +85,6 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ローディング表示 */}
       {isLoading ? (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={COLORS.accent} />
@@ -102,7 +101,6 @@ export default function SettingsScreen() {
             />
           </View>
           <View style={styles.separator} />
-          {/* 通知時刻行 */}
           <View style={[styles.row, !settings.enabled && styles.disabled]}>
             <Text style={[styles.label, !settings.enabled && styles.disabledText]}>
               通知時刻
