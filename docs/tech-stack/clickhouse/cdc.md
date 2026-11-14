@@ -60,7 +60,7 @@ DATA_WAREHOUSE_CDC=materialized_postgresql pnpm --filter @repo/data-warehouse dw
 - 既定で作らないのは、止まった replication slot が Postgres を遅くするため。MaterializedPostgreSQL は、取り込むテーブル（`users` / `memos`）が変わらない間 slot を進めない（10 秒ごとに読みに来るが、`confirmed_flush_lsn` が止まったまま WAL だけが進むのを実機で確認）。止まった slot は WAL を手放さず、システムカタログの古い行も消させない（`catalog_xmin`。slot の DB だけでなく、同じサーバーの全 DB に効く）
 - api のテストは毎回全テーブルを TRUNCATE し、そのたびにシステムカタログ（`pg_class`）の行を書き換える。古い行が消えずにたまり、このテンプレートから作ったプロジェクトでは `pg_class` の古い行が約 141 万行になって、TRUNCATE 1 回が 40 ミリ秒から 2.6 秒以上になった
 - `DATA_WAREHOUSE_CDC` を付けずに（`none` で）ローカルの ClickHouse に migration コマンドを流したとき、前に作った `pg_cdc` が残っていれば、消すよう警告を出す（migration は何も消さない。同じ DB 名の別プロジェクトの CDC や、`pg_cdc` を読む手作りの view を巻き込まないため）。別プロジェクトの Postgres を取り込む `pg_cdc` があれば、CDC を作り直すときと同じく止まる（`DATA_WAREHOUSE_URL` が別プロジェクトの ClickHouse を指している可能性があるため）
-- 警告が出たら、CDC を使っていなければ次のコマンドで消す。CDC の view（`v_*`）は `pg_cdc` が無いと読めないので、一緒に消す。もうテストが遅くなっているときは、テスト用の DB も作り直す（slot を消した後も、膨らんだシステムカタログはすぐには小さくならない）
+- 警告が出たら、CDC を使っていなければ次のコマンドで消す。CDC の view（`v_*`）は `pg_cdc` が無いと読めないので、一緒に消す
 
   ```bash
   docker exec project-template-clickhouse clickhouse-client --query "DROP DATABASE IF EXISTS pg_cdc SYNC"
