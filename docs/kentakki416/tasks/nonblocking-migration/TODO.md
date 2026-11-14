@@ -20,7 +20,8 @@ index の追加・カラムの追加や制約の変更・データの移行を�
 - [x] docs/kentakki416/tasks/README.md に追記する
 - [x] Q1 の回答を README に反映する
 - [ ] ⏸ Q2〜Q4 回答を README に反映して確定する
-- [ ] step1: オンライン操作
+- [x] step1: index の作成・削除（オンライン操作）
+- [ ] step1b: VALIDATE CONSTRAINT
 - [ ] step2: lock_timeout と待ちの上限
 - [ ] ⏸ Q3 step3: 危険な DDL の検出
 - [ ] ⏸ Q2 step4: バックフィル
@@ -28,7 +29,9 @@ index の追加・カラムの追加や制約の変更・データの移行を�
 
 ## 3. 実装
 
-- [ ] step1 の PR
+- [x] step1 の PR（#136）
+- [ ] step1 のセルフレビューの指摘を直す
+- [ ] step1b の PR
 - [ ] step2 の PR
 - [ ] ⏸ Q3 step3 の PR
 - [ ] ⏸ Q2 step4 の PR

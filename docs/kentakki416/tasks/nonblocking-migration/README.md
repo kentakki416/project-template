@@ -131,6 +131,10 @@ drizzle-kit `1.0.0-rc.4` と Postgres 16 の使い捨てコンテナで確かめ
 | 生成後に `migration.sql` からその文を消して、もう一度 `db:generate` | 差分なし（snapshot には index が入っているため） |
 | マイグレーションのフォルダに `online.sql` を置いて `db:migrate` | 無視され、`migration.sql` だけが流れる |
 | `PGOPTIONS='-c lock_timeout=3s'` を付けて `db:migrate` | マイグレーションの接続に効く |
+| `.concurrently()` を付けた index をスキーマから消して `db:generate` | 素の `DROP INDEX "..."` が生成される（`CONCURRENTLY` は付かない） |
+| その `DROP INDEX` を `migration.sql` に残して、空の DB に `db:migrate` | `index does not exist` で失敗する（`online.sql` は後で流れるため、index がまだ無い） |
+| コメントだけ・空の `migration.sql` | 適用できる |
+| `snapshot.json` | `ddl` 配列に `entityType: "indexes"` の要素があり、`name`・`schema`・`concurrently` を持つ（version 8） |
 
 コードから読み取ったもの。
 
@@ -149,6 +153,7 @@ drizzle-kit `1.0.0-rc.4` と Postgres 16 の使い捨てコンテナで確かめ
 
 - マイグレーションのフォルダに `online.sql` を置く。`migration.sql` と同じ名前・同じ順序で版管理される
 - index はスキーマが唯一の定義元。`.concurrently()` を付けた index は、`db:generate` の後処理が `migration.sql` から `online.sql` に移し、`IF NOT EXISTS` を付ける。手で SQL を削らない
+- `.concurrently()` で作った index をスキーマから消したときの `DROP INDEX` も、`DROP INDEX CONCURRENTLY IF EXISTS` にして `online.sql` に移す（`migration.sql` に残すと、空の DB で失敗する）
 - `VALIDATE CONSTRAINT` は `online.sql` に手で書く（Drizzle は `NOT VALID` / `VALIDATE` を生成しない。`NOT VALID` は `migration.sql` を手で直す）
 
 **書ける文を絞る**
@@ -163,6 +168,9 @@ drizzle-kit `1.0.0-rc.4` と Postgres 16 の使い捨てコンテナで確かめ
 
 - `db:migrate` = `drizzle-kit migrate` → オンライン操作の実行。ローカル・テスト・CI も同じコマンドなので、index がある環境と無い環境に分かれない（空のテーブルでは一瞬で終わる）
 - 適用済みのフォルダは `drizzle.__online_migrations` テーブルに記録し、次からは飛ばす。記録が無いと、後のマイグレーションで消した index を毎回作っては消すことになるため
+- drizzle-kit は `migration.sql` を先にすべて流すので、`online.sql` との前後関係が失われる。空の DB では、古い `online.sql` の対象のテーブルやカラムがもう無いことがある。流す文は「同じ index への最後の文か」と「最新の `snapshot.json` にその index があるか」で選び、空の DB も適用済みの DB も同じ状態に収束させる（詳細は [step1](./tasks/step1-db-online-index.md#流す文の選び方)）
+- `.concurrently()` で作った index の `ALTER INDEX`（rename）は、適用前にエラーにする。名前を変えるときは、消して作り直す
+- `db:generate` / `db:migrate` は、drizzle-kit を子プロセスで呼ぶ TypeScript のスクリプトにする（`pnpm db:generate --name=x` の引数を drizzle-kit に渡すため）
 - 1 文ずつ、トランザクションを張らずに流す。フォルダの全文が成功したら記録する。途中で失敗したら記録せず、次の実行で先頭からやり直す（文が冪等なので安全）
 - `CREATE INDEX` の前に、同じ名前の無効な index（`pg_index.indisvalid = false`）があれば `DROP INDEX CONCURRENTLY` する。作成後に有効になっていなければエラーにする
 - 同時実行の排他は deploy の concurrency group に任せ、advisory lock は使わない（min の PgBouncer で使えないため）
@@ -220,7 +228,7 @@ botchan-platform は、Drizzle の migrate の後にスクリプト（`ensure-on
 
 - min（PgBouncer 経由）で `CREATE INDEX CONCURRENTLY` と `PGOPTIONS` の `lock_timeout` が通るか（通らなければ、migration のタスクにだけ PgBouncer を通さない接続文字列を渡す）
 - squawk が drizzle-kit の生成する SQL（`--> statement-breakpoint` のコメント付き）をそのまま読めるか、ファイル全体を 1 トランザクションとみなす設定ができるか（できなければ自作のチェックにする。Q3 の b）
-- drizzle-kit を上げたときに、フォルダ内の `online.sql` を無視する挙動が変わらないか（RC に固定しているので、上げるときに上の表の確認をやり直す）
+- drizzle-kit を上げたときに、フォルダ内の `online.sql` を無視する挙動と、`snapshot.json` の形式が変わらないか（RC に固定しているので、上げるときに上の表の確認をやり直す）
 
 ### MVP 対象外（将来検討）
 
@@ -235,7 +243,8 @@ botchan-platform は、Drizzle の migrate の後にスクリプト（`ensure-on
 
 | step | 内容 |
 | --- | --- |
-| 1 | 経路 2: `online.sql` の実行部、`db:generate` の後処理、`drizzle.__online_migrations` テーブル、`db:migrate` への組み込み |
+| 1 | 経路 2 のうち index の作成・削除: `online.sql` の実行部、`db:generate` の後処理、`drizzle.__online_migrations` テーブル、`db:migrate` への組み込み（[step1](./tasks/step1-db-online-index.md)、PR #136） |
+| 1b | 経路 2 に `VALIDATE CONSTRAINT` を足す |
 | 2 | 経路 1 の `lock_timeout` とやり直し、one-shot タスクの待ちの上限 |
 | 3 | 危険な DDL の検出（CI） |
 | 4 | 経路 3: バックフィルの実行部と「Postgres Backfill」workflow |
