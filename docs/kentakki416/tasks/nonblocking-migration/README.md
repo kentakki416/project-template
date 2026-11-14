@@ -54,7 +54,7 @@ Postgres 12 以降を前提にする（ローカルと CI は 16）。「止め�
 | index の追加 | 作成が終わるまで書き込みを止める | `CREATE INDEX CONCURRENTLY`（トランザクションの外で流す） |
 | index の削除 | 一瞬だが読み書きを止めるロックを取る | `DROP INDEX CONCURRENTLY` |
 | カラムの追加（NULL 可、または default が定数） | テーブルを書き換えないので一瞬で終わる | そのままでよい |
-| カラムの追加（default が行ごとに変わる式。`gen_random_uuid()` など） | 全行を書き換え、終わるまで読み書きを止める | default 無しで追加 → バックフィル → default を設定 |
+| カラムの追加（default が行ごとに変わる式。`gen_random_uuid()` など） | 全行を書き換え、終わるまで読み書きを止める | default 無しで追加 → default を設定（以降の INSERT にだけ効き、書き換えない）→ バックフィル |
 | カラムに `NOT NULL` を付ける | 全行を検査する間、読み書きを止める | `CHECK (col IS NOT NULL) NOT VALID` を追加 → `VALIDATE CONSTRAINT` → `SET NOT NULL` → CHECK を削除 |
 | CHECK 制約 / 外部キーの追加 | 全行を検査する間、ロックを保持する | `NOT VALID` で追加 → `VALIDATE CONSTRAINT` |
 | カラムの型の変更 | 多くの場合、全行を書き換えて読み書きを止める | 新しいカラムを追加 → 両方に書く → バックフィル → 読み先を切り替え → 古いカラムを削除 |
