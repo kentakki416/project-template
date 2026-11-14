@@ -27,8 +27,6 @@ const waitForFlush = async (eventTracker: EventTracker): Promise<void> => {
  *
  * res.end を包んで flush を待ってから返す。
  * service 側の「送出は await しない」という規約はそのまま（待つのはここだけ）。
- *
- * 設計: docs/kentakki416/tasks/minimal-deploy/README.md「Lambda の凍結とイベント送出」
  */
 export const flushEventsBeforeResponse = (eventTracker: EventTracker) =>
   (_req: Request, res: Response, next: NextFunction): void => {

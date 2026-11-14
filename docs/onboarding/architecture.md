@@ -33,7 +33,7 @@ project-template/
 │   └── queue/     # @repo/queue : JobQueue<T> 抽象 + BullMQ 実装
 ├── infra/
 │   └── terraform/ # AWS Infrastructure as Code
-└── docs/          # セットアップ手順・キャッチアップ資料・技術選定（設計書は kentakki416 ブランチ）
+└── docs/          # セットアップ手順・キャッチアップ資料・技術選定
 ```
 
 ## apps（アプリ）

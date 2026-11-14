@@ -63,7 +63,7 @@ admin は DB を直接触らず、必ず Express API を経由する。
 
 ## 認証
 
-一般ユーザー（web）とは別の、admin 専用の認証。`admins` に登録された Google アカウントだけがサインインできる（流れと理由は `docs/onboarding/auth.md` の「admin の認証」、設計は `docs/kentakki416/tasks/admin-template/README.md` の「admin 認証」）。
+一般ユーザー（web）とは別の、admin 専用の認証。`admins` に登録された Google アカウントだけがサインインできる（流れと理由は `docs/onboarding/auth.md` の「admin の認証」）。
 
 - cookie は `admin_access_token` / `admin_refresh_token` / `admin_oauth_state` / `admin_oauth_redirect`（名前と属性は `src/libs/auth-cookies.ts`、読み書きは `src/libs/auth.ts`）。web の `app_*` と同じホストで動くと共有されるので、名前を分けている
 - **`src/proxy.ts` は cookie の有無と期限（exp）しか見ない UX 用のガード。** 署名は api が確かめる。api を呼ばずに機密を描く画面を作らない（偽の cookie でも画面までは開ける）
