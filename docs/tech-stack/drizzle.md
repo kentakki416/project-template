@@ -11,7 +11,7 @@ Postgres の ORM とマイグレーションツール（`drizzle-orm` / `drizzle
   - [1.0 RC に固定している理由](#10-rc-に固定している理由)
 - [挙動と注意点](#挙動と注意点)
   - [マイグレーション](#マイグレーション)
-  - [CREATE INDEX CONCURRENTLY は書けない](#create-index-concurrently-は書けない)
+  - [行数の多いテーブルの index は online.sql で作る](#行数の多いテーブルの-index-は-onlinesql-で作る)
   - [接続](#接続)
   - [enum 的な列は const から CHECK 制約を作る](#enum-的な列は-const-から-check-制約を作る)
   - [リードレプリカ](#リードレプリカ)
@@ -56,20 +56,24 @@ Prisma に戻す予定が無く、残すと次の手間だけが続くため。
 ### マイグレーション
 
 - **テーブルを変えるときは `src/drizzle/schema/` を変える。** `db:generate` でマイグレーションを作り、`db:migrate` で適用する（コマンドは [`packages/db/README.md`](../../packages/db/README.md#コマンド)）
-- `db:migrate` は**未適用のマイグレーションをまとめて 1 つのトランザクションで流す**。途中で失敗すると全部ロールバックされるので、直して再実行すればよい
+- `db:migrate` は**未適用の `migration.sql` をまとめて 1 つのトランザクションで流す**。途中で失敗すると全部ロールバックされるので、直して再実行すればよい。未適用分に `online.sql` を持つフォルダがあるときは、そのフォルダごとに区切って commit する（[後述](#行数の多いテーブルの-index-は-onlinesql-で作る)）
 - 適用済みかどうかは**マイグレーション名**で判定する（`drizzle.__drizzle_migrations`）
 - `db:generate` は列のリネームなど判断が要る差分で対話的に確認を求める。生成された SQL は必ず目で確認してからコミットする
 - `drizzle-kit migrate` は DB が無いときに作らない。ローカルの test DB（`project-template_test`）は `infra/postgres/init/` の初期化スクリプトが Postgres の初回起動時に作る
 
-### CREATE INDEX CONCURRENTLY は書けない
+### 行数の多いテーブルの index は online.sql で作る
 
-全体が 1 つのトランザクションで流れるため、トランザクション内で実行できない `CREATE INDEX CONCURRENTLY` はマイグレーションに書けない（書くと `cannot run inside a transaction block` で失敗する）。
+drizzle-kit は `migration.sql` を 1 つのトランザクションで流すので、トランザクション内で実行できない `CREATE INDEX CONCURRENTLY` は `migration.sql` に書けない（書くと `cannot run inside a transaction block` で失敗する）。通常の `CREATE INDEX` は作成が終わるまで対象テーブルへの書き込みを止めるので、行数の多いテーブルの index は、マイグレーションのフォルダに置く `online.sql` で作る。
 
-行数の多いテーブルに index を足すとき（通常の `CREATE INDEX` だと作成中の書き込みがブロックされる）は、マイグレーションとは別の手順にする。
-
-1. 対象環境の DB で `CREATE INDEX CONCURRENTLY "<index 名>" ON ...` を手動で実行する
-2. 同じ名前の index をスキーマに足して `db:generate` する
-3. 生成された `CREATE INDEX` を `CREATE INDEX IF NOT EXISTS` に書き換える（手動で作った環境では何もせず、新しく作る DB では普通に作られる）
+- **スキーマの index に `.concurrently()` を付けて `db:generate` する。** 生成された `CREATE INDEX CONCURRENTLY` は、`IF NOT EXISTS` を付けて同じフォルダの `online.sql` に移る（手で SQL を動かさない）
+- **`db:migrate` は、フォルダの名前順に `migration.sql` と `online.sql` を交互に流す。** `online.sql` を持つ未適用のフォルダごとに、そこまでの `migration.sql` を適用してから、そのフォルダの `online.sql` をトランザクションの外で 1 文ずつ流す。`online.sql` を、書かれた時点のスキーマに対して流すため（先の `migration.sql` まで適用してから流すと、カラムの rename などでスキーマが変わっていて失敗する）。ローカル・テスト・CI・本番で同じ
+- drizzle-kit migrate は「ここまで適用する」を指定できないので、そこまでのフォルダだけを写した一時ディレクトリを見せて流す（`drizzle.config.ts` の `out` を環境変数 `DRIZZLE_MIGRATIONS_DIR` で差し替える）
+- **`drizzle-kit migrate` を直接実行しない。** `online.sql` を飛ばして先の `migration.sql` まで進み、後から流した `online.sql` が失敗することがある。必ず `db:migrate` を使う
+- `online.sql` を適用したフォルダは `drizzle.__online_migrations` テーブルに記録する。途中で失敗したフォルダは記録されず、次の `db:migrate` で先頭から流し直す
+- `CREATE INDEX CONCURRENTLY` が途中で失敗すると無効な index が残る。次の実行で消して作り直し、作成後に有効になったことを確かめる
+- `online.sql` に書けるのは `CREATE [UNIQUE] INDEX CONCURRENTLY IF NOT EXISTS` と `DROP INDEX CONCURRENTLY IF EXISTS` だけ（どちらも何度流しても同じ結果になるので、失敗したフォルダを流し直せる）
+- 行数の少ないテーブルや、同じマイグレーションで作るテーブルの index は、`.concurrently()` を付けなくてよい
+- deploy の migrate ジョブがタスクの終了を待つのは 10 分まで（`aws ecs wait tasks-stopped`）。作成が 10 分を超える index は、待ちの上限を伸ばしてから流す
 
 ### 接続
 
@@ -134,7 +138,7 @@ const [fresh] = await db.$primary.select().from(users).where(eq(users.id, id))
 
 ## 関連ドキュメント
 
-- [`packages/db/README.md`](../../packages/db/README.md) — ディレクトリ構成・コマンド・ローカル DB の作り直し・client の生成と DI
+- [`packages/db/README.md`](../../packages/db/README.md) — ディレクトリ構成・コマンド・マイグレーションの手順・コーディング規約
 - [`packages/domain/README.md`](../../packages/domain/README.md) — enum 的な値の集合の定義元
 - [`docs/onboarding/architecture.md`](../onboarding/architecture.md) — Repository の層と DI
 - [Drizzle 公式ドキュメント](https://orm.drizzle.team/)

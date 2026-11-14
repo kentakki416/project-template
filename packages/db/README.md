@@ -8,8 +8,10 @@ ORM / マイグレーションツールは Drizzle（`drizzle-orm` / `drizzle-ki
 
 - [ディレクトリ構成](#ディレクトリ構成)
 - [コマンド](#コマンド)
-  - [ローカル DB の作り直し](#ローカル-db-の作り直し)
-- [client の生成と DI](#client-の生成と-di)
+- [マイグレーション](#マイグレーション)
+  - [`db:generate` が生成するファイル](#dbgenerate-が生成するファイル)
+  - [`online.sql` の役割](#onlinesql-の役割)
+- [コーディング規約](#コーディング規約)
 
 ## ディレクトリ構成
 
@@ -18,7 +20,11 @@ packages/db/
 ├── drizzle/
 │   ├── drizzle.config.ts   # drizzle-kit の設定
 │   ├── migrations/         # db:generate の出力。db:migrate で適用する
+│   │   └── {name}/
+│   │       ├── migration.sql  # 1 トランザクションで流す文
+│   │       └── online.sql     # トランザクションの外で流す文（CREATE INDEX CONCURRENTLY。ある場合だけ）
 │   └── seed.ts             # 開発用ユーザーの投入
+├── migrate/                # db:generate / db:migrate の実体（drizzle-kit の前後の処理）
 └── src/
     ├── connection-string.ts  # DATABASE_URL + DB_NAME から接続文字列を作る（client / drizzle-kit 共通）
     ├── drizzle/
@@ -33,45 +39,54 @@ packages/db/
 
 | コマンド | 実体 | 用途 |
 | --- | --- | --- |
-| `db:generate` | `drizzle-kit generate` | スキーマの差分からマイグレーション SQL を作る（DB 接続は不要） |
-| `db:migrate` | `drizzle-kit migrate` | 未適用のマイグレーションを適用する。ローカル / CI / 本番の migration イメージで共通 |
+| `db:generate` | `drizzle-kit generate` + 後処理 | スキーマの差分からマイグレーション SQL を作る（DB 接続は不要）。`CREATE INDEX CONCURRENTLY` は `online.sql` に移す |
+| `db:migrate` | `migration.sql`（`drizzle-kit migrate`）と `online.sql` を、フォルダの順に適用 | 未適用のマイグレーションを適用する。ローカル / CI / 本番の migration イメージで共通 |
 | `db:push` | `drizzle-kit push` | マイグレーションを作らずにスキーマを DB へ直接反映する（ローカルでの試行錯誤用） |
 | `db:seed` | `tsx drizzle/seed.ts` | 開発用ユーザー（alice / bob）を投入する。何度流してもよい |
 | `db:studio` | `drizzle-kit studio` | Drizzle Studio を起動する。画面は `https://local.drizzle.studio` から読み込まれるが、DB への接続はローカルのまま |
 
 `DB_NAME=project-template_test` を付けると、接続先の DB 名だけをテスト用に差し替えられる（client / drizzle-kit とも同じ規則）。
 
-テーブルを変えるときは `src/drizzle/schema/` を変えて `db:generate` し、生成された SQL を確認してから `db:migrate` する（[マイグレーションの挙動](../../docs/tech-stack/drizzle.md#マイグレーション)）。
+## マイグレーション
 
-### ローカル DB の作り直し
+テーブルを変えるときは、スキーマを変えてマイグレーションを作り、適用する。
 
-ローカルの dev / test DB を空から作り直す手順（中のデータは消える）。マイグレーションの適用履歴と DB の中身がずれて `db:migrate` が `relation "users" already exists` などで失敗するときに使う。
+1. `src/drizzle/schema/` のテーブル定義を変える
+2. `pnpm --filter api db:generate --name=<変更の名前>` でマイグレーションを作る
+3. `drizzle/migrations/<日時>_<名前>/`配下に以下のファイルが生成される
+    - `migration.sql`
+    - `online.sql` ※ .concurrently()をつけたindexの差分がある時だけ生成される
+    - `snapshot.json`
+4. `pnpm --filter api db:migrate` でローカルの DB に適用する
+5. スキーマとマイグレーションのフォルダを一緒にコミットする（dev / min / prd には deploy の migrate ジョブが適用する）
 
-ClickHouse の CDC（replication slot）を作っているときは、dev DB をそのままでは `DROP DATABASE` できないので、先に CDC を外す（CDC は既定では作らない。[ローカルの CDC](../../docs/tech-stack/clickhouse/cdc.md#ローカルの-cdc)）。
+### `db:generate` が生成するファイル
 
-```bash
-# 1. ClickHouse の CDC を外す（Postgres 側の replication slot / publication も一緒に消える。CDC が無ければ何もしない）
-docker exec project-template-clickhouse clickhouse-client --query "DROP DATABASE IF EXISTS pg_cdc"
+| ファイル | 流し方 | 中身 |
+| --- | --- | --- |
+| `migration.sql` | 未適用分をまとめて 1 トランザクション（`online.sql` を持つフォルダがあれば、そこで区切る）。途中で失敗すると、そのトランザクションの分はロールバックされる | テーブル・カラム・制約の変更 |
+| `online.sql`（ある場合だけ） | 同じフォルダの `migration.sql` の適用後に、トランザクションの外で 1 文ずつ | `CREATE INDEX CONCURRENTLY`（書き込みを止めずに index を作る） |
+| `snapshot.json` | 流さない | その時点のスキーマ。drizzle-kit が次の差分を出すのに使う |
 
-# 2. dev / test DB を作り直す（WITH (FORCE) は起動中の api などの接続を切ってから消す）
-docker exec project-template-postgres psql -U postgres \
-  -c 'DROP DATABASE IF EXISTS "project-template_dev" WITH (FORCE)' -c 'CREATE DATABASE "project-template_dev"' \
-  -c 'DROP DATABASE IF EXISTS "project-template_test" WITH (FORCE)' -c 'CREATE DATABASE "project-template_test"'
+`db:migrate` は、フォルダの名前順に両方を流す。ローカル・テスト・CI・本番で同じコマンドを使う。`drizzle-kit migrate` を直接実行すると `online.sql` が飛ばされるので、必ず `db:migrate` を使う。
 
-# 3. マイグレーションと seed を流す
-pnpm --filter api db:migrate
-pnpm --filter api db:seed
+### `online.sql` の役割
 
-# 4. CDC を使っていたときだけ張り直す（ClickHouse の migration は CDC を毎回作り直す）
-DATA_WAREHOUSE_CDC=materialized_postgresql pnpm --filter @repo/data-warehouse dwh:migrate
+通常の `CREATE INDEX` は、作成が終わるまで対象テーブルへの書き込みを止める。行数の多いテーブルでは、スキーマの index に `.concurrently()` を付けて、書き込みを止めない `CREATE INDEX CONCURRENTLY` で作る。
+
+ただし `CREATE INDEX CONCURRENTLY` は、Postgres の制約でトランザクションの中では実行できない。Drizzle は `migration.sql` を 1 つのトランザクションで流すので、この文だけを `online.sql` に分け、同じフォルダの `migration.sql` の後にトランザクションの外で流す。
+
+```ts
+(table) => [index("auth_accounts_user_id_idx").on(table.userId).concurrently()]
 ```
 
-test DB は `pnpm --filter api test` が実行のたびにマイグレーションを流すので、作り直した後は空のままでよい。
 
-## client の生成と DI
+## コーディング規約
 
-- **factory だけを export し、singleton は持たない。** 接続は各 app の `src/index.ts`（cron は `src/task/*.ts`）で 1 回だけ生成し、Repository に DI する。
-- テーブル定義（`memos` / `users` …）とクエリ演算子（`eq` / `and` …）も `@repo/db` から import する。使ってよいのは各 app の `src/repository/**` だけ（`@repo/eslint-config/db-boundary` が lint で強制）。
+- **factory だけを export し、singleton は持たない。** 
+  - 接続は各 app の `src/index.ts`（cron は `src/task/*.ts`）で 1 回だけ生成し、Repository に DI する。
+- テーブル定義（`memos` / `users` …）とクエリ演算子（`eq` / `and` …）も `@repo/db` から import する。
+  - 使ってよいのは各 app の `src/repository/**` だけ（`@repo/eslint-config/db-boundary` が lint で強制）。
 - `onError` に各 app の logger を渡す。
 
 ```ts
