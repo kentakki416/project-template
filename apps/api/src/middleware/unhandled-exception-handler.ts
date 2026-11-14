@@ -6,10 +6,25 @@ import { logger } from "@repo/logger"
 import { RequestSchemaMismatchError, ResponseSchemaMismatchError } from "../lib/parse-schema"
 
 export const unhandledExceptionHandler = (err: unknown, req: Request, res: Response, next: NextFunction) => {
-  /**
-   * レスポンスを送信済みなら、もう書き込めない。Express の既定のエラーハンドラに渡して、接続を閉じさせる
-   */
   if (res.headersSent) {
+    logger.error(
+      "Unhandled exception after the response started",
+      err instanceof Error ? err : new Error(String(err)),
+      {
+        method: req.method,
+        path: req.path,
+      },
+    )
+    /**
+     * 送り終えていれば、クライアントにはもう届いている。既定のエラーハンドラに渡すと接続が切られ、
+     * 同じ接続で続くリクエストが失敗するので、何もしない
+     */
+    if (res.writableEnded) {
+      return
+    }
+    /**
+     * 送っている途中なら、もう書き換えられない。Express の既定のエラーハンドラに渡して、接続を切らせる
+     */
     return next(err)
   }
 

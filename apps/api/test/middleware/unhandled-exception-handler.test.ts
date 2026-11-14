@@ -1,37 +1,67 @@
-import type { NextFunction, Request, Response } from "express"
+import express from "express"
+import request from "supertest"
+
+import { LoggerFactory } from "@repo/logger"
 
 import { unhandledExceptionHandler } from "../../src/middleware/unhandled-exception-handler"
 
-const buildRequest = (): Request => ({ method: "GET", path: "/test" }) as Request
-
-const buildResponse = (headersSent: boolean) => {
-  const json = vi.fn()
-  const status = vi.fn(() => ({ json }))
-  return { json, res: { headersSent, status } as unknown as Response, status }
+const buildApp = (): express.Express => {
+  const app = express()
+  app.get("/before-send", () => {
+    throw new Error("db down")
+  })
+  app.get("/while-sending", (_req, res) => {
+    res.status(200).write("partial")
+    throw new Error("stream failed")
+  })
+  app.get("/after-send", (_req, res) => {
+    res.status(200).json({ ok: true })
+    throw new Error("after response")
+  })
+  app.use(unhandledExceptionHandler)
+  return app
 }
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe("unhandledExceptionHandler", () => {
   describe("正常系", () => {
-    it("レスポンスを送信済みなら、何も書かずに Express の既定のエラーハンドラへ渡す", () => {
-      const { res, status } = buildResponse(true)
-      const next: NextFunction = vi.fn()
-      const error = new Error("stream failed")
+    it("レスポンスを送る前の例外は 500 を返す", async () => {
+      const res = await request(buildApp()).get("/before-send")
 
-      unhandledExceptionHandler(error, buildRequest(), res, next)
-
-      expect(next).toHaveBeenCalledWith(error)
-      expect(status).not.toHaveBeenCalled()
+      expect(res.status).toBe(500)
+      expect(res.body).toEqual({ error: "Internal Server Error", status_code: 500 })
     })
 
-    it("レスポンスを送信していなければ 500 を返し、next は呼ばない", () => {
-      const { json, res, status } = buildResponse(false)
-      const next: NextFunction = vi.fn()
+    it("レスポンスを送っている途中の例外は、ログに残して接続を切る", async () => {
+      const error = vi.spyOn(LoggerFactory.getLogger(), "error")
 
-      unhandledExceptionHandler(new Error("db down"), buildRequest(), res, next)
+      await expect(request(buildApp()).get("/while-sending")).rejects.toThrow()
 
-      expect(status).toHaveBeenCalledWith(500)
-      expect(json).toHaveBeenCalledWith({ error: "Internal Server Error", status_code: 500 })
-      expect(next).not.toHaveBeenCalled()
+      expect(error).toHaveBeenCalledWith(
+        "Unhandled exception after the response started",
+        expect.objectContaining({ message: "stream failed" }),
+        { method: "GET", path: "/while-sending" },
+      )
+    })
+
+    it("レスポンスを送り終えた後の例外は、ログに残すだけで、返したレスポンスと接続はそのままにする", async () => {
+      const error = vi.spyOn(LoggerFactory.getLogger(), "error")
+      const agent = request.agent(buildApp())
+
+      const first = await agent.get("/after-send")
+      const second = await agent.get("/after-send")
+
+      expect(first.status).toBe(200)
+      expect(first.body).toEqual({ ok: true })
+      expect(second.status).toBe(200)
+      expect(error).toHaveBeenCalledWith(
+        "Unhandled exception after the response started",
+        expect.objectContaining({ message: "after response" }),
+        { method: "GET", path: "/after-send" },
+      )
     })
   })
 })
