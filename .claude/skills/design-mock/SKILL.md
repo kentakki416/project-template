@@ -25,6 +25,8 @@ Step 5: ユーザーが OK
 Step 6: docs/spec/{feature}/README.md に「UI 設計」セクションを追記（確定仕様）
 ```
 
+> **設計書（`docs/spec/`）は main には置かず、`kentakki416` ブランチにだけ置く。** 前提の README を読むのも、Step 6 で追記するのも `kentakki416` ブランチで行う（モックのコードは作業ブランチ側）。
+
 ## 進め方
 
 ### Step 1: テーマヒアリング

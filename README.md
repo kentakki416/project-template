@@ -332,9 +332,7 @@ graph TB
 
 ### 仕様・設計
 
-| ドキュメント | 内容 |
-|---|---|
-| [docs/spec/README.md](docs/spec/README.md) | 機能仕様の一覧。新機能は実装前にここへ設計書を作る |
+機能の設計書（`docs/spec/`）は main には置かず、`kentakki416` ブランチで管理する（main に merge しないブランチ）。新機能は実装前にそこへ設計書を作る。
 
 ### Claude Code
 
