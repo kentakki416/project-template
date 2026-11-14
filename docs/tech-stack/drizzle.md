@@ -79,24 +79,24 @@ drizzle-kit は `migration.sql` を 1 つのトランザクションで流すの
 
 ### 行数の多いテーブルで書き込みを止める変更
 
-行数の多いテーブルでは、素直に書いたマイグレーションが、終わるまで対象テーブルへの書き込み（強いロックでは読み取りも）を止めることがある。CI では検出しないので、マイグレーションを書く人とレビューする人が、次の表で確かめる。行数の少ないテーブルは、どれも一瞬で終わるので気にしなくてよい。
+行数の多いテーブルでは、素直に書いたマイグレーションが、終わるまで対象テーブルへの書き込み（強いロックでは読み取りも）を止めることがある。CI では検出しないので、マイグレーションを書く人とレビューする人が、次の表で確かめる。行数の少ないテーブルは、検査や書き換えが一瞬で終わるので、ロック待ち（表の下の注意）のほかは気にしなくてよい。
 
 | 変更 | 素直に書いたとき | 止めない書き方 |
 | --- | --- | --- |
 | index の追加 | 作成が終わるまで書き込みを止める | index に `.concurrently()` を付ける（[上の節](#行数の多いテーブルの-index-は-onlinesql-で作る)） |
-| index の削除 | 読み書きを止めるロックを取るが、一瞬で終わる | そのままでよい（止めずに消したいときは、`online.sql` に `DROP INDEX CONCURRENTLY IF EXISTS` を書く） |
+| index の削除 | 読み書きを止めるロックを取るが、一瞬で終わる | そのままでよい（止めずに消したいときは、生成された `migration.sql` から `DROP INDEX` を消し、同じフォルダの `online.sql` に `DROP INDEX CONCURRENTLY IF EXISTS` を書く） |
 | カラムの追加（NULL 可、または default が定数） | テーブルを書き換えないので一瞬で終わる | そのままでよい |
-| カラムの追加（default が行ごとに変わる式。`gen_random_uuid()` など） | 全行を書き換え、終わるまで読み書きを止める | default 無しで追加 → default を設定（`SET DEFAULT` は以降の INSERT にだけ効き、書き換えない）→ 既存の行の値を埋める |
+| カラムの追加（default が行ごとに変わる式。`gen_random_uuid()` など） | 全行を書き換え、終わるまで読み書きを止める | default 無しで追加 → default を設定（`SET DEFAULT` は以降の INSERT にだけ効き、書き換えない）→ 既存の行の値を埋める。drizzle-kit は default 付きの `ADD COLUMN` を 1 文で生成するので、手で `ADD COLUMN` と `ALTER COLUMN ... SET DEFAULT` の 2 文に分ける |
 | CHECK 制約 / 外部キーの追加 | 全行を検査する間、CHECK は対象テーブルの読み書きを、外部キーは両方のテーブルの書き込みを止める | `NOT VALID` を付けて追加し、それを適用した後の deploy で `VALIDATE CONSTRAINT` する |
 | UNIQUE 制約の追加（カラムの `.unique()` など） | index を作る間、読み書きを止める | 制約ではなく unique index にして、`uniqueIndex(...).concurrently()` で作る |
-| カラムに `NOT NULL` を付ける | 全行を検査する間、読み書きを止める | `CHECK (col IS NOT NULL) NOT VALID` を追加 → それを適用した後の deploy で `VALIDATE CONSTRAINT` → `SET NOT NULL` → CHECK を削除 |
-| カラムの型の変更 | 多くの場合、全行を書き換えて読み書きを止める | 新しいカラムを追加 → アプリが両方に書く → 既存の行の値を埋める → 読み先を切り替え → 古いカラムを削除 |
+| カラムに `NOT NULL` を付ける | 全行を検査する間、読み書きを止める | 値が空の行を埋める → `CHECK (col IS NOT NULL) NOT VALID` を追加 → それを適用した後の deploy で `VALIDATE CONSTRAINT` → `SET NOT NULL` → CHECK を削除（`NOT VALID` の CHECK も以降の UPDATE には効くので、先に埋めないと、値が空の行への UPDATE が失敗する） |
+| カラムの型の変更 | 多くの場合、全行を書き換えて読み書きを止める | 新しいカラムを追加 → アプリが両方に書く → 既存の行の値を埋める → 読み先を切り替え → 古いカラムに書くのをやめる → 古いカラムを削除 |
 | 既存の行の値を埋める（全行の `UPDATE`） | 1 つの長いトランザクションになり、更新した行のロックを最後まで保持する | [次の節](#既存の行の値を埋める) |
 
 - `NOT VALID` と `VALIDATE CONSTRAINT` は drizzle-kit が生成しない。生成された `migration.sql` に `NOT VALID` を手で足し、`VALIDATE CONSTRAINT` は `db:generate --custom` で作ったマイグレーションに書く
-- `VALIDATE CONSTRAINT` を別の deploy に分けるのは、同じ deploy の未適用分が 1 つのトランザクションで流れるため。同じトランザクションに入ると、制約の追加で取った強いロックを、検査が終わるまで保持する。deploy は手動で起動するので、`NOT VALID` の PR と `VALIDATE CONSTRAINT` の PR を両方マージしてから deploy しない（`NOT VALID` を各環境に適用してから、`VALIDATE CONSTRAINT` の PR をマージする）
+- `VALIDATE CONSTRAINT` を別の deploy に分けるのは、同じ deploy の未適用分が 1 つのトランザクションで流れるため。同じトランザクションに入ると、制約の追加で取った強いロックを、検査が終わるまで保持する。deploy は手動で起動するので、`NOT VALID` の PR と `VALIDATE CONSTRAINT` の PR を両方マージしてから deploy しない（`NOT VALID` を各環境に適用してから、`VALIDATE CONSTRAINT` の PR をマージする）。`VALIDATE CONSTRAINT` と同じ deploy に、同じテーブルへのほかの変更（カラムの追加など）も入れない。先に流れた変更のロックを、検査が終わるまで保持する
 - `VALIDATE CONSTRAINT` は書き込みを止めないが、全行を検査する間 deploy の migrate ジョブが待つ。ジョブがタスクの終了を待つのは 10 分まで（上の節）
-- 一瞬で終わる変更も、強いロックを取るときに長いトランザクションの後ろで待つと、その後ろに来た読み書きも一緒に待たされる。待ち時間の上限（`lock_timeout`）は設定していないので、行数の多いテーブルへの変更は、長いトランザクションが走っていない時間帯に deploy する
+- 一瞬で終わる変更も、強いロックを取るときに長いトランザクションの後ろで待つと、その後ろに来た読み書きも一緒に待たされる。待ち時間の上限（`lock_timeout`）は設定していないので、行数の多いテーブルへの変更は、アクセスの少ない時間帯に deploy する
 - `@repo/domain` の定数に値を足すと、`CHECK` を差し替える SQL が生成される（[後述](#enum-的な列は-const-から-check-制約を作る)）。行数の多いテーブルでは、上の「CHECK 制約の追加」の書き方に直す
 
 ### 既存の行の値を埋める
