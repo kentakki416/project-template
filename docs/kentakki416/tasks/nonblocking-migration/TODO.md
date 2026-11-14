@@ -3,7 +3,7 @@
 index の追加・カラムの追加や制約の変更・データの移行を、書き込みを止めずに本番へ適用できる仕組みが入った状態にする。
 
 - 対象: 設計書 `docs/kentakki416/tasks/nonblocking-migration/`（このブランチ）→ 実装 PR（step ごと、base は main）
-- 判断: `judge-yourself.md` の Q1 は a、Q3 は c（入れない）で確定。Q2・Q4 は回答待ち（⏸ 印の項目）
+- 判断: `judge-yourself.md` の全 Q 回答済み（Q1: a、Q2: 仕組みは作らず手動、Q3: c、Q4: a）
 - 進め方: 1 つの PR にまとめず、step ごとに 1 つずつ進める
 
 ## 1. 調査
@@ -17,27 +17,26 @@ index の追加・カラムの追加や制約の変更・データの移行を�
 
 ## 2. 設計書
 
-- [x] README の案を書く（推奨案で仮置き）
+- [x] README の案を書く
 - [x] docs/kentakki416/tasks/README.md に追記する
-- [x] Q1 の回答を README に反映する
-- [ ] ⏸ Q2〜Q4 回答を README に反映して確定する
+- [x] Q1〜Q4 の回答を README に反映する
 - [x] step1: index の作成・削除（オンライン操作）
-- [ ] step1b: VALIDATE CONSTRAINT
-- [ ] step2: lock_timeout と待ちの上限
-- [ ] ⏸ Q2 step4: バックフィル
-- [ ] step5: ドキュメントの書き換え
 
 ## 3. 実装
 
 - [x] step1 の PR（#136。2026-11-14 に main へマージ）
 - [x] step1 のセルフレビューの指摘を直す（3 回。フォルダの順に交互に流す作りに変更）
-- [ ] step1b の PR
-- [ ] step2 の PR
-- [ ] ⏸ Q2 step4 の PR
-- [ ] step5 の PR
-- [ ] min（PgBouncer 経由）で動作を確かめる
+- [ ] 止まる変更と書き方・埋め戻しのやり方を drizzle.md に書く
 
-## 4. 完了
+## 4. 保留（行数の多いテーブルができてから）
 
-- [ ] docs/kentakki416/tasks/README.md の状態を「完了」にする
+- [ ] VALIDATE CONSTRAINT を online.sql に足す
+- [ ] lock_timeout と、deploy の待ちの上限
+- [ ] 危険な DDL の検出（squawk。調査済み）
+- [ ] バックフィルの仕組み（今は手動で流す方針）
+- [ ] min（PgBouncer 経由）と ECS で動作を確かめる
+
+## 5. 完了
+
+- [ ] docs/kentakki416/tasks/README.md の状態を更新する
 - [ ] TODO.md / judge-yourself.md を削除する

@@ -1,6 +1,6 @@
 # ノンブロッキングなマイグレーション
 
-> **状態: 案。** `docs/kentakki416/tasks/nonblocking-migration/judge-yourself.md` の Q1 は a、Q3 は c（CI での検出は入れない）で確定した。Q2・Q4 は未回答で、（Q2）のように印を付けた節は推奨案で書いた仮の内容。実装は 1 つの PR にまとめず、step ごとに進める。
+> **状態: index の作成（step1、PR #136）まで実装済み。残りは、行数の多いテーブルができるまで保留**（2026-11-14）。判断は `judge-yourself.md` のとおり（Q1: `online.sql` に置く / Q2: バックフィルの仕組みは作らず、必要になったら手動で流す / Q3: CI での検出は入れない / Q4: deploy は完了を待つ）。保留にした節（バックフィルの仕組み、`VALIDATE CONSTRAINT`、`lock_timeout`、待ちの上限）は、作るときの案として残している。
 
 行数の多いテーブルに対する **index の追加・カラムの追加や制約の変更・データの移行を、書き込みを止めずに本番へ適用できるようにする。**
 
@@ -29,13 +29,13 @@
   - [前提（確認済みの挙動）](#前提確認済みの挙動)
   - [経路 1: トランザクション内のマイグレーション](#経路-1-トランザクション内のマイグレーション)
   - [経路 2: オンライン操作](#経路-2-オンライン操作)
-  - [経路 3: バックフィル（Q2）](#経路-3-バックフィルq2)
+  - [経路 3: バックフィル（保留）](#経路-3-バックフィル保留)
   - [危険な DDL の検出](#危険な-ddl-の検出)
-  - [deploy への組み込み（Q4）](#deploy-への組み込みq4)
+  - [deploy への組み込み](#deploy-への組み込み)
   - [botchan-platform との違い](#botchan-platform-との違い)
   - [未確認の事項](#未確認の事項)
   - [MVP 対象外（将来検討）](#mvp-対象外将来検討)
-  - [step の切り方（案）](#step-の切り方案)
+  - [step の切り方](#step-の切り方)
 - [必要な画面](#必要な画面)
 - [必要な API](#必要な-api)
 - [必要な DB 設計](#必要な-db-設計)
@@ -69,7 +69,7 @@ Postgres 12 以降を前提にする（ローカルと CI は 16）。「止め�
 | --- | --- | --- | --- |
 | 1. トランザクション内のマイグレーション | `migrations/{name}/migration.sql` | 未適用分をまとめて 1 トランザクション（`online.sql` を持つフォルダがあれば、そこで区切る） | 一瞬で終わる DDL（テーブル / カラムの追加、`NOT VALID` の制約など） |
 | 2. オンライン操作 | `migrations/{name}/online.sql` | 同じフォルダの `migration.sql` の commit 後に、トランザクションの外で 1 文ずつ | 時間はかかるが書き込みを止めないもの（`CREATE INDEX CONCURRENTLY` / `DROP INDEX CONCURRENTLY` / `VALIDATE CONSTRAINT`） |
-| 3. バックフィル | `packages/db/drizzle/backfills/{name}.ts` | deploy とは別に手動で起動。バッチごとに commit | 既存の行の値を埋める・移す処理 |
+| 3. バックフィル | （仕組みは作らない） | 行数の多いテーブルは、必要になった時点で手動で SQL を流す | 既存の行の値を埋める・移す処理 |
 
 - 経路 1 と 2 は `db:migrate` の 1 コマンドで続けて流れる。ローカル・テスト・CI・本番で同じ
 - 経路 3 は、流すバージョンの deploy が済んだ後に、GitHub Actions から環境と名前を指定して起動する。途中で止まっても、もう一度起動すれば続きから進む
@@ -177,7 +177,19 @@ drizzle-kit `1.0.0-rc.4` と Postgres 16 の使い捨てコンテナで確かめ
 - 同時実行の排他は deploy の concurrency group に任せ、advisory lock は使わない（min の PgBouncer で使えないため）
 - `statement_timeout` は付けない。`CONCURRENTLY` は対象テーブルを触っている既存のトランザクションが終わるのを待つので、時間で切ると無効な index を量産する
 
-### 経路 3: バックフィル（Q2）
+### 経路 3: バックフィル（保留）
+
+**仕組みは作らない**（Q2。2026-11-14）。行数の多いテーブルの埋め戻しは頻度が低く、1 回分の件数・待ち時間・流す時間帯を毎回見て決めるので、必要になった時点で手動で SQL を流す。空の DB には対象の行が無いので、全環境で再現できる形にしておく必要も無い。
+
+| 場面 | やり方 |
+| --- | --- |
+| 定数を入れるだけ | `ADD COLUMN ... DEFAULT ...`。Postgres が既存の行にも一瞬で値を持たせるので、埋め戻しは不要 |
+| 行数の少ないテーブルの埋め戻し | `db:generate --custom` で作った `migration.sql` に `UPDATE` を書く |
+| 行数の多いテーブルの埋め戻し | 手動で、少しずつに分けた SQL を流す。その後で制約を付けるマイグレーションを入れる |
+
+本番の DB に手で SQL を流す経路は、今は無い（RDS は private subnet。踏み台は CDC 用で既定は無効）。必要になった時点で、migration イメージを起動コマンドを差し替えて動かす（「Admin Create」と同じ方法）か、接続の経路を作るかを決める。
+
+以下は、仕組みを作るときの案として残す。
 
 **書き方**
 
@@ -212,7 +224,9 @@ drizzle-kit `1.0.0-rc.4` と Postgres 16 の使い捨てコンテナで確かめ
 - 旧バージョンの api が壊れる変更（`renaming-column`、`ban-drop-column`、`ban-drop-constraint`、`require-concurrent-index-deletion`）も既定で出る。書き込みを止める DDL だけを見るなら、これらも除外する
 - npm の `squawk-cli` で入る（バイナリは OS ごとの optionalDependencies。postinstall は無い。Apache-2.0 / MIT）。CI を落とさずに PR へコメントするだけの `upload-to-github` もある
 
-### deploy への組み込み（Q4）
+### deploy への組み込み
+
+Q4 は「待つ」で確定（PR #136 の実装のとおり）。待ちの上限を伸ばす対応は保留。
 
 - migrate ジョブは 1 つのまま、経路 1 → 経路 2 を続けて流す。api の切り替えは両方が終わってから。新しい api が unique index を前提にする（`ON CONFLICT` など）ことがあるため
 - one-shot タスクの待ちの上限を 10 分から伸ばす（バックフィルと同じ改修）
@@ -246,18 +260,18 @@ botchan-platform は、Drizzle の migrate の後にスクリプト（`ensure-on
 - パーティションテーブルの index
 - カラムの型の変更を手順ごと自動化するヘルパ
 
-### step の切り方（案）
+### step の切り方
 
-回答後に確定して `tasks/` に書く。
+step1 だけを実装した。残りは、行数の多いテーブルができて必要になった時点で着手する。
 
 | step | 内容 |
 | --- | --- |
 | 1 | 経路 2 のうち index の作成・削除: `online.sql` の実行部、`db:generate` の後処理、`drizzle.__online_migrations` テーブル、`db:migrate` への組み込み（[step1](./tasks/step1-db-online-index.md)、PR #136） |
-| 1b | 経路 2 に `VALIDATE CONSTRAINT` を足す |
-| 2 | 経路 1 の `lock_timeout` とやり直し、one-shot タスクの待ちの上限 |
+| 1b | （保留）経路 2 に `VALIDATE CONSTRAINT` を足す |
+| 2 | （保留）経路 1 の `lock_timeout` とやり直し、one-shot タスクの待ちの上限 |
 | 3 | （入れない）危険な DDL の検出（CI）。Q3 は c で確定 |
-| 4 | 経路 3: バックフィルの実行部と「Postgres Backfill」workflow |
-| 5 | `docs/tech-stack/drizzle.md` と `packages/db/README.md` の手順を書き換える |
+| 4 | （作らない）経路 3: バックフィルの実行部と「Postgres Backfill」workflow |
+| 5 | 書き込みを止める変更と、止めない書き方・埋め戻しのやり方を `docs/tech-stack/drizzle.md` に書く |
 
 ---
 
