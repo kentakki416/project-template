@@ -103,7 +103,7 @@
 ### スコープ外
 
 - **web / admin のホスティング**: 現状どおり（このリポジトリの AWS 構成には含まれていない）
-- **ClickHouse Cloud の費用**: worker の書き込み先は prd と同じ扱い。必要になるまでは `DATA_WAREHOUSE_TYPE=none` にもできるが、イベントが記録されなくなるため本番で使うかはプロダクトごとに判断する（`apps/worker/CLAUDE.md`）
+- **ClickHouse Cloud の費用**: worker の書き込み先は Terraform の `enable_data_warehouse` で選ぶ（min の既定は `false` で `DATA_WAREHOUSE_TYPE=none`）。`false` ではイベントが記録されないため、本番で使うかはプロダクトごとに判断する（[`../clickhouse-migration/README.md`](../clickhouse-migration/README.md)）
 - **dev の minimal 化**: dev も同じ固定費がかかっているが、本 spec では扱わない。`env/min` を雛形にすれば同じ構成で作れる
 
 ---
@@ -250,18 +250,18 @@ worker（バックグラウンドジョブ）を最初から使うプロダク�
 - **接続はインターネット越しの TLS**（`sslmode=verify-full`）。Lambda を VPC 外に置くので NAT は要らない
 - **接続は PlanetScale に内蔵の PgBouncer（port 6432）経由にする。** 料金は PS-5 の $5 に含まれる。別料金の dedicated PgBouncer は replica への振り分けやリサイズ中の接続維持のためのもので、単一ノードの minimal では使わない
   - 凍結された Lambda の実行環境は DB 接続を握ったまま残るが、PgBouncer 経由なら PgBouncer の client 枠（既定 100）を使うだけで、Postgres の接続は消費しない
-  - Lambda は 1 実行環境 = 1 リクエストなので、1 環境が張る接続は数本で済む。Lambda の同時実行数の上限（新規アカウントは 10）× 数本なら client 枠に収まる
+  - Lambda は 1 実行環境 = 1 リクエストなので、1 環境が張る接続は数本で済む。api の Lambda は同時実行数を 20 に絞る（予約する）ので、20 × 数本で client 枠に収まる
   - PgBouncer は transaction pooling 固定で、トランザクションをまたいで状態を持つ機能（セッション単位の `SET`、`LISTEN` / `NOTIFY`、一時テーブル、advisory lock）は使えない。api / worker / cron / `packages/db` はいずれも使っていない
   - `packages/db` の Pool は接続時に `options=-c TimeZone=UTC` を送る。PgBouncer は 1.20 以降この `options` を受け付け、`TimeZone` は既定でクライアントごとに引き継ぐので、接続を使い回しても UTC のまま。PS-5 での実機確認は step3 で行う（[リスク](#リスクと実装時の確認事項)参照）
   - migration（drizzle-kit）も同じ接続文字列で流す。Drizzle は migration 全体を 1 トランザクションで実行するため、transaction pooling でも問題ない
 - **バックアップ**: PlanetScale の自動バックアップに任せる（保持期間は実装時に確認して README に追記する）
-- **リージョン**: アプリ（Lambda）も DB も東京。ClickHouse Cloud は prd と同じ接続先
+- **リージョン**: アプリ（Lambda）も DB も東京。ClickHouse Cloud も `enable_data_warehouse = true` のとき東京に作る
 
 ### secret と環境変数の注入
 
 ECS は Secrets Manager のキーを `valueFrom` で直接環境変数にできるが、**Lambda にはこの仕組みが無い。** worker / cron / migration は ECS なので prd と同じく `valueFrom` を使い、以下は api（Lambda）だけの話。 アプリに Secrets Manager を読むコードを足さずに済ませるため、**deploy workflow が Secrets Manager の値を Lambda の環境変数に書き込む。**
 
-- 正本は prd と同じく Secrets Manager の `/project-template-min/app`（JSON）。値の投入は `scripts/seed-secrets.sh min` で行う
+- 正本は prd と同じく Secrets Manager の `/project-template-min/app`（JSON）。値の投入は `scripts/deploy/seed-secrets.sh min` で行う
 - deploy workflow が secret の JSON と、環境ごとに固定の値（`EVENT_TRACKER_TYPE` / `AWS_LWA_*` 等。workflow に直書き）を合成し、`aws lambda update-function-configuration --environment` で丸ごと設定する
 - Terraform は Lambda の `environment` を `ignore_changes` にし、env の正本を deploy workflow に一本化する（Terraform と workflow が互いに上書きしないため）
 - **トレードオフ**: Lambda の環境変数は KMS で暗号化して保存されるが、`lambda:GetFunctionConfiguration` 権限を持つ IAM プリンシパルからは平文で見える。minimal ではこれを許容し、閲覧できる権限を絞って運用する
@@ -281,11 +281,11 @@ ECS は Secrets Manager のキーを `valueFrom` で直接環境変数にでき�
 
 | 層 | 変更 |
 | --- | --- |
-| `account/` | GitHub Actions 用 IAM role `github_actions_min`（`environment:min` からのみ assume 可）を追加。ECR の repository policy に Lambda からの pull を許可する statement を追加 |
+| `account/` | GitHub Actions 用 IAM role を deploy 用（`github_actions_min`、必要な権限だけ）と Terraform 用（`github_actions_min_terraform`、`environment:min-terraform` からのみ assume 可）に分けて追加。ECR の repository policy に Lambda からの pull を許可する statement を追加 |
 | `env/min/`（新設） | VPC（public subnet のみ）/ ECS cluster（worker・cron・migration 用）/ worker の ECS Service（`enable_worker` のときだけ）/ Lambda / API Gateway / ACM / Route53 / Secrets Manager |
-| `modules/`（追加） | `lambda-container`（コンテナイメージの Lambda + alias `live` + ロググループ）/ `http-api`（API Gateway HTTP API + 独自ドメイン） |
+| `modules/`（追加） | `lambda-function`（コンテナイメージの Lambda + alias `live` + ロググループ）/ `api-gateway`（API Gateway HTTP API + アクセスログ + 独自ドメイン） |
 | `modules/`（既存の流用） | `vpc` / `ecs-cluster` / `ecs-workload` / `ecs-schedule-task` / `acm` / `secrets` |
-| `modules/`（既存に変数を追加） | `ecs-cluster`（`capacity_providers`）/ `ecs-workload`（`capacity_provider`）。既定値は現在の挙動で、prd / dev の plan に差分は出ない |
+| `modules/`（既存に変数を追加） | `acm`（`fqdn`）/ `ecs-cluster`（`capacity_providers`）/ `ecs-workload`（`capacity_provider`）。既定値は現在の挙動で、prd / dev の plan に差分は出ない |
 
 - PlanetScale と Upstash はコンソールで作り、Terraform では管理しない（AWS の外のサービスのため。手順は step3）
 - 命名は `project-template-min-*`。prd（`project-template-prd-*`）と衝突しないので、移行期間に両方が同時に存在できる

@@ -140,13 +140,13 @@ if (env.FLUSH_EVENTS_BEFORE_RESPONSE) {
 
 ### Dockerfile に LWA を入れる（`apps/api/Dockerfile`）
 
-runner ステージに 1 行足す。**バージョンはタグで固定する**（`latest` を使わない。実装時点の最新を確認して固定する）。
+runner ステージに 1 行足す。**バージョンはタグと digest の両方で固定する**（`latest` を使わない。実装時点の最新を確認し、digest は `docker buildx imagetools inspect` で調べる。公開側で同じタグが差し替えられても別のバイナリが入らないようにするため）。
 
 ```dockerfile
 # Lambda Web Adapter: minimal 構成（Lambda）で Express をそのまま動かすための extension。
 # Lambda の実行環境だけが /opt/extensions を読むので、ECS では起動せず何もしない。
 # 設計: docs/spec/minimal-deploy/README.md「api を Lambda で動かす」
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0@sha256:17cfd08eff1dfea3f6a9a1e9c65fdac80aa4919b6085e746615530f43f57d2f1 /lambda-adapter /opt/extensions/lambda-adapter
 ```
 
 `ENTRYPOINT` / `CMD` / `USER` は変えない（Lambda でも `tini -- node dist/index.js` で起動し、LWA が `localhost:8080` に転送する）。
