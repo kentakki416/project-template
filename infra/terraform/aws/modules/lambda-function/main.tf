@@ -1,7 +1,6 @@
 # =============================================================================
 # コンテナイメージの Lambda 関数 + alias live
 # =============================================================================
-# 設計: docs/spec/minimal-deploy/README.md「api を Lambda で動かす」
 
 resource "aws_cloudwatch_log_group" "this" {
   name              = "/aws/lambda/${var.name}"

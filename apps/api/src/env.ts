@@ -6,8 +6,7 @@ import { z } from "zod"
  * 起動時にこのモジュールが import された時点で safeParse が走り、
  * 不正な env の場合は stderr にエラーを出力して process.exit(1) で停止する。
  *
- * 各 app は src/env.ts に Zod スキーマと検証ロジックをインラインで定義する方針
- * （詳細は docs/spec/shared-packages/README.md「環境変数の管理」参照）。
+ * 各 app は src/env.ts に Zod スキーマと検証ロジックをインラインで定義する方針。
  */
 const apiEnvSchema = z.object({
   /**

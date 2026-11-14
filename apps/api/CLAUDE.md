@@ -41,8 +41,6 @@ pnpm test:coverage # カバレッジ計測（coverage/ に出力）
 - **auth middleware は公開パスでも optional 認証を行う。** トークンがあれば `req.userId` を埋め、無くても 401 にしない。早期 return すると公開パスで有効なトークンを渡しても userId が入らず、イベントが永久に記録されない
 - `POST /api/events` は `PUBLIC_PATHS` に含めない（認証必須）。`userId` はボディから受け取らず server 側で解決する
 
-設計: `docs/spec/user-behavior-events/README.md`
-
 ## エラーハンドリング（Result 型）
 
 `@repo/errors` の `Result<T>` を使う。**業務エラー（4xx）は値で返し、想定外エラー（DB 障害等）は throw する**、が原則。
@@ -71,7 +69,7 @@ try/catch を許容するのは次の 2 つだけ。
 
 ## Admin API
 
-管理画面（`apps/admin`）用の API。一般ユーザーの API と認証を完全に分ける（設計: `docs/spec/admin-template/README.md` の「admin 認証」）。
+管理画面（`apps/admin`）用の API。一般ユーザーの API と認証を完全に分ける。
 
 - すべて `/api/admin/` 配下に置き、`src/routes/admin-router.ts` にまとめる。Controller は `src/controller/admin/`。Service / Repository は共通のものを使い、admin 専用のものだけを足す
 - スキーマは `@repo/api-schema` の `admin/` に置く。一般ユーザーの API と同じ形なら re-export する
