@@ -5,15 +5,27 @@ import { logger } from "@repo/logger"
 
 import { RequestSchemaMismatchError, ResponseSchemaMismatchError } from "../lib/parse-schema"
 
-/**
- * Express は引数が 4 つのミドルウェアをエラーハンドラとして扱うので、呼ばない next も受け取る
- */
-export const unhandledExceptionHandler = (err: unknown, req: Request, res: Response, _next: NextFunction) => {
-  /**
-   * レスポンスを送信済みなら、二重に送らないように何もしない
-   */
+export const unhandledExceptionHandler = (err: unknown, req: Request, res: Response, next: NextFunction) => {
   if (res.headersSent) {
-    return
+    logger.error(
+      "Unhandled exception after the response started",
+      err instanceof Error ? err : new Error(String(err)),
+      {
+        method: req.method,
+        path: req.path,
+      },
+    )
+    /**
+     * 送り終えていれば、クライアントにはもう届いている。既定のエラーハンドラに渡すと接続が切られ、
+     * 同じ接続で続くリクエストが失敗するので、何もしない
+     */
+    if (res.writableEnded) {
+      return
+    }
+    /**
+     * 送っている途中なら、もう書き換えられない。Express の既定のエラーハンドラに渡して、接続を切らせる
+     */
+    return next(err)
   }
 
   if (err instanceof RequestSchemaMismatchError) {

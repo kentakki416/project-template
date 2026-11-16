@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { COLORS } from "@/const/color"
 import { useNotification } from "@/hooks/use-notification"
 
-const STORAGE_KEY = "notificatoin_settings"
+const STORAGE_KEY = "notification_settings"
 
 type NotificationSettings = {
   enabled: boolean
@@ -68,7 +68,7 @@ export default function SettingsScreen() {
       hour: (settings.hour + delta + 24) % 24,
     }
     setSettings(newSettings)
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings))
     await schedule(newSettings.hour, newSettings.minute)
   }
 
@@ -79,7 +79,7 @@ export default function SettingsScreen() {
       minute: (settings.minute + delta + 60) % 60,
     }
     setSettings(newSettings)
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings))
     await schedule(newSettings.hour, newSettings.minute)
   }
 
