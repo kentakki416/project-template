@@ -116,7 +116,7 @@ type ClientModeProps<T> = {
 }
 
 /**
- * DataTable の Props（server を渡すかどうかで、filters と search の形が変わる）
+ * server を渡すかどうかで、filters と search の形が変わる
  */
 type DataTableProps<T> = BaseProps<T> & (ServerModeProps | ClientModeProps<T>)
 
@@ -405,7 +405,7 @@ type DataTableViewProps<T> = {
   getRowHref?: (row: T) => string
   getRowKey: (row: T) => string | number
   /**
-   * 読み込み中（server モードで URL を変えた直後）。テーブルを薄くする
+   * server モードで URL を変えた直後は true。テーブルを薄くする
    */
   isPending: boolean
   onFiltersApply: (values: FilterValues) => void
