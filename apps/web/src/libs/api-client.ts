@@ -31,8 +31,6 @@ const buildHeaders = async (extra?: HeadersInit): Promise<HeadersInit> => {
 }
 
 /**
- * api を呼び、成功したレスポンスだけを返す。
- *
  * access token の更新（refresh）はここでは行わない。proxy が画面の描画の前に済ませている。
  *
  * 401（proxy で更新した後でも弾かれた = 鍵の作り直しなどで access token が無効）は、
@@ -42,7 +40,7 @@ const buildHeaders = async (extra?: HeadersInit): Promise<HeadersInit> => {
  *
  * redirect は例外（NEXT_REDIRECT）で実現しているので、呼び出し側の try/catch が握りつぶすと遷移しない。
  * 認証必須の API の呼び出しを try/catch で囲むときは、catch の先頭で unstable_rethrow する
- * （ログアウトと行動イベントの中継は、遷移せずに握りつぶしてよい）。
+ * （ログアウトは、遷移せずに握りつぶしてよい）。
  */
 const requestApi = async (path: string, init: RequestInit): Promise<Response> => {
   const headers = await buildHeaders(init.headers)

@@ -48,7 +48,7 @@ const parsePositiveInt = (value: string | undefined): number | undefined => {
 }
 
 /**
- * 詳細の URL の `[id]` をユーザー ID にする。10 進の正の整数で、DB の ID の範囲に収まらなければ null
+ * 10 進の正の整数で、DB の ID の範囲に収まらなければ null
  */
 export const convertUserIdParamToNumber = (value: string): number | null => {
   const id = parsePositiveInt(value)

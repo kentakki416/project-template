@@ -26,9 +26,6 @@ import Pagination from "./Pagination"
 const DatePicker = dynamic(async () => import("../form/DatePicker"), { ssr: false })
 
 export type Column<T> = {
-  /**
-   * セルに足すクラス名
-   */
   className?: string
   header: ReactNode
   /**
