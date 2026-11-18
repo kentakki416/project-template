@@ -9,7 +9,8 @@ const adminEnvSchema = z.object({
   API_URL: z.string().url().default("http://localhost:8080"),
 
   /**
-   * Google OAuth のクライアント ID（web と同じクライアントを使う）
+   * Google OAuth のクライアント ID。api の GOOGLE_CLIENT_ID と同じクライアントにする
+   * （サインイン画面が始めた認可の code を、api がそのクライアントの GOOGLE_CLIENT_SECRET でトークンに換えるため）
    */
   GOOGLE_CLIENT_ID: z.string().default("dummy"),
 

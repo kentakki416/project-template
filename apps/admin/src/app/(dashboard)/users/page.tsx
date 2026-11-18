@@ -16,7 +16,7 @@ type Props = {
 }
 
 /**
- * ユーザー一覧。検索・絞り込み・ページングの条件は URL に持ち、api で行う
+ * 検索・絞り込み・ページングの条件は URL に持ち、api で行う
  */
 export default async function UserListPage({ searchParams }: Props) {
   const params = await searchParams

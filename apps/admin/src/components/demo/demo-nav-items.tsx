@@ -14,7 +14,7 @@ import {
 } from "@/icons"
 
 /**
- * デモの画面のメニュー。デモを消すときは、このファイルと AppSidebar の import を消す
+ * デモを消すときは、このファイルと AppSidebar の import を消す
  */
 export const demoNavSection: NavSection = {
   items: [

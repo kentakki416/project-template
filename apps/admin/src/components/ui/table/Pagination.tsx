@@ -17,7 +17,7 @@ const MAX_PAGES_WITHOUT_ELLIPSIS = 7
 const SIBLING_COUNT = 2
 
 /**
- * 並べるページ番号を作る。「1、…、今のページの前後 2 つ、…、最後」にする
+ * 「1、…、今のページの前後 2 つ、…、最後」にする
  * （TailAdmin のデモの /products-list は全ページを並べるため、件数が多いと並びきらない）
  */
 const buildPageItems = (currentPage: number, totalPages: number): PageItem[] => {
@@ -45,7 +45,7 @@ const ARROW_BUTTON_CLASS_NAME =
   "shadow-theme-xs flex items-center gap-2 rounded-lg border border-gray-300 bg-white p-2 text-gray-700 hover:bg-gray-50 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50 sm:p-2.5 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/3 dark:hover:text-gray-200"
 
 /**
- * ページ番号の切り替え。見た目は TailAdmin のデモの /products-list に合わせる
+ * 見た目は TailAdmin のデモの /products-list に合わせる
  */
 export default function Pagination({ currentPage, onPageChange, totalPages }: PaginationProps) {
   return (

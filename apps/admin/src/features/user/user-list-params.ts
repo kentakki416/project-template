@@ -80,7 +80,7 @@ export const convertSearchParamsToUserListQuery = (searchParams: SearchParams): 
 }
 
 /**
- * api のクエリを検索パラメータの文字列にする。undefined の項目は入れない。
+ * undefined の項目は入れない。
  * URLSearchParams で組み立てる（文字列をつなぐと `+09:00` の `+` が空白として届き、api が 400 を返す）
  */
 export const buildAdminUserListSearchParams = (query: GetAdminUserListQueryString): string => {

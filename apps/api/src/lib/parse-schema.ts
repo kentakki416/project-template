@@ -14,6 +14,10 @@ export class ResponseSchemaMismatchError extends Error {
   }
 }
 
+/**
+ * 戻り値はスキーマの出力型（`z.output`）にする。`.catch()` / `.transform()` を使うスキーマは
+ * 入力型と出力型が異なり、`ZodSchema<T>` で受けると T が出力型に推論されないため
+ */
 export const parseRequest = <Schema extends z.ZodTypeAny>(schema: Schema, value: unknown): z.output<Schema> => {
   const result = schema.safeParse(value)
   if (!result.success) {

@@ -19,7 +19,7 @@ const DEV_ONLY_PUBLIC_PATHS = process.env.NODE_ENV !== "production"
 const SIGN_IN_PATH = "/signin"
 
 /**
- * サインインせずに開けるパス。サインイン画面（SIGN_IN_PATH）以外は token の更新もしない
+ * サインイン画面（SIGN_IN_PATH）以外は token の更新もしない
  * （callback・signout・dev login は自分で cookie を書き換えるので、先に更新すると書き換える前の refresh token を無効にする）
  */
 const PUBLIC_PATHS = [
@@ -39,7 +39,7 @@ const isPathUnderPrefix = (pathname: string, prefix: string): boolean =>
   pathname === prefix || pathname.startsWith(`${prefix}/`)
 
 /**
- * refresh の api を待つ上限。api が応答しないときに、画面の描画を長く止めない
+ * api が応答しないときに、画面の描画を長く止めない
  * （打ち切ったら failed として扱い、cookie を残したままサインイン画面に送るか、そのまま通す）
  */
 const REFRESH_TIMEOUT_MS = 5_000

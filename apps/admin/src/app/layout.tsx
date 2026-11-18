@@ -7,8 +7,8 @@ import { SidebarProvider } from "@/features/sidebar/sidebar.context"
 import { ThemeProvider } from "@/features/theme/theme.context"
 
 /**
- * TailAdmin の欧文フォント。日本語は globals.css の --font-outfit で Hiragino Sans / Noto Sans JP に落とす。
- * --font-outfit は @theme で :root に出るので、この変数も <html> に付ける（<body> だと :root から見えない）
+ * Outfit は欧文だけなので、日本語は globals.css の --font-outfit で Hiragino Sans / Noto Sans JP に落とす。
+ * --font-outfit は @theme で :root に出るので、この変数も <html> に付ける（<body> だと :root から見えず、--font-outfit ごと無効になる）
  */
 const outfit = Outfit({
   subsets: ["latin"],

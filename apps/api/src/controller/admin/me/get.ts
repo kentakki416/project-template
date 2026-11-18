@@ -15,9 +15,6 @@ export class AdminMeGetController {
   public async execute(req: AdminAuthRequest, res: Response) {
     logger.info("AdminMeGetController: Fetching signed-in admin")
 
-    /**
-     * /me は ADMIN_PUBLIC_PATHS に無いので、adminAuthMiddleware を通った時点で req.adminId は必ずある
-     */
     const result = await service.admin.getAdminById(req.adminId!, { adminRepository: this._adminRepository })
 
     if (!result.ok) {

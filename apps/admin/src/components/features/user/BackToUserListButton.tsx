@@ -4,7 +4,7 @@ import useGoBack from "@/hooks/useGoBack"
 import { ChevronLeftIcon } from "@/icons"
 
 /**
- * 「一覧に戻る」。一覧の検索条件は URL にあるので、履歴で戻ると同じ条件の一覧になる
+ * 一覧の検索条件は URL にあるので、履歴で戻ると同じ条件の一覧になる
  */
 export default function BackToUserListButton() {
   const goBack = useGoBack("/users")
