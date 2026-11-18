@@ -2,9 +2,9 @@
 
 import { redirect } from "next/navigation"
 
-import { authApi } from "@/features/auth/auth.api"
+import { clearAuthCookies, getRefreshToken } from "@/libs/auth"
 
-import { clearAuthCookies, getRefreshToken } from "./auth"
+import { authApi } from "./auth.api"
 
 export const logoutAction = async () => {
   const refreshToken = await getRefreshToken()
