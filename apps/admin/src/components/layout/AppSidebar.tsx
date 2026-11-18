@@ -17,7 +17,7 @@ const navSections: NavSection[] = [mainNavSection, demoNavSection]
 type SubmenuState = { itemIndex: number; sectionIndex: number } | null
 
 /**
- * 項目を選択中にするか。`/` は完全一致、それ以外はパスの segment 境界での前方一致
+ * `/` は完全一致、それ以外はパスの segment 境界での前方一致
  * （ユーザー詳細の /users/1 でも「ユーザー管理」（/users）を選択中にする）
  */
 const isPathActive = (pathname: string, path: string): boolean =>

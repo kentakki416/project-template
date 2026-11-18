@@ -19,15 +19,14 @@ config.resolver.nodeModulesPaths = [
 
 config.resolver.unstable_conditionNames = ['react-native', 'require', 'default']
 
-/**
- * どのモジュールから require しても同じ実体のファイルに解決されるように、
- * ファイルのパスをそのまま返す
- */
 const singletonPkgs = {
   react: path.resolve(projectRoot, 'node_modules/react'),
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
 }
 
+/**
+ * react・react-native は、どのモジュールから require しても同じ実体のファイルに解決されるように、ファイルのパスをそのまま返す
+ */
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (singletonPkgs[moduleName]) {
     const pkgDir = singletonPkgs[moduleName]

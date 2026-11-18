@@ -32,8 +32,8 @@ export const generateAdminRefreshToken = (adminId: number): { jti: string; token
 }
 
 /**
- * admin の Access Token を検証する。payload の adminId が数値でなければ、また jti を持っていれば失敗にする
- * （鍵を写し間違えて user のトークン `{ userId }` や refresh token `{ adminId, jti }` が署名を通っても、ここで落とす）
+ * 署名に加えて、payload の adminId が数値で、jti を持たないことを確かめる。
+ * 鍵を写し間違えて一般ユーザーのトークン（`{ userId }`）や refresh token（`{ adminId, jti }`）が署名を通っても、ここで落とすため
  */
 export const verifyAdminAccessToken = (token: string): AdminAccessTokenPayload | null => {
   try {

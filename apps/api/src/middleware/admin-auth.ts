@@ -7,6 +7,9 @@ import { ADMIN_PUBLIC_PATHS } from "../const"
 import { verifyAdminAccessToken } from "../lib/admin-jwt"
 
 export interface AdminAuthRequest extends Request {
+  /**
+   * ADMIN_PUBLIC_PATHS に無いパスでは、adminAuthMiddleware を通った時点で必ずある
+   */
   adminId?: number
 }
 

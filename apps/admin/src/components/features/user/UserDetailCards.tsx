@@ -11,7 +11,7 @@ type Props = {
 }
 
 /**
- * ユーザー詳細のカード。見た目は TailAdmin のデモのプロフィール画面に合わせる（編集のボタンは置かない）
+ * 見た目は TailAdmin のデモのプロフィール画面に合わせる（編集のボタンは置かない）
  */
 export default function UserDetailCards({ user }: Props) {
   const infoItems = [

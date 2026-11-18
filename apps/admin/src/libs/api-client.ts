@@ -33,8 +33,6 @@ const buildHeaders = async (extra?: HeadersInit): Promise<HeadersInit> => {
 }
 
 /**
- * api を呼び、成功したレスポンスだけを返す。
- *
  * access token の更新（refresh）はここでは行わない。proxy が画面の描画の前に済ませている。
  *
  * 401（proxy で更新した後でも弾かれた = 鍵の作り直しや admin の削除などで access token が無効）は、

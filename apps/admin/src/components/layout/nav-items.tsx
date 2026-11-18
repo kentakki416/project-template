@@ -3,7 +3,7 @@ import React from "react"
 import { GridIcon, GroupIcon } from "@/icons"
 
 /**
- * サイドバーの項目。path か subItems のどちらかを持つ
+ * path か subItems のどちらかを持つ
  */
 export type NavItem = {
   icon: React.ReactNode
@@ -18,7 +18,7 @@ export type NavSection = {
 }
 
 /**
- * 土台のメニュー。プロジェクトの画面はここに足す
+ * プロジェクトの画面はここに足す
  */
 export const mainNavSection: NavSection = {
   items: [

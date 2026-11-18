@@ -7,6 +7,9 @@ import { isPathUnderPrefix } from "../lib/is-path-under-prefix"
 import { verifyAccessToken } from "../lib/jwt"
 
 export interface AuthRequest extends Request {
+  /**
+   * PUBLIC_PATHS（未ログインでも呼べる）と ADMIN_PATH_PREFIX の下では無いことがある。それ以外のパスでは、authMiddleware を通った時点で必ずある
+   */
   userId?: number
 }
 
@@ -21,10 +24,10 @@ const tryResolveUserId = (authHeader: string | undefined): number | undefined =>
 
 export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
   /**
-   * admin の API は adminAuthMiddleware（/api/admin の mount の中）が認証する。
-   * ここで user のトークンとして検証すると、admin のトークンが 401 になる。
-   * 大文字小文字の違うパス（/API/ADMIN/...）もここで外れるが、admin の Router に届く前に
-   * mount の中の adminAuthMiddleware を必ず通るので、user のトークンでは入れない
+   * admin の API は、/api/admin の mount の中の adminAuthMiddleware が認証する。
+   * ここで一般ユーザーのトークンとして検証すると、admin のトークンが 401 になる。
+   * 大文字小文字の違うパス（/API/ADMIN/...）もここで素通りするが、admin の Router に届く前に
+   * mount の中の adminAuthMiddleware を必ず通るので、一般ユーザーのトークンでは入れない
    */
   if (isPathUnderPrefix(req.path, ADMIN_PATH_PREFIX)) {
     return next()

@@ -17,9 +17,6 @@ export class UserGetController {
       requestedUserId: req.userId,
     })
 
-    /**
-     * /api/user は PUBLIC_PATHS に無いので、authMiddleware を通った時点で req.userId は必ずある
-     */
     const result = await service.user.getUserById(req.userId!, { userRepository: this._userRepository })
 
     if (!result.ok) {

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 }
 
 /**
- * ホーム。プロジェクトのダッシュボードはここに作る
+ * プロジェクトのダッシュボードはここに作る
  */
 export default function HomePage() {
   return (

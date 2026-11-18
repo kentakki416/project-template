@@ -26,9 +26,6 @@ import Pagination from "./Pagination"
 const DatePicker = dynamic(async () => import("../form/DatePicker"), { ssr: false })
 
 export type Column<T> = {
-  /**
-   * セルに足すクラス名
-   */
   className?: string
   header: ReactNode
   /**
@@ -50,7 +47,7 @@ type SearchConfig = {
 }
 
 /**
- * client モードの検索設定。検索する行の項目を指定する
+ * 検索する行の項目を指定する
  */
 type ClientSearchConfig<T> = SearchConfig & {
   filterKeys: (keyof T)[]
@@ -58,7 +55,7 @@ type ClientSearchConfig<T> = SearchConfig & {
 
 type PaginationConfig = {
   /**
-   * 最初の件数。省略したら pageSizeOptions の先頭。client モードだけで使う（server モードの件数は server.perPage）
+   * 省略したら pageSizeOptions の先頭。client モードだけで使う（server モードの件数は server.perPage）
    */
   defaultPageSize?: number
   pageSizeOptions?: number[]
@@ -96,11 +93,11 @@ type ServerModeConfig = {
 
 type ServerModeProps = {
   /**
-   * フィルタ定義。指定するとフィルタのボタンを表示
+   * 指定するとフィルタのボタンを表示
    */
   filters?: FilterConfig[]
   /**
-   * 検索設定。指定すると検索バーを表示
+   * 指定すると検索バーを表示
    */
   search?: SearchConfig
   server: ServerModeConfig
@@ -108,18 +105,18 @@ type ServerModeProps = {
 
 type ClientModeProps<T> = {
   /**
-   * フィルタ定義。指定するとフィルタのボタンを表示
+   * 指定するとフィルタのボタンを表示
    */
   filters?: ClientFilterConfig<T>[]
   /**
-   * 検索設定。指定すると検索バーを表示
+   * 指定すると検索バーを表示
    */
   search?: ClientSearchConfig<T>
   server?: undefined
 }
 
 /**
- * DataTable の Props（server を渡すかどうかで、filters と search の形が変わる）
+ * server を渡すかどうかで、filters と search の形が変わる
  */
 type DataTableProps<T> = BaseProps<T> & (ServerModeProps | ClientModeProps<T>)
 
@@ -128,12 +125,12 @@ type BaseProps<T> = {
   data: T[]
   emptyMessage?: string
   /**
-   * 行のリンク先。指定すると行のクリックで遷移する
+   * 指定すると行のクリックで遷移する
    */
   getRowHref?: (row: T) => string
   getRowKey: (row: T) => string | number
   /**
-   * ページネーション設定。指定するとページネーションを表示
+   * 指定するとページネーションを表示
    */
   pagination?: PaginationConfig
 }
@@ -152,7 +149,7 @@ const FIELD_CLASS_NAME =
   "shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 w-full rounded-lg border border-gray-300 bg-transparent text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
 
 /**
- * ポップオーバーの日付の入力。select と同じ高さ・フォーカスの色にそろえる
+ * select と同じ高さ・フォーカスの色にそろえる
  */
 const DATE_INPUT_CLASS_NAME = "h-10 focus:ring-brand-500/10"
 
@@ -212,7 +209,7 @@ const applySearchParamUpdates = (
 }
 
 /**
- * テーブル。検索・絞り込み・ページングを、ブラウザ側（client モード）かサーバー側（server モード）で行う
+ * 検索・絞り込み・ページングを、ブラウザ側（client モード）かサーバー側（server モード）で行う
  */
 export default function DataTable<T>(props: DataTableProps<T>) {
   if (props.server) {
@@ -222,7 +219,7 @@ export default function DataTable<T>(props: DataTableProps<T>) {
 }
 
 /**
- * server モード。状態を URL の検索パラメータで持ち、変えたら router.replace で画面（Server Component）に取り直させる。
+ * 状態を URL の検索パラメータで持ち、変えたら router.replace で画面（Server Component）に取り直させる。
  * useSearchParams はここでだけ呼ぶ（client モードを静的なページで使っても Suspense が要らないように）
  */
 function ServerStateDataTable<T>({
@@ -274,7 +271,7 @@ function ServerStateDataTable<T>({
   }, [searchParams])
 
   /**
-   * 検索パラメータを書き換えて URL を差し替える。条件を変えたときは page を消して 1 ページ目に戻す
+   * 条件を変えたときは page を消して 1 ページ目に戻す
    */
   const replaceSearchParams = (updates: Record<string, string | undefined>, shouldResetPage: boolean) => {
     const nextSearchParams = applySearchParamUpdates(latestSearchParamsRef.current, updates, shouldResetPage)
@@ -328,7 +325,7 @@ function ServerStateDataTable<T>({
 }
 
 /**
- * client モード。状態を state で持ち、渡された data をブラウザ側で検索・絞り込み・ページングする
+ * 状態を state で持ち、渡された data をブラウザ側で検索・絞り込み・ページングする
  */
 function ClientStateDataTable<T>({
   columns,
@@ -408,7 +405,7 @@ type DataTableViewProps<T> = {
   getRowHref?: (row: T) => string
   getRowKey: (row: T) => string | number
   /**
-   * 読み込み中（server モードで URL を変えた直後）。テーブルを薄くする
+   * server モードで URL を変えた直後は true。テーブルを薄くする
    */
   isPending: boolean
   onFiltersApply: (values: FilterValues) => void
@@ -434,7 +431,7 @@ type DataTableViewProps<T> = {
 }
 
 /**
- * テーブルの見た目。見た目は TailAdmin のデモに合わせる（検索・Filter・表・フッターは /products-list、表示件数は /data-tables）
+ * 見た目は TailAdmin のデモに合わせる（検索・Filter・表・フッターは /products-list、表示件数は /data-tables）
  */
 function DataTableView<T>({
   columns,
@@ -465,7 +462,7 @@ function DataTableView<T>({
   const lastIndex = firstIndex + rows.length - 1
 
   /**
-   * 行のクリックで遷移する。行の中のリンク・ボタン・入力欄のクリックは、それぞれに任せる。
+   * 行の中のリンク・ボタン・入力欄のクリックは、それぞれに任せる。
    * 文字を選んだだけ（コピーしようとした）のときは移らない。⌘ / Ctrl を押していれば新しいタブで開く
    */
   const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>, row: T) => {
@@ -621,7 +618,7 @@ type FilterPopoverProps = {
 }
 
 /**
- * Filter のボタンとポップオーバー。中で選んだ値は「適用」で反映する。「リセット」は空にしてすぐ反映する。
+ * 中で選んだ値は「適用」で反映する。「リセット」は空にしてすぐ反映する。
  * ポップオーバーは body の直下に出す（表の枠は overflow-hidden なので、中に置くと行が少ないときに切れる）
  */
 function FilterPopover({ appliedValues, filters, onApply }: FilterPopoverProps) {
