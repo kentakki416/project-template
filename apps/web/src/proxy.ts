@@ -153,9 +153,10 @@ export const proxy = async (req: NextRequest) => {
 
 export const config = {
   /**
-   * _next/static, _next/image, favicon.ico, public/ 配下を除外
+   * public のファイルは `/next.svg` のように `/` 直下の URL で配信され、パスの先頭では見分けられないので、拡張子で除外する。
+   * public にここに無い拡張子のファイルを置くときは足す。足さないと、ログインしていないときに /sign-in へリダイレクトされる
    */
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|public/).*)",
+    "/((?!_next/static|_next/image|.*\\.(?:avif|gif|ico|jpe?g|lottie|png|svg|webp)$).*)",
   ],
 }
